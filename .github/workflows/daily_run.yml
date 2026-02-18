@@ -1,0 +1,34 @@
+name: Daily Weather Update
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # runs daily at 2pm UTC (adjust as needed)
+  workflow_dispatch:  # allows manual trigger from GitHub
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install cfgrib xarray pandas eccodes requests numpy
+
+      - name: Run daily update
+        run: |
+          python scripts/daily_update.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add outputs/ data/
+          git commit -m "Daily update $(date '+%Y-%m-%d')" || echo "Nothing to commit"
+          git push
