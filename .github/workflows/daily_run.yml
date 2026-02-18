@@ -2,8 +2,8 @@ name: Daily Weather Update
 
 on:
   schedule:
-    - cron: '0 14 * * *'  # runs daily at 2pm UTC (adjust as needed)
-  workflow_dispatch:  # allows manual trigger from GitHub
+    - cron: '0 14 * * *'
+  workflow_dispatch:
 
 jobs:
   run:
@@ -19,7 +19,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install cfgrib xarray pandas eccodes requests numpy
+          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata
+
+      - name: Create required directories
+        run: |
+          mkdir -p data/ecmwf
+          mkdir -p data/gfs
+          mkdir -p data/normals
+          mkdir -p outputs
+
+      - name: Copy normals file
+        run: |
+          cp data/us_daily_normals.csv data/normals/us_daily_normals.csv || true
 
       - name: Run daily update
         run: |
