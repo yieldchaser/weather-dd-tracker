@@ -36,7 +36,7 @@ def send():
     latest = summary.sort_values("run_id").groupby("model").last().reset_index()
 
     today = date.today().strftime("%Y-%m-%d")
-    lines = [f"🌤 *WEATHER DESK — {today}*\n"]
+    lines = [f"Weather DESK — {today}*\n"]
 
     for _, row in latest.iterrows():
         lines.append(
@@ -53,18 +53,3 @@ def send():
 
 if __name__ == "__main__":
     send()
-```
-
-The message will now look like:
-```
-🌤 WEATHER DESK — 2026-02-18
-
-ECMWF 20260218_12
-Avg HDD/day: 26.5
-Normal HDD/day: 24.1
-vs Normal: +2.4 → 🟢 BULLISH
-
-GFS 20260218_00
-Avg HDD/day: 26.8
-Normal HDD/day: 24.1
-vs Normal: +2.7 → 🟢 BULLISH
