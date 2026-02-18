@@ -20,22 +20,29 @@ def send():
 
     summary = (
         df.groupby(["model", "run_id"])
-        .agg(forecast_hdd=("tdd", "sum"), normal_hdd=("tdd_normal", "sum"))
+        .agg(
+            forecast_hdd_avg=("tdd", "mean"),
+            normal_hdd_avg=("tdd_normal", "mean"),
+            days=("tdd", "count")
+        )
         .reset_index()
     )
-    summary["vs_normal"] = summary["forecast_hdd"] - summary["normal_hdd"]
+    summary["vs_normal"] = summary["forecast_hdd_avg"] - summary["normal_hdd_avg"]
     summary["signal"] = summary["vs_normal"].apply(
-        lambda x: "🟢 BULLISH" if x > 2 else ("🔴 BEARISH" if x < -2 else "⚪ NEUTRAL")
+        lambda x: "🟢 BULLISH" if x > 0.5 else ("🔴 BEARISH" if x < -0.5 else "⚪ NEUTRAL")
     )
+
+    # Only show latest run per model
+    latest = summary.sort_values("run_id").groupby("model").last().reset_index()
 
     today = date.today().strftime("%Y-%m-%d")
     lines = [f"🌤 *WEATHER DESK — {today}*\n"]
 
-    for _, row in summary.iterrows():
+    for _, row in latest.iterrows():
         lines.append(
-            f"*{row['model']}* {row['run_id']}\n"
-            f"Forecast: {row['forecast_hdd']:.1f} HDD\n"
-            f"Normal: {row['normal_hdd']:.1f} HDD\n"
+            f"*{row['model']}* `{row['run_id']}`\n"
+            f"Avg HDD/day: {row['forecast_hdd_avg']:.1f}\n"
+            f"Normal HDD/day: {row['normal_hdd_avg']:.1f}\n"
             f"vs Normal: {row['vs_normal']:+.1f} → {row['signal']}\n"
         )
 
@@ -46,3 +53,18 @@ def send():
 
 if __name__ == "__main__":
     send()
+```
+
+The message will now look like:
+```
+🌤 WEATHER DESK — 2026-02-18
+
+ECMWF 20260218_12
+Avg HDD/day: 26.5
+Normal HDD/day: 24.1
+vs Normal: +2.4 → 🟢 BULLISH
+
+GFS 20260218_00
+Avg HDD/day: 26.8
+Normal HDD/day: 24.1
+vs Normal: +2.7 → 🟢 BULLISH
