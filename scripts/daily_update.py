@@ -34,6 +34,10 @@ subprocess.run("python scripts/compare_to_normal.py", shell=True)
 print("\n6. Calculating run changes...")
 subprocess.run("python scripts/run_change.py", shell=True)
 
+print("\n7. Sending Telegram update...")
+subprocess.run("python scripts/send_telegram.py", shell=True)
+
 print("\n==============================")
 print(" DAILY UPDATE COMPLETE")
 print("==============================")
+
