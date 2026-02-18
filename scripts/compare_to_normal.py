@@ -21,15 +21,19 @@ def compare():
 
     merged["tdd_anomaly"] = merged["tdd"] - merged["tdd_normal"]
 
-    # Per run summary
+    # Per run summary using AVERAGES not sums
     summary = (
         merged.groupby(["model","run_id"])
-        .agg(forecast_hdd=("tdd","sum"), normal_hdd=("tdd_normal","sum"))
+        .agg(
+            forecast_hdd_avg=("tdd","mean"),
+            normal_hdd_avg=("tdd_normal","mean"),
+            days=("tdd","count")
+        )
         .reset_index()
     )
-    summary["vs_normal"]  = summary["forecast_hdd"] - summary["normal_hdd"]
+    summary["vs_normal"] = summary["forecast_hdd_avg"] - summary["normal_hdd_avg"]
     summary["signal"] = summary["vs_normal"].apply(
-        lambda x: "BULLISH" if x > 2 else ("BEARISH" if x < -2 else "NEUTRAL")
+        lambda x: "BULLISH" if x > 0.5 else ("BEARISH" if x < -0.5 else "NEUTRAL")
     )
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -38,8 +42,8 @@ def compare():
     print("\n--- FORECAST vs NORMAL ---")
     for _, row in summary.iterrows():
         print(f"{row['model']:6} {row['run_id']}  |  "
-              f"Forecast: {row['forecast_hdd']:.1f} HDD  |  "
-              f"Normal: {row['normal_hdd']:.1f} HDD  |  "
+              f"Avg: {row['forecast_hdd_avg']:.1f} HDD/day  |  "
+              f"Normal: {row['normal_hdd_avg']:.1f} HDD/day  |  "
               f"{row['vs_normal']:+.1f}  →  {row['signal']}")
     print("--------------------------\n")
 
