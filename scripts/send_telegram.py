@@ -29,42 +29,33 @@ def send():
     )
     summary["vs_normal"] = summary["forecast_hdd_avg"] - summary["normal_hdd_avg"]
     summary["signal"] = summary["vs_normal"].apply(
-        lambda x: "🟢 BULLISH" if x > 0.5 else ("🔴 BEARISH" if x < -0.5 else "⚪ NEUTRAL")
+        lambda x: "BULLISH" if x > 0.5 else ("BEARISH" if x < -0.5 else "NEUTRAL")
     )
 
-    # Only show latest run per model
     latest = summary.sort_values("run_id").groupby("model").last().reset_index()
 
     today = date.today().strftime("%Y-%m-%d")
-    lines = [f"🌤 *WEATHER DESK — {today}*\n"]
+    lines = ["*WEATHER DESK -- {}*\n".format(today)]
 
     for _, row in latest.iterrows():
         lines.append(
-            f"*{row['model']}* `{row['run_id']}`\n"
-            f"Avg HDD/day: {row['forecast_hdd_avg']:.1f}\n"
-            f"Normal HDD/day: {row['normal_hdd_avg']:.1f}\n"
-            f"vs Normal: {row['vs_normal']:+.1f} → {row['signal']}\n"
+            "*{}* `{}`\n"
+            "Avg HDD/day: {:.1f}\n"
+            "Normal HDD/day: {:.1f}\n"
+            "vs Normal: {:+.1f} -- {}\n".format(
+                row["model"],
+                row["run_id"],
+                row["forecast_hdd_avg"],
+                row["normal_hdd_avg"],
+                row["vs_normal"],
+                row["signal"]
+            )
         )
 
     msg = "\n".join(lines)
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    url = "https://api.telegram.org/bot{}/sendMessage".format(token)
     resp = requests.post(url, json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"})
     print("Telegram sent:", resp.status_code)
 
 if __name__ == "__main__":
     send()
-```
-
-The message will now look like:
-```
-🌤 WEATHER DESK — 2026-02-18
-
-ECMWF 20260218_12
-Avg HDD/day: 26.5
-Normal HDD/day: 24.1
-vs Normal: +2.4 → 🟢 BULLISH
-
-GFS 20260218_00
-Avg HDD/day: 26.8
-Normal HDD/day: 24.1
-vs Normal: +2.7 → 🟢 BULLISH
