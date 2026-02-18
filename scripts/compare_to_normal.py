@@ -16,10 +16,10 @@ def compare():
     df["month"] = df["date"].dt.month
     df["day"]   = df["date"].dt.day
 
-    merged = df.merge(normals[["month","day","tdd_normal","mean_temp_f"]],
+    merged = df.merge(normals[["month","day","hdd_normal","mean_temp_f"]],
                       on=["month","day"], how="left")
 
-    merged["tdd_anomaly"] = merged["tdd"] - merged["tdd_normal"]
+    merged["tdd_anomaly"] = merged["tdd"] - merged["hdd_normal"]
 
     # Per run summary using AVERAGES not sums
     summary = (
