@@ -1,0 +1,5 @@
+data/ecmwf/*/ifs_t2m.grib2
+data/ecmwf/*/*.idx
+data/gfs/*/gfs.t*
+data/gfs/*/*.idx
+data/gfs/*/manifest.json
