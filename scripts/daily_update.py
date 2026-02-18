@@ -34,10 +34,15 @@ for run in os.listdir(gfs_dir):
 print("\n5. Merging data...")
 subprocess.run("python scripts/merge_tdd.py", shell=True)
 
+print("\n5b. Comparing to normals...")
+from scripts.compare_to_normal import compare
+compare()
+
 # Step 6 — Run change
 print("\n6. Calculating run changes...")
 subprocess.run("python scripts/run_change.py", shell=True)
 
 print("\n==============================")
 print(" DAILY UPDATE COMPLETE")
+
 print("==============================")
