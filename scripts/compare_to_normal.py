@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 
 NORMALS_FILE = Path("data/normals/us_daily_normals.csv")
-MASTER_FILE  = Path("outputs/master_weather.csv")
+MASTER_FILE  = Path("outputs/tdd_master.csv")
 OUTPUT_FILE  = Path("outputs/vs_normal.csv")
 
 def compare():
