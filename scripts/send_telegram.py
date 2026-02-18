@@ -1,0 +1,48 @@
+import os
+import requests
+import pandas as pd
+from pathlib import Path
+from datetime import date
+
+def send():
+    token = os.environ["TELEGRAM_TOKEN"]
+    chat_id = os.environ["TELEGRAM_CHAT_ID"]
+
+    vs_normal = Path("outputs/vs_normal.csv")
+    master = Path("outputs/tdd_master.csv")
+
+    if not vs_normal.exists() or not master.exists():
+        print("Output files missing, skipping Telegram.")
+        return
+
+    df = pd.read_csv(vs_normal)
+    df["date"] = pd.to_datetime(df["date"])
+
+    summary = (
+        df.groupby(["model", "run_id"])
+        .agg(forecast_hdd=("tdd", "sum"), normal_hdd=("tdd_normal", "sum"))
+        .reset_index()
+    )
+    summary["vs_normal"] = summary["forecast_hdd"] - summary["normal_hdd"]
+    summary["signal"] = summary["vs_normal"].apply(
+        lambda x: "🟢 BULLISH" if x > 2 else ("🔴 BEARISH" if x < -2 else "⚪ NEUTRAL")
+    )
+
+    today = date.today().strftime("%Y-%m-%d")
+    lines = [f"🌤 *WEATHER DESK — {today}*\n"]
+
+    for _, row in summary.iterrows():
+        lines.append(
+            f"*{row['model']}* {row['run_id']}\n"
+            f"Forecast: {row['forecast_hdd']:.1f} HDD\n"
+            f"Normal: {row['normal_hdd']:.1f} HDD\n"
+            f"vs Normal: {row['vs_normal']:+.1f} → {row['signal']}\n"
+        )
+
+    msg = "\n".join(lines)
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    resp = requests.post(url, json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"})
+    print("Telegram sent:", resp.status_code)
+
+if __name__ == "__main__":
+    send()
