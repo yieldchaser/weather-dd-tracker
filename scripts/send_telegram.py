@@ -25,15 +25,16 @@ def send():
         .agg(forecast_avg=("tdd","mean"), normal_avg=("hdd_normal","mean"), days=("tdd","count"))
         .reset_index()
     )
+
+    # Only use runs with at least 10 forecast days
+    summary = summary[summary["days"] >= 10]
+
     summary["vs_normal"] = summary["forecast_avg"] - summary["normal_avg"]
     summary["signal"] = summary["vs_normal"].apply(
         lambda x: "BULLISH" if x > 0.5 else ("BEARISH" if x < -0.5 else "NEUTRAL")
     )
 
-    # Latest run per model only
     latest = summary.sort_values("run_id").groupby("model").last().reset_index()
-
-    # Run to run change
     prev = summary.sort_values("run_id").groupby("model").nth(-2).reset_index()
     latest = latest.merge(prev[["model","forecast_avg"]], on="model", suffixes=("","_prev"), how="left")
     latest["run_change"] = latest["forecast_avg"] - latest["forecast_avg_prev"]
@@ -42,7 +43,7 @@ def send():
     lines = ["WEATHER DESK -- {}\n".format(today)]
 
     for _, row in latest.iterrows():
-        change_str = "{:+.1f} HDD vs yesterday".format(row["run_change"]) if pd.notna(row["run_change"]) else "first run"
+        change_str = "{:+.1f} HDD vs prev run".format(row["run_change"]) if pd.notna(row["run_change"]) else "first run"
         lines.append(
             "{} | Run: {}\n"
             "Avg HDD/day: {:.1f} | Normal: {:.1f}\n"
@@ -62,18 +63,3 @@ def send():
 
 if __name__ == "__main__":
     send()
-```
-
-This will now show the **latest run only**, with the **run-to-run change** included. So tomorrow's message will look like:
-```
-WEATHER DESK -- 2026-02-21
-
-ECMWF | Run: 20260220_00
-Avg HDD/day: 27.2 | Normal: 24.8
-vs Normal: +2.4 -- BULLISH
-Run change: -4.2 HDD vs yesterday
-
-GFS | Run: 20260220_06
-Avg HDD/day: 26.6 | Normal: 24.8
-vs Normal: +1.8 -- BULLISH
-Run change: -7.8 HDD vs yesterday
