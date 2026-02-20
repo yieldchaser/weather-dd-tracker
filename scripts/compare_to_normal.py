@@ -26,7 +26,7 @@ def compare():
         merged.groupby(["model","run_id"])
         .agg(
             forecast_hdd_avg=("tdd","mean"),
-            normal_hdd_avg=("tdd_normal","mean"),
+            normal_hdd_avg=("hdd_normal","mean"),
             days=("tdd","count")
         )
         .reset_index()
