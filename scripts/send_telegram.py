@@ -8,47 +8,50 @@ def send():
     token = os.environ["TELEGRAM_TOKEN"]
     chat_id = os.environ["TELEGRAM_CHAT_ID"]
 
-    vs_normal = Path("outputs/vs_normal.csv")
     master = Path("outputs/tdd_master.csv")
-
-    if not vs_normal.exists() or not master.exists():
-        print("Output files missing, skipping Telegram.")
+    if not master.exists():
+        print("Master file missing, skipping.")
         return
 
-    df = pd.read_csv(vs_normal)
-    df["date"] = pd.to_datetime(df["date"])
+    df = pd.read_csv(master, parse_dates=["date"])
+    normals = pd.read_csv("data/normals/us_daily_normals.csv")
+
+    df["month"] = df["date"].dt.month
+    df["day"] = df["date"].dt.day
+    df = df.merge(normals[["month","day","hdd_normal"]], on=["month","day"], how="left")
 
     summary = (
-        df.groupby(["model", "run_id"])
-        .agg(
-            forecast_hdd_avg=("tdd", "mean"),
-            normal_hdd_avg=("tdd_normal", "mean"),
-            days=("tdd", "count")
-        )
+        df.groupby(["model","run_id"])
+        .agg(forecast_avg=("tdd","mean"), normal_avg=("hdd_normal","mean"), days=("tdd","count"))
         .reset_index()
     )
-    summary["vs_normal"] = summary["forecast_hdd_avg"] - summary["normal_hdd_avg"]
+    summary["vs_normal"] = summary["forecast_avg"] - summary["normal_avg"]
     summary["signal"] = summary["vs_normal"].apply(
         lambda x: "BULLISH" if x > 0.5 else ("BEARISH" if x < -0.5 else "NEUTRAL")
     )
 
+    # Latest run per model only
     latest = summary.sort_values("run_id").groupby("model").last().reset_index()
 
+    # Run to run change
+    prev = summary.sort_values("run_id").groupby("model").nth(-2).reset_index()
+    latest = latest.merge(prev[["model","forecast_avg"]], on="model", suffixes=("","_prev"), how="left")
+    latest["run_change"] = latest["forecast_avg"] - latest["forecast_avg_prev"]
+
     today = date.today().strftime("%Y-%m-%d")
-    lines = ["*WEATHER DESK -- {}*\n".format(today)]
+    lines = ["WEATHER DESK -- {}\n".format(today)]
 
     for _, row in latest.iterrows():
+        change_str = "{:+.1f} HDD vs yesterday".format(row["run_change"]) if pd.notna(row["run_change"]) else "first run"
         lines.append(
-            "*{}* `{}`\n"
-            "Avg HDD/day: {:.1f}\n"
-            "Normal HDD/day: {:.1f}\n"
-            "vs Normal: {:+.1f} -- {}\n".format(
-                row["model"],
-                row["run_id"],
-                row["forecast_hdd_avg"],
-                row["normal_hdd_avg"],
-                row["vs_normal"],
-                row["signal"]
+            "{} | Run: {}\n"
+            "Avg HDD/day: {:.1f} | Normal: {:.1f}\n"
+            "vs Normal: {:+.1f} -- {}\n"
+            "Run change: {}\n".format(
+                row["model"], row["run_id"],
+                row["forecast_avg"], row["normal_avg"],
+                row["vs_normal"], row["signal"],
+                change_str
             )
         )
 
@@ -59,3 +62,18 @@ def send():
 
 if __name__ == "__main__":
     send()
+```
+
+This will now show the **latest run only**, with the **run-to-run change** included. So tomorrow's message will look like:
+```
+WEATHER DESK -- 2026-02-21
+
+ECMWF | Run: 20260220_00
+Avg HDD/day: 27.2 | Normal: 24.8
+vs Normal: +2.4 -- BULLISH
+Run change: -4.2 HDD vs yesterday
+
+GFS | Run: 20260220_06
+Avg HDD/day: 26.6 | Normal: 24.8
+vs Normal: +1.8 -- BULLISH
+Run change: -7.8 HDD vs yesterday
