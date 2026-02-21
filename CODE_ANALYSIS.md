@@ -77,65 +77,58 @@ weather-dd-tracker/
 ## 2. Data Flow Diagram
 
 ```
-GitHub Actions (14:00 UTC daily)
+GitHub Actions (Every 15 mins during release windows)
 │
-├─ Step 0: build_gas_weights.py ──────────────────── [ONCE, if weights missing]
-│          data/weights/conus_gas_weights.npy         (101×241 CONUS weight grid)
-│          data/normals/us_gas_weighted_normals.csv   (seasonal GW normals)
+├─ Step 0: poll_models.py ────────────────────────── [TRIGGER]
+│          Checks NOAA/ECMWF for new runs vs pipeline_state.json
+│          Verifies final forecast hour exists
+│          Executes downward pipeline only on new data
 │
 ├─ Step 1: fetch_ecmwf_ifs.py ──── ECMWF OpenData API
 │          area=[50,-125,25,-65]   CONUS-only at source
-│          16 steps (0h→360h)      Tries 18z→12z→06z→00z
+│          16 steps (0h→360h)      
 │          → data/ecmwf/{run_id}/ifs_t2m.grib2
 │
 ├─ Step 2: fetch_gfs.py ──────────── NOMADS NCEP byte-range
 │          t2m field only (~5-15KB/timestep)
-│          Tries 18z→12z→06z→00z, ±1 day lookback
 │          → data/gfs/{run_id}/gfs.t{cc}z.pgrb2.0p25.f{HHH}
-│          [FALLBACK if both fail]: fetch_open_meteo.py
-│            → 17 demand-weighted cities, 3 models (ECMWF/GFS/ICON)
+│          [FALLBACK]: fetch_open_meteo.py (17-city avg)
 │
 ├─ Step 3: compute_tdd.py ────────── GRIB → CSV
 │          Crops to CONUS (25-50°N, 235-295°E)
 │          Loads gas-weight grid, interpolates to data resolution
-│          Per day output:
-│            tdd     = max(65 - simple_CONUS_mean_temp, 0)
-│            tdd_gw  = max(65 - gas_weighted_mean_temp, 0)
-│          → data/ecmwf/{run_id}_tdd.csv
-│          → data/gfs/{run_id}_tdd.csv
+│          → data/{model}/{run_id}_tdd.csv
 │
 ├─ Step 4: merge_tdd.py ──────── Glob all *_tdd.csv + dedup
-│          drop_duplicates(subset=["model","run_id","date"])
 │          → outputs/tdd_master.csv
 │
 ├─ Step 4b: select_latest_run.py ─ Latest run per model
-│           → outputs/ecmwf_latest.csv
-│           → outputs/gfs_latest.csv
+│           → outputs/ecmwf_latest.csv & gfs_latest.csv
 │
-├─ Step 4c: compare_to_normal.py ─ Anomaly vs normals
-│           Simple: tdd vs hdd_normal        → hdd_anomaly
-│           GW:     tdd_gw vs hdd_normal_gw  → hdd_anomaly_gw
+├─ Step 4c: compare_to_normal.py ─ Anomaly vs 10y/30y normals
+│           Simple: tdd vs hdd_normal
+│           GW:     tdd_gw vs hdd_normal_gw
 │           → outputs/vs_normal.csv
 │
 ├─ Step 5: run_change.py ────────── Per-run totals + sequential delta
-│          Columns: tdd, hdd_change, tdd_gw, hdd_change_gw
 │          → outputs/run_change.csv
 │
-├─ Step 5b: compute_run_delta.py ─ Day-by-day delta: latest vs prev
-│           Columns: tdd_change, tdd_gw_change
+├─ Step 5b: compute_run_delta.py ─ Day-by-day delta
 │           → outputs/run_delta.csv
 │
-└─ Step 6: send_telegram.py ─────── Trading-grade report
-           Auto-selects: tdd_gw + GW normals (if available)
-           Falls back to: tdd + simple normals (gracefully)
-           Report includes:
-             - Forecast window dates
-             - Near-term D1-7 + Extended D8-14 split
-             - Full avg vs GW normal
-             - Same-window run change (overlapping dates only)
-             - Consecutive run trend (N-th bullish/bearish revision)
-             - Model spread + conviction label
-             - Consensus signal
+├─ Step 5c: build_model_shift_table.py ─ Model Consensus Matrix
+│           → outputs/model_shift_table.csv
+│
+├─ Step 5d: build_freeze_offs.py ─ Basin Production Loss 
+│           → outputs/freeze_off_forecast.csv
+│
+├─ Step 5e: Feature Trackers ────────
+│           build_crossover_matrix.py → seasonal_crossover.csv / crossover_chart.png
+│           track_cumulative_season.py → cumulative_hdd_tracker.png
+│           build_historical_threshold_matrix.py → historical_hdd_thresholds.xlsx
+│
+└─ Step 6: send_telegram.py ─────── Trading-grade alert
+           Auto-selects GW data if available. Sends text tables + charts.
 ```
 
 ---
@@ -143,7 +136,7 @@ GitHub Actions (14:00 UTC daily)
 ## 3. Script-by-Script Analysis
 
 ### `daily_update.py` — Master Orchestrator
-**7 steps:** build_weights (once) → fetch ECMWF → fetch GFS → compute TDD → merge+dedup → select_latest → compare_normals → run_change → run_delta → send_telegram
+**10 steps:** fetch ECMWF → fetch GFS → compute TDD → merge+dedup → select_latest → compare_normals → run_change → run_delta → extra trackers (shift table, freeze-offs, charts, history) → send_telegram
 **Status: ✅ Correct, all steps wired**
 
 ---
