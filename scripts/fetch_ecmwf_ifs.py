@@ -14,7 +14,7 @@ This is intentionally scoped to CONUS because:
   - LNG export / European demand integration is Phase 2.
 
 Strategy:
-  - Try multiple ECMWF cycles (newest → oldest) until one is fully available.
+  - Try multiple ECMWF cycles (newest -> oldest) until one is fully available.
   - Validate the downloaded GRIB has all 16 expected forecast timesteps.
   - Request resol=0p25 with CONUS area bounding box to minimise download size.
 """
@@ -24,7 +24,7 @@ import datetime
 from ecmwf.opendata import Client
 
 BASE_DIR = "data/ecmwf"
-CYCLES   = ["18", "12", "06", "00"]          # newest → oldest
+CYCLES   = ["18", "12", "06", "00"]          # newest -> oldest
 EXPECTED_STEPS = list(range(0, 16 * 24, 24)) # 0, 24, 48 … 360 h (16 days)
 
 # CONUS bounding box [N, W, S, E] in degrees
@@ -33,7 +33,7 @@ ECMWF_AREA = [50, -125, 25, -65]   # North, West, South, East
 
 
 def today():
-    return datetime.datetime.utcnow().strftime("%Y%m%d")
+    return datetime.datetime.now(datetime.UTC).strftime("%Y%m%d")
 
 
 def count_grib_messages(path):

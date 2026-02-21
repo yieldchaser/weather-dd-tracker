@@ -69,7 +69,7 @@ def check_ecmwf_complete(date_str, cycle):
 
 def poll():
     state = load_state()
-    now_utc = datetime.datetime.utcnow()
+    now_utc = datetime.datetime.now(datetime.UTC)
     
     # Check today and yesterday (to handle rollover hours)
     dates_to_check = [

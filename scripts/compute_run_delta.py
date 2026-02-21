@@ -58,7 +58,7 @@ def compute_delta():
         merged["run_prev"]   = prev_id
 
         all_deltas.append(merged)
-        print(f"{model}: delta {prev_id} → {latest_id} | {len(merged)} overlapping days")
+        print(f"{model}: delta {prev_id} -> {latest_id} | {len(merged)} overlapping days")
 
     if not all_deltas:
         print("No deltas computed.")
