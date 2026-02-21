@@ -243,6 +243,49 @@ GitHub Actions (14:00 UTC daily)
 
 ---
 
+### `build_crossover_matrix.py` — Seasonal Crossover Matrix
+- Generates metrics tracking the seasonal transition between HDD and CDD dominance.
+- Outputs `seasonal_crossover.csv` and `crossover_chart.png`.
+**Status: ✅ Correct**
+
+---
+
+### `build_freeze_offs.py` — Freeze-Off Forecaster
+- Estimates MMcf/d production loss by tracking extreme cold penetrating major producing basins (Permian, Bakken).
+- Outputs `freeze_off_forecast.csv`.
+**Status: ✅ Correct**
+
+---
+
+### `build_model_shift_table.py` — Model Consensus Matrix
+- Cross-references GFS and ECMWF day-by-day shifts to highlight model consensus and divergence.
+- Outputs `model_shift_table.csv`.
+**Status: ✅ Correct**
+
+---
+
+### `track_cumulative_season.py` — Cumulative Winter Tracker
+- Plots the current winter's accumulated HDDs against 10-yr, 30-yr, and historical benchmarks.
+- Outputs `cumulative_hdd_tracker.png` for fast visual assessment.
+**Status: ✅ Correct**
+
+---
+
+### `build_historical_threshold_matrix.py` — 21-Yr HDD Matrix
+- Dynamically scans backwards 21 years to aggregate how many days per month exceeded a defined HDD threshold (e.g. MB Threshold = 7).
+- Exports formatted data perfectly mirroring trader expectations to `historical_hdd_thresholds.xlsx`.
+**Status: ✅ Correct**
+
+---
+
+### `poll_models.py` — Real-Time Model Poller (Event Trigger)
+- Designed to run on a 15-minute cron schedule via GitHub Actions.
+- Pings NOAA/ECMWF arrays to detect fully uploaded runs (verifying final hour `f384` exists).
+- Triggers the main `daily_update.py` pipeline the moment new data finishes landing.
+**Status: ✅ Correct**
+
+---
+
 ### `send_telegram.py` — Telegram Reporter
 - GW-first: uses `tdd_gw` + GW normals if available
 - NaN backfill: old pre-Phase-2 CSV rows get `tdd` as fallback → prevents "0 days" filter bug
