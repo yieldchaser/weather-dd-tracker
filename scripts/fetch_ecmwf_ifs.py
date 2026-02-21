@@ -82,7 +82,7 @@ def fetch():
 
             msg_count = count_grib_messages(target)
             if msg_count is not None and msg_count < len(EXPECTED_STEPS):
-                print(f"  ⚠ Incomplete: expected {len(EXPECTED_STEPS)} steps, "
+                print(f"  [WARN] Incomplete: expected {len(EXPECTED_STEPS)} steps, "
                       f"got {msg_count}. Trying next cycle.")
                 os.remove(target)
                 try:
@@ -92,11 +92,11 @@ def fetch():
                 continue
 
             steps_confirmed = msg_count if msg_count else "unknown"
-            print(f"✔ Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
+            print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
             return run_id
 
         except Exception as e:
-            print(f"✖ {run_id} not available yet: {e}")
+            print(f"[ERR] {run_id} not available yet: {e}")
 
     raise RuntimeError("No complete ECMWF IFS runs available today.")
 

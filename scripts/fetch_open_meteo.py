@@ -28,7 +28,7 @@ FORECAST_DAYS = 16
 # Weights reflect regional residential+commercial gas consumption intensity.
 # Northeast and Great Lakes carry the highest weights for Henry Hub signal.
 DEMAND_CITIES = [
-    # Northeast — pipeline constraints + highest HDD sensitivity
+    # Northeast - pipeline constraints + highest HDD sensitivity
     ("Boston",       42.36, -71.06, 4.0),
     ("New York",     40.71, -74.01, 6.0),
     ("Philadelphia", 39.95, -75.16, 3.0),
@@ -113,11 +113,11 @@ def fetch_open_meteo(model_key, om_model_name, run_date_str):
         if temps:
             city_data[name] = (weight, temps)
         else:
-            print(f"    ✖ {name} failed — excluded from average")
+            print(f"    [ERR] {name} failed - excluded from average")
             failed += 1
 
     if not city_data:
-        print(f"  ✖ [{model_key}]: all cities failed")
+        print(f"  [ERR] [{model_key}]: all cities failed")
         return None
 
     # Compute weighted daily average across successful cities
@@ -143,11 +143,11 @@ def fetch_open_meteo(model_key, om_model_name, run_date_str):
         })
 
     if not rows:
-        print(f"  ✖ [{model_key}]: no dates computed")
+        print(f"  [ERR] [{model_key}]: no dates computed")
         return None
 
     active = len(DEMAND_CITIES) - failed
-    print(f"  ✔ [{model_key}]: {len(rows)} days | "
+    print(f"  [OK] [{model_key}]: {len(rows)} days | "
           f"{active}/{len(DEMAND_CITIES)} cities | "
           f"weighted avg ({TOTAL_WEIGHT - sum(DEMAND_CITIES[i][3] for i in range(failed))} of {TOTAL_WEIGHT} weight-pts)")
     return pd.DataFrame(rows)
@@ -174,9 +174,9 @@ def fetch_all_fallback():
         saved.append((model_key, str(out_path)))
 
     if saved:
-        print(f"\n✔ Open-Meteo fallback: {len(saved)} model(s) saved.")
+        print(f"\n[OK] Open-Meteo fallback: {len(saved)} model(s) saved.")
     else:
-        print("\n✖ Open-Meteo fallback: all models failed.")
+        print("\n[ERR] Open-Meteo fallback: all models failed.")
     return saved
 
 

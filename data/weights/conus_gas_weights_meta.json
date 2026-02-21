@@ -7,6 +7,6 @@
   "n_lats": 101,
   "n_lons": 241,
   "convention": "lon in 0-360",
-  "weight_formula": "eia_res_comm_bcf \u00d7 state_hdd_30yr (Gaussian spread)",
+  "weight_formula": "EIA County Area-Fraction Allocation (Population * State EIA BCF * State HDD30)",
   "note": "Weights normalised to sum=1 across CONUS grid"
 }

@@ -172,28 +172,47 @@ def send():
     if len(model_avgs) == 2:
         spread = abs(list(model_avgs.values())[0] - list(model_avgs.values())[1])
         if spread <= 0.5:
-            spread_lbl = "TIGHT — high conviction"
+            spread_lbl = "TIGHT - high conviction"
         elif spread <= 1.5:
-            spread_lbl = "MODERATE — reasonable agreement"
+            spread_lbl = "MODERATE - reasonable agreement"
         else:
-            spread_lbl = "WIDE — models disagree, size accordingly"
+            spread_lbl = "WIDE - models disagree, size accordingly"
         lines.append(f"Model spread: {spread:.1f} HDD/day ({spread_lbl})")
 
     # ── Consensus ─────────────────────────────────────────────────────────
     signals = [row["signal"] for _, row in latest.iterrows()]
     if all("BULLISH" in s for s in signals):
-        lines.append("Consensus: BULLISH 🟢 — both models agree")
+        lines.append("Consensus: BULLISH 🟢 - both models agree")
     elif all("BEARISH" in s for s in signals):
-        lines.append("Consensus: BEARISH 🔴 — both models agree")
+        lines.append("Consensus: BEARISH 🔴 - both models agree")
     elif any("BULLISH" in s for s in signals) and any("BEARISH" in s for s in signals):
-        lines.append("Consensus: MIXED ⚠️ — models disagree, reduce size")
+        lines.append("Consensus: MIXED [WARN]️ - models disagree, reduce size")
     else:
         lines.append("Consensus: NEUTRAL ⚪")
 
     msg = "\n".join(lines)
     url = f"https://api.telegram.org/bot{token}/sendMessage"
+    
+    # 1. Send the text message
     resp = requests.post(url, json={"chat_id": chat_id, "text": msg})
-    print("Telegram sent:", resp.status_code)
+    print("Telegram Text sent:", resp.status_code)
+    
+    # 2. Attach Image 1: Cumulative HDD
+    photo1 = Path("outputs/cumulative_hdd_tracker.png")
+    if photo1.exists():
+        url_photo = f"https://api.telegram.org/bot{token}/sendPhoto"
+        with open(photo1, "rb") as f:
+            resp_p1 = requests.post(url_photo, data={"chat_id": chat_id}, files={"photo": f})
+            print("Telegram Cumulative Chart sent:", resp_p1.status_code)
+            
+    # 3. Attach Image 2: Seasonal Crossover
+    photo2 = Path("outputs/crossover_chart.png")
+    if photo2.exists():
+        url_photo = f"https://api.telegram.org/bot{token}/sendPhoto"
+        with open(photo2, "rb") as f:
+            resp_p2 = requests.post(url_photo, data={"chat_id": chat_id}, files={"photo": f})
+            print("Telegram Crossover Chart sent:", resp_p2.status_code)
+
     print("\n--- MESSAGE PREVIEW ---")
     print(msg)
 

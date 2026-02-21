@@ -36,7 +36,7 @@ def load_all():
     combined = combined.drop_duplicates(subset=["model", "run_id", "date"])
     dropped = before - len(combined)
     if dropped > 0:
-        print(f"  ⚠  Dropped {dropped} duplicate row(s) during merge.")
+        print(f"  [WARN]  Dropped {dropped} duplicate row(s) during merge.")
 
     return combined
 

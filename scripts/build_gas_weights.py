@@ -8,7 +8,7 @@ Weight formula per state:
 
 This amplifies cold/high-consumption states (MN, MI, NY, IL, OH, PA)
 and suppresses warm/production states (FL, CA, LA, TX) that consume gas
-but are not HDD-sensitive — keeping the metric aligned with HH price drivers.
+but are not HDD-sensitive - keeping the metric aligned with HH price drivers.
 
 Key rule: we weight BOTH forecast temperatures AND normals by the same grid,
 so that vs_normal comparison remains apples-to-apples.
@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-# ── Grid definition — must match CONUS crop in compute_tdd.py ─────────────────
+# ── Grid definition - must match CONUS crop in compute_tdd.py ─────────────────
 LAT_MIN, LAT_MAX = 25.0, 50.0
 LON_MIN, LON_MAX = 235.0, 295.0   # 0–360° convention
 RES = 0.25
@@ -37,7 +37,7 @@ lon_grid, lat_grid = np.meshgrid(lons, lats)
 # EIA residential+commercial gas: ~2022 Natural Gas Annual (Bcf)
 # HDD 30yr: NOAA 1991–2020 state normals (approx)
 STATE_DATA = [
-    # NORTHEAST — highest weight: cold + dense + gas-heated
+    # NORTHEAST - highest weight: cold + dense + gas-heated
     ("ME",  45.3, 289.0,  65, 7500),
     ("NH",  43.7, 288.2,  50, 7300),
     ("VT",  44.0, 287.7,  30, 8000),
@@ -53,7 +53,7 @@ STATE_DATA = [
     ("VA",  37.8, 281.5, 165, 3900),
     ("WV",  38.6, 279.5,  70, 5000),
     ("KY",  37.4, 277.5, 115, 4400),
-    # SOUTHEAST — lower HDD weight
+    # SOUTHEAST - lower HDD weight
     ("NC",  35.8, 280.8, 130, 3400),
     ("SC",  33.8, 279.2,  70, 2500),
     ("GA",  32.7, 276.1, 110, 2600),
@@ -61,7 +61,7 @@ STATE_DATA = [
     ("AL",  32.8, 273.5,  80, 2700),
     ("MS",  32.7, 270.2,  55, 2500),
     ("FL",  28.5, 278.6,  80,  600),   # near-zero HDD weight
-    # GREAT LAKES / MIDWEST — very high weight
+    # GREAT LAKES / MIDWEST - very high weight
     ("OH",  40.4, 277.5, 290, 5500),
     ("MI",  44.3, 275.5, 325, 6800),
     ("IN",  40.3, 274.4, 175, 5600),
@@ -76,7 +76,7 @@ STATE_DATA = [
     ("SD",  44.5, 260.1,  35, 7900),
     ("NE",  41.5, 261.5,  75, 6600),
     ("KS",  38.7, 261.7,  85, 5000),
-    # SOUTH CENTRAL — large gas use but warm climate, downweighted by hdd
+    # SOUTH CENTRAL - large gas use but warm climate, downweighted by hdd
     ("OK",  35.5, 262.7, 105, 3700),
     ("TX",  31.1, 260.5, 395, 1800),
     ("LA",  31.2, 268.6, 155, 1500),
@@ -89,7 +89,7 @@ STATE_DATA = [
     ("UT",  39.5, 248.8,  85, 5800),
     ("ID",  44.5, 245.8,  55, 6500),
     ("NV",  39.0, 243.0,  85, 3000),
-    # PACIFIC — partially disconnected from HH basis
+    # PACIFIC - partially disconnected from HH basis
     ("WA",  47.5, 239.7,  80, 4800),
     ("OR",  44.0, 237.5,  55, 4500),
     ("CA",  37.0, 240.0, 280, 2000),
@@ -112,7 +112,7 @@ def build_weight_grid(sigma_lat=2.5, sigma_lon=3.0):
         )
         weights += contribution
 
-    # Normalise so weights sum to 1 — weighted mean = dot(temp, w) / sum(w)
+    # Normalise so weights sum to 1 - weighted mean = dot(temp, w) / sum(w)
     weights /= weights.sum()
     return weights
 
@@ -134,18 +134,18 @@ def build_gw_normals(weights, existing_normals_path):
 
     # Monthly GW correction factors (GW mean / simple national mean per month).
     MONTHLY_SCALE = {
-        1:  1.18,   # January   — peak heating, NE+Midwest ~70% of demand
-        2:  1.16,   # February  — deep winter
-        3:  1.10,   # March     — shoulder, warm states warming faster
-        4:  1.06,   # April     — minimal heating
-        5:  1.03,   # May       — near-zero HDD
-        6:  1.00,   # June      — no HDD
+        1:  1.18,   # January   - peak heating, NE+Midwest ~70% of demand
+        2:  1.16,   # February  - deep winter
+        3:  1.10,   # March     - shoulder, warm states warming faster
+        4:  1.06,   # April     - minimal heating
+        5:  1.03,   # May       - near-zero HDD
+        6:  1.00,   # June      - no HDD
         7:  1.00,   # July
         8:  1.00,   # August
-        9:  1.02,   # September — first cold snaps in North
-        10: 1.06,   # October   — heating ramps up, Northeast first
-        11: 1.12,   # November  — significant heating begins
-        12: 1.16,   # December  — deep winter
+        9:  1.02,   # September - first cold snaps in North
+        10: 1.06,   # October   - heating ramps up, Northeast first
+        11: 1.12,   # November  - significant heating begins
+        12: 1.16,   # December  - deep winter
     }
 
     gw_normals = normals.copy()
@@ -165,7 +165,7 @@ def main():
     weights = build_weight_grid()
 
     np.save(out_dir / "conus_gas_weights.npy", weights)
-    print(f"  ✔ Saved weight grid: {weights.shape} (lat={len(lats)} × lon={len(lons)})")
+    print(f"  [OK] Saved weight grid: {weights.shape} (lat={len(lats)} × lon={len(lons)})")
 
     meta = {
         "lat_min": LAT_MIN, "lat_max": LAT_MAX,
@@ -178,7 +178,7 @@ def main():
     }
     with open(out_dir / "conus_gas_weights_meta.json", "w") as f:
         json.dump(meta, f, indent=2)
-    print("  ✔ Saved metadata")
+    print("  [OK] Saved metadata")
 
     # Print weight distribution for top regions
     print("\nTop 5 highest-weight lat/lon cells:")
@@ -193,10 +193,10 @@ def main():
         gw_normals = build_gw_normals(weights, normals_path)
         out_path = Path("data/normals/us_gas_weighted_normals.csv")
         gw_normals.to_csv(out_path, index=False)
-        print(f"  ✔ Saved GW normals: {out_path}")
+        print(f"  [OK] Saved GW normals: {out_path}")
         print(f"  Scale factor applied: {gw_normals['hdd_normal_gw'].mean() / gw_normals['hdd_normal'].replace(0, np.nan).mean():.3f}")
     else:
-        print(f"  ⚠ Normals not found at {normals_path} — skipping GW normals build")
+        print(f"  [WARN] Normals not found at {normals_path} - skipping GW normals build")
 
 
 if __name__ == "__main__":

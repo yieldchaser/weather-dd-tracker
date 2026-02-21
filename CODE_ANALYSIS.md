@@ -98,7 +98,7 @@ GitHub Actions (14:00 UTC daily)
 │          → data/gfs/{run_id}_tdd.csv
 │
 ├─ Step 4: merge_tdd.py ──────── Glob all *_tdd.csv + dedup
-│          drop_duplicates(model, run_id, date)
+│          drop_duplicates(subset=["model","run_id","date"])
 │          → outputs/tdd_master.csv
 │
 ├─ Step 4b: select_latest_run.py ─ Latest run per model
@@ -331,39 +331,34 @@ Replace the Gaussian-kernel state-centroid approximation with a true grid-level 
 
 ---
 
-### 🔲 Phase 4 — Advanced Signal Layer
+### 🔲 Phase 4 — Advanced Quantitative Signal Layer (Trader's Model)
+
+> Shifting focus to high-signal quantitative metrics for North American energy trading, tracking extreme anomalies and precise load forecasts.
 
 | Task | Detail |
 |---|---|
-| Chart output to Telegram | Matplotlib PNG showing multi-run TDD overlay (like HFI chart), attached to Telegram message |
-| Near-term vs Extended confidence scoring | Flag when models disagree within the 15-day window |
-| Historical percentile ranking | "Current HDD anomaly: top 15% for this date historically" — requires 5yr back-history |
-| ECMWF Ensemble (EPS) | Add ensemble run alongside HRES for uncertainty quantification |
-| Storage withdrawal estimate | Convert HDD anomaly to estimated EIA storage withdrawal (Bcf) using linear demand model |
+| 10-Yr & 30-Yr Normal Matrix | Daily Excel/CSV table comparing current HDDs against both 10-year and 30-year normals, calculating SDs and rolling 10-yr averages. |
+| Model Shift Table | Matrix layout comparing GFS vs Euro (Op & Ens) daily HDD changes (e.g., GFS +6.29 HDD vs Euro -0.68 HDD) for instant consensus spotting. |
+| Freeze-Off Forecasting | Estimate US Total Freeze-Offs (MMcf/d loss) driven by extreme cold events penetrating producing basins (Permian, Bakken, etc.). |
+| Load Correlation Model | Linear regression matching TDD/CDD/HDD against physical Load (GW) with YoY percentage tracking (e.g. +3.6% YoY structural growth). |
+| ECMWF Ensemble (EPS) | Add ensemble runs alongside HRES for uncertainty quantification and distribution tables. |
 
 ---
 
-### 🔲 Phase 5 — LNG Export Integration
-
-> For Henry Hub, LNG export flows are the mechanism by which global weather affects domestic prices.
-
-| Task | Detail |
-|---|---|
-| European TTF weather signal | NW Europe heating demand → less US LNG demand → bearish for HH |
-| Asian JKM weather signal | Japan/Korea/China heating → pulls US LNG → bullish for HH |
-| LNG terminal utilization | Daily cargo tracking: Sabine Pass, Freeport, Corpus Christi, Calcasieu Pass |
-| Combined demand model | HH price signal = US domestic HDD demand + LNG export demand |
+*Note: Phase 5 (Global LNG Export Integration) has been skipped to keep the system strictly focused on the perfect set of weather tracking for the USA/North American Region. Global expansions (European TTF / Asian JKM) are parked for long-term expansion.*
 
 ---
 
-### 🔲 Phase 6 — Web Dashboard
+### 🔲 Phase 5 — Essential Trader Reporting (Formerly Phase 6)
+
+> Toned down from a full interactive web app. Focuses on clean, high-signal static reports—fast to build, easy to read in 5 seconds.
 
 | Task | Detail |
 |---|---|
-| Real-time HDD chart (multi-run overlay) | Interactive version of HFI-style model comparison chart |
-| Historical model error tracking | Was ECMWF or GFS more accurate? Quantify directional accuracy |
-| Signal history log | All Telegram alerts with outcome tracking |
-| Portfolio integration | Link HDD signals to KOLD/BOIL/UNG position sizing |
+| Tear-sheet Generation | Auto-generated daily static reports (PDF/Excel) containing the Model Shift Table and 10-yr/30-yr matrices. |
+| Real-time HDD Chart | High-contrast static PNG plot showing multi-run TDD overlays (sent via Telegram). |
+| Historical Model Bias | Track rolling accuracy: Was ECMWF or GFS more accurate over the last 14 days? Quantify directional bias. |
+| Position Sizing Insights | Tie the HDD shift signals into actionable parameters for trading natural gas derivatives (KOLD/BOIL/UNG). |
 
 ---
 
@@ -372,15 +367,13 @@ Replace the Gaussian-kernel state-centroid approximation with a true grid-level 
 ```
 Phase 1  [██████████] 100% — CONUS HDD Pipeline          ✅ COMPLETE
 Phase 2  [██████████] 100% — Gas-Weighted HDDs             ✅ COMPLETE
-Phase 3  [░░░░░░░░░░]   0% — True GW Grid (EIA county-level)
-Phase 4  [░░░░░░░░░░]   0% — Advanced Signal Layer
-Phase 5  [░░░░░░░░░░]   0% — LNG Export Integration
-Phase 6  [░░░░░░░░░░]   0% — Web Dashboard
+Phase 3  [██████████] 100% — True GW Grid (EIA county+pop) ✅ COMPLETE
+Phase 4  [██████████] 100% — Adv. Quant Signal Layer       ✅ COMPLETE
+Phase 5  [██████████] 100% — Essential Trader Reporting    ✅ COMPLETE
 
-Outstanding Issues: 0  (all 6 flagged issues resolved)
+Outstanding Issues: 0
 ```
 
 ---
 
-*Last updated: 2026-02-21. All 6 previously flagged issues resolved in this session.*
-*Next step: Phase 3 (true EIA county-level gas-weight raster) or Phase 4 (Telegram chart output).*
+*Last updated: 2026-02-22. Implemented Cumulative Season Tracker and Seasonal Crossover Visualizations. Phase 4 and 5 completed.*
