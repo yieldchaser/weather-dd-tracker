@@ -73,15 +73,25 @@ def send():
         norm_label = "Normal"
 
     # ── Determine which TDD column to use ─────────────────────────────────
-    tdd_col  = "tdd_gw" if "tdd_gw" in df.columns else "tdd"
-    metric_label = "GW HDD/day" if tdd_col == "tdd_gw" else "HDD/day"
+    # If tdd_gw column exists but has NaN (old CSV files pre-Phase 2),
+    # backfill with tdd so those runs still produce valid metrics.
+    if "tdd_gw" in df.columns:
+        df["tdd_gw"] = df["tdd_gw"].fillna(df["tdd"])
+        tdd_col = "tdd_gw"
+        metric_label = "GW HDD/day"
+    else:
+        tdd_col = "tdd"
+        metric_label = "HDD/day"
 
     df = df.merge(norms[["month", "day", hdd_col]], on=["month", "day"], how="left")
 
     # ── Build per-run summary ─────────────────────────────────────────────
+    # IMPORTANT: always count days using 'tdd' (never NaN in any CSV, old or new).
+    # Using tdd_col for count would return 0 for old runs lacking tdd_gw,
+    # causing them to be incorrectly filtered out as "< 10 days".
     summary = (
         df.groupby(["model", "run_id"])
-        .agg(fa_gw=(tdd_col, "mean"), na_avg=(hdd_col, "mean"), days=(tdd_col, "count"))
+        .agg(fa_gw=(tdd_col, "mean"), na_avg=(hdd_col, "mean"), days=("tdd", "count"))
         .reset_index()
     )
 
