@@ -30,6 +30,7 @@ jobs:
           mkdir -p data/gfs
           mkdir -p data/normals
           mkdir -p data/open_meteo
+          mkdir -p data/weights
           mkdir -p outputs
 
       - name: Copy normals file
@@ -47,6 +48,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add outputs/*.csv data/ecmwf/*_tdd.csv data/gfs/*_tdd.csv
+          git add outputs/*.csv data/ecmwf/*_tdd.csv data/gfs/*_tdd.csv || true
+          git add data/weights/ data/normals/ || true
           git commit -m "Daily update $(date '+%Y-%m-%d')" || echo "Nothing to commit"
           git push
