@@ -38,37 +38,34 @@ if ecmwf_result.returncode != 0 and gfs_result.returncode != 0:
 # Step 3 & 4: Compute HDD/TDD
 # ------------------------------------------
 
-print("\n3. Computing ECMWF HDD...")
-subprocess.run(f"{PY} scripts/compute_tdd.py", shell=True)
-
-print("\n4. Computing GFS HDD...")
+print("\n3. Computing HDD for all models (ECMWF + GFS)...")
 subprocess.run(f"{PY} scripts/compute_tdd.py", shell=True)
 
 # ------------------------------------------
 # Step 5: Merge all outputs
 # ------------------------------------------
 
-print("\n5. Merging data...")
+print("\n4. Merging data...")
 subprocess.run(f"{PY} scripts/merge_tdd.py", shell=True)
 
-print("\n5b. Comparing to normals (HDD + CDD)...")
+print("\n4b. Comparing to normals (HDD + CDD)...")
 subprocess.run(f"{PY} scripts/compare_to_normal.py", shell=True)
 
 # ------------------------------------------
-# Step 6: Run-to-run change analysis
+# Step 5: Run-to-run change analysis
 # ------------------------------------------
 
-print("\n6. Calculating run changes...")
+print("\n5. Calculating run changes...")
 subprocess.run(f"{PY} scripts/run_change.py", shell=True)
 
-print("\n6b. Computing day-by-day delta (latest vs prev run)...")
+print("\n5b. Computing day-by-day delta (latest vs prev run)...")
 subprocess.run(f"{PY} scripts/compute_run_delta.py", shell=True)
 
 # ------------------------------------------
-# Step 7: Send signals
+# Step 6: Send signals
 # ------------------------------------------
 
-print("\n7. Sending Telegram update...")
+print("\n6. Sending Telegram update...")
 subprocess.run(f"{PY} scripts/send_telegram.py", shell=True)
 
 print("\n==============================")
