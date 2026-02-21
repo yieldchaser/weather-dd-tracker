@@ -411,6 +411,38 @@ Replace the Gaussian-kernel state-centroid approximation with a true grid-level 
 
 ---
 
+### ✅ Phase 6 — Historical Analysis & Pipeline Polish (COMPLETE)
+
+| Task | Detail | Status |
+|---|---|---|
+| Historical HDD Matrix | Build Python script to generate the "Days above MB Threshold" table for years 2001-2022. | ✅ |
+| Simulated Data Fill | Implement simulation logic for past 21 years due to lack of historical daily database. | ✅ |
+| Telegram Cleanup | Strip message down to essentials, stopping large table spam to focus on signal. | ✅ |
+| Data Export | Auto-save the Historical Matrix to purely Excel/CSV outputs. | ✅ |
+
+---
+
+### ✅ Phase 7 — Real-Time Polling & Alerts (COMPLETE)
+
+| Task | Detail | Status |
+|---|---|---|
+| State Memorization | Create `pipeline_state.json` to store last successfully processed model runs. | ✅ |
+| Smart Poller Script | Check NOAA/ECMWF directories for newly uploaded run IDs vs state tracker. | ✅ |
+| Completion Verification | Check exactly for final hour (e.g., `f384`) to prevent partial model ingestion. | ✅ |
+| Cloud Execution | Shift GitHub Actions from daily 14:00 UTC to a 15-minute cron spanning publishing windows. | ✅ |
+
+---
+
+### ✅ Phase 8 — Codebase Audit & Refining (COMPLETE)
+
+| Task | Detail | Status |
+|---|---|---|
+| Deprecation Refactor | Resolve Python 3.12 `datetime.datetime.utcnow()` deprecation across codebase. | ✅ |
+| Error Handlers | Fix empty string / divide-by-zero slice warnings in local matrices. | ✅ |
+| Terminal Output Safety | Eliminate Windows-specific `UnicodeEncodeError` by removing ASCII arrows. | ✅ |
+
+---
+
 ## 7. Phase Completion Status
 
 ```
