@@ -29,7 +29,7 @@ def load_weights():
     Returns (weights_2d, lats, lons) or None if weights not yet built.
     """
     if not WEIGHTS_FILE.exists() or not WEIGHTS_META.exists():
-        print("  ⚠  Gas-weight grid not found — falling back to simple CONUS mean")
+        print("  [WARN]  Gas-weight grid not found - falling back to simple CONUS mean")
         return None, None, None
     try:
         w = np.load(WEIGHTS_FILE)
@@ -39,7 +39,7 @@ def load_weights():
         lons = np.arange(meta["lon_min"], meta["lon_max"] + meta["resolution"] / 2, meta["resolution"])
         return w, lats, lons
     except Exception as e:
-        print(f"  ⚠  Could not load weights ({e}) — falling back to simple CONUS mean")
+        print(f"  [WARN]  Could not load weights ({e}) - falling back to simple CONUS mean")
         return None, None, None
 
 
@@ -48,7 +48,7 @@ def crop_to_conus(ds):
     lat_dim = next((d for d in ds.dims if "lat" in d.lower()), None)
     lon_dim = next((d for d in ds.dims if "lon" in d.lower()), None)
     if lat_dim is None or lon_dim is None:
-        print("  ⚠  lat/lon dims not found — no crop applied")
+        print("  [WARN]  lat/lon dims not found - no crop applied")
         return ds
     lons = ds[lon_dim].values
     if lons.min() < 0:
@@ -59,9 +59,9 @@ def crop_to_conus(ds):
             lat_dim: slice(CONUS_LAT_MIN, CONUS_LAT_MAX),
             lon_dim: slice(CONUS_LON_MIN, CONUS_LON_MAX),
         })
-        print(f"  ✔ CONUS crop: {ds[lat_dim].size} × {ds[lon_dim].size} grid pts")
+        print(f"  [OK] CONUS crop: {ds[lat_dim].size} × {ds[lon_dim].size} grid pts")
     except Exception as e:
-        print(f"  ⚠  CONUS crop failed ({e})")
+        print(f"  [WARN]  CONUS crop failed ({e})")
     return ds
 
 
@@ -82,7 +82,7 @@ def gas_weighted_mean(temp_2d, data_lats, data_lons, weights, w_lats, w_lons):
             return None
         return float((temp_2d * w_interp).sum() / total_w)
     except Exception as e:
-        print(f"  ⚠  Gas-weighted mean failed ({e})")
+        print(f"  [WARN]  Gas-weighted mean failed ({e})")
         return None
 
 
@@ -198,7 +198,7 @@ def process_gfs(run_path, weights, w_lats, w_lons):
 def process_all():
     weights, w_lats, w_lons = load_weights()
     gw_active = weights is not None
-    print(f"\nGas-weighting: {'✔ ACTIVE' if gw_active else '✖ INACTIVE (fallback to simple mean)'}")
+    print(f"\nGas-weighting: {'[OK] ACTIVE' if gw_active else '[ERR] INACTIVE (fallback to simple mean)'}")
 
     for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs")]:
         if not os.path.exists(folder):
@@ -217,7 +217,7 @@ def process_all():
             df["run_id"] = run_id
             out = Path(folder) / f"{run_id}_tdd.csv"
             df.to_csv(out, index=False)
-            print(f"  ✔ Saved: {out}")
+            print(f"  [OK] Saved: {out}")
             print(df[["date", "tdd", "tdd_gw"]].head(3).to_string(index=False))
 
 

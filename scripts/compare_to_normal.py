@@ -53,10 +53,10 @@ def compare():
         # Backfill tdd_gw from tdd for backward compatibility with old CSVs
         merged["tdd_gw"] = merged["tdd_gw"].fillna(merged["tdd"])
         merged["hdd_anomaly_gw"] = merged["tdd_gw"] - merged["hdd_normal_gw"]
-        print("  ✔ Gas-weighted anomaly (hdd_anomaly_gw) computed.")
+        print("  [OK] Gas-weighted anomaly (hdd_anomaly_gw) computed.")
     else:
         merged["hdd_anomaly_gw"] = None
-        print("  ⚠  Gas-weighted anomaly not computed (GW normals or tdd_gw not available).")
+        print("  [WARN]  Gas-weighted anomaly not computed (GW normals or tdd_gw not available).")
 
     # Dominant anomaly: CDD in Jun–Aug, HDD otherwise
     def dominant_anomaly(row):

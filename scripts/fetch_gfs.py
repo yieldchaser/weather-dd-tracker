@@ -63,7 +63,7 @@ def find_latest_available_run():
             test_url = f"{BASE_URL}/gfs.{date}/{cycle}/atmos/{test_file}"
             print(f"Checking availability: {date}_{cycle}Z")
             if url_exists(test_url):
-                print(f"✔ Found available run: {date}_{cycle}Z")
+                print(f"[OK] Found available run: {date}_{cycle}Z")
                 return date, cycle
 
     raise RuntimeError("No available GFS run found in last 48 hours.")
@@ -113,7 +113,7 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
             f.write(chunk)
 
     size_kb = os.path.getsize(output_path) / 1024
-    print(f"  ✔ Saved {size_kb:.1f} KB → {os.path.basename(output_path)}")
+    print(f"  [OK] Saved {size_kb:.1f} KB → {os.path.basename(output_path)}")
 
 
 # -----------------------------
@@ -144,14 +144,14 @@ def fetch_latest_gfs():
         try:
             idx_text = fetch_idx(idx_url)
         except Exception as e:
-            print(f"  ✖ Could not fetch .idx: {e}")
+            print(f"  [ERR] Could not fetch .idx: {e}")
             skipped_hours.append(fh)
             continue
 
         # Step 2: locate 2m temp byte range
         start_byte, end_byte = parse_t2m_byte_range(idx_text)
         if start_byte is None:
-            print(f"  ✖ TMP:2 m above ground not found in .idx for f{fh_str}")
+            print(f"  [ERR] TMP:2 m above ground not found in .idx for f{fh_str}")
             skipped_hours.append(fh)
             continue
 
@@ -163,7 +163,7 @@ def fetch_latest_gfs():
             download_byte_range(base_url, start_byte, end_byte, output_path)
             fetched_hours.append(fh)
         except Exception as e:
-            print(f"  ✖ Download failed: {e}")
+            print(f"  [ERR] Download failed: {e}")
             skipped_hours.append(fh)
 
     manifest = {
