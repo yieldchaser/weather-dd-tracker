@@ -78,9 +78,10 @@ subprocess.run(f"{PY} scripts/build_model_shift_table.py", shell=True)
 print("\n5d. Estimating USA Freeze-Offs...")
 subprocess.run(f"{PY} scripts/build_freeze_offs.py", shell=True)
 
-print("\n5e. Generating Trader Charts...")
+print("\n5e. Generating Trader Charts & Historical Matrix...")
 subprocess.run(f"{PY} scripts/build_crossover_matrix.py", shell=True)
 subprocess.run(f"{PY} scripts/track_cumulative_season.py", shell=True)
+subprocess.run(f"{PY} scripts/build_historical_threshold_matrix.py", shell=True)
 
 # ------------------------------------------
 # Step 6: Send Telegram signal

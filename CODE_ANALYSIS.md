@@ -370,10 +370,11 @@ Phase 2  [██████████] 100% — Gas-Weighted HDDs            
 Phase 3  [██████████] 100% — True GW Grid (EIA county+pop) ✅ COMPLETE
 Phase 4  [██████████] 100% — Adv. Quant Signal Layer       ✅ COMPLETE
 Phase 5  [██████████] 100% — Essential Trader Reporting    ✅ COMPLETE
+Phase 6  [██████████] 100% — Historical HDD Matrix & Excel ✅ COMPLETE
 
 Outstanding Issues: 0
 ```
 
 ---
 
-*Last updated: 2026-02-22. Implemented Cumulative Season Tracker and Seasonal Crossover Visualizations. Phase 4 and 5 completed.*
+*Last updated: 2026-02-22. Implemented Cumulative Season Tracker, Crossover Visualizations, and Dynamic 21-Yr Historical Matrix tracking days over MB Threshold. All requested reporting features completed.*
