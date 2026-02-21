@@ -9,7 +9,7 @@ def load_all():
     files = (
         glob("data/gfs/*_tdd.csv")
         + glob("data/ecmwf/*_tdd.csv")
-        + glob("data/open_meteo/*_tdd.csv")   # Open-Meteo fallback
+        + glob("data/open_meteo/*_tdd.csv")
     )
 
     if not files:
@@ -27,7 +27,18 @@ def load_all():
                 df["model"] = "OPEN_METEO"
         dfs.append(df)
 
-    return pd.concat(dfs, ignore_index=True)
+    combined = pd.concat(dfs, ignore_index=True)
+
+    # FIX (Issue #2): Deduplicate on model + run_id + date.
+    # Without this, re-triggering the pipeline (or reprocessing existing GRIB dirs)
+    # would cause duplicate rows, inflating day counts and distorting averages.
+    before = len(combined)
+    combined = combined.drop_duplicates(subset=["model", "run_id", "date"])
+    dropped = before - len(combined)
+    if dropped > 0:
+        print(f"  ⚠  Dropped {dropped} duplicate row(s) during merge.")
+
+    return combined
 
 
 def main():
@@ -36,9 +47,8 @@ def main():
     os.makedirs("outputs", exist_ok=True)
     df.to_csv(MASTER_PATH, index=False)
     print("\nMASTER UPDATED:")
-    print(df.tail(30))
+    print(df.tail(10))
 
 
 if __name__ == "__main__":
     main()
-

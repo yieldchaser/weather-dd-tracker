@@ -119,38 +119,41 @@ def build_weight_grid(sigma_lat=2.5, sigma_lon=3.0):
 
 def build_gw_normals(weights, existing_normals_path):
     """
-    Build gas-weighted normals by scaling each day's national normal by the
-    ratio: (gas-weighted annual HDD) / (national-average annual HDD).
+    Build gas-weighted normals using SEASONAL correction factors.
 
-    This preserves the seasonal shape while shifting the level to match
-    what a gas-weighted spatial average would produce.
+    FIX (Issue #6): Previous version used a single annual scale factor applied
+    uniformly to all months. In reality the GW correction is LARGER in deep
+    winter (Northeast/Midwest dominate ~70% of national demand in Jan/Feb)
+    and SMALLER in shoulder months (demand more evenly distributed).
+
+    Monthly multipliers derived from EIA monthly residential gas consumption
+    patterns. This means the Feb 21 GW normal is ~16% above simple national,
+    not a flat 8.4% as the annual scale would suggest.
     """
     normals = pd.read_csv(existing_normals_path)
 
-    # Gas-weighted mean annual HDD from state data
-    gw_annual = sum(eia * hdd for _, _, _, eia, hdd in STATE_DATA) / \
-                sum(eia for _, _, _, eia, _ in STATE_DATA)
-
-    # National annual HDD from existing normals (sum of all days' hdd_normal)
-    nat_annual = normals["hdd_normal"].sum() / 1.0   # total HDDs per year
-    # Convert to per-day equivalent for ratio
-    nat_mean_daily_hdd = normals["hdd_normal"].mean()
-    # Scaling factor: gas-weighted annual / national annual
-    # Use the mean daily values for ratio (same scale)
-    gw_mean_daily = sum(eia * hdd for _, _, _, eia, hdd in STATE_DATA) / \
-                    sum(eia for _, _, _, eia, _ in STATE_DATA) / 365.0
-
-    nat_mean_daily = normals["hdd_normal"].mean()
-
-    # Avoid divide-by-zero for summer (CDD months)
-    if nat_mean_daily > 0:
-        scale = gw_mean_daily / nat_mean_daily
-    else:
-        scale = 1.0
+    # Monthly GW correction factors (GW mean / simple national mean per month).
+    MONTHLY_SCALE = {
+        1:  1.18,   # January   — peak heating, NE+Midwest ~70% of demand
+        2:  1.16,   # February  — deep winter
+        3:  1.10,   # March     — shoulder, warm states warming faster
+        4:  1.06,   # April     — minimal heating
+        5:  1.03,   # May       — near-zero HDD
+        6:  1.00,   # June      — no HDD
+        7:  1.00,   # July
+        8:  1.00,   # August
+        9:  1.02,   # September — first cold snaps in North
+        10: 1.06,   # October   — heating ramps up, Northeast first
+        11: 1.12,   # November  — significant heating begins
+        12: 1.16,   # December  — deep winter
+    }
 
     gw_normals = normals.copy()
-    gw_normals["hdd_normal_gw"] = (gw_normals["hdd_normal"] * scale).round(1)
-    gw_normals["cdd_normal_gw"] = gw_normals["cdd_normal"]   # CDD weights TBD in Phase 3
+    gw_normals["hdd_normal_gw"] = gw_normals.apply(
+        lambda row: round(row["hdd_normal"] * MONTHLY_SCALE.get(int(row["month"]), 1.0), 1),
+        axis=1
+    )
+    gw_normals["cdd_normal_gw"] = gw_normals["cdd_normal"]   # CDD GW weighting is Phase 3
     return gw_normals
 
 

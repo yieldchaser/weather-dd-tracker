@@ -56,7 +56,10 @@ subprocess.run(f"{PY} scripts/compute_tdd.py", shell=True)
 print("\n4. Merging data...")
 subprocess.run(f"{PY} scripts/merge_tdd.py", shell=True)
 
-print("\n4b. Comparing to normals (HDD + CDD)...")
+print("\n4b. Extracting latest run per model...")
+subprocess.run(f"{PY} scripts/select_latest_run.py", shell=True)
+
+print("\n4c. Comparing to normals (HDD + CDD, simple + gas-weighted)...")
 subprocess.run(f"{PY} scripts/compare_to_normal.py", shell=True)
 
 # ------------------------------------------
