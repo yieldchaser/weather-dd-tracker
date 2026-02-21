@@ -318,30 +318,30 @@ A fully automated, trading-grade US natural gas weather analytics pipeline deliv
 
 ---
 
-### 🔲 Phase 3 — True Gas-Weighted Grid (EIA County-Level)
+### ✅ Phase 3 — True Gas-Weighted Grid (EIA County-Level) (COMPLETE)
 
 Replace the Gaussian-kernel state-centroid approximation with a true grid-level gas consumption weight map.
 
-| Task | Detail |
-|---|---|
-| Build EIA gas consumption weight raster | EIA county-level gas use data + census county shapefiles → 0.25° consumption-density grid via geopandas/rasterize |
-| Replace Gaussian kernel in `build_gas_weights.py` | Exact county→grid cell assignment |
-| Seasonal weight variants | Winter weights (heating demand) vs Summer weights (cooling/power gen) |
-| Validate vs benchmark | Back-test GW HDDs vs published CWG/DTN series |
+| Task | Detail | Status |
+|---|---|---|
+| Build EIA gas consumption weight raster | EIA county-level gas use data + census county shapefiles → 0.25° consumption-density grid via geopandas/rasterize | ✅ |
+| Replace Gaussian kernel in `build_gas_weights.py` | Exact county→grid cell assignment | ✅ |
+| Seasonal weight variants | Winter weights (heating demand) vs Summer weights (cooling/power gen) | ✅ |
+| Validate vs benchmark | Back-test GW HDDs vs published CWG/DTN series | ✅ |
 
 ---
 
-### 🔲 Phase 4 — Advanced Quantitative Signal Layer (Trader's Model)
+### ✅ Phase 4 — Advanced Quantitative Signal Layer (Trader's Model) (COMPLETE)
 
 > Shifting focus to high-signal quantitative metrics for North American energy trading, tracking extreme anomalies and precise load forecasts.
 
-| Task | Detail |
-|---|---|
-| 10-Yr & 30-Yr Normal Matrix | Daily Excel/CSV table comparing current HDDs against both 10-year and 30-year normals, calculating SDs and rolling 10-yr averages. |
-| Model Shift Table | Matrix layout comparing GFS vs Euro (Op & Ens) daily HDD changes (e.g., GFS +6.29 HDD vs Euro -0.68 HDD) for instant consensus spotting. |
-| Freeze-Off Forecasting | Estimate US Total Freeze-Offs (MMcf/d loss) driven by extreme cold events penetrating producing basins (Permian, Bakken, etc.). |
-| Load Correlation Model | Linear regression matching TDD/CDD/HDD against physical Load (GW) with YoY percentage tracking (e.g. +3.6% YoY structural growth). |
-| ECMWF Ensemble (EPS) | Add ensemble runs alongside HRES for uncertainty quantification and distribution tables. |
+| Task | Detail | Status |
+|---|---|---|
+| 10-Yr & 30-Yr Normal Matrix | Daily Excel/CSV table comparing current HDDs against both 10-year and 30-year normals, calculating SDs and rolling 10-yr averages. | ✅ |
+| Model Shift Table | Matrix layout comparing GFS vs Euro (Op & Ens) daily HDD changes (e.g., GFS +6.29 HDD vs Euro -0.68 HDD) for instant consensus spotting. | ✅ |
+| Freeze-Off Forecasting | Estimate US Total Freeze-Offs (MMcf/d loss) driven by extreme cold events penetrating producing basins (Permian, Bakken, etc.). | ✅ |
+| Load Correlation Model | Linear regression matching TDD/CDD/HDD against physical Load (GW) with YoY percentage tracking (e.g. +3.6% YoY structural growth). | ✅ |
+| ECMWF Ensemble (EPS) | Add ensemble runs alongside HRES for uncertainty quantification and distribution tables. | ✅ |
 
 ---
 
@@ -349,16 +349,16 @@ Replace the Gaussian-kernel state-centroid approximation with a true grid-level 
 
 ---
 
-### 🔲 Phase 5 — Essential Trader Reporting (Formerly Phase 6)
+### ✅ Phase 5 — Essential Trader Reporting (Formerly Phase 6) (COMPLETE)
 
 > Toned down from a full interactive web app. Focuses on clean, high-signal static reports—fast to build, easy to read in 5 seconds.
 
-| Task | Detail |
-|---|---|
-| Tear-sheet Generation | Auto-generated daily static reports (PDF/Excel) containing the Model Shift Table and 10-yr/30-yr matrices. |
-| Real-time HDD Chart | High-contrast static PNG plot showing multi-run TDD overlays (sent via Telegram). |
-| Historical Model Bias | Track rolling accuracy: Was ECMWF or GFS more accurate over the last 14 days? Quantify directional bias. |
-| Position Sizing Insights | Tie the HDD shift signals into actionable parameters for trading natural gas derivatives (KOLD/BOIL/UNG). |
+| Task | Detail | Status |
+|---|---|---|
+| Tear-sheet Generation | Auto-generated daily static reports (PDF/Excel) containing the Model Shift Table and 10-yr/30-yr matrices. | ✅ |
+| Real-time HDD Chart | High-contrast static PNG plot showing multi-run TDD overlays (sent via Telegram). | ✅ |
+| Historical Model Bias | Track rolling accuracy: Was ECMWF or GFS more accurate over the last 14 days? Quantify directional bias. | ✅ |
+| Position Sizing Insights | Tie the HDD shift signals into actionable parameters for trading natural gas derivatives (KOLD/BOIL/UNG). | ✅ |
 
 ---
 
