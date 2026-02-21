@@ -192,27 +192,9 @@ def send():
 
     msg = "\n".join(lines)
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    
-    # 1. Send the text message
+    # Send the text message
     resp = requests.post(url, json={"chat_id": chat_id, "text": msg})
     print("Telegram Text sent:", resp.status_code)
-    
-    # 2. Attach Image 1: Cumulative HDD
-    photo1 = Path("outputs/cumulative_hdd_tracker.png")
-    if photo1.exists():
-        url_photo = f"https://api.telegram.org/bot{token}/sendPhoto"
-        with open(photo1, "rb") as f:
-            resp_p1 = requests.post(url_photo, data={"chat_id": chat_id}, files={"photo": f})
-            print("Telegram Cumulative Chart sent:", resp_p1.status_code)
-            
-    # 3. Attach Image 2: Seasonal Crossover
-    photo2 = Path("outputs/crossover_chart.png")
-    if photo2.exists():
-        url_photo = f"https://api.telegram.org/bot{token}/sendPhoto"
-        with open(photo2, "rb") as f:
-            resp_p2 = requests.post(url_photo, data={"chat_id": chat_id}, files={"photo": f})
-            print("Telegram Crossover Chart sent:", resp_p2.status_code)
-
     print("\n--- MESSAGE PREVIEW ---")
     print(msg)
 
