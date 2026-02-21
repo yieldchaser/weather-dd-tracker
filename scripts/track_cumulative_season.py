@@ -108,14 +108,9 @@ def main():
                 linewidth=3, label="NORM", marker="o", markersize=4)
                 
         # Plot "Actuals + Forecast"
-        # We can split actuals vs forecast with a dotted line, but combining for now
         ax.plot(current_year.index, current_year["cumulative_hdd"], color=COLORS["FCST"], 
                 linewidth=3, label="2025/2026", marker="o", markersize=4)
                 
-        # Add a fake 2022 year for visual completeness (matching user requested image)
-        fake_2022 = winter_norms["cumulative_norm"] * 1.10 # 10% colder
-        ax.plot(winter_norms.index, fake_2022, color=COLORS["2022"], linewidth=2, label="2022 (Simulated)")
-        
         ax.set_title("Cumulative HDD Degree : Current Season vs Normal", fontsize=14, fontweight='bold', pad=15)
         ax.set_ylabel("Cumulative HDD", fontweight="bold")
         ax.set_xlabel("Days", fontweight="bold")
