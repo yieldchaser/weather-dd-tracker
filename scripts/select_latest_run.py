@@ -27,7 +27,7 @@ def select_latest():
 
         out_path = f"outputs/{model.lower()}_latest.csv"
         latest.to_csv(out_path, index=False)
-        print(f"{model}: latest run = {latest_run} | {len(latest)} rows → {out_path}")
+        print(f"{model}: latest run = {latest_run} | {len(latest)} rows -> {out_path}")
 
 
 if __name__ == "__main__":

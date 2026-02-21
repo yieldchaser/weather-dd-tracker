@@ -117,6 +117,9 @@ def process_ecmwf(run_path, weights, w_lats, w_lons):
             temp_f_gw = temp_f_simple
         else:
             temp_f_2d = kelvin_to_f(temp_k_2d)
+            if temp_f_2d.size == 0:
+                print(f"  [WARN] Empty data array for valid time {vt}")
+                continue
             temp_f_simple = float(temp_f_2d.mean())
             if weights is not None:
                 data_lats = ds[lat_dim].values
@@ -165,6 +168,9 @@ def process_gfs(run_path, weights, w_lats, w_lons):
 
             temp_k_2d = ds[var].values
             temp_f_2d = kelvin_to_f(temp_k_2d)
+            if temp_f_2d.size == 0:
+                print(f"  [WARN] Empty data array in {file.name}")
+                continue
             temp_f_simple = float(temp_f_2d.mean())
 
             if weights is not None:

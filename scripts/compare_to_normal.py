@@ -107,7 +107,7 @@ def compare():
             f"{row['model']:6} {row['run_id']}  |  "
             f"HDD: {row['forecast_hdd_avg']:.1f} "
             f"(Normal: {row['normal_hdd_avg']:.1f}, {row['vs_normal_hdd']:+.1f})"
-            f"{gw_str}  |  → {row['signal']}"
+            f"{gw_str}  |  -> {row['signal']}"
         )
     print("--------------------------\n")
 

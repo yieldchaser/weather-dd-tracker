@@ -54,7 +54,7 @@ def find_latest_available_run():
     Try recent GFS runs in descending order.
     Return (run_date, cycle) for the first run that actually exists.
     """
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.UTC)
 
     for day_offset in [0, -1]:
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
@@ -113,7 +113,7 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
             f.write(chunk)
 
     size_kb = os.path.getsize(output_path) / 1024
-    print(f"  [OK] Saved {size_kb:.1f} KB → {os.path.basename(output_path)}")
+    print(f"  [OK] Saved {size_kb:.1f} KB -> {os.path.basename(output_path)}")
 
 
 # -----------------------------
@@ -173,7 +173,7 @@ def fetch_latest_gfs():
         "field": "TMP:2 m above ground (byte-range extracted)",
         "forecast_hours": fetched_hours,
         "skipped_hours": skipped_hours,
-        "created_utc": datetime.datetime.utcnow().isoformat()
+        "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
     }
 
     with open(os.path.join(run_dir, "manifest.json"), "w") as f:

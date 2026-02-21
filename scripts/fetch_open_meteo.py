@@ -159,7 +159,7 @@ def fetch_all_fallback():
     Called when primary model fetches (ECMWF + GFS) both fail.
     Returns list of (model_key, output_path) tuples.
     """
-    run_date_str = datetime.datetime.utcnow().strftime("%Y%m%d")
+    run_date_str = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     saved = []
@@ -170,7 +170,7 @@ def fetch_all_fallback():
         run_id = f"{run_date_str}_OM"
         out_path = OUTPUT_DIR / f"{run_id}_{model_key}_tdd.csv"
         df.to_csv(out_path, index=False)
-        print(f"  Saved → {out_path}")
+        print(f"  Saved -> {out_path}")
         saved.append((model_key, str(out_path)))
 
     if saved:
