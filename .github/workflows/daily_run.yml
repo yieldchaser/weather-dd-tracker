@@ -29,6 +29,7 @@ jobs:
           mkdir -p data/ecmwf
           mkdir -p data/gfs
           mkdir -p data/normals
+          mkdir -p data/open_meteo
           mkdir -p outputs
 
       - name: Copy normals file

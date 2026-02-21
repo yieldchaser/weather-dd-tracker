@@ -1,14 +1,34 @@
+"""
+select_latest_run.py
+
+Selects the most recent run for each model from tdd_master.csv
+and saves them to outputs/<model>_latest.csv for quick Excel ingestion.
+"""
+
 import pandas as pd
+import os
 
-INPUT = "outputs/gfs_tdd_master.csv"
-OUTPUT = "outputs/gfs_latest.csv"
+MASTER = "outputs/tdd_master.csv"
 
-df = pd.read_csv(INPUT)
 
-latest_run = df["run_id"].max()
-latest = df[df["run_id"] == latest_run]
+def select_latest():
+    if not os.path.exists(MASTER):
+        print("Master file not found. Run merge_tdd.py first.")
+        return
 
-latest.to_csv(OUTPUT, index=False)
+    df = pd.read_csv(MASTER, parse_dates=["date"])
 
-print(f"Latest run selected: {latest_run}")
-print(f"Rows written: {len(latest)}")
+    os.makedirs("outputs", exist_ok=True)
+
+    for model in df["model"].unique():
+        m = df[df["model"] == model]
+        latest_run = m["run_id"].max()
+        latest = m[m["run_id"] == latest_run]
+
+        out_path = f"outputs/{model.lower()}_latest.csv"
+        latest.to_csv(out_path, index=False)
+        print(f"{model}: latest run = {latest_run} | {len(latest)} rows → {out_path}")
+
+
+if __name__ == "__main__":
+    select_latest()
