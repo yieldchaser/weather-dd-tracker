@@ -49,20 +49,27 @@ weather-dd-tracker/
 │   └── run_delta.csv              # ✅ Day-by-day delta: tdd_change + tdd_gw_change
 │
 └── scripts/
-    ├── daily_update.py            # ✅ Orchestrator: 7 steps (select_latest_run added)
-    ├── build_gas_weights.py       # ✅ Weight grid + seasonal GW normals
+    ├── daily_update.py            # ✅ Orchestrator: Runs 10-step full pipeline
+    ├── poll_models.py             # ✅ Smart Poller for event-driven real-time execution (Phase 7)
     ├── fetch_ecmwf_ifs.py         # ECMWF IFS HRES (CONUS area, 0.25°)
     ├── fetch_gfs.py               # GFS via NOMADS byte-range (t2m only)
-    ├── fetch_open_meteo.py        # ✅ Fallback: 17-city demand-weighted avg
+    ├── fetch_open_meteo.py        # Fallback: 17-city demand-weighted avg
+    ├── build_gas_weights.py       # Weight grid + seasonal GW normals (Phase 2)
+    ├── build_true_gw_grid.py      # EIA true consumption density raster map (Phase 3)
     ├── compute_tdd.py             # GRIB→CSV: tdd + tdd_gw per day
-    ├── merge_tdd.py               # ✅ Glob+merge with deduplication
-    ├── select_latest_run.py       # ✅ Now called in pipeline (no longer orphaned)
-    ├── compare_to_normal.py       # ✅ HDD/CDD anomaly: simple + GW columns
-    ├── compute_run_delta.py       # ✅ Day-by-day delta: tdd + tdd_gw
-    ├── run_change.py              # ✅ Run totals + sequential change: tdd + tdd_gw
-    ├── compare_runs.py            # Legacy GFS-only comparison (standalone only)
-    ├── plot_gfs_tdd.py            # Standalone chart generator (not in automation)
-    └── send_telegram.py           # Trading-grade Telegram report (GW-first)
+    ├── merge_tdd.py               # Glob all outputs + merge with deduplication
+    ├── select_latest_run.py       # Extract latest GFS/ECMWF to separate files
+    ├── compare_to_normal.py       # HDD/CDD anomaly vs 10Y/30Y: simple + GW columns
+    ├── compute_run_delta.py       # Day-by-day delta: tdd + tdd_gw
+    ├── run_change.py              # Run totals + sequential change: tdd + tdd_gw
+    ├── build_model_shift_table.py # ✅ Generates Model Shift Table (Phase 4)
+    ├── build_freeze_offs.py       # ✅ US Freeze-Off predictor based on Permian/Bakken temps (Phase 4)
+    ├── build_crossover_matrix.py  # ✅ Generates Seasonal Crossover matrix & chart (Phase 4)
+    ├── track_cumulative_season.py # ✅ Tracks cumulative winter HDDs vs prior years (Phase 4)
+    ├── build_historical_threshold_matrix.py # ✅ Generates dynamic 21-yr MB Threshold matrix tracking (Phase 6)
+    ├── send_telegram.py           # Trading-grade text-based Telegram report (Phase 5)
+    ├── compare_runs.py            # Legacy GFS-only comp (standalone only)
+    └── plot_gfs_tdd.py            # Standalone chart generator (not in automation)
 ```
 
 ---
@@ -258,6 +265,12 @@ GitHub Actions (14:00 UTC daily)
 | `vs_normal.csv` | Per-day anomaly | `compare_to_normal.py` ✅ | `hdd_anomaly` + `hdd_anomaly_gw` |
 | `run_change.csv` | Total TDD + run delta | `run_change.py` ✅ | `tdd_gw` + `hdd_change_gw` |
 | `run_delta.csv` | Day-by-day delta | `compute_run_delta.py` ✅ | `tdd_gw_change` |
+| `model_shift_table.csv` | Grid comparison of GFS vs ECMWF shifts | `build_model_shift_table.py` ✅ | |
+| `freeze_off_forecast.csv` | Predicted MMcf/d production loss | `build_freeze_offs.py` ✅ | |
+| `seasonal_crossover.csv` | HDD/CDD Season transition metrics | `build_crossover_matrix.py` ✅ | |
+| `historical_hdd_thresholds.xlsx` | 21-Yr dynamic MB Threshold matrix | `build_historical_threshold_matrix.py` ✅ | |
+| `crossover_chart.png` | Fall/Spring Crossover Visual | `build_crossover_matrix.py` ✅ | |
+| `cumulative_hdd_tracker.png` | Winter pace vs 10Y/30Y/Past Years | `track_cumulative_season.py` ✅ | |
 
 ---
 
