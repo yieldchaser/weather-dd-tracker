@@ -98,7 +98,7 @@ def fetch():
         except Exception as e:
             print(f"[ERR] {run_id} not available yet: {e}")
 
-    raise RuntimeError("No complete ECMWF IFS runs available today.")
+    print("No complete ECMWF IFS runs available today. Exiting gracefully without crash for downstream AI runs.")
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 *   **NAM** (12km, 84-hour) — ❌ Pending (via NOMADS)
 *   **ICON** (13km global) — ❌ Pending (via DWD / Open-Meteo)
 *   **UKMET & ARPEGE & JMA GSM** — ❌ Pending (via AWS / Open-Meteo)
-*   **NBM** (National Blend of Models) — ❌ Pending (The US consensus signal)
+*   **NBM** (National Blend of Models) — ✅ Active (The US consensus signal)
 
 **Ensemble Models (Probabilistic Layer):**
 *Constraint Warning: GitHub Actions will crash on full global ensemble GRIBs. We must use AWS S3 range requests to subset to 2-meter temperature (`t2m`) only.*

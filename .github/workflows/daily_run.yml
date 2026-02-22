@@ -38,7 +38,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata matplotlib openpyxl
+          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata matplotlib openpyxl kaggle
 
       - name: Create required directories
         run: |
@@ -53,12 +53,16 @@ jobs:
         run: |
           cp data/us_daily_normals.csv data/normals/us_daily_normals.csv || true
 
-      - name: Run Model Poller
+      - name: Run Model Poller & Dispatch AI Models
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
         run: |
           python scripts/poll_models.py
+          python scripts/trigger_kaggle.py || echo "[WARN] Kaggle Trigger failed, skipping."
 
       - name: Commit pipeline state and tracker outputs
         run: |

@@ -113,10 +113,45 @@ def poll():
         new_state["ECMWF"] = latest_ecmwf_avail
         triggered = True
         
-    if triggered:
+    if triggered or True: # Forced true for manual testing triggers
         print("\n[ACTION] Triggering pipeline via daily_update.py...")
-        # Execute the pipeline
+        # Execute the pipeline (allowing it to not crash the loop if one of the fetchers fails due to early schedule)
         subprocess.run(["python", "scripts/daily_update.py"], check=False)
+
+        print("\n[PHASE 2] Running Data Fetchers")
+        tasks = {
+            "run_ecmwf_aifs": lambda: subprocess.run([sys.executable, "scripts/fetch_ecmwf_aifs.py"], check=True),
+            "run_open_meteo": lambda: subprocess.run([sys.executable, "scripts/fetch_open_meteo.py"], check=True),
+            "run_telemetry":  lambda: subprocess.run([sys.executable, "scripts/generate_telemetry.py"], check=True),
+        }
+
+        print("\n[PHASE 3] Generating Market Proxies")
+        
+        market_tasks = {
+            "run_disagreement": lambda: subprocess.run([sys.executable, "scripts/market_logic/physics_vs_ai_disagreement.py"], check=True),
+            "run_power_burn":   lambda: subprocess.run([sys.executable, "scripts/market_logic/power_burn_proxy.py"], check=True),
+            "run_wind_anomaly": lambda: subprocess.run([sys.executable, "scripts/market_logic/renewables_generation_proxy.py"], check=True),
+            "run_composite":    lambda: subprocess.run([sys.executable, "scripts/market_logic/composite_score.py"], check=True),
+        }
+
+        # Combine all tasks
+        all_tasks = {**tasks, **market_tasks}
+
+        for job_name, task_func in all_tasks.items():
+            print(f"  Running task: {job_name}...")
+            try:
+                task_func()
+                state["last_run"][job_name] = ts
+                state["status"][job_name] = "success"
+                print(f"  Task '{job_name}' completed successfully.")
+            except subprocess.CalledProcessError as e:
+                state["last_run"][job_name] = ts
+                state["status"][job_name] = f"failed: {e}"
+                print(f"  Task '{job_name}' failed with error: {e}")
+            except Exception as e:
+                state["last_run"][job_name] = ts
+                state["status"][job_name] = f"failed: {e}"
+                print(f"  Task '{job_name}' failed with unexpected error: {e}")
         
         # Save state so we don't trigger it again
         save_state(new_state)

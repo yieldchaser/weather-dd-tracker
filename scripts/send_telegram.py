@@ -49,8 +49,8 @@ def _band(df, model, run_id, start_day, end_day, tdd_col, norm_col):
 
 
 def send():
-    token   = os.environ["TELEGRAM_TOKEN"]
-    chat_id = os.environ["TELEGRAM_CHAT_ID"]
+    token   = os.environ.get("TELEGRAM_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
     master = Path("outputs/tdd_master.csv")
     if not master.exists():
@@ -113,10 +113,26 @@ def send():
     latest    = sorted_s.groupby("model").last().reset_index()
     prev      = sorted_s.groupby("model").nth(-2).reset_index()
 
+    # ── Load market bias ──────────────────────────────────────────────────
+    market_bias_str = "NEUTRAL ⚪"
+    bias_file = Path("outputs/composite_bull_bear_signal.csv")
+    if bias_file.exists():
+        try:
+            df_bias = pd.read_csv(bias_file)
+            if not df_bias.empty:
+                val = str(df_bias['market_bias'].iloc[0]).upper()
+                if "BULL" in val: market_bias_str = "BULLISH 🟢"
+                elif "BEAR" in val: market_bias_str = "BEARISH 🔴"
+        except:
+            pass
+
     # ── Build message ─────────────────────────────────────────────────────
     today = date.today().strftime("%Y-%m-%d")
     mode_tag = " [Gas-Weighted]" if (tdd_col == "tdd_gw" and gw_mode) else " [CONUS avg]"
-    lines = [f"WEATHER DESK -- {today}{mode_tag}\n"]
+    lines = [
+        f"WEATHER DESK -- {today}{mode_tag}",
+        f"Algorithmic Bias (Next 24H): {market_bias_str}\n"
+    ]
 
     model_avgs = {}
 
@@ -191,12 +207,19 @@ def send():
         lines.append("Consensus: NEUTRAL ⚪")
 
     msg = "\n".join(lines)
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    # Send the text message
-    resp = requests.post(url, json={"chat_id": chat_id, "text": msg})
-    print("Telegram Text sent:", resp.status_code)
+    if token and chat_id:
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            resp = requests.post(url, json={"chat_id": chat_id, "text": msg})
+            print("Telegram Text sent:", resp.status_code)
+        except Exception as e:
+            print(f"[ERR] Failed to post to Telegram: {e}")
+    else:
+        print("[WARN] No Telegram tokens found. Skipped webhook push.")
+        
     print("\n--- MESSAGE PREVIEW ---")
-    print(msg)
+    safe_msg = msg.encode('ascii', 'ignore').decode('ascii')
+    print(safe_msg)
 
 
 if __name__ == "__main__":

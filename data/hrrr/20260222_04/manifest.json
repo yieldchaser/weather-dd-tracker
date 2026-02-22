@@ -1,0 +1,30 @@
+{
+  "model": "HRRR",
+  "run_date": "20260222",
+  "cycle": "04",
+  "field": "TMP:2 m above ground (byte-range extracted)",
+  "forecast_hours": [
+    0,
+    1
+  ],
+  "skipped_hours": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+  ],
+  "created_utc": "2026-02-22T04:54:22.316911+00:00"
+}
