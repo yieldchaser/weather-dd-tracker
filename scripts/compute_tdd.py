@@ -54,9 +54,16 @@ def crop_to_conus(ds):
     if lons.min() < 0:
         ds = ds.assign_coords({lon_dim: (ds[lon_dim] % 360)})
         ds = ds.sortby(lon_dim)
+    # Handle latitude slice direction
+    lats = ds[lat_dim].values
+    if lats[0] > lats[-1]: # Descending
+        lat_slice = slice(CONUS_LAT_MAX, CONUS_LAT_MIN)
+    else: # Ascending
+        lat_slice = slice(CONUS_LAT_MIN, CONUS_LAT_MAX)
+
     try:
         ds = ds.sel({
-            lat_dim: slice(CONUS_LAT_MIN, CONUS_LAT_MAX),
+            lat_dim: lat_slice,
             lon_dim: slice(CONUS_LON_MIN, CONUS_LON_MAX),
         })
         print(f"  [OK] CONUS crop: {ds[lat_dim].size} × {ds[lon_dim].size} grid pts")
