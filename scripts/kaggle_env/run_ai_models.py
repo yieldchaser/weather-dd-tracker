@@ -49,6 +49,7 @@ def ensure_dir(d):
 def install_system_dependencies():
     print("Installing system dependencies for ai-models and earth2studio...")
     subprocess.run("apt-get update && apt-get install -y libeccodes0", shell=True, check=False)
+    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 earth2studio onnxruntime-gpu", shell=True, check=True)
 
 def run_earth2_subset(model_name):
     """
