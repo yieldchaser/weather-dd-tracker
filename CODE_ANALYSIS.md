@@ -460,4 +460,38 @@ Outstanding Issues: 0
 
 ---
 
-*Last updated: 2026-02-22. Implemented Cumulative Season Tracker, Crossover Visualizations, and Dynamic 21-Yr Historical Matrix tracking days over MB Threshold. All requested reporting features completed.*
+---
+
+### ✅ Phase 9 — Expand Physics & AI Access (COMPLETE)
+
+| Task | Detail | Status |
+|---|---|---|
+| AIFS & ENS Fetchers | Added `fetch_ecmwf_aifs.py` and `fetch_ecmwf_ens.py` via `ecmwf-opendata`. | ✅ |
+| NOMADS Byte-Range | Added `fetch_hrrr.py` and `fetch_nam.py` extracting partial byte slices. | ✅ |
+| AWS GEFS & NBM | Added `fetch_gefs.py` (parallellized) and `fetch_nbm.py` via AWS buckets. | ✅ |
+| Open-Meteo ICON | Added `fetch_icon.py` via demand-weighted JSON arrays. | ✅ |
+
+---
+
+### ✅ Phase 10 — Establish the Kaggle API Link (Track B Hub) (COMPLETE)
+
+| Task | Detail | Status |
+|---|---|---|
+| GPU Trigger Script | Added `trigger_kaggle.py` to bridge GitHub Actions to Kaggle. | ✅ |
+| AI Inference Engine | Added `kaggle_env/run_ai_models.py` embedding Pangu, GraphCast, FourCastNetV2, Earth-2, and Aurora. | ✅ |
+| Memory Subsetting | Subsets 24GB Earth-2 models safely on 16GB Kaggle T4 GPUs. | ✅ |
+
+---
+
+### ✅ Phase 11 — Deep Market Logic Integration (COMPLETE)
+
+| Task | Detail | Status |
+|---|---|---|
+| Physics vs AI Matrix | Added `physics_vs_ai_disagreement.py` to track structural divergence (Volatility score). | ✅ |
+| Power Burn Proxy | Added `power_burn_proxy.py` to weight CDDs specifically to ERCOT/Southeast peaker plants. | ✅ |
+| Renewables Anomaly | Added `renewables_generation_proxy.py` to flag wind droughts driving physical spot gas pricing. | ✅ |
+| Composite Engine | Added `composite_score.py` bounded -1.0 to 1.0 (Strong Bear to Strong Bull). | ✅ |
+
+---
+
+*Last updated: 2026-02-22. Successfully implemented the Dual-Track AI inference architecture and advanced deep market proxy engine for Henry Hub physical delivery forecasting.*
