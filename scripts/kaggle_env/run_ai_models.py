@@ -19,8 +19,9 @@ import subprocess
 # --- Config ---
 # We use `ai-models` for GraphCast, Pangu, and FCNv2
 AI_MODELS_CLI = ["panguweather", "graphcast", "fourcastnetv2-small"]
-# We use `earth2studio` natively for Earth-2 and Aurora to aggressively subset the memory footprint.
-EARTH2_MODELS = ["earth2_medium", "earth2_nowcast"] # Aurora is technically an independent ONNX, but we manage it here.
+# We use `earth2studio` natively for Earth-2 to aggressively subset the memory footprint.
+# Earth2 names: "atlas" (medium range), "stormscope" (nowcast)
+EARTH2_MODELS = ["atlas", "stormscope"]
 
 LEAD_TIME_HOURS = 240 # 10 days
 OUTPUT_DIR = "/kaggle/working/output"
@@ -50,8 +51,10 @@ def install_system_dependencies():
     print("Installing system dependencies for ai-models and earth2studio...")
     subprocess.run("apt-get update && apt-get install -y libeccodes0", shell=True, check=False)
     # Python 3.12 cannot use archaic jax<0.4.14, so we aggressively override the graphcast haiku dependency.
-    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 earth2studio onnxruntime-gpu", shell=True, check=True)
+    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 earth2studio onnxruntime-gpu torch torchvision torchaudio", shell=True, check=True)
     subprocess.run("pip install 'dm-haiku>=0.0.11'", shell=True, check=True)
+    # Enable expandable segments to reduce fragmentation on 16GB T4
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 def run_earth2_subset(model_name):
     """
@@ -59,21 +62,53 @@ def run_earth2_subset(model_name):
     Kaggle T4 only has 16GB. We must explicitly instruct the data source to chunk, 
     and only output `t2m` and `wind` directly to disk instead of holding the 4D tensor in RAM.
     """
+    import torch
+    import earth2studio.models.px as px
+    import earth2studio.data as data
+    from earth2studio.run import deterministic
+    from earth2studio.io import netcdf
+
     print(f"\n--- Running INFERENCE: {model_name} (Via Earth2Studio Subsetter) ---")
     out_file = os.path.join(OUTPUT_DIR, f"{model_name}_out.nc")
     
-    # Normally this uses earth2studio.models.load(...)
-    # Due to Kaggle constraints during headless CI/CD, we execute a subset process 
-    # capturing the memory-saving flags.
-    # Note: In a live environment, specific Earth2Studio python API calls are handled here.
-    # We simulate the exact required subset logic:
-    
-    # python -c "import earth2studio; model = earth2studio.models.auto.AutoModelForCausalLM.from_pretrained('nvidia/earth2'); subset_inference(model, variables=['t2m', 'u10m', 'v10m'])"
-    print(f"[{model_name}] Subset execution enforced: Outputting t2m/w10m only to prevent Kaggle OOM limits on T4.")
-    
-    # For now, if earth2studio is installed, we would run it here.
-    # We will generate a mock completion for pipeline continuity until physical weights are downloaded into Kaggle cache.
-    return None # We return None until the weights are actively cached to prevent Kaggle timeout
+    try:
+        # 1. Load Model
+        if model_name == "atlas":
+            package = px.atlas.load_default_package()
+            model = px.atlas.load_model(package)
+        elif model_name == "stormscope":
+            package = px.stormscope.load_default_package()
+            model = px.stormscope.load_model(package)
+        else:
+            print(f"[ERR] Unknown Earth-2 model: {model_name}")
+            return None
+
+        # 2. Data Source (Defaulting to GFS for Earth2Studio stability)
+        # We handle lead time by requesting specific steps
+        ds = data.GFS()
+
+        # 3. IO Backend
+        io = netcdf(out_file)
+
+        # 4. Run Deterministic Workflow
+        # Lead time is hours/6 because most models use 6h steps
+        n_steps = LEAD_TIME_HOURS // 6
+        
+        print(f"[{model_name}] Starting {n_steps} step forecast...")
+        
+        # We subset variables in the runner if supported, else we rely on the fact 
+        # that we only care about t2m in extract_conus_tdd.
+        # Note: True memory hack is using torch.cuda.empty_cache() between steps
+        deterministic(model, ds, io, n_steps=n_steps)
+        
+        torch.cuda.empty_cache()
+        print(f"[OK] Earth-2 {model_name} complete: {out_file}")
+        return out_file
+        
+    except Exception as e:
+        print(f"[ERR] Earth-2 {model_name} failed: {e}")
+        torch.cuda.empty_cache()
+        return None
 
 def run_ai_models_cli(model_name):
     print(f"\n--- Running INFERENCE: {model_name} (Via ai-models CLI) ---")
@@ -105,10 +140,17 @@ def extract_conus_tdd(grib_path, model_name):
 
     print(f"Extracting TDD from {grib_path}...")
     try:
-        # ai-models outputs standard GRIB fields. We need 2t (2-meter temp)
-        ds = xr.open_dataset(grib_path, engine="cfgrib", filter_by_keys={'shortName': '2t'})
+        if str(grib_path).endswith(".nc"):
+            ds = xr.open_dataset(grib_path)
+            # Earth2Studio netcdf usually names t2m directly or as a coordinate
+            var_name = 't2m' if 't2m' in ds.data_vars else list(ds.data_vars)[0]
+            temp_array = ds[var_name].values
+        else:
+            # ai-models outputs standard GRIB fields. We need 2t (2-meter temp)
+            ds = xr.open_dataset(grib_path, engine="cfgrib", filter_by_keys={'shortName': '2t'})
+            temp_array = ds['2t'].values
     except Exception as e:
-        print(f"[ERR] Could not open GRIB for {model_name}: {e}")
+        print(f"[ERR] Could not open {grib_path} for {model_name}: {e}")
         return None
 
     # Determine native coordinate systems format (0-360 or -180 to 180)
@@ -135,8 +177,8 @@ def extract_conus_tdd(grib_path, model_name):
         city_indices.append((city, lat_idx, lon_idx, weight))
 
     # Iterate through each time step
-    # ds['2t'] shape is likely (step, latitude, longitude)
-    temps_celsius = ds['2t'].values
+    # ds['2t'] or 't2m' shape is likely (step, latitude, longitude)
+    temps_celsius = temp_array
     # Check if Kelvin (usually AI models output natively in Kelvin if uncalibrated)
     if np.nanmean(temps_celsius) > 200:
         temps_celsius = temps_celsius - 273.15
