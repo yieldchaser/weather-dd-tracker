@@ -213,7 +213,7 @@ def process_all():
     gw_active = weights is not None
     print(f"\nGas-weighting: {'[OK] ACTIVE' if gw_active else '[ERR] INACTIVE (fallback to simple mean)'}")
 
-    for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs")]:
+    for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs"), ("ECMWF_AIFS", "data/ecmwf_aifs")]:
         if not os.path.exists(folder):
             continue
         for run_id in sorted(os.listdir(folder)):
