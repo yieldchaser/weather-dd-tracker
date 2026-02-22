@@ -49,8 +49,9 @@ def ensure_dir(d):
 def install_system_dependencies():
     print("Installing system dependencies for ai-models and earth2studio...")
     subprocess.run("apt-get update && apt-get install -y libeccodes0", shell=True, check=False)
-    # Pin JAX < 0.4.14 to fix GraphCast's legacy haiku dependency on `jax.linear_util`
-    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 earth2studio onnxruntime-gpu 'jax[cuda12]<0.4.14' 'jaxlib<0.4.14'", shell=True, check=True)
+    # Python 3.12 cannot use archaic jax<0.4.14, so we aggressively override the graphcast haiku dependency.
+    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 earth2studio onnxruntime-gpu", shell=True, check=True)
+    subprocess.run("pip install 'dm-haiku>=0.0.11'", shell=True, check=True)
 
 def run_earth2_subset(model_name):
     """
