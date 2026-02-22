@@ -102,6 +102,9 @@ def run_earth2_subset(model_name):
         deterministic(model, ds, io, n_steps=n_steps)
         
         torch.cuda.empty_cache()
+        # Aggressive Disk Cleanup for Earth2 HuggingFace Caches
+        os.system("rm -rf ~/.cache/huggingface/*")
+        
         print(f"[OK] Earth-2 {model_name} complete: {out_file}")
         return out_file
         
@@ -117,16 +120,31 @@ def run_ai_models_cli(model_name):
     cmd = [
         "ai-models",
         "--input", "ecmwf-open-data",
-        "--download-assets",
         "--lead-time", str(LEAD_TIME_HOURS),
-        "--path", out_grib,
-        model_name
+        "--path", out_grib
     ]
+    
+    # FourCastNet requires assets locally to not crash, Pangu/GraphCast don't strictly need this flag
+    # but they all download massive weights. We must clean them up right after.
+    if model_name == "fourcastnetv2-small":
+         cmd.append("--download-assets")
+         
+    cmd.append(model_name)
     
     try:
         start = time.time()
         subprocess.run(cmd, check=True)
         print(f"[{model_name}] Inference complete in {time.time()-start:.1f}s")
+        
+        # AGGRESSIVE CACHE CLEANUP: Kaggle Free T4 only has 20GB Disk Space.
+        # Pangu and Graphcast weights are 1.2GB - 3GB each. Delete them immediately.
+        os.system("rm -rf *.onnx")
+        os.system("rm -rf *.tar")
+        os.system("rm -rf global_means.npy global_stds.npy")
+        # Clean pip/huggingface caches to free space for Earth-2
+        os.system("rm -rf ~/.cache/huggingface") 
+        os.system("rm -rf ~/.cache/torch")
+        
         return out_grib
     except subprocess.CalledProcessError as e:
         print(f"[ERR] Model {model_name} failed: {e}")
