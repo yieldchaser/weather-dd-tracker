@@ -124,7 +124,6 @@ def poll():
         tasks = {
             "run_ecmwf_aifs": lambda: subprocess.run([sys.executable, "scripts/fetch_ecmwf_aifs.py"], check=True),
             "run_open_meteo": lambda: subprocess.run([sys.executable, "scripts/fetch_open_meteo.py"], check=True),
-            "run_telemetry":  lambda: subprocess.run([sys.executable, "scripts/generate_telemetry.py"], check=True),
         }
 
         print("\n[PHASE 3] Generating Market Proxies")
