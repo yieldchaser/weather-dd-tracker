@@ -163,7 +163,14 @@ def extract_conus_tdd(grib_path, model_name):
 
 def push_to_github(csv_path, csv_name):
     print("Pushing results to GitHub...")
-    token = os.environ.get("GITHUB_PAT")
+    token = None
+    try:
+        from kaggle_secrets import UserSecretsClient
+        user_secrets = UserSecretsClient()
+        token = user_secrets.get_secret("GITHUB_PAT")
+    except Exception as e:
+        print(f"[WARN] Could not retrieve GITHUB_PAT from Kaggle Secrets: {e}")
+        
     if not token:
         print("[WARN] No GITHUB_PAT found. Skipping push.")
         return
