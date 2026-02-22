@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import datetime
 import requests
@@ -69,6 +70,7 @@ def check_ecmwf_complete(date_str, cycle):
 
 def poll():
     state = load_state()
+    ts = datetime.datetime.now(datetime.UTC).isoformat()
     now_utc = datetime.datetime.now(datetime.UTC)
     
     # Check today and yesterday (to handle rollover hours)
@@ -137,20 +139,23 @@ def poll():
         # Combine all tasks
         all_tasks = {**tasks, **market_tasks}
 
+        if "last_run" not in new_state: new_state["last_run"] = {}
+        if "status" not in new_state: new_state["status"] = {}
+
         for job_name, task_func in all_tasks.items():
             print(f"  Running task: {job_name}...")
             try:
                 task_func()
-                state["last_run"][job_name] = ts
-                state["status"][job_name] = "success"
+                new_state["last_run"][job_name] = ts
+                new_state["status"][job_name] = "success"
                 print(f"  Task '{job_name}' completed successfully.")
             except subprocess.CalledProcessError as e:
-                state["last_run"][job_name] = ts
-                state["status"][job_name] = f"failed: {e}"
+                new_state["last_run"][job_name] = ts
+                new_state["status"][job_name] = f"failed: {e}"
                 print(f"  Task '{job_name}' failed with error: {e}")
             except Exception as e:
-                state["last_run"][job_name] = ts
-                state["status"][job_name] = f"failed: {e}"
+                new_state["last_run"][job_name] = ts
+                new_state["status"][job_name] = f"failed: {e}"
                 print(f"  Task '{job_name}' failed with unexpected error: {e}")
         
         # Save state so we don't trigger it again
