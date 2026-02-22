@@ -10,6 +10,7 @@ def load_all():
         glob("data/gfs/*_tdd.csv")
         + glob("data/ecmwf/*_tdd.csv")
         + glob("data/ecmwf_aifs/*_tdd.csv")
+        + glob("data/nbm/*_tdd.csv")
         + glob("data/open_meteo/*_tdd.csv")
         + glob("data/ai_models/**/*_tdd.csv", recursive=True)
     )

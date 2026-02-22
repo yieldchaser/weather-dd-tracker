@@ -123,6 +123,7 @@ def poll():
         print("\n[PHASE 2] Running Data Fetchers")
         tasks = {
             "run_ecmwf_aifs": lambda: subprocess.run([sys.executable, "scripts/fetch_ecmwf_aifs.py"], check=True),
+            "run_nbm":        lambda: subprocess.run([sys.executable, "scripts/fetch_nbm.py"], check=True),
             "run_open_meteo": lambda: subprocess.run([sys.executable, "scripts/fetch_open_meteo.py"], check=True),
         }
 

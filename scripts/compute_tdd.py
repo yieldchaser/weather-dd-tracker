@@ -208,12 +208,71 @@ def process_gfs(run_path, weights, w_lats, w_lons):
     return None
 
 
+def process_nbm(run_path, weights, w_lats, w_lons):
+    files = sorted([
+        f for f in Path(run_path).iterdir()
+        if f.name.startswith("blend.") and f.name.endswith(".grib2")
+    ])
+    if not files:
+        print("  No NBM files found.")
+        return None
+
+    rows = []
+    for file in files:
+        print(f"  Reading: {file.name}")
+        try:
+            ds = xr.open_dataset(
+                file, engine="cfgrib",
+                backend_kwargs={
+                    "filter_by_keys": {"typeOfLevel": "heightAboveGround", "level": 2},
+                    "indexpath": ""
+                }
+            )
+            # NBM 'co' grids are already bounded to CONUS and use 2D Lambert projections.
+            # We skip 'crop_to_conus' and gas-weight interpolation.
+            var = list(ds.data_vars)[0]
+
+            temp_k_2d = ds[var].values
+            temp_f_2d = kelvin_to_f(temp_k_2d)
+            if temp_f_2d.size == 0:
+                print(f"  [WARN] Empty data array in {file.name}")
+                continue
+            
+            temp_f_simple = float(temp_f_2d.mean())
+            
+            # Since interpolation over 2D Lambert Coordinates requires heavy Cartopy bounds, 
+            # we utilize the direct NBM CONUS area average as the baseline signal.
+            temp_f_gw = temp_f_simple
+
+            vt = ds.valid_time.values
+            date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()
+
+            rows.append({
+                "date":         date,
+                "mean_temp":    round(temp_f_simple, 2),
+                "tdd":          round(tdd(temp_f_simple), 2),
+                "mean_temp_gw": round(temp_f_gw, 2),
+                "tdd_gw":       round(tdd(temp_f_gw), 2),
+            })
+        except Exception as e:
+            print(f"  Skipping {file.name}: {e}")
+
+    if rows:
+        df = pd.DataFrame(rows)
+        # NBM generates multiple hours for the same day; we want daily average TDDs.
+        df = df.groupby(["date"]).mean().reset_index()
+        return df
+
+    print("  No valid rows computed for NBM.")
+    return None
+
+
 def process_all():
     weights, w_lats, w_lons = load_weights()
     gw_active = weights is not None
     print(f"\nGas-weighting: {'[OK] ACTIVE' if gw_active else '[ERR] INACTIVE (fallback to simple mean)'}")
 
-    for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs"), ("ECMWF_AIFS", "data/ecmwf_aifs")]:
+    for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs"), ("ECMWF_AIFS", "data/ecmwf_aifs"), ("NBM", "data/nbm")]:
         if not os.path.exists(folder):
             continue
         for run_id in sorted(os.listdir(folder)):
@@ -221,9 +280,12 @@ def process_all():
             if not os.path.isdir(run_path):
                 continue
             print(f"\nProcessing: {run_id} ({model})")
-            df = (process_ecmwf(run_path, weights, w_lats, w_lons)
-                  if model == "ECMWF"
-                  else process_gfs(run_path, weights, w_lats, w_lons))
+            if model == "ECMWF":
+                df = process_ecmwf(run_path, weights, w_lats, w_lons)
+            elif model == "NBM":
+                df = process_nbm(run_path, weights, w_lats, w_lons)
+            else:
+                df = process_gfs(run_path, weights, w_lats, w_lons)
             if df is None or df.empty:
                 continue
             df["model"]  = model
