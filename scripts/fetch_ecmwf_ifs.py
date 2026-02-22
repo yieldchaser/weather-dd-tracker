@@ -72,7 +72,6 @@ def fetch():
                 stream="oper",
                 type="fc",
                 resol="0p25",
-                area=ECMWF_AREA,          # ← CONUS bounding box at source
                 date=date,
                 time=cycle,
                 step=[str(x) for x in EXPECTED_STEPS],
