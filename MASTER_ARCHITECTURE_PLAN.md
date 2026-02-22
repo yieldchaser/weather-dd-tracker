@@ -85,10 +85,10 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 *GitHub Actions pings the Kaggle API. Kaggle spins up a 16GB VRAM T4 GPU, runs the inference, and pushes the CSV back to your repo. All models below are managed via the unified `earth2studio` and `ai-models` libraries.*
 *   **NVIDIA Earth-2 Medium Range (Atlas):** 15-day forecast. Crucial Hack: We must subset this 2.5B parameter model in `earth2studio` to only output `t2m` (temperature) and `u10m/v10m` (wind) to prevent Kaggle's 16GB VRAM from crashing.
 *   **NVIDIA Earth-2 Nowcasting (StormScope):** 0 to 6-hour hyper-local storm prediction. Outperforms traditional physics on short-term horizons; critical for sudden intraday generation drops.
-*   **Pangu-Weather (Huawei):** 1.4 seconds per step, natively supported by `ai-models`.
-*   **FourCastNetV2 (NVIDIA):** Handled cleanly within `earth2studio`.
+*   **Pangu-Weather (Huawei):** 1.4 seconds per step, natively supported by `ai-models`. — ✅ Active
+*   **FourCastNetV2 (NVIDIA):** Handled cleanly within `earth2studio`. — ✅ Active
 *   **Aurora (Microsoft):** Outstanding for extreme temperature events.
-*   **GraphCast (Google DeepMind):** Will be run at a slightly downscaled resolution to prevent Kaggle OOM errors.
+*   **GraphCast (Google DeepMind):** Will be run at a slightly downscaled resolution to prevent Kaggle OOM errors. — ✅ Active
 
 ---
 
