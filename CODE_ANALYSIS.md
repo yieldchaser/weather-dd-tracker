@@ -285,7 +285,7 @@ GitHub Actions (Every 15 mins during release windows)
 - Day counter always uses `tdd` (never NaN)
 - Near-term D1–7 + Extended D8–14 split
 - Same-window run change (overlapping dates only)
-- Consecutive trend counter + model spread + consensus
+- Consecutive trend counter + multi-model spread + dynamic all-model consensus logic
 - Header: `[Gas-Weighted]` or `[CONUS avg]` based on data availability
 **Status: ✅ Correct**
 

@@ -185,8 +185,9 @@ def send():
         lines.append(block)
 
     # ── Model spread ──────────────────────────────────────────────────────
-    if len(model_avgs) == 2:
-        spread = abs(list(model_avgs.values())[0] - list(model_avgs.values())[1])
+    if len(model_avgs) >= 2:
+        vals = list(model_avgs.values())
+        spread = max(vals) - min(vals)
         if spread <= 0.5:
             spread_lbl = "TIGHT - high conviction"
         elif spread <= 1.5:
@@ -197,14 +198,24 @@ def send():
 
     # ── Consensus ─────────────────────────────────────────────────────────
     signals = [row["signal"] for _, row in latest.iterrows()]
-    if all("BULLISH" in s for s in signals):
-        lines.append("Consensus: BULLISH 🟢 - both models agree")
-    elif all("BEARISH" in s for s in signals):
-        lines.append("Consensus: BEARISH 🔴 - both models agree")
-    elif any("BULLISH" in s for s in signals) and any("BEARISH" in s for s in signals):
-        lines.append("Consensus: MIXED [WARN]️ - models disagree, reduce size")
+    if not signals:
+        lines.append("Consensus: NEUTRAL ⚪ - no data")
     else:
-        lines.append("Consensus: NEUTRAL ⚪")
+        bull_count = sum("BULLISH" in s for s in signals)
+        bear_count = sum("BEARISH" in s for s in signals)
+        
+        if bull_count == len(signals):
+            lines.append(f"Consensus: BULLISH 🟢 - all {len(signals)} models agree")
+        elif bear_count == len(signals):
+            lines.append(f"Consensus: BEARISH 🔴 - all {len(signals)} models agree")
+        elif bull_count > bear_count:
+            lines.append(f"Consensus: LEAN BULLISH 🟢 - models split ({bull_count}/{len(signals)} bull)")
+        elif bear_count > bull_count:
+            lines.append(f"Consensus: LEAN BEARISH 🔴 - models split ({bear_count}/{len(signals)} bear)")
+        elif bull_count > 0 and bear_count > 0:
+            lines.append("Consensus: MIXED [WARN]️ - models disagree, reduce size")
+        else:
+            lines.append("Consensus: NEUTRAL ⚪")
 
     msg = "\n".join(lines)
     if token and chat_id:
