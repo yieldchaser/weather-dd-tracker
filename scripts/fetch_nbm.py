@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Configuration
 # -----------------------------
 
-BASE_URL = "https://noaa-nbm-pds.s3.amazonaws.com"
+BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod"
 OUTPUT_DIR = "data/nbm"
 
 # NBM is generated heavily at 00, 06, 12, 18z for long term.
@@ -40,7 +40,7 @@ def ensure_dir(path):
 
 def url_exists(url, timeout=10):
     try:
-        r = requests.head(url, timeout=timeout)
+        r = requests.head(url, timeout=timeout, headers={'User-Agent': 'Mozilla/5.0'})
         return r.status_code == 200
     except Exception:
         return False
@@ -60,7 +60,7 @@ def find_latest_available_run():
     raise RuntimeError("No available NBM run found.")
 
 def parse_t2m_byte_range(idx_url):
-    r = requests.get(idx_url, timeout=15)
+    r = requests.get(idx_url, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
     if r.status_code != 200:
         return None, None
     lines = r.text.strip().splitlines()
@@ -91,7 +91,7 @@ def download_timestep(args):
     if start_byte is None:
         return (fh, False, "No IDX / Variable not found")
 
-    headers = {}
+    headers = {'User-Agent': 'Mozilla/5.0'}
     if end_byte is not None:
         headers["Range"] = f"bytes={start_byte}-{end_byte}"
     else:

@@ -32,6 +32,9 @@ ecmwf_result = subprocess.run(f"{PY} scripts/fetch_ecmwf_ifs.py", shell=True)
 print("\n2. Fetching GFS...")
 gfs_result = subprocess.run(f"{PY} scripts/fetch_gfs.py", shell=True)
 
+print("\n2b. Fetching NBM (National Blend of Models)...")
+nbm_result = subprocess.run(f"{PY} scripts/fetch_nbm.py", shell=True)
+
 # Fallback: if BOTH primary fetches failed, use Open-Meteo
 if ecmwf_result.returncode != 0 and gfs_result.returncode != 0:
     print("\n[WARN]  Both ECMWF and GFS failed. Triggering Open-Meteo fallback...")
