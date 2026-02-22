@@ -24,7 +24,7 @@ EARTH2_MODELS = ["earth2_medium", "earth2_nowcast"] # Aurora is technically an i
 
 LEAD_TIME_HOURS = 240 # 10 days
 OUTPUT_DIR = "/kaggle/working/output"
-GITHUB_REPO = "prateekriders/weather-dd-tracker"
+GITHUB_REPO = "yieldchaser/weather-dd-tracker"
 
 # Representative Henry Hub gas-demand cities
 DEMAND_CITIES = [
