@@ -49,7 +49,8 @@ def ensure_dir(d):
 def install_system_dependencies():
     print("Installing system dependencies for ai-models and earth2studio...")
     subprocess.run("apt-get update && apt-get install -y libeccodes0", shell=True, check=False)
-    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 earth2studio onnxruntime-gpu", shell=True, check=True)
+    # Pin JAX < 0.4.14 to fix GraphCast's legacy haiku dependency on `jax.linear_util`
+    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 earth2studio onnxruntime-gpu 'jax[cuda12]<0.4.14' 'jaxlib<0.4.14'", shell=True, check=True)
 
 def run_earth2_subset(model_name):
     """
@@ -79,6 +80,8 @@ def run_ai_models_cli(model_name):
     
     cmd = [
         "ai-models",
+        "--input", "ecmwf-open-data",
+        "--download-assets",
         "--lead-time", str(LEAD_TIME_HOURS),
         "--path", out_grib,
         model_name
