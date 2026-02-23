@@ -1,5 +1,5 @@
 # Weather DD Tracker — Code Analysis & Master Architecture Plan
-*Generated: 2026-02-21 | Reflects current state of `main` branch after all bug fixes*
+*Generated: 2026-02-23 | Reflects current state of `main` branch after Feb-23 codebase audit*
 
 ---
 
@@ -53,23 +53,38 @@ weather-dd-tracker/
     ├── poll_models.py             # ✅ Smart Poller for event-driven real-time execution (Phase 7)
     ├── fetch_ecmwf_ifs.py         # ECMWF IFS HRES (CONUS area, 0.25°)
     ├── fetch_gfs.py               # GFS via NOMADS byte-range (t2m only)
-    ├── fetch_open_meteo.py        # Fallback: 17-city demand-weighted avg
+    ├── fetch_ecmwf_aifs.py        # ECMWF AIFS (AI native, no GPU)
+    ├── fetch_ecmwf_ens.py         # ECMWF ENS (51-member, ensemble mean)
+    ├── fetch_gefs.py              # GEFS (0.5°, 31-member)
+    ├── fetch_hrrr.py              # HRRR (3km, byte-range t2m)
+    ├── fetch_nam.py               # NAM (12km)
+    ├── fetch_icon.py              # ICON (via Open-Meteo)
+    ├── fetch_nbm.py               # National Blend of Models
+    ├── fetch_historical_eia_normals.py  # EIA normals refresh
+    ├── build_historical_monthly_charts.py
     ├── build_gas_weights.py       # Weight grid + seasonal GW normals (Phase 2)
     ├── build_true_gw_grid.py      # EIA true consumption density raster map (Phase 3)
-    ├── compute_tdd.py             # GRIB→CSV: tdd + tdd_gw per day
+    ├── compute_tdd.py             # GRIB→CSV: tdd + tdd_gw per day (all 9 models)
     ├── merge_tdd.py               # Glob all outputs + merge with deduplication
-    ├── select_latest_run.py       # Extract latest GFS/ECMWF to separate files
+    ├── select_latest_run.py       # Extract latest run per model to separate files
     ├── compare_to_normal.py       # HDD/CDD anomaly vs 10Y/30Y: simple + GW columns
     ├── compute_run_delta.py       # Day-by-day delta: tdd + tdd_gw
     ├── run_change.py              # Run totals + sequential change: tdd + tdd_gw
-    ├── build_model_shift_table.py # ✅ Generates Model Shift Table (Phase 4)
-    ├── build_freeze_offs.py       # ✅ US Freeze-Off predictor based on Permian/Bakken temps (Phase 4)
-    ├── build_crossover_matrix.py  # ✅ Generates Seasonal Crossover matrix & chart (Phase 4)
-    ├── track_cumulative_season.py # ✅ Tracks cumulative winter HDDs vs prior years (Phase 4)
-    ├── build_historical_threshold_matrix.py # ✅ Generates dynamic 21-yr MB Threshold matrix tracking (Phase 6)
-    ├── send_telegram.py           # Trading-grade text-based Telegram report (Phase 5)
+    ├── build_model_shift_table.py # Model Shift Table (Phase 4)
+    ├── build_freeze_offs.py       # US Freeze-Off predictor: Permian/Anadarko/Appalachia/Bakken
+    ├── build_crossover_matrix.py  # Seasonal Crossover matrix & chart (Phase 4)
+    ├── track_cumulative_season.py # Cumulative winter HDDs vs prior years (Phase 4)
+    ├── build_historical_threshold_matrix.py  # 21-yr MB Threshold matrix (Phase 6)
+    ├── plot_ecmwf_eps.py          # ECMWF ensemble plume chart
+    ├── send_telegram.py           # Trading-grade Telegram report (Phase 5)
     ├── compare_runs.py            # Legacy GFS-only comp (standalone only)
-    └── plot_gfs_tdd.py            # Standalone chart generator (not in automation)
+    ├── plot_gfs_tdd.py            # Standalone chart generator
+    ├── trigger_kaggle.py          # Kaggle API webhook trigger
+    └── market_logic/
+        ├── physics_vs_ai_disagreement.py  # Volatility / disagreement index
+        ├── power_burn_proxy.py            # CDD-weighted power burn proxy
+        ├── renewables_generation_proxy.py # Wind dropout signal
+        └── composite_score.py            # -1.0..+1.0 Bull/Bear composite
 ```
 
 ---
@@ -132,8 +147,8 @@ GitHub Actions (Every 15 mins during release windows)
 ## 3. Script-by-Script Analysis
 
 ### `daily_update.py` — Master Orchestrator
-**Monolithic execution:** fetch ECMWF → fetch ALL models → compute TDD → merge+dedup → select_latest → anomalies → deltas → feature trackers → Market Proxies → send_telegram
-**Status: ✅ Correct, serves as the single source of truth for execution flow**
+**Parallel fetch** (10 scripts via `ThreadPoolExecutor(max_workers=5)`) → compute TDD → merge+dedup → select_latest → anomalies → deltas → feature trackers → Market Proxies → send_telegram  
+**Status: ✅ Updated — fetchers now run in parallel**
 
 ---
 
@@ -175,18 +190,21 @@ GitHub Actions (Every 15 mins during release windows)
 
 ### `compute_tdd.py` — GRIB→TDD Converter
 - CONUS crop before any spatial computation
-- Loads `data/weights/conus_gas_weights.npy`, interpolates to data grid
+- Loads `data/weights/conus_gas_weights.npy`, interpolates to data grid once per run
 - Outputs `tdd` (simple) + `tdd_gw` (gas-weighted) per day
 - Falls back to simple mean if weight file missing
-**Status: ✅ Correct**
+- **All 9 models now processed:** ECMWF, GFS, ECMWF_AIFS, ECMWF_ENS, NBM, HRRR, NAM, GEFS, ICON
+- **Generic `process_grib_files()` handler** used for HRRR/NAM/GEFS/ICON (one function, prefix filter)
+- **`process_ecmwf` + `process_ecmwf_ens` merged** into `process_ecmwf_grib(ensemble=False/True)` — −65 lines
+- **Skip-if-already-computed** guard prevents reprocessing existing run directories
+**Status: ✅ Fixed — was Bug #2 (HRRR/NAM/GEFS/ICON never processed)**
 
 ---
 
-### `merge_tdd.py` — Data Merger ✅ Fixed
-- **Was:** No deduplication — re-runs produced duplicate rows
-- **Now:** `drop_duplicates(subset=["model","run_id","date"])` after concat
-- Warns on dropped count
-**Status: ✅ Fixed (was Issue #2)**
+### `merge_tdd.py` — Data Merger
+- `drop_duplicates(subset=["model","run_id","date"])` after concat
+- Globs: GFS, ECMWF, ECMWF_AIFS, ECMWF_ENS, NBM, HRRR, NAM, GEFS, ICON, Open-Meteo, AI models
+**Status: ✅ Fixed — was Bug #3 (HRRR/NAM/GEFS/ICON not globbed)**
 
 ---
 
@@ -267,23 +285,36 @@ GitHub Actions (Every 15 mins during release windows)
 
 ---
 
-### `poll_models.py` — Real-Time Model Poller (Event Trigger)
-- Designed to run on a 15-minute cron schedule via GitHub Actions.
-- Pings NOAA/ECMWF arrays to detect fully uploaded runs (verifying final hour `f384` exists).
-- Triggers the monolithic `daily_update.py` pipeline the moment new data finishes landing.
-**Status: ✅ Correct**
+### `poll_models.py` — Real-Time Model Poller
+- 15-minute cron via GitHub Actions
+- Pings NOAA/ECMWF for fully uploaded runs (verifies final hour `f384`)
+- Triggers `daily_update.py` **only when a new run is detected**
+**Status: ✅ Fixed — was Bug #1 (`or True` guard caused pipeline to fire every tick)**
 
 ---
 
 ### `send_telegram.py` — Telegram Reporter
 - GW-first: uses `tdd_gw` + GW normals if available
-- NaN backfill: old pre-Phase-2 CSV rows get `tdd` as fallback → prevents "0 days" filter bug
-- Day counter always uses `tdd` (never NaN)
-- Near-term D1–7 + Extended D8–14 split
-- Same-window run change (overlapping dates only)
-- Consecutive trend counter + multi-model spread + dynamic all-model consensus logic
-- Header: `[Gas-Weighted]` or `[CONUS avg]` based on data availability
-**Status: ✅ Correct**
+- Near-term D1–7 + Extended D8–14 split; consecutive trend counter; multi-model spread
+- `requests.post(..., timeout=15)` — pipeline no longer hangs on slow Telegram API
+**Status: ✅ Fixed — added timeout (was Bug #5)**
+
+---
+
+### `market_logic/physics_vs_ai_disagreement.py` — Disagreement Index
+- Compares Physics mean (ECMWF_HRES, GFS_HRES) vs AI mean (AIFS, GRAPHCAST, PANGUWEATHER)
+- Outputs volatility risk score 0–100 (linear scale to 5 HDD spread = 100)
+- **Date filter fixed:** robust YYYYMMDD string comparison (was Bug #4)
+- **Bare `except: pass` replaced** with `except Exception as e: print(...)` throughout
+**Status: ✅ Fixed**
+
+---
+
+### `market_logic/composite_score.py` — Bull/Bear Composite
+- Combines disagreement index, power burn proxy, wind anomaly → score −1.0 to +1.0
+- **Bull signal now normals-based:** `TDD_anomaly = master_tdd − hdd_normal(month, day)` replaces hardcoded thresholds
+- `normals_lookup` dict built at startup from `us_daily_normals.csv`
+**Status: ✅ Fixed — was Bug #5 (magic number thresholds replaced with seasonal normals)**
 
 ---
 
@@ -319,7 +350,7 @@ All 6 issues from the previous CODE_ANALYSIS.md have been resolved:
 | 5 | `select_latest_run.py` orphaned from pipeline | 🟢 LOW | Added as Step 4b in `daily_update.py` |
 | 6 | GW normals used single annual scale factor | 🟢 LOW | 12 monthly scale factors (Jan=1.18x … Aug=1.00x … Feb=1.16x) |
 
-**Current outstanding issues: ZERO**
+**Current outstanding issues: ZERO** *(as of 2026-02-23 audit)*
 
 ---
 
@@ -458,36 +489,43 @@ Outstanding Issues: 0
 
 ---
 
-### ✅ Phase 9 — Expand Physics & AI Access (COMPLETE)
+### ✅ Phase 12 — Full Codebase Audit & Hardening (COMPLETE)
 
 | Task | Detail | Status |
 |---|---|---|
-| AIFS & ENS Fetchers | Added `fetch_ecmwf_aifs.py` and `fetch_ecmwf_ens.py` via `ecmwf-opendata`. | ✅ |
-| NOMADS Byte-Range | Added `fetch_hrrr.py` and `fetch_nam.py` extracting partial byte slices. | ✅ |
-| AWS GEFS & NBM | Added `fetch_gefs.py` (parallellized) and `fetch_nbm.py` via AWS buckets. | ✅ |
-| Open-Meteo ICON | Added `fetch_icon.py` via demand-weighted JSON arrays. | ✅ |
+| Bug: `poll_models.py` `or True` guard | Pipeline fired every cron tick regardless of new data | ✅ |
+| Bug: HRRR/NAM/GEFS/ICON not processed | Fetched to disk but never converted to TDD CSVs | ✅ |
+| Bug: `merge_tdd.py` missing globs | 4 model folders not included in master glob | ✅ |
+| Bug: Fragile date filter in disagreement script | Mixed-type int/str comparison now replaced with YYYYMMDD string coercion | ✅ |
+| Bug: Telegram no timeout | `requests.post` now has `timeout=15` | ✅ |
+| Refactor: Duplicate ECMWF processors | `process_ecmwf` + `process_ecmwf_ens` merged into `process_ecmwf_grib(ensemble=)` | ✅ |
+| Perf: Serial fetchers | All 10 fetchers parallelised via `ThreadPoolExecutor(max_workers=5)` | ✅ |
+| Bare `except: pass` | All 4 silent excepts replaced with named `except Exception as e: print(...)` | ✅ |
+| `.gitignore` | Added HRRR/NAM/GEFS/ICON data dirs, `kaggle_logs_v*/`, `*.tmp` | ✅ |
+| Composite score magic thresholds | Replaced with seasonal normals lookup from `us_daily_normals.csv` | ✅ |
+| Skip-if-computed guard | `compute_tdd.py` skips already-processed run dirs | ✅ |
 
 ---
 
-### ✅ Phase 10 — Establish the Kaggle API Link (Track B Hub) (COMPLETE)
+## 7. Phase Completion Status
 
-| Task | Detail | Status |
-|---|---|---|
-| GPU Trigger Script | Added `trigger_kaggle.py` to bridge GitHub Actions to Kaggle. | ✅ |
-| AI Inference Engine | Added `kaggle_env/run_ai_models.py` embedding Pangu, GraphCast, FourCastNetV2, Earth-2, and Aurora. | ✅ |
-| Memory Subsetting | Subsets 24GB Earth-2 models safely on 16GB Kaggle T4 GPUs. | ✅ |
+```
+Phase 1   [██████████] 100% — CONUS HDD Pipeline           ✅ COMPLETE
+Phase 2   [██████████] 100% — Gas-Weighted HDDs              ✅ COMPLETE
+Phase 3   [██████████] 100% — True GW Grid (EIA county+pop)  ✅ COMPLETE
+Phase 4   [██████████] 100% — Adv. Quant Signal Layer        ✅ COMPLETE
+Phase 5   [██████████] 100% — Essential Trader Reporting     ✅ COMPLETE
+Phase 6   [██████████] 100% — Historical HDD Matrix & Excel  ✅ COMPLETE
+Phase 7   [██████████] 100% — Real-Time Polling & Alerts     ✅ COMPLETE
+Phase 8   [██████████] 100% — Security & Codebase Audit      ✅ COMPLETE
+Phase 9   [██████████] 100% — Physics & AI Model Expansion   ✅ COMPLETE
+Phase 10  [██████████] 100% — Kaggle GPU Track B Hub         ✅ COMPLETE
+Phase 11  [██████████] 100% — Deep Market Logic Integration  ✅ COMPLETE
+Phase 12  [██████████] 100% — Full Audit & Hardening         ✅ COMPLETE
+
+Outstanding Issues: 0
+```
 
 ---
 
-### ✅ Phase 11 — Deep Market Logic Integration (COMPLETE)
-
-| Task | Detail | Status |
-|---|---|---|
-| Physics vs AI Matrix | Added `physics_vs_ai_disagreement.py` to track structural divergence (Volatility score). | ✅ |
-| Power Burn Proxy | Added `power_burn_proxy.py` to weight CDDs specifically to ERCOT/Southeast peaker plants. | ✅ |
-| Renewables Anomaly | Added `renewables_generation_proxy.py` to flag wind droughts driving physical spot gas pricing. | ✅ |
-| Composite Engine | Added `composite_score.py` bounded -1.0 to 1.0 (Strong Bear to Strong Bull). | ✅ |
-
----
-
-*Last updated: 2026-02-22. Successfully implemented the Dual-Track AI inference architecture and advanced deep market proxy engine for Henry Hub physical delivery forecasting.*
+*Last updated: 2026-02-23. Full codebase audit completed: 5 critical bugs fixed, fetchers parallelised, duplicate code refactored, composite score made seasonally-aware.*

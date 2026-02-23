@@ -26,23 +26,30 @@ else:
 # Step 1 & 2: Fetch model data
 # ------------------------------------------
 
-print("\n1. Fetching ECMWF (CONUS area)...")
-ecmwf_result = subprocess.run(f"{PY} scripts/fetch_ecmwf_ifs.py", shell=True)
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-print("\n2. Fetching GFS...")
-gfs_result = subprocess.run(f"{PY} scripts/fetch_gfs.py", shell=True)
+def run(script):
+    return script, subprocess.run(f"{PY} scripts/{script}", shell=True).returncode
 
-print("\n2b. Fetching NBM (National Blend of Models)...")
-nbm_result = subprocess.run(f"{PY} scripts/fetch_nbm.py", shell=True)
+print("\n1-2. Fetching all models in parallel...")
+FETCH_SCRIPTS = [
+    "fetch_ecmwf_ifs.py", "fetch_gfs.py", "fetch_nbm.py",
+    "fetch_ecmwf_ens.py", "fetch_ecmwf_aifs.py", "fetch_gefs.py",
+    "fetch_hrrr.py", "fetch_nam.py", "fetch_icon.py",
+    "fetch_historical_eia_normals.py",
+]
+results = {}
+with ThreadPoolExecutor(max_workers=5) as pool:
+    futures = {pool.submit(run, s): s for s in FETCH_SCRIPTS}
+    for f in as_completed(futures):
+        script, rc = f.result()
+        results[script] = rc
+        status = "[OK]" if rc == 0 else "[ERR]"
+        print(f"  {status} {script}")
 
-print("\n2c. Fetching Additional Models (ENS, AIFS, GEFS, HRRR, NAM, ICON)...")
-subprocess.run(f"{PY} scripts/fetch_ecmwf_ens.py", shell=True)
-subprocess.run(f"{PY} scripts/fetch_ecmwf_aifs.py", shell=True)
-subprocess.run(f"{PY} scripts/fetch_gefs.py", shell=True)
-subprocess.run(f"{PY} scripts/fetch_hrrr.py", shell=True)
-subprocess.run(f"{PY} scripts/fetch_nam.py", shell=True)
-subprocess.run(f"{PY} scripts/fetch_icon.py", shell=True)
-subprocess.run(f"{PY} scripts/fetch_historical_eia_normals.py", shell=True)
+ecmwf_result = type("R", (), {"returncode": results.get("fetch_ecmwf_ifs.py", 1)})()
+gfs_result   = type("R", (), {"returncode": results.get("fetch_gfs.py", 1)})()
+
 
 # Fallback: if BOTH primary fetches failed, use Open-Meteo
 if ecmwf_result.returncode != 0 and gfs_result.returncode != 0:

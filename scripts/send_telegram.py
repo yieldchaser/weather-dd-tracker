@@ -247,7 +247,7 @@ def send():
     if token and chat_id:
         try:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
-            requests.post(url, json={"chat_id": chat_id, "text": msg})
+            requests.post(url, json={"chat_id": chat_id, "text": msg}, timeout=15)
         except Exception as e:
             print(f"[ERR] Failed to post to Telegram: {e}")
             

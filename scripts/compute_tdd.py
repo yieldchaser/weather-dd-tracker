@@ -103,7 +103,8 @@ def apply_gas_weights(temp_2d, w_interp):
         return None
 
 
-def process_ecmwf(run_path, weights, w_lats, w_lons):
+def process_ecmwf_grib(run_path, weights, w_lats, w_lons, ensemble=False):
+    """Handles ECMWF HRES, AIFS (single-grid) and ENS (ensemble mean) GRIB files."""
     files = list(Path(run_path).glob("*.grib2"))
     if not files:
         print("  No GRIB files found.")
@@ -117,115 +118,117 @@ def process_ecmwf(run_path, weights, w_lats, w_lons):
         return None
 
     ds = crop_to_conus(ds)
-    var = list(ds.data_vars)[0]
-
-    lat_dim = next(d for d in ds.dims if "lat" in d.lower())
-    lon_dim = next(d for d in ds.dims if "lon" in d.lower())
-
-    w_interp = None
-    if weights is not None:
-        data_lats = ds[lat_dim].values
-        data_lons = ds[lon_dim].values
-        w_interp = get_interpolated_weights(data_lats, data_lons, weights, w_lats, w_lons)
-
-    valid_times = pd.to_datetime(ds.valid_time.values).ravel()
-    rows = []
-
-    for i, vt in enumerate(valid_times):
-        temp_k_2d = ds[var].isel({d: i for d in ds[var].dims
-                                  if d not in (lat_dim, lon_dim)}, missing_dims="ignore").values
-        if temp_k_2d.ndim == 0:
-            temp_k_2d = float(temp_k_2d)
-            temp_f_simple = kelvin_to_f(temp_k_2d)
-            temp_f_gw = temp_f_simple
-        else:
-            temp_f_2d = kelvin_to_f(temp_k_2d)
-            if temp_f_2d.size == 0:
-                print(f"  [WARN] Empty data array for valid time {vt}")
-                continue
-            temp_f_simple = float(temp_f_2d.mean())
-            if w_interp is not None:
-                temp_f_gw = apply_gas_weights(temp_f_2d, w_interp)
-                if temp_f_gw is None:
-                    temp_f_gw = temp_f_simple
-            else:
-                temp_f_gw = temp_f_simple
-
-        rows.append({
-            "date":      pd.Timestamp(vt).date(),
-            "mean_temp": round(temp_f_simple, 2),
-            "tdd":       round(tdd(temp_f_simple), 2),
-            "mean_temp_gw": round(temp_f_gw, 2),
-            "tdd_gw":    round(tdd(temp_f_gw), 2),
-        })
-    return pd.DataFrame(rows)
-
-
-def process_ecmwf_ens(run_path, weights, w_lats, w_lons):
-    files = list(Path(run_path).glob("*.grib2"))
-    if not files:
-        print("  No GRIB files found.")
-        return None
-    file = files[0]
-    print(f"  Reading: {file.name}")
-    try:
-        ds = xr.open_dataset(file, engine="cfgrib")
-    except Exception as e:
-        print(f"  Error opening GRIB: {e}")
-        return None
-
-    ds = crop_to_conus(ds)
-    var = list(ds.data_vars)[0]
-
-    lat_dim = next(d for d in ds.dims if "lat" in d.lower())
-    lon_dim = next(d for d in ds.dims if "lon" in d.lower())
-
-    # We want the ensemble mean.
-    if "number" in ds.dims:
+    if ensemble and "number" in ds.dims:
         ds = ds.mean(dim="number", keep_attrs=True)
 
+    var = list(ds.data_vars)[0]
+    lat_dim = next(d for d in ds.dims if "lat" in d.lower())
+    lon_dim = next(d for d in ds.dims if "lon" in d.lower())
+
     w_interp = None
     if weights is not None:
-        data_lats = ds[lat_dim].values
-        data_lons = ds[lon_dim].values
-        w_interp = get_interpolated_weights(data_lats, data_lons, weights, w_lats, w_lons)
+        w_interp = get_interpolated_weights(
+            ds[lat_dim].values, ds[lon_dim].values, weights, w_lats, w_lons
+        )
 
-    valid_times = pd.to_datetime(ds.valid_time.values).ravel()
     rows = []
-
-    for i, vt in enumerate(valid_times):
-        # Time and Step might be collapsed depending on cfgrib indexing. We isel safely.
-        # But we must ensure missing_dims doesn't collapse lat/lons.
-        temp_k_2d = ds[var].isel({d: i for d in ds[var].dims if d not in (lat_dim, lon_dim)}, missing_dims="ignore").values
-
-        if temp_k_2d.ndim == 0:
-            temp_k_2d = float(temp_k_2d)
-            temp_f_simple = kelvin_to_f(temp_k_2d)
-            temp_f_gw = temp_f_simple
+    for i, vt in enumerate(pd.to_datetime(ds.valid_time.values).ravel()):
+        tk = ds[var].isel(
+            {d: i for d in ds[var].dims if d not in (lat_dim, lon_dim)},
+            missing_dims="ignore"
+        ).values
+        if tk.ndim == 0:
+            tf_simple = kelvin_to_f(float(tk))
+            tf_gw = tf_simple
         else:
-            temp_f_2d = kelvin_to_f(temp_k_2d)
-            if temp_f_2d.size == 0:
-                print(f"  [WARN] Empty data array for valid time {vt}")
+            tf = kelvin_to_f(tk)
+            if tf.size == 0:
                 continue
-            
-            # Simple unweighted mean
-            temp_f_simple = float(np.nanmean(temp_f_2d))
-            
-            if w_interp is not None:
-                temp_f_gw = apply_gas_weights(temp_f_2d, w_interp)
-                if temp_f_gw is None:
-                    temp_f_gw = temp_f_simple
-            else:
-                temp_f_gw = temp_f_simple
-
+            tf_simple = float(np.nanmean(tf))
+            tf_gw = apply_gas_weights(tf, w_interp) if w_interp is not None else None
+            if tf_gw is None:
+                tf_gw = tf_simple
         rows.append({
-            "date":      pd.Timestamp(vt).date(),
-            "mean_temp": round(temp_f_simple, 2),
-            "tdd":       round(tdd(temp_f_simple), 2),
-            "mean_temp_gw": round(temp_f_gw, 2),
-            "tdd_gw":    round(tdd(temp_f_gw), 2),
+            "date": pd.Timestamp(vt).date(),
+            "mean_temp": round(tf_simple, 2), "tdd": round(tdd(tf_simple), 2),
+            "mean_temp_gw": round(tf_gw, 2), "tdd_gw": round(tdd(tf_gw), 2),
         })
     return pd.DataFrame(rows)
+
+
+# Keep old names as thin wrappers for backward compatibility
+def process_ecmwf(run_path, w, wl, wlo): return process_ecmwf_grib(run_path, w, wl, wlo, ensemble=False)
+def process_ecmwf_ens(run_path, w, wl, wlo): return process_ecmwf_grib(run_path, w, wl, wlo, ensemble=True)
+
+
+def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filter=None):
+    """
+    Generic per-file GRIB processor used by GFS, HRRR, NAM, GEFS, ICON.
+    Each file = one forecast timestep (heightAboveGround 2m).
+    """
+    all_files = sorted([
+        f for f in Path(run_path).iterdir()
+        if not f.name.endswith(".idx") and not f.name.endswith(".json")
+           and (prefix is None or f.name.startswith(prefix))
+           and (name_filter is None or name_filter(f.name))
+    ])
+    if not all_files:
+        print("  No GRIB files found.")
+        return None
+
+    rows = []
+    w_interp = None
+    first_file = True
+
+    for file in all_files:
+        print(f"  Reading: {file.name}")
+        try:
+            ds = xr.open_dataset(
+                file, engine="cfgrib",
+                backend_kwargs={
+                    "filter_by_keys": {"typeOfLevel": "heightAboveGround", "level": 2},
+                    "indexpath": ""
+                }
+            )
+            ds = crop_to_conus(ds)
+            lat_dim = next(d for d in ds.dims if "lat" in d.lower())
+            lon_dim = next(d for d in ds.dims if "lon" in d.lower())
+            var = list(ds.data_vars)[0]
+
+            if first_file and weights is not None:
+                w_interp = get_interpolated_weights(
+                    ds[lat_dim].values, ds[lon_dim].values, weights, w_lats, w_lons
+                )
+                first_file = False
+
+            temp_k_2d = ds[var].values
+            temp_f_2d = kelvin_to_f(temp_k_2d)
+            if temp_f_2d.size == 0:
+                continue
+            temp_f_simple = float(temp_f_2d.mean())
+            temp_f_gw = apply_gas_weights(temp_f_2d, w_interp) if w_interp is not None else None
+            if temp_f_gw is None:
+                temp_f_gw = temp_f_simple
+
+            vt = ds.valid_time.values
+            date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()
+            rows.append({
+                "date": date,
+                "mean_temp": round(temp_f_simple, 2),
+                "tdd": round(tdd(temp_f_simple), 2),
+                "mean_temp_gw": round(temp_f_gw, 2),
+                "tdd_gw": round(tdd(temp_f_gw), 2),
+            })
+        except Exception as e:
+            print(f"  Skipping {file.name}: {e}")
+
+    if rows:
+        df = pd.DataFrame(rows)
+        # Average multiple intraday steps to daily (relevant for HRRR)
+        df = df.groupby("date").mean().reset_index()
+        return df
+    print("  No valid rows computed.")
+    return None
 
 
 def process_gfs(run_path, weights, w_lats, w_lons):
@@ -355,32 +358,49 @@ def process_nbm(run_path, weights, w_lats, w_lons):
     return None
 
 
+# Model → (folder, processor, extra kwargs)
+_MODELS = [
+    ("ECMWF",      "data/ecmwf",      "ecmwf",      {}),
+    ("GFS",        "data/gfs",        "gfs",         {}),
+    ("ECMWF_AIFS", "data/ecmwf_aifs", "ecmwf",      {}),
+    ("ECMWF_ENS",  "data/ecmwf_ens",  "ecmwf_ens",  {}),
+    ("NBM",        "data/nbm",        "nbm",         {}),
+    ("HRRR",       "data/hrrr",       "generic",     {"prefix": "hrrr."}),
+    ("NAM",        "data/nam",        "generic",     {"prefix": "nam."}),
+    ("GEFS",       "data/gefs",       "generic",     {}),
+    ("ICON",       "data/icon",       "generic",     {}),
+]
+
 def process_all():
     weights, w_lats, w_lons = load_weights()
     gw_active = weights is not None
     print(f"\nGas-weighting: {'[OK] ACTIVE' if gw_active else '[ERR] INACTIVE (fallback to simple mean)'}")
 
-    for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs"), ("ECMWF_AIFS", "data/ecmwf_aifs"), ("ECMWF_ENS", "data/ecmwf_ens"), ("NBM", "data/nbm")]:
+    for model, folder, proc, kwargs in _MODELS:
         if not os.path.exists(folder):
             continue
         for run_id in sorted(os.listdir(folder)):
             run_path = os.path.join(folder, run_id)
             if not os.path.isdir(run_path):
                 continue
+            out = Path(folder) / f"{run_id}_tdd.csv"
+            if out.exists():
+                continue  # already computed this run
             print(f"\nProcessing: {run_id} ({model})")
-            if model in ["ECMWF", "ECMWF_AIFS"]:
+            if proc == "ecmwf":
                 df = process_ecmwf(run_path, weights, w_lats, w_lons)
-            elif model == "ECMWF_ENS":
+            elif proc == "ecmwf_ens":
                 df = process_ecmwf_ens(run_path, weights, w_lats, w_lons)
-            elif model == "NBM":
+            elif proc == "nbm":
                 df = process_nbm(run_path, weights, w_lats, w_lons)
-            else:
+            elif proc == "gfs":
                 df = process_gfs(run_path, weights, w_lats, w_lons)
+            else:  # generic
+                df = process_grib_files(run_path, weights, w_lats, w_lons, **kwargs)
             if df is None or df.empty:
                 continue
             df["model"]  = model
             df["run_id"] = run_id
-            out = Path(folder) / f"{run_id}_tdd.csv"
             df.to_csv(out, index=False)
             print(f"  [OK] Saved: {out}")
             print(df[["date", "tdd", "tdd_gw"]].head(3).to_string(index=False))

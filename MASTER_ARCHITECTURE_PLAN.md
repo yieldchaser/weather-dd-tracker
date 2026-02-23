@@ -27,19 +27,18 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 *All models below are pre-computed. GitHub Actions downloads the output only.*
 
 **Deterministic Models (Short to Medium Range):**
-*   **ECMWF IFS HRES** (0.1°, 9km, 10-day) — ✅ Active (via ecmwf-opendata SDK)
-*   **GFS** (0.25°, 28km, 16-day) — ✅ Active (via AWS/NOMADS)
-*   **HRRR** (3km, hourly updates, 18-hour) — ❌ High Priority (Critical for intraday power burn forecasting)
-*   **NAM** (12km, 84-hour) — ❌ Pending (via NOMADS)
-*   **ICON** (13km global) — ❌ Pending (via DWD / Open-Meteo)
-*   **UKMET & ARPEGE & JMA GSM** — ❌ Pending (via AWS / Open-Meteo)
-*   **NBM** (National Blend of Models) — ✅ Active (The US consensus signal)
+*   **ECMWF IFS HRES** (0.1°, 9km, 10-day) — ✅ Active
+*   **GFS** (0.25°, 28km, 16-day) — ✅ Active
+*   **HRRR** (3km, hourly, 18-hour) — ✅ Active (byte-range t2m via NOMADS)
+*   **NAM** (12km, 84-hour) — ✅ Active (via NOMADS)
+*   **ICON** (13km global) — ✅ Active (via Open-Meteo JSON)
+*   **NBM** (National Blend of Models) — ✅ Active
 
 **Ensemble Models (Probabilistic Layer):**
-*Constraint Warning: GitHub Actions will crash on full global ensemble GRIBs. We must use AWS S3 range requests to subset to 2-meter temperature (`t2m`) only.*
-*   **GEFS** (0.5°, 31 members) — ❌ Pending
-*   **ECMWF ENS** (51 members) — ❌ Pending (via ecmwf-opendata SDK)
-*   **Canadian GEPS & UK MOGREPS-G** — ❌ Pending
+*   **GEFS** (0.5°, 31 members) — ✅ Active
+*   **ECMWF ENS** (51 members) — ✅ Active (ensemble mean via ecmwf-opendata)
+*   **ECMWF AIFS** (AI-native, deterministic) — ✅ Active (Track A, no GPU required)
+*   **Canadian GEPS & UK MOGREPS-G** — ❌ Pending (low priority)
 
 ---
 
@@ -49,10 +48,10 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 *   **Run-to-run HDD change per model** — ✅ Active
 *   **Run-to-run CDD change per model** — ✅ Active
 *   **ECMWF vs. GFS disagreement score** — ✅ Active (via Model Consensus Shift Table)
-*   **Physics vs. AI disagreement score** — ❌ Pending
+*   **Physics vs. AI disagreement score** — ✅ Active (`physics_vs_ai_disagreement.py`)
 *   **5-day and 10-day rolling trend change** — ❌ Pending
-*   **Fast revision detection** (Flags any model moving >3 HDD in a single run) — ❌ Pending
-*   **Model convergence detector** (Flags when diverging models suddenly align) — ❌ Pending
+*   **Fast revision detection** (>3 HDD single run) — ❌ Pending
+*   **Model convergence detector** — ❌ Pending
 
 ---
 
@@ -95,13 +94,13 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 ## LAYER 6 — DERIVED MARKET SIGNALS
 *Translating meteorological data into actionable energy signals.*
 
-*   **Natural Gas Demand Proxy** (HDD weighted by heating fuel consumption mix) — ✅ Active (via EIA 48-State Interpolation Grid)
-*   **US Produce Basin Freeze-Offs Forecast** (Estimate MMcf/d losses in Permian/Bakken) — ✅ Active
-*   **Composite Bullish/Bearish Score** (HDD + CDD + Anomaly + Model Agreement) — ❌ Pending
-*   **Power Burn Proxy** (CDD weighted by electricity cooling demand) — ❌ Pending
-*   **Wind/Solar Generation Proxy** (Derived from u100m wind speed and surface radiation fields) — ❌ Pending
+*   **Natural Gas Demand Proxy** (HDD weighted by heating fuel consumption mix) — ✅ Active
+*   **US Produce Basin Freeze-Offs Forecast** (Permian/Anadarko/Appalachia/Bakken MMcf/d) — ✅ Active
+*   **Composite Bullish/Bearish Score** (TDD anomaly vs normals + disagreement + wind) — ✅ Active
+*   **Power Burn Proxy** (CDD weighted to ERCOT/Southeast peakers) — ✅ Active
+*   **Wind/Solar Generation Proxy** (Wind dropout → physical spot gas signal) — ✅ Active
 *   **Storage Draw/Injection Weekly Estimate** — ❌ Pending
-*   **Implied Volatility Signal** (Ensemble spread + Model disagreement index) — ❌ Pending
+*   **Implied Volatility Signal** (Ensemble spread + model disagreement index) — ❌ Pending
 
 ---
 
@@ -117,16 +116,9 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 
 ## BUILD ORDER — THE EXACT NEXT STEPS
 
-**Phase 1: Expand Physics & AI Access (Lowest Hanging Fruit)**
-- Pull ECMWF AIFS via the existing Python SDK (No GPU required).
-- Add HRRR, NAM, and ICON physics models to the daily polling rotation.
-- Integrate GEFS and ECMWF ENS (with strict variable subsetting to avoid crashing GitHub).
-
-**Phase 2: Establish the Kaggle API Link (Track B Hub)**
-- Generate Kaggle API keys and store them in GitHub Actions Secrets.
-- Write a single Kaggle Notebook housing `earth2studio` and `ai-models`.
-- Configure the `kaggle kernels push` command in the `.github/workflows/daily_run.yml` webhook.
-
-**Phase 3: Deep Market Logic Integration**
-- Build the remaining Physics vs AI disagreement matrix.
-- Map out localized cooling grids to finalize the Power Burn Proxy.
+**Phase 13: Next Priorities**
+- Storage draw/injection weekly estimate (EIA weekly data integration)
+- Model convergence detector (flags sudden multi-model alignment)
+- Fast revision detection (>3 HDD single run flag in Telegram)
+- UKMET / ARPEGE via Open-Meteo (low-cost addition)
+- Web dashboard (auto-updating, static output from existing CSVs)

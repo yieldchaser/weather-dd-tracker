@@ -7,11 +7,17 @@ data/ecmwf_aifs/
 data/ecmwf_ens/
 data/nbm/
 data/open_meteo/
+data/hrrr/
+data/nam/
+data/gefs/
+data/icon/
 kaggle_logs/
+kaggle_logs_v*/
 *.onnx
 *.tar
 *.npy
 *.log
+*.tmp
 fetch_logs*.py
 test_nbm.py
 __pycache__/

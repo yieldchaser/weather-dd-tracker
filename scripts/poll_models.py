@@ -115,7 +115,7 @@ def poll():
         new_state["ECMWF"] = latest_ecmwf_avail
         triggered = True
         
-    if triggered or True: # Forced true for manual testing triggers
+    if triggered:
         print("\n[ACTION] Triggering pipeline via daily_update.py...")
         
         if "last_run" not in new_state: new_state["last_run"] = {}

@@ -56,7 +56,8 @@ def load_data():
             df = pd.read_csv(ecmwf_cf)
             if "model" not in df.columns: df["model"] = "ECMWF_HRES"
             dfs.append(df)
-        except: pass
+        except Exception as e:
+            print(f"[WARN] Could not load ECMWF: {e}")
         
     gfs_cf = get_latest_file(GFS_DIR, "tdd.csv")
     if gfs_cf:
@@ -64,7 +65,8 @@ def load_data():
             df = pd.read_csv(gfs_cf)
             if "model" not in df.columns: df["model"] = "GFS_HRES"
             dfs.append(df)
-        except: pass
+        except Exception as e:
+            print(f"[WARN] Could not load GFS: {e}")
 
     # 2. Load Native AI (AIFS)
     aifs_cf = get_latest_file(AIFS_DIR, "tdd.csv")
@@ -73,14 +75,16 @@ def load_data():
             df = pd.read_csv(aifs_cf)
             if "model" not in df.columns: df["model"] = "AIFS"
             dfs.append(df)
-        except: pass
+        except Exception as e:
+            print(f"[WARN] Could not load AIFS: {e}")
 
     # 3. Load Kaggle GPU AI (GraphCast, Pangu)
     ai_cf = get_latest_file(AI_DIR, "ai_tdd_latest.csv")
     if ai_cf:
         try:
             dfs.append(pd.read_csv(ai_cf))
-        except: pass
+        except Exception as e:
+            print(f"[WARN] Could not load AI models: {e}")
         
     if not dfs:
         print("[ERR] No model data available to compare.")
@@ -100,8 +104,9 @@ def compute_disagreement():
         return
 
     # Filter out historical/bogus dates, keep next 10 days
-    today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
-    df = df[df["date"] >= int(today_str) if df["date"].dtype in ['int64', 'float64'] else df["date"] >= today_str]
+    today_cmp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    df["date"] = df["date"].astype(str).str[:8]  # normalize to YYYYMMDD string
+    df = df[df["date"] >= today_cmp]
     
     # Group by Date and Model
     # Since models update at different times, we just take the latest available TDD for a date+model

@@ -81,6 +81,13 @@ def compute_composite():
     # 2. High Model Disagreement reduces confidence, pulling the score toward 0 (Neutral).
     # 3. Summer Power Burn carries a +1.5x multiplier to the Bull score.
     
+    # Build (month, day) → hdd_normal lookup from the normals file
+    normals_lookup = {}
+    df_norms = load_normals()
+    if df_norms is not None and {"month", "day", "hdd_normal"}.issubset(df_norms.columns):
+        for _, nr in df_norms.iterrows():
+            normals_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr["hdd_normal"])
+
     rows = []
     
     for idx, row in merged.iterrows():
@@ -97,14 +104,22 @@ def compute_composite():
             
         master_tdd = (ai_val + phys_val) / 2.0
         
-        # Extreme magnitude check (Very rough baselines: >30 HDD is very cold, >15 CDD is very hot)
-        # This will be replaced by the `compare_to_normal.py` logic natively later, but this serves as the macro proxy
+        # Seasonal bull signal: how far above normal is the TDD?
+        # Use the normals lookup keyed by date string (YYYYMMDD → month/day).
+        normal_tdd = 0.0
+        if normals_lookup and len(date_str) >= 8:
+            try:
+                m, d = int(date_str[4:6]), int(date_str[6:8])
+                normal_tdd = normals_lookup.get((m, d), 0.0)
+            except Exception:
+                pass
+
+        tdd_anomaly = master_tdd - normal_tdd   # positive = colder than normal (bullish)
         bull_signal = 0.0
-        
-        if master_tdd > 25: # Cold
-            bull_signal += (master_tdd - 25) * 0.05
-        elif master_tdd > 12: # Hot
-            bull_signal += (master_tdd - 12) * 0.08
+        if tdd_anomaly > 0:
+            bull_signal += tdd_anomaly * 0.06   # excess HDD vs normal → bullish
+        elif tdd_anomaly < -2:
+            bull_signal += tdd_anomaly * 0.04   # well below normal → bearish (negative signal)
             
         # Add Power Burn weight
         pb_val = row.get("power_burn_cdd", 0)
