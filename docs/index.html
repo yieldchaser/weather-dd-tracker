@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Desk Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --card-bg: #1f2833;
+            --text-main: #c5c6c7;
+            --text-br: #ffffff;
+            --bullish: #4caf50;
+            --bearish: #f44336;
+            --neutral: #9e9e9e;
+            --border: #45a29e;
+            --accent: #66fcf1;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            color: var(--text-br);
+            margin-top: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timestamp {
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        /* Top summary row */
+        .summary-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background-color: var(--card-bg);
+            border-left: 4px solid var(--accent);
+            padding: 20px;
+            flex: 1;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .summary-card .val {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--text-br);
+        }
+
+        .bullish-text {
+            color: var(--bullish) !important;
+        }
+
+        .bearish-text {
+            color: var(--bearish) !important;
+        }
+
+        /* Alerts */
+        .alerts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .alert-box {
+            background-color: rgba(244, 67, 54, 0.1);
+            border: 1px solid var(--bearish);
+            color: var(--text-br);
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .alert-box.conv {
+            background-color: rgba(76, 175, 80, 0.1);
+            border-color: var(--bullish);
+        }
+
+        /* Storage Weeks Grid */
+        .weeks-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .week-card {
+            background-color: var(--card-bg);
+            border-radius: 4px;
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            overflow: hidden;
+        }
+
+        .week-header {
+            background-color: rgba(102, 252, 241, 0.1);
+            color: var(--accent);
+            padding: 12px 15px;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+            text-align: center;
+        }
+
+        .week-stats {
+            padding: 15px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #2a3642;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        .stat-val {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--text-br);
+        }
+
+        /* Data Tables */
+        .section-title {
+            font-size: 1.2rem;
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--card-bg);
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        th,
+        td {
+            padding: 12px 15px;
+            text-align: right;
+            border-bottom: 1px solid #2a3642;
+        }
+
+        th:first-child,
+        td:first-child {
+            text-align: left;
+        }
+
+        th {
+            background-color: rgba(102, 252, 241, 0.05);
+            color: var(--accent);
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .pos-val {
+            color: var(--bullish);
+        }
+
+        .neg-val {
+            color: var(--bearish);
+        }
+
+        .loader {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        /* Chart Section */
+        .chart-section {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            margin-bottom: 30px;
+        }
+
+        .chart-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        select {
+            background-color: var(--bg-color);
+            color: var(--text-br);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        #app {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>WEATHER DESK</h1>
+            <div class="timestamp" id="last-updated">Updating live...</div>
+        </div>
+
+        <div id="loading" class="loader">Loading pipeline data...</div>
+
+        <div id="app">
+            <!-- ALERTS -->
+            <div class="alerts-container">
+                <div id="alert-fast-rev" class="alert-box">⚡ FAST REVISION ALERT: <span id="rev-text"></span></div>
+                <div id="alert-conv" class="alert-box conv">🎯 CONVERGENCE ALERT: <span id="conv-text"></span></div>
+            </div>
+
+            <!-- MACRO SUMMARY -->
+            <div class="summary-row">
+                <div class="summary-card">
+                    <h3>Algorithmic Market Bias</h3>
+                    <div class="val" id="macro-bias">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Total Forecast HDDs (Gas-Weighted)</h3>
+                    <div class="val" id="macro-total-hdd">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Cumulative HDD Change Since Yesterday</h3>
+                    <div class="val" id="macro-delta">--</div>
+                </div>
+            </div>
+
+            <!-- STORAGE WEEKS (EBW STYLE) -->
+            <h2 class="section-title">Gas-Weighted Heating Degree Days (ECMWF vs Normal)</h2>
+            <div class="weeks-grid">
+                <!-- Week 1 -->
+                <div class="week-card">
+                    <div class="week-header">Near-Term (Days 1 - 7)</div>
+                    <div class="week-stats">
+                        <div class="stat-row">
+                            <div class="stat-label">Forecast GW HDDs</div>
+                            <div class="stat-val" id="w1-fcst">--</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-label">30-Year Normal</div>
+                            <div class="stat-val" id="w1-norm">--</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-label">Anomaly</div>
+                            <div class="stat-val" id="w1-anom">--</div>
+                        </div>
+                        <div class="stat-row"
+                            style="margin-top: 10px; padding-top: 15px; border-top: 2px solid #45a29e;">
+                            <div class="stat-label">Δ Since Yesterday</div>
+                            <div class="stat-val" id="w1-chg">--</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Week 2 -->
+                <div class="week-card">
+                    <div class="week-header">Extended (Days 8 - 14)</div>
+                    <div class="week-stats">
+                        <div class="stat-row">
+                            <div class="stat-label">Forecast GW HDDs</div>
+                            <div class="stat-val" id="w2-fcst">--</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-label">30-Year Normal</div>
+                            <div class="stat-val" id="w2-norm">--</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-label">Anomaly</div>
+                            <div class="stat-val" id="w2-anom">--</div>
+                        </div>
+                        <div class="stat-row"
+                            style="margin-top: 10px; padding-top: 15px; border-top: 2px solid #45a29e;">
+                            <div class="stat-label">Δ Since Yesterday</div>
+                            <div class="stat-val" id="w2-chg">--</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Week 3 -->
+                <div class="week-card">
+                    <div class="week-header">Long Range (Days 15+)</div>
+                    <div class="week-stats">
+                        <div class="stat-row">
+                            <div class="stat-label">Forecast GW HDDs</div>
+                            <div class="stat-val" id="w3-fcst">--</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-label">30-Year Normal</div>
+                            <div class="stat-val" id="w3-norm">--</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-label">Anomaly</div>
+                            <div class="stat-val" id="w3-anom">--</div>
+                        </div>
+                        <div class="stat-row"
+                            style="margin-top: 10px; padding-top: 15px; border-top: 2px solid #45a29e;">
+                            <div class="stat-label">Δ Since Yesterday</div>
+                            <div class="stat-val" id="w3-chg">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODEL RUN COMPARISON CHART -->
+            <h2 class="section-title">Model Run Comparison (Latest 4 Runs vs Normal)</h2>
+            <div class="chart-section">
+                <div class="chart-controls">
+                    <label for="modelSelect"><strong>Select Model: </strong></label>
+                    <select id="modelSelect"></select>
+                </div>
+                <canvas id="runChart" height="100"></canvas>
+            </div>
+
+            <!-- MODEL SHIFT MATRIX -->
+            <h2 class="section-title">Day-by-Day Model Consensus Shift (GW HDDs)</h2>
+            <table id="shift-table">
+                <thead>
+                    <tr id="shift-header">
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="shift-body">
+                </tbody>
+            </table>
+            <br><br>
+        </div>
+    </div>
+
+    <script>
+        const basePath = "../outputs/";
+
+        function fetchCSV(filename) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(basePath + filename, {
+                    download: true,
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        resolve(results.data);
+                    },
+                    error: function (err) {
+                        console.warn(`Could not load ${filename}`);
+                        resolve([]);
+                    }
+                });
+            });
+        }
+
+        function formatNum(num, dec = 1, showSign = false) {
+            if (num === null || num === undefined || isNaN(num)) return "-";
+            let str = Number(num).toFixed(dec);
+            if (showSign && num > 0) str = "+" + str;
+            return str;
+        }
+
+        function renderVal(id, num, dec = 1, isDelta = false) {
+            let el = document.getElementById(id);
+            if (!el) return;
+            el.innerText = formatNum(num, dec, isDelta);
+            if (isDelta) {
+                if (num > 0) el.classList.add('pos-val');
+                else if (num < 0) el.classList.add('neg-val');
+            }
+        }
+
+        async function loadDashboard() {
+            try {
+                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData] = await Promise.all([
+                    fetchCSV("composite_bull_bear_signal.csv"),
+                    fetchCSV("vs_normal.csv"),
+                    fetchCSV("run_delta.csv"),
+                    fetchCSV("model_shift_table.csv"),
+                    fetchCSV("run_change.csv"),
+                    fetchCSV("convergence_alert.csv"),
+                    fetchCSV("tdd_master.csv")
+                ]);
+
+                // 1. Bias
+                if (biasData.length > 0) {
+                    let biasStr = String(biasData[0].market_bias).toUpperCase();
+                    let biasEl = document.getElementById('macro-bias');
+                    biasEl.innerText = biasStr;
+                    if (biasStr.includes('BULL')) biasEl.classList.add('bullish-text');
+                    if (biasStr.includes('BEAR')) biasEl.classList.add('bearish-text');
+                }
+
+                // 2. Alerts
+                if (convAlert.length > 0) {
+                    document.getElementById('alert-conv').style.display = 'block';
+                    document.getElementById('conv-text').innerText = `${convAlert.length} day(s) aligning ${convAlert[0].direction}`;
+                }
+
+                if (runChange.length > 0) {
+                    let fr = runChange.filter(r => r.fast_revision === true || r.fast_revision === 'True');
+                    if (fr.length > 0) {
+                        let latestFr = fr[fr.length - 1];
+                        document.getElementById('alert-fast-rev').style.display = 'block';
+                        let chgCol = latestFr.hdd_change_gw ? latestFr.hdd_change_gw : latestFr.hdd_change;
+                        let arr = chgCol > 0 ? "▲" : "▼";
+                        document.getElementById('rev-text').innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} HDDs`;
+                    }
+                }
+
+                // 3. Storage Weeks (Using ECMWF as baseline)
+                if (vsNormal.length > 0) {
+                    // Get latest ECMWF run
+                    let ecmwfRows = vsNormal.filter(r => r.model === 'ECMWF');
+                    if (ecmwfRows.length > 0) {
+                        // Sort descending by run_id
+                        ecmwfRows.sort((a, b) => String(b.run_id).localeCompare(String(a.run_id)));
+                        let latestRunId = ecmwfRows[0].run_id;
+                        let currentRun = ecmwfRows.filter(r => r.run_id === latestRunId);
+
+                        // Sort by date ascending
+                        currentRun.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+                        let w1_fcst = 0, w1_norm = 0, w1_anom = 0;
+                        let w2_fcst = 0, w2_norm = 0, w2_anom = 0;
+                        let w3_fcst = 0, w3_norm = 0, w3_anom = 0;
+
+                        currentRun.forEach((r, idx) => {
+                            let f = r.tdd_gw || r.tdd || 0;
+                            let n = r.hdd_normal_gw || r.hdd_normal || 0;
+                            let a = r.hdd_anomaly_gw || r.hdd_anomaly || 0;
+
+                            if (idx < 7) { w1_fcst += f; w1_norm += n; w1_anom += a; }
+                            else if (idx < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; }
+                            else { w3_fcst += f; w3_norm += n; w3_anom += a; }
+                        });
+
+                        renderVal('w1-fcst', w1_fcst); renderVal('w1-norm', w1_norm); renderVal('w1-anom', w1_anom, 1, true);
+                        renderVal('w2-fcst', w2_fcst); renderVal('w2-norm', w2_norm); renderVal('w2-anom', w2_anom, 1, true);
+                        renderVal('w3-fcst', w3_fcst); renderVal('w3-norm', w3_norm); renderVal('w3-anom', w3_anom, 1, true);
+
+                        let total_hdd = w1_fcst + w2_fcst + w3_fcst;
+                        renderVal('macro-total-hdd', total_hdd, 1);
+                    }
+                }
+
+                // 4. Delta Since Yesterday (from run_delta.csv)
+                if (runDelta.length > 0) {
+                    let ecmwfDelta = runDelta.filter(r => r.model === 'ECMWF');
+                    if (ecmwfDelta.length > 0) {
+                        ecmwfDelta.sort((a, b) => String(b.run_latest).localeCompare(String(a.run_latest)));
+                        let latestTarget = ecmwfDelta[0].run_latest;
+                        let curDelta = ecmwfDelta.filter(r => r.run_latest === latestTarget);
+                        curDelta.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+                        let w1_chg = 0, w2_chg = 0, w3_chg = 0;
+                        curDelta.forEach((r, idx) => {
+                            let val = r.tdd_gw_change || r.tdd_change || 0;
+                            if (idx < 7) w1_chg += val;
+                            else if (idx < 14) w2_chg += val;
+                            else w3_chg += val;
+                        });
+
+                        renderVal('w1-chg', w1_chg, 1, true);
+                        renderVal('w2-chg', w2_chg, 1, true);
+                        renderVal('w3-chg', w3_chg, 1, true);
+
+                        renderVal('macro-delta', w1_chg + w2_chg + w3_chg, 1, true);
+                    }
+                }
+
+                // 5. Shift Table
+                if (shiftTable.length > 0) {
+                    let headerRow = document.getElementById('shift-header');
+                    let cols = Object.keys(shiftTable[0]);
+                    cols.filter(c => c !== "date").forEach(c => {
+                        let th = document.createElement('th');
+                        th.innerText = c;
+                        headerRow.appendChild(th);
+                    });
+
+                    let tbody = document.getElementById('shift-body');
+                    shiftTable.forEach(row => {
+                        let tr = document.createElement('tr');
+                        // Date col
+                        let tdDate = document.createElement('td');
+                        tdDate.innerText = String(row["date"] || "").substring(0, 10);
+                        tr.appendChild(tdDate);
+
+                        cols.filter(c => c !== "date").forEach(c => {
+                            let td = document.createElement('td');
+                            let val = row[c];
+                            td.innerText = formatNum(val, 1, true);
+                            if (val > 0) td.classList.add('pos-val');
+                            else if (val < 0) td.classList.add('neg-val');
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                // 6. Build Chart
+                if (masterData.length > 0) {
+                    initChart(masterData, vsNormal);
+                }
+
+                document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading').innerText = "Error loading data. Check console.";
+            }
+        }
+
+        let runChartInstance = null;
+
+        function initChart(masterData, vsNormal) {
+            // Collect available models
+            let models = [...new Set(masterData.map(r => r.model).filter(m => m))].sort();
+            let sel = document.getElementById('modelSelect');
+            models.forEach(m => {
+                let opt = document.createElement('option');
+                opt.value = m;
+                opt.innerText = m;
+                if (m === 'ECMWF') opt.selected = true;
+                sel.appendChild(opt);
+            });
+
+            // Compute base normals across the forecast horizon so we can plot it
+            // We'll extract a unique mapping from date -> hdd_normal_gw (or hdd_normal) from vsNormal
+            let normalMap = {};
+            if (vsNormal && vsNormal.length > 0) {
+                vsNormal.forEach(r => {
+                    if (r.date) {
+                        normalMap[r.date.substring(0, 10)] = r.hdd_normal_gw || r.hdd_normal || null;
+                    }
+                });
+            }
+
+            sel.addEventListener('change', () => updateChart(masterData, normalMap, sel.value));
+            updateChart(masterData, normalMap, sel.value || models[0]);
+        }
+
+        function updateChart(data, normalMap, selectedModel) {
+            let modelData = data.filter(r => r.model === selectedModel && r.date);
+
+            let runs = [...new Set(modelData.map(r => String(r.run_id)))].sort((a, b) => b.localeCompare(a));
+            let top4Runs = runs.slice(0, 4);
+
+            // Find all unique dates for the x-axis across these 4 runs
+            let datesSet = new Set();
+            modelData.forEach(r => {
+                if (top4Runs.includes(String(r.run_id))) datesSet.add(r.date.substring(0, 10));
+            });
+            let labels = Array.from(datesSet).sort();
+
+            // Colors for the 4 runs
+            const colors = ['#66fcf1', '#4caf50', '#ff9800', '#f44336'];
+
+            let datasets = top4Runs.map((r_id, idx) => {
+                let runRows = modelData.filter(r => String(r.run_id) === r_id);
+                // Map run data to ordered labels
+                let dataPoints = labels.map(lbl => {
+                    let row = runRows.find(r => r.date.substring(0, 10) === lbl);
+                    return row ? (row.tdd_gw !== null && row.tdd_gw !== undefined ? row.tdd_gw : row.tdd) : null;
+                });
+
+                return {
+                    label: "Run: " + r_id,
+                    data: dataPoints,
+                    borderColor: colors[idx % colors.length],
+                    tension: 0.3,
+                    fill: false,
+                    borderWidth: (idx === 0) ? 3 : 2, // Thicker line for the latest run
+                    borderDash: (idx === 0) ? [] : [5, 5] // Dashed lines for older runs
+                };
+            });
+
+            // Add the Normal line if available
+            let normalPoints = labels.map(lbl => normalMap[lbl]);
+            if (normalPoints.some(p => p !== null && p !== undefined)) {
+                datasets.push({
+                    label: "30-Year Normal",
+                    data: normalPoints,
+                    borderColor: '#c5c6c7',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0
+                });
+            }
+
+            if (runChartInstance) {
+                runChartInstance.destroy();
+            }
+
+            let ctx = document.getElementById('runChart').getContext('2d');
+            runChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#c5c6c7' } },
+                        tooltip: { backgroundColor: 'rgba(31,40,51,0.9)' }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' } },
+                        y: {
+                            ticks: { color: '#c5c6c7' },
+                            grid: { color: '#2a3642' },
+                            title: { display: true, text: 'Gas-Weighted HDDs', color: '#66fcf1' }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.onload = loadDashboard;
+    </script>
+</body>
+
+</html>

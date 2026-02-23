@@ -168,7 +168,7 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
     """
     all_files = sorted([
         f for f in Path(run_path).iterdir()
-        if not f.name.endswith(".idx") and not f.name.endswith(".json")
+        if not f.name.endswith(".idx") and not f.name.endswith(".json") and not f.name.endswith(".csv")
            and (prefix is None or f.name.startswith(prefix))
            and (name_filter is None or name_filter(f.name))
     ])
@@ -191,21 +191,25 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
                 }
             )
             ds = crop_to_conus(ds)
-            lat_dim = next(d for d in ds.dims if "lat" in d.lower())
-            lon_dim = next(d for d in ds.dims if "lon" in d.lower())
+            lat_dim = next((d for d in ds.dims if "lat" in d.lower()), None)
+            lon_dim = next((d for d in ds.dims if "lon" in d.lower()), None)
             var = list(ds.data_vars)[0]
 
             if first_file and weights is not None:
-                w_interp = get_interpolated_weights(
-                    ds[lat_dim].values, ds[lon_dim].values, weights, w_lats, w_lons
-                )
+                if lat_dim and lon_dim:
+                    w_interp = get_interpolated_weights(
+                        ds[lat_dim].values, ds[lon_dim].values, weights, w_lats, w_lons
+                    )
+                else:
+                    print(f"  [WARN] Native lat/lon dims absent (e.g. Lambert/Projected grid). Using simple average for {file.name}")
+                    w_interp = None
                 first_file = False
 
             temp_k_2d = ds[var].values
             temp_f_2d = kelvin_to_f(temp_k_2d)
             if temp_f_2d.size == 0:
                 continue
-            temp_f_simple = float(temp_f_2d.mean())
+            temp_f_simple = float(np.nanmean(temp_f_2d))
             temp_f_gw = apply_gas_weights(temp_f_2d, w_interp) if w_interp is not None else None
             if temp_f_gw is None:
                 temp_f_gw = temp_f_simple
