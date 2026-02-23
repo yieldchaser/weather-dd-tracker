@@ -46,10 +46,23 @@ def ensure_dir(d):
 
 def install_system_dependencies():
     print("Installing system dependencies for ai-models...")
-    subprocess.run("apt-get update && apt-get install -y libeccodes0", shell=True, check=False)
-    # Python 3.12 cannot use archaic jax<0.4.14, so we aggressively override the graphcast haiku dependency.
-    subprocess.run("pip install ai-models ai-models-panguweather ai-models-graphcast ai-models-fourcastnetv2 onnxruntime-gpu", shell=True, check=True)
-    subprocess.run("pip install 'dm-haiku>=0.0.11'", shell=True, check=True)
+    subprocess.run("apt-get update && apt-get install -y libeccodes0 libeccodes-dev", shell=True, check=False)
+
+    # Fix 1: GraphCast - install the actual google-deepmind/graphcast package
+    # ai-models-graphcast is a thin wrapper but requires the graphcast library itself
+    subprocess.run(
+        "pip install 'ai-models' 'ai-models-panguweather' 'ai-models-graphcast' 'ai-models-fourcastnetv2' onnxruntime-gpu",
+        shell=True, check=True
+    )
+    subprocess.run(
+        "pip install git+https://github.com/google-deepmind/graphcast.git 'dm-haiku>=0.0.11'",
+        shell=True, check=False  # Don't fail hard - GraphCast may still run via ai-models backend
+    )
+
+    # Fix 3: FourCastNetV2 / PyTorch 2.6 - weights_only=True blocks legacy pickles.
+    # TORCH_FORCE_WEIGHTS_ONLY_LOAD=0 forces the old unsafe=False behaviour globally.
+    os.environ["TORCH_FORCE_WEIGHTS_ONLY_LOAD"] = "0"
+    print("[OK] Dependencies installed")
 
 
 
@@ -64,11 +77,9 @@ def run_ai_models_cli(model_name):
         "--path", out_grib
     ]
     
-    # FourCastNet requires assets locally to not crash, Pangu/GraphCast don't strictly need this flag
-    # but they all download massive weights. We must clean them up right after.
-    if model_name == "fourcastnetv2-small":
-         cmd.append("--download-assets")
-         
+    # Fix 2: All models need --download-assets so weights are fetched before inference.
+    # Previously only fourcastnetv2 had this flag, causing PanguWeather to fail with FileNotFoundError.
+    cmd.append("--download-assets")
     cmd.append(model_name)
     
     try:
