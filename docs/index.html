@@ -369,14 +369,31 @@
                 </div>
             </div>
 
-            <!-- MODEL RUN COMPARISON CHART -->
-            <h2 class="section-title">Model Run Comparison (Latest 4 Runs vs Normal)</h2>
+            <!-- MODEL RUN COMPARISON CHART & MAPS -->
+            <h2 class="section-title">Model Diagnostics (Run-to-Run Analysis)</h2>
             <div class="chart-section">
                 <div class="chart-controls">
-                    <label for="modelSelect"><strong>Select Model: </strong></label>
+                    <label for="modelSelect"><strong>Select Model for Analytics: </strong></label>
                     <select id="modelSelect"></select>
                 </div>
-                <canvas id="runChart" height="100"></canvas>
+                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                    <!-- Chart Left -->
+                    <div style="flex: 1 1 50%; min-width: 300px;">
+                        <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Top 4 Runs vs 30-Year Normal
+                        </h3>
+                        <canvas id="runChart" height="150"></canvas>
+                    </div>
+                    <!-- Map Right -->
+                    <div style="flex: 1 1 40%; min-width: 300px;" class="map-section" id="mapContainer">
+                        <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Spatial Run-to-Run Delta</h3>
+                        <img id="shiftMapGif" src="" alt="Run-to-Run Spatial Delta Map (Not Available for this Model)"
+                            onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
+                        <div id="mapError"
+                            style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
+                            Spatial map not generated for this model.
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- MODEL SHIFT MATRIX -->
@@ -603,8 +620,29 @@
                 });
             }
 
-            sel.addEventListener('change', () => updateChart(masterData, normalMap, sel.value));
+            sel.addEventListener('change', () => {
+                updateChart(masterData, normalMap, sel.value);
+                updateMap(sel.value);
+            });
+
             updateChart(masterData, normalMap, sel.value || models[0]);
+            updateMap(sel.value || models[0]);
+        }
+
+        function updateMap(selectedModel) {
+            let img = document.getElementById('shiftMapGif');
+            let err = document.getElementById('mapError');
+
+            // We only generate maps for GFS and ECMWF right now
+            if (selectedModel === 'ECMWF' || selectedModel === 'GFS') {
+                img.style.display = 'block';
+                err.style.display = 'none';
+                // Force cache busting on the image load
+                img.src = `../outputs/maps/${selectedModel}_shift.gif?t=${new Date().getTime()}`;
+            } else {
+                img.style.display = 'none';
+                err.style.display = 'block';
+            }
         }
 
         function updateChart(data, normalMap, selectedModel) {
