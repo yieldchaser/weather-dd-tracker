@@ -290,7 +290,7 @@
                     <div class="val" id="macro-total-hdd">--</div>
                 </div>
                 <div class="summary-card">
-                    <h3>Cumulative HDD Change Since Yesterday</h3>
+                    <h3>Avg Daily HDD Shift (Run-to-Run)</h3>
                     <div class="val" id="macro-delta">--</div>
                 </div>
             </div>
@@ -527,7 +527,9 @@
                         renderVal('w2-chg', w2_chg, 1, true);
                         renderVal('w3-chg', w3_chg, 1, true);
 
-                        renderVal('macro-delta', w1_chg + w2_chg + w3_chg, 1, true);
+                        let totalDays = curDelta.length || 1;
+                        let totalChg = w1_chg + w2_chg + w3_chg;
+                        renderVal('macro-delta', totalChg / totalDays, 1, true);
                     }
                 }
 
