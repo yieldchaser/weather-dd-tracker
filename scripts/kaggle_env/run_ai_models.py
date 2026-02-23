@@ -73,24 +73,24 @@ def run_ai_models_cli(model_name):
     cmd.append("--download-assets")
     cmd.append(model_name)
     
-    try:
-        start = time.time()
-        subprocess.run(cmd, check=True)
-        print(f"[{model_name}] Inference complete in {time.time()-start:.1f}s")
-        
-        # AGGRESSIVE CACHE CLEANUP: Kaggle Free T4 only has 20GB Disk Space.
-        # Pangu and Graphcast weights are 1.2GB - 3GB each. Delete them immediately.
-        os.system("rm -rf *.onnx")
-        os.system("rm -rf *.tar")
-        os.system("rm -rf global_means.npy global_stds.npy")
-        # Clean pip/huggingface caches to free space for Earth-2
-        os.system("rm -rf ~/.cache/huggingface") 
-        os.system("rm -rf ~/.cache/torch")
-        
-        return out_grib
-    except subprocess.CalledProcessError as e:
-        print(f"[ERR] Model {model_name} failed: {e}")
-        return None
+    MAX_RETRIES = 3
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            start = time.time()
+            print(f"[{model_name}] Attempt {attempt}/{MAX_RETRIES}...")
+            subprocess.run(cmd, check=True)
+            print(f"[{model_name}] Inference complete in {time.time()-start:.1f}s")
+            return out_grib
+        except subprocess.CalledProcessError as e:
+            print(f"[WARN] Attempt {attempt} failed for {model_name}: {e}")
+            if attempt < MAX_RETRIES:
+                # Clean any partial downloads before retrying
+                os.system("rm -rf *.tar *.onnx ~/.ai-models")
+                print(f"[{model_name}] Retrying in 10s...")
+                time.sleep(10)
+            else:
+                print(f"[ERR] {model_name} failed after {MAX_RETRIES} attempts.")
+                return None
 
 def extract_conus_tdd(grib_path, model_name):
     # Because we don't want to load a huge xarray object that might crash the Kaggle RAM,
