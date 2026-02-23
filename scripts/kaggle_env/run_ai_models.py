@@ -147,10 +147,12 @@ def extract_conus_tdd(grib_path, model_name):
             
         avg_c = weighted_temp / total_w
         avg_f = celsius_to_f(avg_c)
+        tdd_val = round(compute_tdd(avg_f), 2)
         rows.append({
             "date": dt_str,
             "mean_temp": round(avg_f, 2),
-            "tdd": round(compute_tdd(avg_f), 2),
+            "tdd": tdd_val,
+            "tdd_gw": tdd_val,   # city-weighted already — treat as gas-weighted proxy
             "model": model_name.upper(),
             "run_id": pd.to_datetime(ds.time.values).strftime("%Y%m%d_%H") + "_AI",
         })
@@ -171,8 +173,7 @@ def push_to_github(csv_path, csv_name):
         print(f"[WARN] Could not retrieve GITHUB_PAT from Kaggle Secrets: {e}")
         
     if not token:
-        print("[WARN] No GITHUB_PAT found. Skipping push.")
-        return
+        raise RuntimeError("[ERR] GITHUB_PAT not found in Kaggle Secrets. Add it via Add-ons → Secrets.")
         
     cmd = [
         "git", "clone", f"https://oauth2:{token}@github.com/{GITHUB_REPO}.git", "/kaggle/working/repo"

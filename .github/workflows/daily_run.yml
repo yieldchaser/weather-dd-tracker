@@ -65,6 +65,11 @@ jobs:
           python scripts/poll_models.py
           python scripts/trigger_kaggle.py || echo "[WARN] Kaggle Trigger failed, skipping."
 
+      - name: Pull AI model results written back by Kaggle bot
+        run: |
+          git pull --rebase origin main || echo "[WARN] git pull failed, continuing with existing data."
+          mkdir -p data/ai_models
+
       - name: Commit pipeline state and tracker outputs
         run: |
           git config user.name "github-actions"
@@ -72,6 +77,7 @@ jobs:
           git add data/pipeline_state.json || true
           git add outputs/*.csv outputs/*.png outputs/*.xlsx outputs/historical_monthly_charts/*.png || true
           git add data/ecmwf/*_tdd.csv data/gfs/*_tdd.csv || true
+          git add data/ai_models/ || true
           git add data/weights/ data/normals/ || true
           # Only commit if there are actual changes detected
           git diff --staged --quiet || (git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
