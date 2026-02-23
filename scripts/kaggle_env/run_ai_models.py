@@ -17,9 +17,8 @@ import pandas as pd
 import subprocess
 
 # --- Config ---
-# GraphCast removed: SIGKILL OOM on Kaggle free tier (~40GB RAM requirement)
-# PanguWeather lead time reduced to 120h (fits 16GB VRAM vs 360h crashing)
-AI_MODELS_CLI = ["panguweather", "fourcastnetv2-small"]
+# fourcastnetv2-small is the only model that safely fits in 16GB Kaggle VRAM
+AI_MODELS_CLI = ["fourcastnetv2-small"]
 
 LEAD_TIME_HOURS = 120  # 5 days - memory-safe for Kaggle P100/T4
 OUTPUT_DIR = "/kaggle/working/output"
