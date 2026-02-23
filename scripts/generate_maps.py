@@ -22,9 +22,20 @@ MAPS_DIR = "outputs/maps"
 
 
 def get_latest_two_runs(folder):
-    dirs = sorted([d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))])
+    """Return two most recent run dirs that actually contain GRIB data."""
+    def has_gribs(d):
+        for f in os.listdir(d):
+            f_lo = f.lower()
+            if f_lo.endswith(('.grib2', '.grb2', '.grib')) or 'pgrb' in f_lo or 'grib' in f_lo:
+                return True
+        return False
+    
+    dirs = sorted([
+        d for d in os.listdir(folder)
+        if os.path.isdir(os.path.join(folder, d)) and has_gribs(os.path.join(folder, d))
+    ])
     if len(dirs) < 2:
-        return None, None
+        return None, None, None, None
     return os.path.join(folder, dirs[-1]), os.path.join(folder, dirs[-2]), dirs[-1], dirs[-2]
 
 
@@ -197,6 +208,11 @@ def generate_gif(model_name, folder, is_ecmwf):
     for f in frames:
         os.remove(f)
         
+    # Copy to docs/maps for GitHub Pages serving
+    docs_maps = "docs/maps"
+    os.makedirs(docs_maps, exist_ok=True)
+    import shutil
+    shutil.copy2(out_gif, os.path.join(docs_maps, os.path.basename(out_gif)))
     print(f"[OK] Generated {out_gif}")
 
 

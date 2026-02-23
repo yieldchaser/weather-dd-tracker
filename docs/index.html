@@ -633,12 +633,13 @@
             let img = document.getElementById('shiftMapGif');
             let err = document.getElementById('mapError');
 
-            // We only generate maps for GFS and ECMWF right now
             if (selectedModel === 'ECMWF' || selectedModel === 'GFS') {
                 img.style.display = 'block';
                 err.style.display = 'none';
-                // Force cache busting on the image load
-                img.src = `../outputs/maps/${selectedModel}_shift.gif?t=${new Date().getTime()}`;
+                const ts = new Date().getTime();
+                // GIFs are stored in docs/maps/ alongside index.html
+                img.src = `maps/${selectedModel}_shift.gif?t=${ts}`;
+                img.onerror = () => { img.style.display = 'none'; err.style.display = 'block'; };
             } else {
                 img.style.display = 'none';
                 err.style.display = 'block';
