@@ -205,31 +205,56 @@ def push_to_github(csv_path, csv_name):
     os.system("git push origin main")
     print(f"[OK] {csv_name} successfully uploaded to repository.")
 
+def nuke_memory():
+    """Aggressively free GPU/CPU memory between model runs."""
+    import gc
+    gc.collect()
+    try:
+        import torch
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
+    os.system("rm -rf *.onnx *.tar *.npz *.nc global_means.npy global_stds.npy")
+    os.system("rm -rf ~/.cache/huggingface ~/.cache/torch ~/.ai-models")
+
 def main():
-    print("=== WEATHER DD T4 GPU INFERENCE LAUNCHED ===")
+    print("=== WEATHER DD GPU INFERENCE LAUNCHED ===")
     install_system_dependencies()
     ensure_dir(OUTPUT_DIR)
-    
-    all_dfs = []
-    
-    # Run core generic AI Models
+
+    # Run each model independently: infer -> extract -> push -> nuke memory
+    # This avoids OOM from loading all weights simultaneously.
+    succeeded = []
     for model in AI_MODELS_CLI:
+        print(f"\n{'='*50}\nProcessing {model}\n{'='*50}")
         grib = run_ai_models_cli(model)
         if grib:
             df = extract_conus_tdd(grib, model)
             if df is not None:
-                all_dfs.append(df)
-                
-    if all_dfs:
-        final_df = pd.concat(all_dfs, ignore_index=True)
+                csv_path = os.path.join(OUTPUT_DIR, f"{model}_tdd.csv")
+                df.to_csv(csv_path, index=False)
+                succeeded.append(df)
+                try:
+                    push_to_github(csv_path, f"{model}_tdd.csv")
+                except Exception as push_err:
+                    print(f"[WARN] Push failed for {model}: {push_err}")
+        # Crucial: free memory before loading the next model
+        nuke_memory()
+        os.system(f"rm -f {os.path.join(OUTPUT_DIR, model + '_out.grib')}")
+
+    if succeeded:
+        # Also push a combined CSV as a convenience for merge_tdd.py
+        final_df = pd.concat(succeeded, ignore_index=True)
         csv_path = os.path.join(OUTPUT_DIR, "ai_tdd_latest.csv")
         final_df.to_csv(csv_path, index=False)
-        print(f"[OK] Generated {csv_path}")
-        push_to_github(csv_path, "ai_tdd_latest.csv")
+        try:
+            push_to_github(csv_path, "ai_tdd_latest.csv")
+        except Exception as e:
+            print(f"[WARN] Final combined push failed: {e}")
     else:
         print("[ERR] No AI data gathered successfully.")
 
 if __name__ == "__main__":
     main()
 
-# V13
+# V16 - OOM fix: serial inference + per-model push
