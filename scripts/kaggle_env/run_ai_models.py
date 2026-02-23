@@ -57,22 +57,48 @@ def install_system_dependencies():
 
 
 
+def setup_local_assets(model_name):
+    """
+    Check if weights were pre-staged as a Kaggle Dataset (to bypass unstable ECMWF download).
+    Returns the assets directory path if found, else None (falls back to --download-assets).
+    """
+    # ai-models expects: <assets_dir>/<model_name>/weights.tar
+    DATASET_PATH = f"/kaggle/input/fcnv2-small-weights/weights.tar"
+    ASSETS_DIR   = "/kaggle/working/ai_assets"
+    MODEL_DIR    = os.path.join(ASSETS_DIR, model_name)
+
+    if os.path.exists(DATASET_PATH):
+        print(f"[OK] Found pre-staged weights at {DATASET_PATH}. Copying to {MODEL_DIR}...")
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        import shutil
+        dest = os.path.join(MODEL_DIR, "weights.tar")
+        if not os.path.exists(dest):
+            shutil.copy2(DATASET_PATH, dest)
+        return ASSETS_DIR
+    return None
+
+
 def run_ai_models_cli(model_name):
     print(f"\n--- Running INFERENCE: {model_name} (Via ai-models CLI) ---")
     out_grib = os.path.join(OUTPUT_DIR, f"{model_name}_out.grib")
-    
+
     cmd = [
         "ai-models",
         "--input", "ecmwf-open-data",
         "--lead-time", str(LEAD_TIME_HOURS),
         "--path", out_grib
     ]
-    
-    # Fix 2: All models need --download-assets so weights are fetched before inference.
-    # Previously only fourcastnetv2 had this flag, causing PanguWeather to fail with FileNotFoundError.
-    cmd.append("--download-assets")
+
+    # Try to use pre-staged weights (uploaded as Kaggle Dataset) to avoid flaky download
+    assets_dir = setup_local_assets(model_name)
+    if assets_dir:
+        cmd += ["--assets", assets_dir]
+    else:
+        print(f"[INFO] No pre-staged weights found. Will attempt live download (may fail on slow networks).")
+        cmd.append("--download-assets")
+
     cmd.append(model_name)
-    
+
     MAX_RETRIES = 3
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -84,13 +110,13 @@ def run_ai_models_cli(model_name):
         except subprocess.CalledProcessError as e:
             print(f"[WARN] Attempt {attempt} failed for {model_name}: {e}")
             if attempt < MAX_RETRIES:
-                # Clean any partial downloads before retrying
                 os.system("rm -rf *.tar *.onnx ~/.ai-models")
                 print(f"[{model_name}] Retrying in 10s...")
                 time.sleep(10)
             else:
                 print(f"[ERR] {model_name} failed after {MAX_RETRIES} attempts.")
                 return None
+
 
 def extract_conus_tdd(grib_path, model_name):
     # Because we don't want to load a huge xarray object that might crash the Kaggle RAM,
