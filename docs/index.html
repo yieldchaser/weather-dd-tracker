@@ -384,9 +384,11 @@
                         <canvas id="runChart" height="150"></canvas>
                     </div>
                     <!-- Map Right -->
-                    <div style="flex: 1 1 40%; min-width: 300px;" class="map-section" id="mapContainer">
+                    <div style="flex: 1 1 40%; min-width: 300px; overflow: hidden;" class="map-section"
+                        id="mapContainer">
                         <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Spatial Run-to-Run Delta</h3>
-                        <img id="shiftMapGif" src="" alt="Run-to-Run Spatial Delta Map (Not Available for this Model)"
+                        <img id="shiftMapGif" src="" alt=""
+                            style="width:100%; height:auto; border-radius:4px; display:block;"
                             onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
                         <div id="mapError"
                             style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
