@@ -1,5 +1,5 @@
 {
-  "GFS": "20260222_18",
+  "GFS": "20260223_00",
   "ECMWF": "",
   "last_run": {
     "run_ecmwf_aifs": "2026-02-22T23:53:39.470955+00:00",
@@ -8,7 +8,8 @@
     "run_power_burn": "2026-02-22T23:53:39.470955+00:00",
     "run_wind_anomaly": "2026-02-22T23:53:39.470955+00:00",
     "run_composite": "2026-02-22T23:53:39.470955+00:00",
-    "run_nbm": "2026-02-22T23:53:39.470955+00:00"
+    "run_nbm": "2026-02-22T23:53:39.470955+00:00",
+    "daily_update": "2026-02-23T05:24:34.366428+00:00"
   },
   "status": {
     "run_ecmwf_aifs": "success",
@@ -17,6 +18,7 @@
     "run_power_burn": "success",
     "run_wind_anomaly": "success",
     "run_composite": "success",
-    "run_nbm": "success"
+    "run_nbm": "success",
+    "daily_update": "success"
   }
 }
