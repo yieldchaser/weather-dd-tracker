@@ -17,10 +17,11 @@ import pandas as pd
 import subprocess
 
 # --- Config ---
-# We use `ai-models` for GraphCast, Pangu, and FCNv2
-AI_MODELS_CLI = ["panguweather", "graphcast", "fourcastnetv2-small"]
+# GraphCast removed: SIGKILL OOM on Kaggle free tier (~40GB RAM requirement)
+# PanguWeather lead time reduced to 120h (fits 16GB VRAM vs 360h crashing)
+AI_MODELS_CLI = ["panguweather", "fourcastnetv2-small"]
 
-LEAD_TIME_HOURS = 360 # 15 days
+LEAD_TIME_HOURS = 120  # 5 days - memory-safe for Kaggle P100/T4
 OUTPUT_DIR = "/kaggle/working/output"
 GITHUB_REPO = "yieldchaser/weather-dd-tracker"
 
@@ -47,20 +48,11 @@ def ensure_dir(d):
 def install_system_dependencies():
     print("Installing system dependencies for ai-models...")
     subprocess.run("apt-get update && apt-get install -y libeccodes0 libeccodes-dev", shell=True, check=False)
-
-    # Fix 1: GraphCast - install the actual google-deepmind/graphcast package
-    # ai-models-graphcast is a thin wrapper but requires the graphcast library itself
     subprocess.run(
-        "pip install 'ai-models' 'ai-models-panguweather' 'ai-models-graphcast' 'ai-models-fourcastnetv2' onnxruntime-gpu",
+        "pip install 'ai-models' 'ai-models-panguweather' 'ai-models-fourcastnetv2' onnxruntime-gpu",
         shell=True, check=True
     )
-    subprocess.run(
-        "pip install git+https://github.com/google-deepmind/graphcast.git 'dm-haiku>=0.0.11'",
-        shell=True, check=False  # Don't fail hard - GraphCast may still run via ai-models backend
-    )
-
-    # Fix 3: FourCastNetV2 / PyTorch 2.6 - weights_only=True blocks legacy pickles.
-    # TORCH_FORCE_WEIGHTS_ONLY_LOAD=0 forces the old unsafe=False behaviour globally.
+    # PyTorch 2.6 security block - allow legacy pickle format for FourCastNetV2
     os.environ["TORCH_FORCE_WEIGHTS_ONLY_LOAD"] = "0"
     print("[OK] Dependencies installed")
 
@@ -227,6 +219,12 @@ def main():
     succeeded = []
     for model in AI_MODELS_CLI:
         print(f"\n{'='*50}\nProcessing {model}\n{'='*50}")
+
+        # FourCastNetV2 requires numpy<2.0 (numpy.lib.arraypad removed in NumPy 2.x)
+        # Pin it just before this model runs to undo any upstream upgrades.
+        if model == "fourcastnetv2-small":
+            subprocess.run("pip install 'numpy<2.0' --quiet", shell=True, check=False)
+
         grib = run_ai_models_cli(model)
         if grib:
             df = extract_conus_tdd(grib, model)
