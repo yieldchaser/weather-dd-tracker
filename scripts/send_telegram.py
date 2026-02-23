@@ -151,6 +151,19 @@ def send():
         except Exception as e:
             print(f"[WARN] Could not load run_change.csv: {e}")
 
+    # Convergence alert
+    conv_file = Path("outputs/convergence_alert.csv")
+    if conv_file.exists():
+        try:
+            cv = pd.read_csv(conv_file)
+            if not cv.empty:
+                direction = cv["direction"].iloc[0]
+                arrow = "🥶" if direction == "COLDER" else "🌡️"
+                lines.append(f"🎯 CONVERGENCE: Models aligning {direction} {arrow} on {len(cv)} day(s)")
+                lines.append("")
+        except Exception as e:
+            print(f"[WARN] Could not load convergence_alert.csv: {e}")
+
     primary_avgs = {}
 
     # --- Helper to render a group of detailed models ---
