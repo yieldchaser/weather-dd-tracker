@@ -72,11 +72,10 @@ def crop_to_conus(ds):
     return ds
 
 
-def gas_weighted_mean(temp_2d, data_lats, data_lons, weights, w_lats, w_lons):
+def get_interpolated_weights(data_lats, data_lons, weights, w_lats, w_lons):
     """
-    Apply pre-built gas-weight grid to a 2D temperature array.
-    Interpolates weights to match the data grid if resolution differs.
-    Returns the scalar gas-weighted mean temperature (°F).
+    Interpolate the pre-built gas-weight grid to match the native data grid.
+    Run this ONCE per model run outside the time-step loop for massive speedup.
     """
     try:
         # Build xarray DataArray for the weight grid so we can interpolate
@@ -84,12 +83,23 @@ def gas_weighted_mean(temp_2d, data_lats, data_lons, weights, w_lats, w_lons):
         # Interpolate weights to data resolution
         w_interp = w_da.interp(lat=data_lats, lon=data_lons, method="linear").fillna(0).values
         w_interp = np.maximum(w_interp, 0)
+        return w_interp
+    except Exception as e:
+        print(f"  [WARN]  Weight interpolation failed ({e})")
+        return None
+
+
+def apply_gas_weights(temp_2d, w_interp):
+    """Apply pre-interpolated gas weights to a 2D temperature array."""
+    try:
+        if w_interp is None:
+            return None
         total_w = w_interp.sum()
         if total_w == 0:
             return None
         return float((temp_2d * w_interp).sum() / total_w)
     except Exception as e:
-        print(f"  [WARN]  Gas-weighted mean failed ({e})")
+        print(f"  [WARN]  Applying gas weights failed ({e})")
         return None
 
 
@@ -112,6 +122,12 @@ def process_ecmwf(run_path, weights, w_lats, w_lons):
     lat_dim = next(d for d in ds.dims if "lat" in d.lower())
     lon_dim = next(d for d in ds.dims if "lon" in d.lower())
 
+    w_interp = None
+    if weights is not None:
+        data_lats = ds[lat_dim].values
+        data_lons = ds[lon_dim].values
+        w_interp = get_interpolated_weights(data_lats, data_lons, weights, w_lats, w_lons)
+
     valid_times = pd.to_datetime(ds.valid_time.values).ravel()
     rows = []
 
@@ -128,10 +144,75 @@ def process_ecmwf(run_path, weights, w_lats, w_lons):
                 print(f"  [WARN] Empty data array for valid time {vt}")
                 continue
             temp_f_simple = float(temp_f_2d.mean())
-            if weights is not None:
-                data_lats = ds[lat_dim].values
-                data_lons = ds[lon_dim].values
-                temp_f_gw = gas_weighted_mean(temp_f_2d, data_lats, data_lons, weights, w_lats, w_lons)
+            if w_interp is not None:
+                temp_f_gw = apply_gas_weights(temp_f_2d, w_interp)
+                if temp_f_gw is None:
+                    temp_f_gw = temp_f_simple
+            else:
+                temp_f_gw = temp_f_simple
+
+        rows.append({
+            "date":      pd.Timestamp(vt).date(),
+            "mean_temp": round(temp_f_simple, 2),
+            "tdd":       round(tdd(temp_f_simple), 2),
+            "mean_temp_gw": round(temp_f_gw, 2),
+            "tdd_gw":    round(tdd(temp_f_gw), 2),
+        })
+    return pd.DataFrame(rows)
+
+
+def process_ecmwf_ens(run_path, weights, w_lats, w_lons):
+    files = list(Path(run_path).glob("*.grib2"))
+    if not files:
+        print("  No GRIB files found.")
+        return None
+    file = files[0]
+    print(f"  Reading: {file.name}")
+    try:
+        ds = xr.open_dataset(file, engine="cfgrib")
+    except Exception as e:
+        print(f"  Error opening GRIB: {e}")
+        return None
+
+    ds = crop_to_conus(ds)
+    var = list(ds.data_vars)[0]
+
+    lat_dim = next(d for d in ds.dims if "lat" in d.lower())
+    lon_dim = next(d for d in ds.dims if "lon" in d.lower())
+
+    # We want the ensemble mean.
+    if "number" in ds.dims:
+        ds = ds.mean(dim="number", keep_attrs=True)
+
+    w_interp = None
+    if weights is not None:
+        data_lats = ds[lat_dim].values
+        data_lons = ds[lon_dim].values
+        w_interp = get_interpolated_weights(data_lats, data_lons, weights, w_lats, w_lons)
+
+    valid_times = pd.to_datetime(ds.valid_time.values).ravel()
+    rows = []
+
+    for i, vt in enumerate(valid_times):
+        # Time and Step might be collapsed depending on cfgrib indexing. We isel safely.
+        # But we must ensure missing_dims doesn't collapse lat/lons.
+        temp_k_2d = ds[var].isel({d: i for d in ds[var].dims if d not in (lat_dim, lon_dim)}, missing_dims="ignore").values
+
+        if temp_k_2d.ndim == 0:
+            temp_k_2d = float(temp_k_2d)
+            temp_f_simple = kelvin_to_f(temp_k_2d)
+            temp_f_gw = temp_f_simple
+        else:
+            temp_f_2d = kelvin_to_f(temp_k_2d)
+            if temp_f_2d.size == 0:
+                print(f"  [WARN] Empty data array for valid time {vt}")
+                continue
+            
+            # Simple unweighted mean
+            temp_f_simple = float(np.nanmean(temp_f_2d))
+            
+            if w_interp is not None:
+                temp_f_gw = apply_gas_weights(temp_f_2d, w_interp)
                 if temp_f_gw is None:
                     temp_f_gw = temp_f_simple
             else:
@@ -157,6 +238,9 @@ def process_gfs(run_path, weights, w_lats, w_lons):
         return None
 
     rows = []
+    w_interp = None
+    first_file = True
+
     for file in files:
         print(f"  Reading: {file.name}")
         try:
@@ -173,6 +257,12 @@ def process_gfs(run_path, weights, w_lats, w_lons):
             lon_dim = next(d for d in ds.dims if "lon" in d.lower())
             var = list(ds.data_vars)[0]
 
+            if first_file and weights is not None:
+                data_lats = ds[lat_dim].values
+                data_lons = ds[lon_dim].values
+                w_interp = get_interpolated_weights(data_lats, data_lons, weights, w_lats, w_lons)
+                first_file = False
+
             temp_k_2d = ds[var].values
             temp_f_2d = kelvin_to_f(temp_k_2d)
             if temp_f_2d.size == 0:
@@ -180,10 +270,8 @@ def process_gfs(run_path, weights, w_lats, w_lons):
                 continue
             temp_f_simple = float(temp_f_2d.mean())
 
-            if weights is not None:
-                data_lats = ds[lat_dim].values
-                data_lons = ds[lon_dim].values
-                temp_f_gw = gas_weighted_mean(temp_f_2d, data_lats, data_lons, weights, w_lats, w_lons)
+            if w_interp is not None:
+                temp_f_gw = apply_gas_weights(temp_f_2d, w_interp)
                 if temp_f_gw is None:
                     temp_f_gw = temp_f_simple
             else:
@@ -272,7 +360,7 @@ def process_all():
     gw_active = weights is not None
     print(f"\nGas-weighting: {'[OK] ACTIVE' if gw_active else '[ERR] INACTIVE (fallback to simple mean)'}")
 
-    for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs"), ("ECMWF_AIFS", "data/ecmwf_aifs"), ("NBM", "data/nbm")]:
+    for model, folder in [("ECMWF", "data/ecmwf"), ("GFS", "data/gfs"), ("ECMWF_AIFS", "data/ecmwf_aifs"), ("ECMWF_ENS", "data/ecmwf_ens"), ("NBM", "data/nbm")]:
         if not os.path.exists(folder):
             continue
         for run_id in sorted(os.listdir(folder)):
@@ -280,8 +368,10 @@ def process_all():
             if not os.path.isdir(run_path):
                 continue
             print(f"\nProcessing: {run_id} ({model})")
-            if model == "ECMWF":
+            if model in ["ECMWF", "ECMWF_AIFS"]:
                 df = process_ecmwf(run_path, weights, w_lats, w_lons)
+            elif model == "ECMWF_ENS":
+                df = process_ecmwf_ens(run_path, weights, w_lats, w_lons)
             elif model == "NBM":
                 df = process_nbm(run_path, weights, w_lats, w_lons)
             else:

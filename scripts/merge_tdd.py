@@ -10,9 +10,10 @@ def load_all():
         glob("data/gfs/*_tdd.csv")
         + glob("data/ecmwf/*_tdd.csv")
         + glob("data/ecmwf_aifs/*_tdd.csv")
+        + glob("data/ecmwf_ens/*_tdd.csv")
         + glob("data/nbm/*_tdd.csv")
         + glob("data/open_meteo/*_tdd.csv")
-        + glob("data/ai_models/**/*_tdd.csv", recursive=True)
+        + glob("data/ai_models/**/ai_tdd_latest.csv", recursive=True)
     )
 
     if not files:
@@ -24,6 +25,8 @@ def load_all():
         if "model" not in df.columns:
             if "gfs" in f.lower():
                 df["model"] = "GFS"
+            elif "ecmwf_ens" in f.lower():
+                df["model"] = "ECMWF_ENS"
             elif "ecmwf" in f.lower():
                 df["model"] = "ECMWF"
             else:

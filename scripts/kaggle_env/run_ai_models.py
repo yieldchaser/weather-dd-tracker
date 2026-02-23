@@ -20,7 +20,7 @@ import subprocess
 # We use `ai-models` for GraphCast, Pangu, and FCNv2
 AI_MODELS_CLI = ["panguweather", "graphcast", "fourcastnetv2-small"]
 
-LEAD_TIME_HOURS = 240 # 10 days
+LEAD_TIME_HOURS = 360 # 15 days
 OUTPUT_DIR = "/kaggle/working/output"
 GITHUB_REPO = "yieldchaser/weather-dd-tracker"
 

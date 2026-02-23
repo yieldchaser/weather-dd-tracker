@@ -35,6 +35,15 @@ gfs_result = subprocess.run(f"{PY} scripts/fetch_gfs.py", shell=True)
 print("\n2b. Fetching NBM (National Blend of Models)...")
 nbm_result = subprocess.run(f"{PY} scripts/fetch_nbm.py", shell=True)
 
+print("\n2c. Fetching Additional Models (ENS, AIFS, GEFS, HRRR, NAM, ICON)...")
+subprocess.run(f"{PY} scripts/fetch_ecmwf_ens.py", shell=True)
+subprocess.run(f"{PY} scripts/fetch_ecmwf_aifs.py", shell=True)
+subprocess.run(f"{PY} scripts/fetch_gefs.py", shell=True)
+subprocess.run(f"{PY} scripts/fetch_hrrr.py", shell=True)
+subprocess.run(f"{PY} scripts/fetch_nam.py", shell=True)
+subprocess.run(f"{PY} scripts/fetch_icon.py", shell=True)
+subprocess.run(f"{PY} scripts/fetch_historical_eia_normals.py", shell=True)
+
 # Fallback: if BOTH primary fetches failed, use Open-Meteo
 if ecmwf_result.returncode != 0 and gfs_result.returncode != 0:
     print("\n[WARN]  Both ECMWF and GFS failed. Triggering Open-Meteo fallback...")
@@ -85,6 +94,18 @@ print("\n5e. Generating Trader Charts & Historical Matrix...")
 subprocess.run(f"{PY} scripts/build_crossover_matrix.py", shell=True)
 subprocess.run(f"{PY} scripts/track_cumulative_season.py", shell=True)
 subprocess.run(f"{PY} scripts/build_historical_threshold_matrix.py", shell=True)
+subprocess.run(f"{PY} scripts/plot_ecmwf_eps.py", shell=True)
+subprocess.run(f"{PY} scripts/build_historical_monthly_charts.py", shell=True)
+
+# ------------------------------------------
+# Step 5f: Generate Market Proxies & Composite Score
+# ------------------------------------------
+
+print("\n5f. Generating Market Proxies & Composite Score...")
+subprocess.run(f"{PY} scripts/market_logic/physics_vs_ai_disagreement.py", shell=True)
+subprocess.run(f"{PY} scripts/market_logic/power_burn_proxy.py", shell=True)
+subprocess.run(f"{PY} scripts/market_logic/renewables_generation_proxy.py", shell=True)
+subprocess.run(f"{PY} scripts/market_logic/composite_score.py", shell=True)
 
 # ------------------------------------------
 # Step 6: Send Telegram signal

@@ -6,12 +6,14 @@ from datetime import date
 
 NEAR_TERM_DAYS = 7
 EXTENDED_DAYS  = 14
-MIN_NEAR_DAYS  = 5
-MIN_EXT_DAYS   = 3
-MIN_TOTAL_DAYS = 10
 
 GW_NORMALS = Path("data/normals/us_gas_weighted_normals.csv")
 STD_NORMALS = Path("data/normals/us_daily_normals.csv")
+
+# Classifications for grouped Telegram output
+PRIMARY_MODELS = ["ECMWF", "GFS", "ECMWF_ENS", "GEFS"]
+SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
+AI_MODELS = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "FOURCASTNETV2", "AURORA", "ECMWF_AIFS"]
 
 
 def _signal(vs_normal):
@@ -48,6 +50,17 @@ def _band(df, model, run_id, start_day, end_day, tdd_col, norm_col):
     return band[tdd_col].mean(), band[norm_col].mean(), len(band)
 
 
+def _get_classification(model):
+    m = model.upper()
+    if m in PRIMARY_MODELS or m.startswith("OM_"):
+        if m in ["OM_ICON"]: # Exceptions
+             return "SHORT"
+        return "PRIMARY"
+    if m in SHORT_TERM_MODELS:
+        return "SHORT"
+    return "AI"
+
+
 def send():
     token   = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
@@ -61,7 +74,6 @@ def send():
     df["month"] = df["date"].dt.month
     df["day"]   = df["date"].dt.day
 
-    # ── Load normals: prefer gas-weighted ─────────────────────────────────
     gw_mode = GW_NORMALS.exists()
     if gw_mode:
         norms = pd.read_csv(GW_NORMALS)
@@ -72,9 +84,6 @@ def send():
         hdd_col  = "hdd_normal"
         norm_label = "Normal"
 
-    # ── Determine which TDD column to use ─────────────────────────────────
-    # If tdd_gw column exists but has NaN (old CSV files pre-Phase 2),
-    # backfill with tdd so those runs still produce valid metrics.
     if "tdd_gw" in df.columns:
         df["tdd_gw"] = df["tdd_gw"].fillna(df["tdd"])
         tdd_col = "tdd_gw"
@@ -85,35 +94,25 @@ def send():
 
     df = df.merge(norms[["month", "day", hdd_col]], on=["month", "day"], how="left")
 
-    # ── Build per-run summary ─────────────────────────────────────────────
-    # IMPORTANT: always count days using 'tdd' (never NaN in any CSV, old or new).
-    # Using tdd_col for count would return 0 for old runs lacking tdd_gw,
-    # causing them to be incorrectly filtered out as "< 10 days".
     summary = (
         df.groupby(["model", "run_id"])
         .agg(fa_gw=(tdd_col, "mean"), na_avg=(hdd_col, "mean"), days=("tdd", "count"))
         .reset_index()
     )
 
-    short = summary[summary["days"] < MIN_TOTAL_DAYS]
-    if not short.empty:
-        print(f"WARNING: {len(short)} short run(s) skipped:\n{short[['model','run_id','days']].to_string(index=False)}")
-
-    summary = summary[summary["days"] >= MIN_TOTAL_DAYS].copy()
     if summary.empty:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        requests.post(url, json={"chat_id": chat_id,
-            "text": "WEATHER DESK WARNING: No runs >= 10 days. Check pipeline."})
+        print("[WARN] No runs available to summarize.")
         return
 
     summary["vs_normal"] = summary["fa_gw"] - summary["na_avg"]
     summary["signal"]    = summary["vs_normal"].apply(_signal)
+    summary["category"]  = summary["model"].apply(_get_classification)
 
     sorted_s  = summary.sort_values("run_id")
     latest    = sorted_s.groupby("model").last().reset_index()
     prev      = sorted_s.groupby("model").nth(-2).reset_index()
 
-    # ── Load market bias ──────────────────────────────────────────────────
+    # Bias reading
     market_bias_str = "NEUTRAL ⚪"
     bias_file = Path("outputs/composite_bull_bear_signal.csv")
     if bias_file.exists():
@@ -126,111 +125,134 @@ def send():
         except:
             pass
 
-    # ── Build message ─────────────────────────────────────────────────────
     today = date.today().strftime("%Y-%m-%d")
     mode_tag = " [Gas-Weighted]" if (tdd_col == "tdd_gw" and gw_mode) else " [CONUS avg]"
     lines = [
         f"WEATHER DESK -- {today}{mode_tag}",
-        f"Algorithmic Bias (Next 24H): {market_bias_str}\n"
+        f"Algorithmic Bias: {market_bias_str}\n" 
     ]
+    
+    primary_avgs = {}
 
-    model_avgs = {}
+    # --- Helper to render a group of detailed models ---
+    def render_detailed_group(group_df, lines_list, run_trend_dict=None):
+        for _, row in group_df.iterrows():
+            model  = row["model"]
+            run_id = row["run_id"]
 
-    for _, row in latest.iterrows():
-        model  = row["model"]
-        run_id = row["run_id"]
+            run_dates = df[(df["model"] == model) & (df["run_id"] == run_id)]["date"].sort_values()
+            w_start   = run_dates.min().strftime("%b %d") if not run_dates.empty else "?"
+            w_end     = run_dates.max().strftime("%b %d") if not run_dates.empty else "?"
 
-        run_dates = df[(df["model"] == model) & (df["run_id"] == run_id)]["date"].sort_values()
-        w_start   = run_dates.min().strftime("%b %d") if not run_dates.empty else "?"
-        w_end     = run_dates.max().strftime("%b %d") if not run_dates.empty else "?"
+            nt_avg, nt_nm, nt_d = _band(df, model, run_id, 1, NEAR_TERM_DAYS, tdd_col, hdd_col)
+            ex_avg, ex_nm, ex_d = _band(df, model, run_id, NEAR_TERM_DAYS+1, EXTENDED_DAYS, tdd_col, hdd_col)
+            nt_vs = (nt_avg - nt_nm) if nt_avg is not None else None
+            ex_vs = (ex_avg - ex_nm) if ex_avg is not None else None
 
-        # Near-term / Extended bands
-        nt_avg, nt_nm, nt_d = _band(df, model, run_id, 1,                NEAR_TERM_DAYS, tdd_col, hdd_col)
-        ex_avg, ex_nm, ex_d = _band(df, model, run_id, NEAR_TERM_DAYS+1, EXTENDED_DAYS,  tdd_col, hdd_col)
-        nt_vs = (nt_avg - nt_nm) if nt_avg is not None else None
-        ex_vs = (ex_avg - ex_nm) if ex_avg is not None else None
-
-        # Same-window run change
-        prev_rows = prev[prev["model"] == model]
-        if not prev_rows.empty:
-            prev_run   = prev_rows["run_id"].values[0]
-            lat_dates  = set(df[(df["model"] == model) & (df["run_id"] == run_id)]["date"])
-            prv_dates  = set(df[(df["model"] == model) & (df["run_id"] == prev_run)]["date"])
-            common     = lat_dates & prv_dates
-            if common:
-                lat_avg  = df[(df["model"]==model)&(df["run_id"]==run_id)&(df["date"].isin(common))][tdd_col].mean()
-                prev_avg = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))][tdd_col].mean()
-                run_chg  = f"{lat_avg - prev_avg:+.1f} HDD"
+            prev_rows = prev[prev["model"] == model]
+            if not prev_rows.empty:
+                prev_run   = prev_rows["run_id"].values[0]
+                lat_dates  = set(df[(df["model"] == model) & (df["run_id"] == run_id)]["date"])
+                prv_dates  = set(df[(df["model"] == model) & (df["run_id"] == prev_run)]["date"])
+                common     = lat_dates & prv_dates
+                if common:
+                    lat_avg  = df[(df["model"]==model)&(df["run_id"]==run_id)&(df["date"].isin(common))][tdd_col].mean()
+                    prev_avg = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))][tdd_col].mean()
+                    run_chg  = f"{lat_avg - prev_avg:+.1f} HDD"
+                else:
+                    run_chg = "no overlap"
             else:
-                run_chg = "no overlap"
+                run_chg = "first run"
+
+            trend_str = _trend(model, sorted_s)
+            if run_trend_dict is not None:
+                run_trend_dict[model] = row["fa_gw"]
+
+            display_run_id = run_id.split("_")[0] + "_AI" if "_AI" in run_id else run_id
+
+            block = (
+                f"{model} | {display_run_id}\n"
+                f"Window: {w_start} – {w_end} ({int(row['days'])}d)\n"
+            )
+            if nt_avg is not None:
+                block += f"Near-term: {nt_avg:.1f} | Norm: {nt_nm:.1f} | {nt_vs:+.1f} {_signal(nt_vs)}\n"
+            if ex_avg is not None:
+                block += f"Extended:  {ex_avg:.1f} | Norm: {ex_nm:.1f} | {ex_vs:+.1f} {_signal(ex_vs)}\n"
+            
+            block += (
+                f"Full Avg:  {row['fa_gw']:.1f} | Norm: {row['na_avg']:.1f} | {row['vs_normal']:+.1f} {_signal(row['vs_normal'])}\n"
+                f"Run shift: {run_chg} ({trend_str})\n"
+            )
+            lines_list.append(block)
+
+    # --- 1. PRIMARY GLOBAL MODELS ---
+    lines.append("=== PRIMARY GLOBAL MODELS ===")
+    primaries = latest[latest["category"] == "PRIMARY"]
+    if primaries.empty:
+        lines.append("No primary models available.\n")
+    else:
+        render_detailed_group(primaries, lines, primary_avgs)
+
+    # --- 2. AI BASE SPACE ---
+    ai_models = latest[latest["category"] == "AI"]
+    if not ai_models.empty:
+        lines.append("\n=== AI BASE SPACE (10-15 Day) ===")
+        render_detailed_group(ai_models, lines)
+        
+        # AI Consensus
+        ai_signals = [row["signal"] for _, row in ai_models.iterrows()]
+        bull_ai = sum("BULLISH" in s for s in ai_signals)
+        bear_ai = sum("BEARISH" in s for s in ai_signals)
+        ai_total = len(ai_signals)
+        
+        if bull_ai == ai_total:
+             lines.append(f"> AI Consensus: BULLISH 🟢 ({bull_ai}/{ai_total})")
+        elif bear_ai == ai_total:
+             lines.append(f"> AI Consensus: BEARISH 🔴 ({bear_ai}/{ai_total})")
+        elif bull_ai > bear_ai:
+             lines.append(f"> AI Consensus: LEAN BULL 🟢 ({bull_ai}/{ai_total})")
+        elif bear_ai > bull_ai:
+             lines.append(f"> AI Consensus: LEAN BEAR 🔴 ({bear_ai}/{ai_total})")
         else:
-            run_chg = "first run"
+             lines.append("> AI Consensus: MIXED ⚪")
+    else:
+        lines.append("\n=== AI BASE SPACE ===")
+        lines.append("No AI models available.\n")
 
-        trend_str = _trend(model, sorted_s)
-        model_avgs[model] = row["fa_gw"]
+    # --- 3. SHORT-TERM BIAS ---
+    short_models = latest[latest["category"] == "SHORT"]
+    if not short_models.empty:
+        lines.append("\n=== SHORT-TERM BIAS (0-5 Day) ===")
+        for _, row in short_models.iterrows():
+            m = row["model"]
+            fa = row['fa_gw']
+            vs = row['vs_normal']
+            lines.append(f"{m} ({int(row['days'])}d): {fa:.1f} | {vs:+.1f} {_signal(vs)}")
+        lines.append("")
 
-        block = (
-            f"{model} | Run: {run_id}\n"
-            f"Window: {w_start} – {w_end} ({int(row['days'])} days)\n"
-        )
-        if nt_avg is not None and nt_d >= MIN_NEAR_DAYS:
-            block += f"Near-term (D1-{nt_d}): {nt_avg:.1f} {metric_label} | {norm_label}: {nt_nm:.1f} | {nt_vs:+.1f} {_signal(nt_vs)}\n"
-        if ex_avg is not None and ex_d >= MIN_EXT_DAYS:
-            block += f"Extended  (D{NEAR_TERM_DAYS+1}-{NEAR_TERM_DAYS+ex_d}): {ex_avg:.1f} {metric_label} | {norm_label}: {ex_nm:.1f} | {ex_vs:+.1f} {_signal(ex_vs)}\n"
-        block += (
-            f"Full avg: {row['fa_gw']:.1f} {metric_label} | {norm_label}: {row['na_avg']:.1f} | "
-            f"{row['vs_normal']:+.1f} -- {row['signal']}\n"
-            f"Run change: {run_chg} ({trend_str})\n"
-        )
-        lines.append(block)
-
-    # ── Model spread ──────────────────────────────────────────────────────
-    if len(model_avgs) >= 2:
-        vals = list(model_avgs.values())
+    # --- SPREAD ---
+    if len(primary_avgs) >= 2:
+        vals = list(primary_avgs.values())
         spread = max(vals) - min(vals)
         if spread <= 0.5:
-            spread_lbl = "TIGHT - high conviction"
+            spread_lbl = "TIGHT"
         elif spread <= 1.5:
-            spread_lbl = "MODERATE - reasonable agreement"
+            spread_lbl = "MODERATE"
         else:
-            spread_lbl = "WIDE - models disagree, size accordingly"
-        lines.append(f"Model spread: {spread:.1f} HDD/day ({spread_lbl})")
+            spread_lbl = "WIDE"
+        lines.append(f"Primary Spread: {spread:.1f} HDD ({spread_lbl})")
 
-    # ── Consensus ─────────────────────────────────────────────────────────
-    signals = [row["signal"] for _, row in latest.iterrows()]
-    if not signals:
-        lines.append("Consensus: NEUTRAL ⚪ - no data")
-    else:
-        bull_count = sum("BULLISH" in s for s in signals)
-        bear_count = sum("BEARISH" in s for s in signals)
-        
-        if bull_count == len(signals):
-            lines.append(f"Consensus: BULLISH 🟢 - all {len(signals)} models agree")
-        elif bear_count == len(signals):
-            lines.append(f"Consensus: BEARISH 🔴 - all {len(signals)} models agree")
-        elif bull_count > bear_count:
-            lines.append(f"Consensus: LEAN BULLISH 🟢 - models split ({bull_count}/{len(signals)} bull)")
-        elif bear_count > bull_count:
-            lines.append(f"Consensus: LEAN BEARISH 🔴 - models split ({bear_count}/{len(signals)} bear)")
-        elif bull_count > 0 and bear_count > 0:
-            lines.append("Consensus: MIXED [WARN]️ - models disagree, reduce size")
-        else:
-            lines.append("Consensus: NEUTRAL ⚪")
-
-    msg = "\n".join(lines)
+    msg = "\n".join(lines).strip()
+    
     if token and chat_id:
         try:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
-            resp = requests.post(url, json={"chat_id": chat_id, "text": msg})
-            print("Telegram Text sent:", resp.status_code)
+            requests.post(url, json={"chat_id": chat_id, "text": msg})
         except Exception as e:
             print(f"[ERR] Failed to post to Telegram: {e}")
-    else:
-        print("[WARN] No Telegram tokens found. Skipped webhook push.")
-        
+            
     print("\n--- MESSAGE PREVIEW ---")
-    safe_msg = msg.encode('ascii', 'ignore').decode('ascii')
-    print(safe_msg)
+    print(msg.encode('ascii', 'ignore').decode('ascii'))
 
 
 if __name__ == "__main__":

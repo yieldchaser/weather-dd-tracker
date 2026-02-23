@@ -81,51 +81,47 @@ GitHub Actions (Every 15 mins during release windows)
 │
 ├─ Step 0: poll_models.py ────────────────────────── [TRIGGER]
 │          Checks NOAA/ECMWF for new runs vs pipeline_state.json
-│          Verifies final forecast hour exists
 │          Executes downward pipeline only on new data
 │
 ├─ Step 1: fetch_ecmwf_ifs.py ──── ECMWF OpenData API
-│          area=[50,-125,25,-65]   CONUS-only at source
-│          16 steps (0h→360h)      
 │          → data/ecmwf/{run_id}/ifs_t2m.grib2
 │
-├─ Step 2: fetch_gfs.py ──────────── NOMADS NCEP byte-range
-│          t2m field only (~5-15KB/timestep)
-│          → data/gfs/{run_id}/gfs.t{cc}z.pgrb2.0p25.f{HHH}
-│          [FALLBACK]: fetch_open_meteo.py (17-city avg)
+├─ Step 2: All Fetchers ──────────── Fetch all Primary & Short-Term
+│          fetch_gfs.py
+│          fetch_nbm.py
+│          fetch_ecmwf_ens.py, fetch_ecmwf_aifs.py, fetch_gefs.py
+│          fetch_hrrr.py, fetch_nam.py, fetch_icon.py
 │
 ├─ Step 3: compute_tdd.py ────────── GRIB → CSV
 │          Crops to CONUS (25-50°N, 235-295°E)
-│          Loads gas-weight grid, interpolates to data resolution
+│          One-time interpolation of Gas-Weight Grid (Massive Optimization)
 │          → data/{model}/{run_id}_tdd.csv
 │
 ├─ Step 4: merge_tdd.py ──────── Glob all *_tdd.csv + dedup
+│          Captures local runs AND Kaggle AI (`ai_tdd_latest.csv`)
 │          → outputs/tdd_master.csv
 │
 ├─ Step 4b: select_latest_run.py ─ Latest run per model
-│           → outputs/ecmwf_latest.csv & gfs_latest.csv
 │
 ├─ Step 4c: compare_to_normal.py ─ Anomaly vs 10y/30y normals
-│           Simple: tdd vs hdd_normal
-│           GW:     tdd_gw vs hdd_normal_gw
-│           → outputs/vs_normal.csv
 │
 ├─ Step 5: run_change.py ────────── Per-run totals + sequential delta
-│          → outputs/run_change.csv
 │
 ├─ Step 5b: compute_run_delta.py ─ Day-by-day delta
-│           → outputs/run_delta.csv
 │
-├─ Step 5c: build_model_shift_table.py ─ Model Consensus Matrix
-│           → outputs/model_shift_table.csv
+├─ Step 5c - 5e: Feature Trackers ────────
+│           build_model_shift_table.py
+│           build_freeze_offs.py
+│           build_crossover_matrix.py
+│           track_cumulative_season.py
+│           build_historical_threshold_matrix.py
+│           plot_ecmwf_eps.py
 │
-├─ Step 5d: build_freeze_offs.py ─ Basin Production Loss 
-│           → outputs/freeze_off_forecast.csv
-│
-├─ Step 5e: Feature Trackers ────────
-│           build_crossover_matrix.py → seasonal_crossover.csv / crossover_chart.png
-│           track_cumulative_season.py → cumulative_hdd_tracker.png
-│           build_historical_threshold_matrix.py → historical_hdd_thresholds.xlsx
+├─ Step 5f: Market Logic ────────
+│           physics_vs_ai_disagreement.py
+│           power_burn_proxy.py
+│           renewables_generation_proxy.py
+│           composite_score.py
 │
 └─ Step 6: send_telegram.py ─────── Trading-grade alert
            Auto-selects GW data if available. Sends text tables + charts.
@@ -136,8 +132,8 @@ GitHub Actions (Every 15 mins during release windows)
 ## 3. Script-by-Script Analysis
 
 ### `daily_update.py` — Master Orchestrator
-**10 steps:** fetch ECMWF → fetch GFS → compute TDD → merge+dedup → select_latest → compare_normals → run_change → run_delta → extra trackers (shift table, freeze-offs, charts, history) → send_telegram
-**Status: ✅ Correct, all steps wired**
+**Monolithic execution:** fetch ECMWF → fetch ALL models → compute TDD → merge+dedup → select_latest → anomalies → deltas → feature trackers → Market Proxies → send_telegram
+**Status: ✅ Correct, serves as the single source of truth for execution flow**
 
 ---
 
@@ -274,7 +270,7 @@ GitHub Actions (Every 15 mins during release windows)
 ### `poll_models.py` — Real-Time Model Poller (Event Trigger)
 - Designed to run on a 15-minute cron schedule via GitHub Actions.
 - Pings NOAA/ECMWF arrays to detect fully uploaded runs (verifying final hour `f384` exists).
-- Triggers the main `daily_update.py` pipeline the moment new data finishes landing.
+- Triggers the monolithic `daily_update.py` pipeline the moment new data finishes landing.
 **Status: ✅ Correct**
 
 ---

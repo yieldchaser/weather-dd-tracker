@@ -19,3 +19,28 @@
 - [ ] 3.3 Construct Composite Bullish/Bearish Score (HDD + CDD + Anomaly + Model Agreement).
 - [ ] 3.4 Develop Wind/Solar Generation Proxy (for holistic power generation offset tracking).
 - [ ] 3.5 Storage Draw/Injection Weekly Estimate logic.
+
+## Phase 12: ECMWF EPS Trading Charts (HFI Style)
+- [ ] 12.1 Add process_ecmwf_ens to compute_tdd.py (average 51 members).
+- [ ] 12.2 Update merge_tdd.py to ingest ECMWF_ENS TDD outputs.
+- [ ] 12.3 Build plot_ecmwf_eps_changes.py for 24-hour comparative run charts.
+- [ ] 12.4 Automate EPS chart in daily_update.py.
+
+## Phase 13: Telegram Message Restructure
+- [ ] 13.1 Update send_telegram.py to remove MIN_TOTAL_DAYS filter.
+- [ ] 13.2 Group output by Primary Physics, AI Base Space, and Short-Term Bias.
+- [ ] 13.3 Keep short-term/AI reporting compact (1-liner form).
+
+## Phase 14: AI Prediction Range Expansion
+- [ ] 14.1 Change LEAD_TIME_HOURS to 360 (15 days) in kaggle_env/run_ai_models.py.
+
+- [x] 12.1 Add process_ecmwf_ens to compute_tdd.py (average 51 members).
+- [x] 12.2 Update merge_tdd.py to ingest ECMWF_ENS TDD outputs.
+- [x] 12.3 Build plot_ecmwf_eps_changes.py for 24-hour comparative run charts.
+- [x] 12.4 Automate EPS chart in daily_update.py.
+
+- [x] 13.1 Update send_telegram.py to remove MIN_TOTAL_DAYS filter.
+- [x] 13.2 Group output by Primary Physics, AI Base Space, and Short-Term Bias.
+- [x] 13.3 Keep short-term/AI reporting compact (1-liner form).
+
+- [x] 14.1 Change LEAD_TIME_HOURS to 360 (15 days) in kaggle_env/run_ai_models.py.
