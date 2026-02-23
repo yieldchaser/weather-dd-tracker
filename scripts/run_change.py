@@ -46,8 +46,18 @@ def compute_run_changes():
         all_rows.append(m)
 
     result = pd.concat(all_rows, ignore_index=True)
+
+    # Fast revision flag: any single run moving >3 HDD (gas-weighted preferred)
+    chg_col = "hdd_change_gw" if gw_mode else "hdd_change"
+    result["fast_revision"] = result[chg_col].abs() > 3.0
+
     os.makedirs("outputs", exist_ok=True)
     result.to_csv(OUTPUT, index=False)
+
+    flagged = result[result["fast_revision"]]
+    if not flagged.empty:
+        print("\n⚡ FAST REVISION ALERT (>3 HDD in one run):")
+        print(flagged[["model", "run_id", chg_col]].to_string(index=False))
 
     print("\nTOTAL HDD PER RUN + RUN-TO-RUN CHANGE:\n")
     print(result.to_string())

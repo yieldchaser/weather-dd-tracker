@@ -56,9 +56,11 @@ TOTAL_WEIGHT = sum(w for _, _, _, w in DEMAND_CITIES)
 
 # Open-Meteo models to pull in fallback
 OM_MODELS = {
-    "OM_ECMWF": "ecmwf_ifs025",
-    "OM_GFS":   "gfs_seamless",
-    "OM_ICON":  "icon_seamless",
+    "OM_ECMWF":  "ecmwf_ifs025",
+    "OM_GFS":    "gfs_seamless",
+    "OM_ICON":   "icon_seamless",
+    "OM_UKMET":  "uk_met_office_seamless",
+    "OM_ARPEGE": "meteofrance_arpege_europe",
 }
 
 

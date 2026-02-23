@@ -129,9 +129,28 @@ def send():
     mode_tag = " [Gas-Weighted]" if (tdd_col == "tdd_gw" and gw_mode) else " [CONUS avg]"
     lines = [
         f"WEATHER DESK -- {today}{mode_tag}",
-        f"Algorithmic Bias: {market_bias_str}\n" 
+        f"Algorithmic Bias: {market_bias_str}\n"
     ]
-    
+
+    # Fast revision alerts
+    run_chg_file = Path("outputs/run_change.csv")
+    if run_chg_file.exists():
+        try:
+            rc = pd.read_csv(run_chg_file)
+            if "fast_revision" in rc.columns:
+                chg_col = "hdd_change_gw" if "hdd_change_gw" in rc.columns else "hdd_change"
+                flagged = rc[rc["fast_revision"] == True].copy()
+                # Only show the latest run per model
+                flagged = flagged.sort_values("run_id").groupby("model").last().reset_index()
+                if not flagged.empty:
+                    lines.append("⚡ FAST REVISION ALERTS:")
+                    for _, fr in flagged.iterrows():
+                        arrow = "▲" if fr[chg_col] > 0 else "▼"
+                        lines.append(f"  {fr['model']} {arrow} {fr[chg_col]:+.1f} HDD ({fr['run_id']})")
+                    lines.append("")
+        except Exception as e:
+            print(f"[WARN] Could not load run_change.csv: {e}")
+
     primary_avgs = {}
 
     # --- Helper to render a group of detailed models ---
