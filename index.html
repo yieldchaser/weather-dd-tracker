@@ -711,7 +711,7 @@
 
                 // 6. Build Chart
                 if (masterData.length > 0) {
-                    initChart(masterData, vsNormal);
+                    initChart(masterData, vsNormal, mapManifest);
                 }
 
                 document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
@@ -726,7 +726,7 @@
 
         let runChartInstance = null;
 
-        function initChart(masterData, vsNormal) {
+        function initChart(masterData, vsNormal, mapManifest) {
             // Collect available models
             let models = [...new Set(masterData.map(r => r.model).filter(m => m))].sort();
             let sel = document.getElementById('modelSelect');
