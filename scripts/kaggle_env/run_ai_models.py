@@ -43,7 +43,7 @@ print("[SETUP] Dependencies ready. Starting inference...")
 import pandas as pd
 
 AI_MODELS_CLI = ["fourcastnetv2-small"]
-LEAD_TIME_HOURS = 120
+LEAD_TIME_HOURS = 360
 OUTPUT_DIR = "/kaggle/working/output"
 
 DEMAND_CITIES = [
