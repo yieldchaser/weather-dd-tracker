@@ -159,10 +159,16 @@ def extract_conus_tdd(grib_path, model_name):
     import numpy as np
 
     print(f"Extracting TDD from {grib_path}...")
+    # Pin numpy<2.0 here since Kaggle may reload it between steps
+    subprocess.run("pip install 'numpy<2.0' --quiet", shell=True, check=False)
     try:
-        # ai-models outputs standard GRIB fields. We need 2t (2-meter temp)
-        ds = xr.open_dataset(grib_path, engine="cfgrib", filter_by_keys={'shortName': '2t'})
-        temp_array = ds['2t'].values
+        # backend_kwargs indexpath='' prevents cfgrib from creating an index file (avoids NumPy 2.0 copy error)
+        ds = xr.open_dataset(
+            grib_path, engine="cfgrib",
+            filter_by_keys={'shortName': '2t'},
+            backend_kwargs={'indexpath': ''}
+        )
+        temp_array = np.array(ds['2t'].values, copy=True)  # explicit copy avoids NumPy 2.0 flag conflict
     except Exception as e:
         print(f"[ERR] Could not open {grib_path} for {model_name}: {e}")
         return None
