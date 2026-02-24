@@ -13,33 +13,41 @@ import os
 import sys
 import time
 import datetime
-import pandas as pd
 import subprocess
 
-# --- PyTorch 2.6 Security Bypass ---
-# FourCastNetV2 weights use a legacy pickle format blocked by default in PyTorch 2.6.
-# This patches torch.load globally so ai-models can open the weights file.
-import torch
-import functools
-_orig_torch_load = torch.load
-torch.load = functools.partial(_orig_torch_load, weights_only=False)
-# Also add the specific global class that ruamel.yaml uses inside the weights
-try:
-    import ruamel.yaml.scalarfloat
-    torch.serialization.add_safe_globals([ruamel.yaml.scalarfloat.ScalarFloat])
-except Exception:
-    pass
+# ============================================================
+# PHASE 1: Install all dependencies and restart Python fresh.
+# This ensures numpy<2.0 is loaded from process boot, not hot-swapped.
+# A sentinel file prevents an infinite restart loop.
+# ============================================================
+SENTINEL = "/kaggle/working/.deps_installed"
 
+if not os.path.exists(SENTINEL):
+    print("[SETUP] Installing dependencies...")
+    subprocess.run("apt-get update -qq && apt-get install -y libeccodes0 libeccodes-dev -qq", shell=True, check=False)
+    subprocess.run(
+        "pip install -q 'ai-models' 'ai-models-fourcastnetv2' 'onnxruntime-gpu' "
+        "'torch==2.5.1' 'numpy<2.0'",
+        shell=True, check=True
+    )
+    # Write sentinel so the restarted process skips this block
+    open(SENTINEL, 'w').close()
+    print("[SETUP] Restarting Python to load new packages...")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+    # os.execv replaces this process — code below never runs on first boot
+
+print("[SETUP] Dependencies ready. Starting inference...")
+
+
+
+import pandas as pd
 
 # --- Config ---
-# fourcastnetv2-small is the only model that safely fits in 16GB Kaggle VRAM
 AI_MODELS_CLI = ["fourcastnetv2-small"]
-
-LEAD_TIME_HOURS = 120  # 5 days - memory-safe for Kaggle P100/T4
+LEAD_TIME_HOURS = 120
 OUTPUT_DIR = "/kaggle/working/output"
 GITHUB_REPO = "yieldchaser/weather-dd-tracker"
 
-# Representative Henry Hub gas-demand cities
 DEMAND_CITIES = [
     ("Boston", 42.36, -71.06, 4.0), ("New York", 40.71, -74.01, 6.0),
     ("Chicago", 41.85, -87.65, 5.0), ("Dallas", 32.78, -96.80, 1.0),
@@ -60,16 +68,7 @@ def ensure_dir(d):
     os.makedirs(d, exist_ok=True)
 
 def install_system_dependencies():
-    print("Installing system dependencies for ai-models...")
-    subprocess.run("apt-get update && apt-get install -y libeccodes0 libeccodes-dev", shell=True, check=False)
-    subprocess.run(
-        "pip install 'ai-models' 'ai-models-panguweather' 'ai-models-fourcastnetv2' onnxruntime-gpu",
-        shell=True, check=True
-    )
-    # Downgrade PyTorch to 2.5.1 - the subprocess running ai-models inherits the system torch.
-    # PyTorch 2.6 blocks legacy pickle by default; 2.5.1 does not have this restriction.
-    subprocess.run("pip install 'torch==2.5.1' --quiet", shell=True, check=False)
-    print("[OK] Dependencies installed")
+    print("[SETUP] Dependencies already installed (sentinel present).")
 
 
 
