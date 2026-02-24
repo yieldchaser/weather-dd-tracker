@@ -528,6 +528,17 @@
 
         async function loadDashboard() {
             try {
+                // Create a robust fetcher for the JSON manifest that guarantees a safe object is returned
+                const fetchManifest = async () => {
+                    try {
+                        let res = await fetch("outputs/maps_manifest.json");
+                        if (!res.ok) return { ECMWF: [], GFS: [] };
+                        return await res.json();
+                    } catch (e) {
+                        return { ECMWF: [], GFS: [] };
+                    }
+                };
+
                 const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest] = await Promise.all([
                     fetchCSV("composite_bull_bear_signal.csv"),
                     fetchCSV("vs_normal.csv"),
@@ -536,9 +547,7 @@
                     fetchCSV("run_change.csv"),
                     fetchCSV("convergence_alert.csv"),
                     fetchCSV("tdd_master.csv"),
-                    fetch("outputs/maps_manifest.json")
-                        .then(r => r.ok ? r.json() : { ECMWF: [], GFS: [] })
-                        .catch(() => ({ ECMWF: [], GFS: [] }))
+                    fetchManifest()
                 ]);
 
                 // 1. Bias
