@@ -164,10 +164,11 @@ def extract_conus_tdd(grib_path, model_name):
         # backend_kwargs indexpath='' prevents cfgrib from creating an index file (avoids NumPy 2.0 copy error)
         ds = xr.open_dataset(
             grib_path, engine="cfgrib",
-        filter_by_keys={'shortName': 't2m'},
             backend_kwargs={'indexpath': ''}
         )
-        temp_array = np.array(ds['t2m'].values, copy=True)
+        # FourCastNetV2 uses 't2m'; ECMWF-standard GRIB uses '2t'
+        var = 't2m' if 't2m' in ds.variables else '2t'
+        temp_array = np.array(ds[var].values, copy=True)
     except Exception as e:
         print(f"[ERR] Could not open {grib_path} for {model_name}: {e}")
         return None
