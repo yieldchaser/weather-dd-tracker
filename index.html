@@ -223,6 +223,36 @@
             color: var(--bearish);
         }
 
+        .horizon-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            background-color: transparent;
+            box-shadow: none;
+            border-radius: 0;
+        }
+
+        .horizon-table th,
+        .horizon-table td {
+            padding: 8px 10px;
+            text-align: right;
+            border-bottom: 1px solid #2a3642;
+        }
+
+        .horizon-table th:first-child,
+        .horizon-table td:first-child {
+            text-align: left;
+        }
+
+        .horizon-table th {
+            background-color: rgba(102, 252, 241, 0.05);
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #45a29e;
+        }
+
         .loader {
             text-align: center;
             padding: 50px;
@@ -341,76 +371,61 @@
                 </div>
             </div>
 
-            <!-- STORAGE WEEKS (EBW STYLE) -->
-            <h2 class="section-title">Gas-Weighted Heating Degree Days (ECMWF vs Normal)</h2>
+            <!-- TIME HORIZON PANELS -->
+            <h2 class="section-title">Gas-Weighted Heating Degree Days by Horizon (All Models)</h2>
             <div class="weeks-grid">
-                <!-- Week 1 -->
+                <!-- Short-Term -->
                 <div class="week-card">
-                    <div class="week-header">Near-Term (Days 1 - 7)</div>
-                    <div class="week-stats">
-                        <div class="stat-row">
-                            <div class="stat-label">Forecast GW HDDs</div>
-                            <div class="stat-val" id="w1-fcst">--</div>
-                        </div>
-                        <div class="stat-row">
-                            <div class="stat-label">30-Year Normal</div>
-                            <div class="stat-val" id="w1-norm">--</div>
-                        </div>
-                        <div class="stat-row">
-                            <div class="stat-label">Anomaly</div>
-                            <div class="stat-val" id="w1-anom">--</div>
-                        </div>
-                        <div class="stat-row"
-                            style="margin-top: 10px; padding-top: 15px; border-top: 2px solid #45a29e;">
-                            <div class="stat-label">Δ Since Yesterday</div>
-                            <div class="stat-val" id="w1-chg">--</div>
-                        </div>
+                    <div class="week-header">Short-Term (Days 1 - 5)</div>
+                    <div class="table-responsive">
+                        <table class="horizon-table">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>Fcst</th>
+                                    <th>Norm</th>
+                                    <th>Anom</th>
+                                    <th>Δ Chg</th>
+                                </tr>
+                            </thead>
+                            <tbody id="short-term-body"></tbody>
+                        </table>
                     </div>
                 </div>
-                <!-- Week 2 -->
+                <!-- Medium-Term -->
                 <div class="week-card">
-                    <div class="week-header">Extended (Days 8 - 14)</div>
-                    <div class="week-stats">
-                        <div class="stat-row">
-                            <div class="stat-label">Forecast GW HDDs</div>
-                            <div class="stat-val" id="w2-fcst">--</div>
-                        </div>
-                        <div class="stat-row">
-                            <div class="stat-label">30-Year Normal</div>
-                            <div class="stat-val" id="w2-norm">--</div>
-                        </div>
-                        <div class="stat-row">
-                            <div class="stat-label">Anomaly</div>
-                            <div class="stat-val" id="w2-anom">--</div>
-                        </div>
-                        <div class="stat-row"
-                            style="margin-top: 10px; padding-top: 15px; border-top: 2px solid #45a29e;">
-                            <div class="stat-label">Δ Since Yesterday</div>
-                            <div class="stat-val" id="w2-chg">--</div>
-                        </div>
+                    <div class="week-header">Medium-Term (Days 6 - 14)</div>
+                    <div class="table-responsive">
+                        <table class="horizon-table">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>Fcst</th>
+                                    <th>Norm</th>
+                                    <th>Anom</th>
+                                    <th>Δ Chg</th>
+                                </tr>
+                            </thead>
+                            <tbody id="med-term-body"></tbody>
+                        </table>
                     </div>
                 </div>
-                <!-- Week 3 -->
+                <!-- Long-Term -->
                 <div class="week-card">
-                    <div class="week-header">Long Range (Days 15+)</div>
-                    <div class="week-stats">
-                        <div class="stat-row">
-                            <div class="stat-label">Forecast GW HDDs</div>
-                            <div class="stat-val" id="w3-fcst">--</div>
-                        </div>
-                        <div class="stat-row">
-                            <div class="stat-label">30-Year Normal</div>
-                            <div class="stat-val" id="w3-norm">--</div>
-                        </div>
-                        <div class="stat-row">
-                            <div class="stat-label">Anomaly</div>
-                            <div class="stat-val" id="w3-anom">--</div>
-                        </div>
-                        <div class="stat-row"
-                            style="margin-top: 10px; padding-top: 15px; border-top: 2px solid #45a29e;">
-                            <div class="stat-label">Δ Since Yesterday</div>
-                            <div class="stat-val" id="w3-chg">--</div>
-                        </div>
+                    <div class="week-header">Long-Term (Days 15+)</div>
+                    <div class="table-responsive">
+                        <table class="horizon-table">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>Fcst</th>
+                                    <th>Norm</th>
+                                    <th>Anom</th>
+                                    <th>Δ Chg</th>
+                                </tr>
+                            </thead>
+                            <tbody id="long-term-body"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -537,67 +552,100 @@
                     }
                 }
 
-                // 3. Storage Weeks (Using ECMWF as baseline)
+                // 3. Time Horizon Panels (All Models)
                 if (vsNormal.length > 0) {
-                    // Get latest ECMWF run
-                    let ecmwfRows = vsNormal.filter(r => r.model === 'ECMWF');
-                    if (ecmwfRows.length > 0) {
-                        // Sort descending by run_id
-                        ecmwfRows.sort((a, b) => String(b.run_id).localeCompare(String(a.run_id)));
-                        let latestRunId = ecmwfRows[0].run_id;
-                        let currentRun = ecmwfRows.filter(r => r.run_id === latestRunId);
+                    let models = [...new Set(vsNormal.map(r => r.model).filter(m => m))].sort();
 
-                        // Sort by date ascending
+                    let shortTermHtml = '';
+                    let medTermHtml = '';
+                    let longTermHtml = '';
+
+                    // For the macro summary card (use ECMWF as baseline, fallback to GFS)
+                    let macroFcst = 0, macroChg = 0, macroDays = 1;
+
+                    models.forEach(m => {
+                        let mRows = vsNormal.filter(r => r.model === m);
+                        mRows.sort((a, b) => String(b.run_id).localeCompare(String(a.run_id)));
+                        if (mRows.length === 0) return;
+
+                        let latestRunId = mRows[0].run_id;
+                        let currentRun = mRows.filter(r => r.run_id === latestRunId);
                         currentRun.sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
-                        let w1_fcst = 0, w1_norm = 0, w1_anom = 0;
-                        let w2_fcst = 0, w2_norm = 0, w2_anom = 0;
-                        let w3_fcst = 0, w3_norm = 0, w3_anom = 0;
+                        let w1_fcst = 0, w1_norm = 0, w1_anom = 0, len1 = 0;
+                        let w2_fcst = 0, w2_norm = 0, w2_anom = 0, len2 = 0;
+                        let w3_fcst = 0, w3_norm = 0, w3_anom = 0, len3 = 0;
 
                         currentRun.forEach((r, idx) => {
                             let f = r.tdd_gw || r.tdd || 0;
                             let n = r.hdd_normal_gw || r.hdd_normal || 0;
                             let a = r.hdd_anomaly_gw || r.hdd_anomaly || 0;
 
-                            if (idx < 7) { w1_fcst += f; w1_norm += n; w1_anom += a; }
-                            else if (idx < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; }
-                            else { w3_fcst += f; w3_norm += n; w3_anom += a; }
+                            if (idx < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; len1++; }
+                            else if (idx < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; len2++; }
+                            else { w3_fcst += f; w3_norm += n; w3_anom += a; len3++; }
                         });
 
-                        renderVal('w1-fcst', w1_fcst); renderVal('w1-norm', w1_norm); renderVal('w1-anom', w1_anom, 1, true);
-                        renderVal('w2-fcst', w2_fcst); renderVal('w2-norm', w2_norm); renderVal('w2-anom', w2_anom, 1, true);
-                        renderVal('w3-fcst', w3_fcst); renderVal('w3-norm', w3_norm); renderVal('w3-anom', w3_anom, 1, true);
+                        // Get Delta
+                        let w1_chg = '-', w2_chg = '-', w3_chg = '-';
+                        let total_chg = 0;
+                        if (runDelta && runDelta.length > 0) {
+                            let mDelta = runDelta.filter(r => r.model === m);
+                            if (mDelta.length > 0) {
+                                mDelta.sort((a, b) => String(b.run_latest).localeCompare(String(a.run_latest)));
+                                let latestTarget = mDelta[0].run_latest;
+                                let curDelta = mDelta.filter(r => r.run_latest === latestTarget);
+                                curDelta.sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
-                        let total_hdd = w1_fcst + w2_fcst + w3_fcst;
-                        renderVal('macro-total-hdd', total_hdd, 1);
-                    }
-                }
+                                let c1 = 0, c2 = 0, c3 = 0;
+                                curDelta.forEach((r, idx) => {
+                                    let val = r.tdd_gw_change || r.tdd_change || 0;
+                                    total_chg += val;
+                                    if (idx < 5) c1 += val;
+                                    else if (idx < 14) c2 += val;
+                                    else c3 += val;
+                                });
+                                w1_chg = c1 !== 0 ? formatNum(c1, 1, true) : '-';
+                                w2_chg = c2 !== 0 ? formatNum(c2, 1, true) : '-';
+                                w3_chg = c3 !== 0 ? formatNum(c3, 1, true) : '-';
 
-                // 4. Delta Since Yesterday (from run_delta.csv)
-                if (runDelta.length > 0) {
-                    let ecmwfDelta = runDelta.filter(r => r.model === 'ECMWF');
-                    if (ecmwfDelta.length > 0) {
-                        ecmwfDelta.sort((a, b) => String(b.run_latest).localeCompare(String(a.run_latest)));
-                        let latestTarget = ecmwfDelta[0].run_latest;
-                        let curDelta = ecmwfDelta.filter(r => r.run_latest === latestTarget);
-                        curDelta.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+                                let c1_cls = c1 > 0 ? 'pos-val' : (c1 < 0 ? 'neg-val' : '');
+                                let c2_cls = c2 > 0 ? 'pos-val' : (c2 < 0 ? 'neg-val' : '');
+                                let c3_cls = c3 > 0 ? 'pos-val' : (c3 < 0 ? 'neg-val' : '');
+                                if (w1_chg !== '-') w1_chg = `<span class="${c1_cls}">${w1_chg}</span>`;
+                                if (w2_chg !== '-') w2_chg = `<span class="${c2_cls}">${w2_chg}</span>`;
+                                if (w3_chg !== '-') w3_chg = `<span class="${c3_cls}">${w3_chg}</span>`;
+                            }
+                        }
 
-                        let w1_chg = 0, w2_chg = 0, w3_chg = 0;
-                        curDelta.forEach((r, idx) => {
-                            let val = r.tdd_gw_change || r.tdd_change || 0;
-                            if (idx < 7) w1_chg += val;
-                            else if (idx < 14) w2_chg += val;
-                            else w3_chg += val;
-                        });
+                        let a1_cls = w1_anom > 0 ? 'pos-val' : (w1_anom < 0 ? 'neg-val' : '');
+                        let a2_cls = w2_anom > 0 ? 'pos-val' : (w2_anom < 0 ? 'neg-val' : '');
+                        let a3_cls = w3_anom > 0 ? 'pos-val' : (w3_anom < 0 ? 'neg-val' : '');
 
-                        renderVal('w1-chg', w1_chg, 1, true);
-                        renderVal('w2-chg', w2_chg, 1, true);
-                        renderVal('w3-chg', w3_chg, 1, true);
+                        if (len1 > 0) {
+                            shortTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w1_fcst, 1)}</td><td>${formatNum(w1_norm, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom, 1, true)}</td><td>${w1_chg}</td></tr>`;
+                        }
+                        if (len2 > 0) {
+                            medTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w2_fcst, 1)}</td><td>${formatNum(w2_norm, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom, 1, true)}</td><td>${w2_chg}</td></tr>`;
+                        }
+                        if (len3 > 0) {
+                            longTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w3_fcst, 1)}</td><td>${formatNum(w3_norm, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom, 1, true)}</td><td>${w3_chg}</td></tr>`;
+                        }
 
-                        let totalDays = curDelta.length || 1;
-                        let totalChg = w1_chg + w2_chg + w3_chg;
-                        renderVal('macro-delta', totalChg / totalDays, 1, true);
-                    }
+                        // Macro updates (prefer ECMWF, fallback GFS if ECMWF empty)
+                        if (m === 'ECMWF' || (m === 'GFS' && macroFcst === 0)) {
+                            macroFcst = w1_fcst + w2_fcst + w3_fcst;
+                            macroChg = total_chg;
+                            macroDays = len1 + len2 + len3;
+                        }
+                    });
+
+                    document.getElementById('short-term-body').innerHTML = shortTermHtml || '<tr><td colspan="5" style="text-align:center; color:#888;">No data available.</td></tr>';
+                    document.getElementById('med-term-body').innerHTML = medTermHtml || '<tr><td colspan="5" style="text-align:center; color:#888;">No data available.</td></tr>';
+                    document.getElementById('long-term-body').innerHTML = longTermHtml || '<tr><td colspan="5" style="text-align:center; color:#888;">No 15+ day forecasts available.</td></tr>';
+
+                    renderVal('macro-total-hdd', macroFcst, 1);
+                    renderVal('macro-delta', macroDays > 0 ? macroChg / macroDays : 0, 1, true);
                 }
 
                 // 5. Shift Table

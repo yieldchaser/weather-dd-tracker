@@ -139,8 +139,19 @@ def poll():
         # Save state so we don't trigger it again
         save_state(new_state)
         print("\n[DONE] Pipeline execution complete. Tracker updated.")
+        
+        # Tell GitHub Actions that we have new data
+        gh_env = os.environ.get("GITHUB_ENV")
+        if gh_env:
+            with open(gh_env, "a") as f:
+                f.write("NEW_DATA_FOUND=true\n")
     else:
         print("\n[SLEEP] No new model runs complete. Going back to sleep.")
+        # Explicitly tell GitHub Actions there's no data
+        gh_env = os.environ.get("GITHUB_ENV")
+        if gh_env:
+            with open(gh_env, "a") as f:
+                f.write("NEW_DATA_FOUND=false\n")
 
 if __name__ == "__main__":
     poll()

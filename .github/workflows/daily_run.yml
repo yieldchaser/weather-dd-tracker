@@ -2,18 +2,19 @@ name: Real-Time Model Poller
 
 on:
   schedule:
-    # GFS 00z (Uploads ~04:30 UTC)
-    - cron: '*/15 4,5 * * *'
-    # ECMWF 00z (Uploads ~07:10 UTC)
-    - cron: '*/15 6,7 * * *'
-    # GFS 06z (Uploads ~10:30 UTC)
-    - cron: '*/15 10,11 * * *'
-    # GFS 12z (Uploads ~16:30 UTC)
-    - cron: '*/15 16,17 * * *'
-    # ECMWF 12z (Uploads ~19:10 UTC)
-    - cron: '*/15 18,19 * * *'
-    # GFS 18z (Uploads ~22:30 UTC)
-    - cron: '*/15 22,23 * * *'
+    # We can now scan wide time windows because the action short-circuits in 30 seconds if nothing is new.
+    # GFS 00z (Usually ~04:30. Scanning 03:00 to 06:00 UTC)
+    - cron: '*/15 3,4,5 * * *'
+    # ECMWF 00z (Usually ~07:10. Scanning 06:00 to 09:00 UTC)
+    - cron: '*/15 6,7,8 * * *'
+    # GFS 06z (Usually ~10:30. Scanning 09:00 to 12:00 UTC)
+    - cron: '*/15 9,10,11 * * *'
+    # GFS 12z (Usually ~16:30. Scanning 15:00 to 18:00 UTC)
+    - cron: '*/15 15,16,17 * * *'
+    # ECMWF 12z (Usually ~19:10. Scanning 18:00 to 21:00 UTC)
+    - cron: '*/15 18,19,20 * * *'
+    # GFS 18z (Usually ~22:30. Scanning 21:00 to 00:00 UTC)
+    - cron: '*/15 21,22,23 * * *'
   workflow_dispatch:
 
 permissions:
@@ -65,6 +66,7 @@ jobs:
           python scripts/generate_maps.py || echo "[WARN] Map generation failed."
 
       - name: Trigger Kaggle AI Inference Kernel
+        if: env.NEW_DATA_FOUND == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
@@ -74,6 +76,7 @@ jobs:
           echo "Kernel triggered. Waiting for completion..."
 
       - name: Poll Kaggle until kernel completes
+        if: env.NEW_DATA_FOUND == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
@@ -88,6 +91,7 @@ jobs:
           echo "[WARN] Timed out waiting for kernel (60 min max)"
 
       - name: Download Kaggle kernel output
+        if: env.NEW_DATA_FOUND == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
@@ -97,11 +101,10 @@ jobs:
           # CSVs are saved to /kaggle/working/output/ inside the kernel
           find /tmp/kaggle_out -name "*.csv" -exec cp {} data/ai_models/ \;
           echo "Downloaded files:"
-          ls -la /tmp/kaggle_out/ 2>/dev/null || true
-          ls -la /tmp/kaggle_out/output/ 2>/dev/null || true
           ls -la data/ai_models/ || true
 
       - name: Commit pipeline state and AI model results
+        if: env.NEW_DATA_FOUND == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
