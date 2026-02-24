@@ -49,19 +49,24 @@ def url_exists(url, timeout=10):
     except Exception:
         return False
 
-def find_latest_available_run():
+def find_latest_available_runs(max_runs=2):
     now = datetime.datetime.now(datetime.UTC)
-    for day_offset in [0, -1, -2]:
+    runs = []
+    for day_offset in [0, -1, -2, -3]:
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
-            # Check the control member's 0th hour index
-            test_file = f"gec00.t{cycle}z.pgrb2a.0p50.f000"
+            # Check the control member's LAST hour index to ensure run is completely uploaded
+            test_file = f"gec00.t{cycle}z.pgrb2a.0p50.f384"
             test_url = f"{BASE_URL}/gefs.{date}/{cycle}/atmos/pgrb2ap5/{test_file}"
-            print(f"Checking availability: {date}_{cycle}Z")
+            print(f"Checking availability: {date}_{cycle}Z (f384)")
             if url_exists(test_url):
                 print(f"[OK] Found available run (control member exists): {date}_{cycle}Z")
-                return date, cycle
-    raise RuntimeError("No available GEFS run found.")
+                runs.append((date, cycle))
+                if len(runs) >= max_runs:
+                    return runs
+    if not runs:
+        raise RuntimeError("No available GEFS run found.")
+    return runs
 
 def parse_t2m_byte_range(idx_url):
     r = requests.get(idx_url, timeout=15)
@@ -121,49 +126,64 @@ def download_member_timestep(args):
 # -----------------------------
 
 def fetch_latest_gefs():
-    run_date, cycle = find_latest_available_run()
-    run_id = f"{run_date}_{cycle}"
-    run_dir = os.path.join(OUTPUT_DIR, run_id)
-    ensure_dir(run_dir)
-
-    print(f"\nFetching GEFS run: {run_id}Z via AWS S3 Byte-Range")
+    available_runs = find_latest_available_runs(max_runs=2)
     
-    tasks = []
-    for member in MEMBERS:
-        for fh in FORECAST_HOURS:
-            tasks.append((run_date, cycle, member, fh, run_dir))
-            
-    success_count = 0
-    fail_count = 0
-    
-    print(f"Submitting {len(tasks)} slice extraction tasks...")
-    
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {executor.submit(download_member_timestep, t): t for t in tasks}
+    for run_date, cycle in available_runs:
+        run_id = f"{run_date}_{cycle}"
+        run_dir = os.path.join(OUTPUT_DIR, run_id)
         
-        for future in as_completed(futures):
-            member, fh, success, msg = future.result()
-            if success:
-                success_count += 1
-            else:
-                fail_count += 1
-                if fail_count < 10:  # Only print first few errors 
-                    print(f"  [ERR] {member} f{fh:03d} failed: {msg}")
+        # Check manifest
+        mani_path = os.path.join(run_dir, "manifest.json")
+        if os.path.exists(mani_path):
+            with open(mani_path, "r") as f:
+                try:
+                    mani = json.load(f)
+                    if mani.get("failed_files", 1) == 0 and mani.get("total_files", 0) > 500:
+                        print(f"[{run_id}Z] Already fetched fully. Skipping.")
+                        continue
+                except:
+                    pass
+                    
+        ensure_dir(run_dir)
 
-    print(f"\n[OK] GEFS Fetch complete for {run_id}Z.")
-    print(f"     Successfully retrieved: {success_count}/{len(tasks)} slices.")
-    
-    manifest = {
-        "model": "GEFS",
-        "run_date": run_date,
-        "cycle": cycle,
-        "parameters_fetched": "TMP:2 m above ground",
-        "total_files": success_count,
-        "failed_files": fail_count,
-        "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
-    }
-    with open(os.path.join(run_dir, "manifest.json"), "w") as f:
-        json.dump(manifest, f, indent=2)
+        print(f"\nFetching GEFS run: {run_id}Z via AWS S3 Byte-Range")
+        
+        tasks = []
+        for member in MEMBERS:
+            for fh in FORECAST_HOURS:
+                tasks.append((run_date, cycle, member, fh, run_dir))
+                
+        success_count = 0
+        fail_count = 0
+        
+        print(f"Submitting {len(tasks)} slice extraction tasks...")
+        
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {executor.submit(download_member_timestep, t): t for t in tasks}
+            
+            for future in as_completed(futures):
+                member, fh, success, msg = future.result()
+                if success:
+                    success_count += 1
+                else:
+                    fail_count += 1
+                    if fail_count < 10:  # Only print first few errors 
+                        print(f"  [ERR] {member} f{fh:03d} failed: {msg}")
+
+        print(f"\n[OK] GEFS Fetch complete for {run_id}Z.")
+        print(f"     Successfully retrieved: {success_count}/{len(tasks)} slices.")
+        
+        manifest = {
+            "model": "GEFS",
+            "run_date": run_date,
+            "cycle": cycle,
+            "parameters_fetched": "TMP:2 m above ground",
+            "total_files": success_count,
+            "failed_files": fail_count,
+            "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
+        }
+        with open(os.path.join(run_dir, "manifest.json"), "w") as f:
+            json.dump(manifest, f, indent=2)
 
 if __name__ == "__main__":
     fetch_latest_gefs()

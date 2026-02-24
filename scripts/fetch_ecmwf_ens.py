@@ -47,76 +47,92 @@ def count_grib_messages(path):
         return None
 
 def fetch():
-    date   = today()
+    now = datetime.datetime.now(datetime.UTC)
     client = Client(source="ecmwf")
 
-    # Try 12z first, then 00z
-    for cycle in CYCLES:
-        run_id  = f"{date}_{cycle}"
-        out_dir = os.path.join(BASE_DIR, run_id)
-        os.makedirs(out_dir, exist_ok=True)
-        target  = os.path.join(out_dir, "ens_t2m.grib2")
+    # Check today, yesterday, and 2 days ago
+    for day_offset in [0, -1, -2]:
+        date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
 
-        print(f"Trying ECMWF ENS: {run_id} (CONUS area + 11-member subset)")
+        # Try 12z first, then 00z
+        for cycle in CYCLES:
+            run_id  = f"{date}_{cycle}"
+            out_dir = os.path.join(BASE_DIR, run_id)
+            os.makedirs(out_dir, exist_ok=True)
+            target  = os.path.join(out_dir, "ens_t2m.grib2")
 
-        try:
-            # Fetch Control Member (cf)
-            client.retrieve(
-                model="ifs",
-                stream="enfo",
-                type="cf",
-                resol="0p40",
-                date=date,
-                time=cycle,
-                step=[str(x) for x in EXPECTED_STEPS],
-                param="2t",
-                target=f"{target}.cf",
-            )
-
-            # Fetch Perturbed Members 1-10 (pf)
-            client.retrieve(
-                model="ifs",
-                stream="enfo",
-                type="pf",
-                number=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 
-                resol="0p40",
-                date=date,
-                time=cycle,
-                step=[str(x) for x in EXPECTED_STEPS],
-                param="2t",
-                target=f"{target}.pf",
-            )
-
-            # Combine them into the final target
-            import shutil
-            with open(target, 'wb') as wfd:
-                for tf in [f"{target}.cf", f"{target}.pf"]:
-                    if os.path.exists(tf):
-                        with open(tf, 'rb') as rfd:
-                            shutil.copyfileobj(rfd, wfd)
-                        os.remove(tf)
-
-            msg_count = count_grib_messages(target)
-            
-            # 1 Control + 10 Perturbed = 11 members * 16 steps = 176 expected messages
+            # Check if we already have it fully downloaded
+            msg_count = count_grib_messages(target) if os.path.exists(target) else 0
             expected_total = 11 * len(EXPECTED_STEPS)
-            
-            if msg_count is not None and msg_count < expected_total:
-                print(f"  [WARN] Incomplete: expected {expected_total} steps/members, "
-                      f"got {msg_count}. Trying next cycle.")
-                os.remove(target)
+            if msg_count is not None and msg_count >= expected_total:
+                print(f"[{run_id}Z] Already fetched fully. Skipping.")
+                return run_id
+
+            print(f"Trying ECMWF ENS: {run_id} (CONUS area + 11-member subset)")
+
+            try:
+                # Fetch Control Member (cf)
+                client.retrieve(
+                    model="ifs",
+                    stream="enfo",
+                    type="cf",
+                    resol="0p40",
+                    date=date,
+                    time=cycle,
+                    step=[str(x) for x in EXPECTED_STEPS],
+                    param="2t",
+                    target=f"{target}.cf",
+                )
+
+                # Fetch Perturbed Members 1-10 (pf)
+                client.retrieve(
+                    model="ifs",
+                    stream="enfo",
+                    type="pf",
+                    number=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 
+                    resol="0p40",
+                    date=date,
+                    time=cycle,
+                    step=[str(x) for x in EXPECTED_STEPS],
+                    param="2t",
+                    target=f"{target}.pf",
+                )
+
+                # Combine them into the final target
+                import shutil
+                with open(target, 'wb') as wfd:
+                    for tf in [f"{target}.cf", f"{target}.pf"]:
+                        if os.path.exists(tf):
+                            with open(tf, 'rb') as rfd:
+                                shutil.copyfileobj(rfd, wfd)
+                            os.remove(tf)
+
+                msg_count = count_grib_messages(target)
+                
+                # 1 Control + 10 Perturbed = 11 members * 16 steps = 176 expected messages
+                expected_total = 11 * len(EXPECTED_STEPS)
+                
+                if msg_count is not None and msg_count < expected_total:
+                    print(f"  [WARN] Incomplete: expected {expected_total} steps/members, "
+                          f"got {msg_count}. Trying next cycle.")
+                    os.remove(target)
+                    try:
+                        os.rmdir(out_dir)
+                    except OSError:
+                        pass
+                    continue
+
+                steps_confirmed = msg_count if msg_count else "unknown"
+                print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, 11-member subset)")
+                return run_id
+
+            except Exception as e:
+                print(f"[ERR] {run_id} not available yet: {e}")
                 try:
+                    if os.path.exists(target): os.remove(target)
                     os.rmdir(out_dir)
                 except OSError:
                     pass
-                continue
-
-            steps_confirmed = msg_count if msg_count else "unknown"
-            print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, 11-member subset)")
-            return run_id
-
-        except Exception as e:
-            print(f"[ERR] {run_id} not available yet: {e}")
 
     # Don't strictly crash if ENS is not up, just alert. 
     # Usually ENS is published ~1 hour after HRES.
