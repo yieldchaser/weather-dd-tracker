@@ -66,30 +66,44 @@ def install_system_dependencies():
         "pip install 'ai-models' 'ai-models-panguweather' 'ai-models-fourcastnetv2' onnxruntime-gpu",
         shell=True, check=True
     )
-    # PyTorch 2.6 security block - allow legacy pickle format for FourCastNetV2
-    os.environ["TORCH_FORCE_WEIGHTS_ONLY_LOAD"] = "0"
+    # Downgrade PyTorch to 2.5.1 - the subprocess running ai-models inherits the system torch.
+    # PyTorch 2.6 blocks legacy pickle by default; 2.5.1 does not have this restriction.
+    subprocess.run("pip install 'torch==2.5.1' --quiet", shell=True, check=False)
     print("[OK] Dependencies installed")
 
 
 
 def setup_local_assets(model_name):
     """
-    Check if weights were pre-staged as a Kaggle Dataset (to bypass unstable ECMWF download).
-    Returns the assets directory path if found, else None (falls back to --download-assets).
+    Find pre-staged weights from any attached Kaggle dataset input.
+    Searches /kaggle/input/ recursively for weights.tar.
     """
-    # ai-models expects: <assets_dir>/<model_name>/weights.tar
-    DATASET_PATH = f"/kaggle/input/notebook795df03fe8/weights.tar"
-    ASSETS_DIR   = "/kaggle/working/ai_assets"
-    MODEL_DIR    = os.path.join(ASSETS_DIR, model_name)
+    ASSETS_DIR = "/kaggle/working/ai_assets"
+    MODEL_DIR  = os.path.join(ASSETS_DIR, model_name)
 
-    if os.path.exists(DATASET_PATH):
-        print(f"[OK] Found pre-staged weights at {DATASET_PATH}. Copying to {MODEL_DIR}...")
+    # Debug: show what's actually mounted
+    input_root = "/kaggle/input"
+    print(f"[DEBUG] Contents of {input_root}:")
+    for item in os.listdir(input_root):
+        item_path = os.path.join(input_root, item)
+        print(f"  {item_path}: {os.listdir(item_path) if os.path.isdir(item_path) else 'file'}")
+
+    # Search for weights.tar anywhere under /kaggle/input/
+    found_path = None
+    for root, dirs, files in os.walk(input_root):
+        if "weights.tar" in files:
+            found_path = os.path.join(root, "weights.tar")
+            break
+
+    if found_path:
+        print(f"[OK] Found pre-staged weights at {found_path}. Copying to {MODEL_DIR}...")
         os.makedirs(MODEL_DIR, exist_ok=True)
         import shutil
         dest = os.path.join(MODEL_DIR, "weights.tar")
         if not os.path.exists(dest):
-            shutil.copy2(DATASET_PATH, dest)
+            shutil.copy2(found_path, dest)
         return ASSETS_DIR
+    print("[INFO] No pre-staged weights found. Falling back to live download.")
     return None
 
 
