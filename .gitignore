@@ -22,3 +22,11 @@ fetch_logs*.py
 test_nbm.py
 __pycache__/
 .vscode/
+# Large binary / temp artefacts
+*.grib
+*.grib2
+*.download
+output/
+kaggle_logs_v*.txt
+data/ai_models/.deps_installed
+data/ai_models/output/
