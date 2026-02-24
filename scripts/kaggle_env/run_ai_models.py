@@ -75,18 +75,20 @@ def install_system_dependencies():
 
 def setup_local_assets(model_name):
     """
-    Find pre-staged weights from any attached Kaggle dataset input.
-    Searches /kaggle/input/ recursively for weights.tar.
+    Find pre-staged weights and stage them where ai-models expects:
+    /kaggle/working/<model_name>/weights.tar
+    --assets flag must point to /kaggle/working/ (parent of model folder)
     """
-    ASSETS_DIR = "/kaggle/working/ai_assets"
+    ASSETS_DIR = "/kaggle/working"   # ai-models looks for <ASSETS_DIR>/<model>/weights.tar
     MODEL_DIR  = os.path.join(ASSETS_DIR, model_name)
 
     # Debug: show what's actually mounted
     input_root = "/kaggle/input"
-    print(f"[DEBUG] Contents of {input_root}:")
+    print(f"[DEBUG] /kaggle/input contents:")
     for item in os.listdir(input_root):
         item_path = os.path.join(input_root, item)
-        print(f"  {item_path}: {os.listdir(item_path) if os.path.isdir(item_path) else 'file'}")
+        children = os.listdir(item_path) if os.path.isdir(item_path) else []
+        print(f"  {item_path}: {children}")
 
     # Search for weights.tar anywhere under /kaggle/input/
     found_path = None
@@ -96,12 +98,15 @@ def setup_local_assets(model_name):
             break
 
     if found_path:
-        print(f"[OK] Found pre-staged weights at {found_path}. Copying to {MODEL_DIR}...")
+        print(f"[OK] Found weights at {found_path}. Copying to {MODEL_DIR}...")
         os.makedirs(MODEL_DIR, exist_ok=True)
         import shutil
         dest = os.path.join(MODEL_DIR, "weights.tar")
         if not os.path.exists(dest):
             shutil.copy2(found_path, dest)
+            print("[OK] Weights staged. Skipping download.")
+        else:
+            print("[OK] Weights already in place.")
         return ASSETS_DIR
     print("[INFO] No pre-staged weights found. Falling back to live download.")
     return None
