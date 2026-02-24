@@ -50,8 +50,8 @@ def fetch():
     now = datetime.datetime.now(datetime.UTC)
     client = Client(source="ecmwf")
 
-    # Check today, yesterday, and 2 days ago
-    for day_offset in [0, -1, -2]:
+    # Check from today extending backward up to 10 days to handle extended API outages
+    for day_offset in range(0, -11, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
 
         # Try 12z first, then 00z

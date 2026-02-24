@@ -188,6 +188,8 @@
 
         table {
             width: 100%;
+            table-layout: fixed;
+            word-wrap: break-word;
             border-collapse: collapse;
             background-color: var(--card-bg);
             border-radius: 4px;
@@ -225,6 +227,8 @@
 
         .horizon-table {
             width: 100%;
+            table-layout: fixed;
+            word-wrap: break-word;
             border-collapse: collapse;
             font-size: 0.85rem;
             background-color: transparent;
@@ -805,12 +809,13 @@
             let runs = [...new Set(modelData.map(r => String(r.run_id)))].sort((a, b) => b.localeCompare(a));
             let top4Runs = runs.slice(0, 4);
 
-            // Find all unique dates for the x-axis across these 4 runs
-            let datesSet = new Set();
-            modelData.forEach(r => {
-                if (top4Runs.includes(String(r.run_id))) datesSet.add(r.date.substring(0, 10));
+            // Fetch a global x-axis horizon (next 15 days) from the entire master dataset so short models
+            // don't collapse the chart and hide long models if users switch back and forth.
+            let globalDatesSet = new Set();
+            data.forEach(r => {
+                if (r.date) globalDatesSet.add(r.date.substring(0, 10));
             });
-            let labels = Array.from(datesSet).sort();
+            let labels = Array.from(globalDatesSet).sort().slice(0, 16); // limit to roughly 15-16 days out
 
             // Colors for the 4 runs
             const colors = ['#66fcf1', '#4caf50', '#ff9800', '#f44336'];
