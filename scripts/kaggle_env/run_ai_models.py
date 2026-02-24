@@ -63,7 +63,7 @@ def setup_local_assets(model_name):
     Returns the assets directory path if found, else None (falls back to --download-assets).
     """
     # ai-models expects: <assets_dir>/<model_name>/weights.tar
-    DATASET_PATH = f"/kaggle/input/fcnv2-small-weights/weights.tar"
+    DATASET_PATH = f"/kaggle/input/notebook795df03fe8/weights.tar"
     ASSETS_DIR   = "/kaggle/working/ai_assets"
     MODEL_DIR    = os.path.join(ASSETS_DIR, model_name)
 
