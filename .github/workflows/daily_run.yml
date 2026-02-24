@@ -53,25 +53,54 @@ jobs:
         run: |
           cp data/us_daily_normals.csv data/normals/us_daily_normals.csv || true
 
-      - name: Run Model Poller & Dispatch AI Models
+      - name: Run Model Poller
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
           EIA_KEY: ${{ secrets.EIA_KEY }}
         run: |
           python scripts/poll_models.py
-          python scripts/trigger_kaggle.py || echo "[WARN] Kaggle Trigger failed, skipping."
           python scripts/generate_maps.py || echo "[WARN] Map generation failed."
 
-      - name: Pull AI model results written back by Kaggle bot
+      - name: Trigger Kaggle AI Inference Kernel
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          git pull --rebase origin main || echo "[WARN] git pull failed, continuing with existing data."
-          mkdir -p data/ai_models
+          pip install kaggle -q
+          kaggle kernels push -p scripts/kaggle_env || echo "[INFO] Kernel already up-to-date"
+          echo "Kernel triggered. Waiting for completion..."
 
-      - name: Commit pipeline state and tracker outputs
+      - name: Poll Kaggle until kernel completes
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          for i in $(seq 1 60); do
+            STATUS=$(kaggle kernels status prateekriders/weather-dd-ai-inference 2>&1)
+            echo "[$i/60] $STATUS"
+            echo "$STATUS" | grep -q "COMPLETE" && echo "Kernel complete!" && exit 0
+            echo "$STATUS" | grep -q "ERROR" && echo "Kernel errored!" && exit 1
+            sleep 60
+          done
+          echo "[WARN] Timed out waiting for kernel (60 min max)"
+
+      - name: Download Kaggle kernel output
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          mkdir -p data/ai_models
+          kaggle kernels output prateekriders/weather-dd-ai-inference -p /tmp/kaggle_out
+          # Copy any CSV files to data/ai_models/
+          find /tmp/kaggle_out -name "*.csv" -exec cp {} data/ai_models/ \;
+          echo "Downloaded files:"
+          ls -la /tmp/kaggle_out/ || true
+          ls -la data/ai_models/ || true
+
+      - name: Commit pipeline state and AI model results
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
@@ -80,5 +109,6 @@ jobs:
           git add data/ecmwf/*_tdd.csv data/gfs/*_tdd.csv || true
           git add data/ai_models/ || true
           git add data/weights/ data/normals/ || true
-          # Only commit if there are actual changes detected
           git diff --staged --quiet || (git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

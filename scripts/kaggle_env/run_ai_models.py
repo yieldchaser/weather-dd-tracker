@@ -42,11 +42,9 @@ print("[SETUP] Dependencies ready. Starting inference...")
 
 import pandas as pd
 
-# --- Config ---
 AI_MODELS_CLI = ["fourcastnetv2-small"]
 LEAD_TIME_HOURS = 120
 OUTPUT_DIR = "/kaggle/working/output"
-GITHUB_REPO = "yieldchaser/weather-dd-tracker"
 
 DEMAND_CITIES = [
     ("Boston", 42.36, -71.06, 4.0), ("New York", 40.71, -74.01, 6.0),
@@ -229,38 +227,6 @@ def extract_conus_tdd(grib_path, model_name):
     df = df.groupby(['date', 'model', 'run_id']).mean().reset_index()
     return df
 
-def push_to_github(csv_path, csv_name):
-    print("Pushing results to GitHub...")
-    token = None
-    try:
-        from kaggle_secrets import UserSecretsClient
-        user_secrets = UserSecretsClient()
-        token = user_secrets.get_secret("GITHUB_PAT")
-    except Exception as e:
-        print(f"[WARN] Could not retrieve GITHUB_PAT from Kaggle Secrets: {e}")
-        
-    if not token:
-        raise RuntimeError("[ERR] GITHUB_PAT not found in Kaggle Secrets. Add it via Add-ons → Secrets.")
-        
-    cmd = [
-        "git", "clone", f"https://oauth2:{token}@github.com/{GITHUB_REPO}.git", "/kaggle/working/repo"
-    ]
-    subprocess.run(cmd, check=True)
-    
-    # Move file into repo structure
-    target_dir = f"/kaggle/working/repo/data/ai_models/{datetime.datetime.now(datetime.UTC).strftime('%Y%m%d')}"
-    os.makedirs(target_dir, exist_ok=True)
-    os.system(f"cp {csv_path} {target_dir}/{csv_name}")
-    
-    # Commit and push
-    os.chdir("/kaggle/working/repo")
-    os.system('git config user.email "kaggle-bot@weatherdd.com"')
-    os.system('git config user.name "Kaggle Auto-Inference GPU"')
-    os.system("git add .")
-    os.system(f'git commit -m "[Auto] GPU Inference Update: {csv_name}"')
-    os.system("git push origin main")
-    print(f"[OK] {csv_name} successfully uploaded to repository.")
-
 def nuke_memory():
     """Aggressively free GPU/CPU memory between model runs."""
     import gc
@@ -305,14 +271,10 @@ def main():
         os.system(f"rm -f {os.path.join(OUTPUT_DIR, model + '_out.grib')}")
 
     if succeeded:
-        # Also push a combined CSV as a convenience for merge_tdd.py
         final_df = pd.concat(succeeded, ignore_index=True)
         csv_path = os.path.join(OUTPUT_DIR, "ai_tdd_latest.csv")
         final_df.to_csv(csv_path, index=False)
-        try:
-            push_to_github(csv_path, "ai_tdd_latest.csv")
-        except Exception as e:
-            print(f"[WARN] Final combined push failed: {e}")
+        print(f"[OK] Combined CSV saved to {csv_path}")
     else:
         print("[ERR] No AI data gathered successfully.")
 
