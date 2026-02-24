@@ -208,12 +208,8 @@ def generate_gif(model_name, folder, is_ecmwf):
     for f in frames:
         os.remove(f)
         
-    # Copy to docs/maps for GitHub Pages serving
-    docs_maps = "docs/maps"
-    os.makedirs(docs_maps, exist_ok=True)
-    import shutil
-    shutil.copy2(out_gif, os.path.join(docs_maps, os.path.basename(out_gif)))
     print(f"[OK] Generated {out_gif}")
+
 
 
 def main():

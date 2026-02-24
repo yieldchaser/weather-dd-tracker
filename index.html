@@ -414,7 +414,7 @@
     </div>
 
     <script>
-        const basePath = "../outputs/";
+        const basePath = "outputs/";
 
         function fetchCSV(filename) {
             return new Promise((resolve, reject) => {
@@ -639,8 +639,8 @@
                 img.style.display = 'block';
                 err.style.display = 'none';
                 const ts = new Date().getTime();
-                // GIFs are stored in docs/maps/ alongside index.html
-                img.src = `maps/${selectedModel}_shift.gif?t=${ts}`;
+                // GIFs are stored in outputs/maps/
+                img.src = `outputs/maps/${selectedModel}_shift.gif?t=${ts}`;
                 img.onerror = () => { img.style.display = 'none'; err.style.display = 'block'; };
             } else {
                 img.style.display = 'none';
