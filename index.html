@@ -383,26 +383,10 @@
                                 <tr>
                                     <th>Model</th>
                                     <th>Fcst</th>
-                                    <th>Norm</th>
-                                    <th>Anom</th>
-                                    <th>Δ Chg</th>
-                                </tr>
-                            </thead>
-                            <tbody id="short-term-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <!-- Medium-Term -->
-                <div class="week-card">
-                    <div class="week-header">Medium-Term (Days 6 - 14)</div>
-                    <div class="table-responsive">
-                        <table class="horizon-table">
-                            <thead>
-                                <tr>
-                                    <th>Model</th>
-                                    <th>Fcst</th>
-                                    <th>Norm</th>
-                                    <th>Anom</th>
+                                    <th>30y<br>Norm</th>
+                                    <th>30y<br>Anom</th>
+                                    <th>10y<br>Norm</th>
+                                    <th>10y<br>Anom</th>
                                     <th>Δ Chg</th>
                                 </tr>
                             </thead>
@@ -419,8 +403,10 @@
                                 <tr>
                                     <th>Model</th>
                                     <th>Fcst</th>
-                                    <th>Norm</th>
-                                    <th>Anom</th>
+                                    <th>30y<br>Norm</th>
+                                    <th>30y<br>Anom</th>
+                                    <th>10y<br>Norm</th>
+                                    <th>10y<br>Anom</th>
                                     <th>Δ Chg</th>
                                 </tr>
                             </thead>
@@ -572,18 +558,21 @@
                         let currentRun = mRows.filter(r => r.run_id === latestRunId);
                         currentRun.sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
-                        let w1_fcst = 0, w1_norm = 0, w1_anom = 0, len1 = 0;
-                        let w2_fcst = 0, w2_norm = 0, w2_anom = 0, len2 = 0;
-                        let w3_fcst = 0, w3_norm = 0, w3_anom = 0, len3 = 0;
+                        let w1_fcst = 0, w1_norm = 0, w1_anom = 0, w1_norm10 = 0, w1_anom10 = 0, len1 = 0;
+                        let w2_fcst = 0, w2_norm = 0, w2_anom = 0, w2_norm10 = 0, w2_anom10 = 0, len2 = 0;
+                        let w3_fcst = 0, w3_norm = 0, w3_anom = 0, w3_norm10 = 0, w3_anom10 = 0, len3 = 0;
 
                         currentRun.forEach((r, idx) => {
                             let f = r.tdd_gw || r.tdd || 0;
                             let n = r.hdd_normal_gw || r.hdd_normal || 0;
                             let a = r.hdd_anomaly_gw || r.hdd_anomaly || 0;
 
-                            if (idx < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; len1++; }
-                            else if (idx < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; len2++; }
-                            else { w3_fcst += f; w3_norm += n; w3_anom += a; len3++; }
+                            let n10 = r.hdd_normal_gw_10yr || r.hdd_normal_10yr || 0;
+                            let a10 = r.hdd_anomaly_gw_10yr || r.hdd_anomaly_10yr || 0;
+
+                            if (idx < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++; }
+                            else if (idx < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++; }
+                            else { w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++; }
                         });
 
                         // Get Delta
@@ -622,14 +611,18 @@
                         let a2_cls = w2_anom > 0 ? 'pos-val' : (w2_anom < 0 ? 'neg-val' : '');
                         let a3_cls = w3_anom > 0 ? 'pos-val' : (w3_anom < 0 ? 'neg-val' : '');
 
+                        let a1_cls10 = w1_anom10 > 0 ? 'pos-val' : (w1_anom10 < 0 ? 'neg-val' : '');
+                        let a2_cls10 = w2_anom10 > 0 ? 'pos-val' : (w2_anom10 < 0 ? 'neg-val' : '');
+                        let a3_cls10 = w3_anom10 > 0 ? 'pos-val' : (w3_anom10 < 0 ? 'neg-val' : '');
+
                         if (len1 > 0) {
-                            shortTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w1_fcst, 1)}</td><td>${formatNum(w1_norm, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom, 1, true)}</td><td>${w1_chg}</td></tr>`;
+                            shortTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w1_fcst, 1)}</td><td>${formatNum(w1_norm, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom, 1, true)}</td><td>${formatNum(w1_norm10, 1)}</td><td class="${a1_cls10}">${formatNum(w1_anom10, 1, true)}</td><td>${w1_chg}</td></tr>`;
                         }
                         if (len2 > 0) {
-                            medTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w2_fcst, 1)}</td><td>${formatNum(w2_norm, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom, 1, true)}</td><td>${w2_chg}</td></tr>`;
+                            medTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w2_fcst, 1)}</td><td>${formatNum(w2_norm, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom, 1, true)}</td><td>${formatNum(w2_norm10, 1)}</td><td class="${a2_cls10}">${formatNum(w2_anom10, 1, true)}</td><td>${w2_chg}</td></tr>`;
                         }
                         if (len3 > 0) {
-                            longTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w3_fcst, 1)}</td><td>${formatNum(w3_norm, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom, 1, true)}</td><td>${w3_chg}</td></tr>`;
+                            longTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w3_fcst, 1)}</td><td>${formatNum(w3_norm, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom, 1, true)}</td><td>${formatNum(w3_norm10, 1)}</td><td class="${a3_cls10}">${formatNum(w3_anom10, 1, true)}</td><td>${w3_chg}</td></tr>`;
                         }
 
                         // Macro updates (prefer ECMWF, fallback GFS if ECMWF empty)
