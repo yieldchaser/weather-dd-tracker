@@ -536,7 +536,9 @@
                     fetchCSV("run_change.csv"),
                     fetchCSV("convergence_alert.csv"),
                     fetchCSV("tdd_master.csv"),
-                    fetch("outputs/maps_manifest.json").then(r => r.ok ? r.json() : {}).catch(() => ({}))
+                    fetch("outputs/maps_manifest.json")
+                        .then(r => r.ok ? r.json() : { ECMWF: [], GFS: [] })
+                        .catch(() => ({ ECMWF: [], GFS: [] }))
                 ]);
 
                 // 1. Bias
