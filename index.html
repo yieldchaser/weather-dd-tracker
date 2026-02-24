@@ -256,8 +256,54 @@
             outline: none;
         }
 
-        #app {
-            display: none;
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .summary-row {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .weeks-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .chart-controls {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            th,
+            td {
+                padding: 8px 10px;
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+
+            .summary-card {
+                padding: 15px;
+            }
+
+            .summary-card .val {
+                font-size: 1.6rem;
+            }
         }
     </style>
 </head>
@@ -400,15 +446,17 @@
 
             <!-- MODEL SHIFT MATRIX -->
             <h2 class="section-title">Day-by-Day Model Consensus Shift (GW HDDs)</h2>
-            <table id="shift-table">
-                <thead>
-                    <tr id="shift-header">
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody id="shift-body">
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table id="shift-table">
+                    <thead>
+                        <tr id="shift-header">
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shift-body">
+                    </tbody>
+                </table>
+            </div>
             <br><br>
         </div>
     </div>
