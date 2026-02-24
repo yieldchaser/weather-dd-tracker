@@ -439,47 +439,53 @@
             <!-- MODEL RUN COMPARISON CHART & MAPS -->
             <h2 class="section-title">Model Diagnostics (Run-to-Run Analysis)</h2>
             <div class="chart-section">
-                <div class="chart-controls">
-                    <label for="modelSelect"><strong>Select Model for Analytics: </strong></label>
-                    <select id="modelSelect"></select>
-                </div>
-                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
-                    <!-- Chart Left -->
-                    <div style="flex: 1 1 50%; min-width: 300px;">
-                        <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Top 4 Runs vs 30-Year Normal
-                        </h3>
-                        <canvas id="runChart" height="150"></canvas>
+                <div class="chart-controls" style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+                    <div>
+                        <label for="modelSelect"><strong>Select Model for Analytics: </strong></label>
+                        <select id="modelSelect"></select>
                     </div>
-                    <!-- Map Right -->
-                    <div style="flex: 1 1 40%; min-width: 300px; overflow: hidden;" class="map-section"
-                        id="mapContainer">
-                        <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Spatial Run-to-Run Delta</h3>
-                        <img id="shiftMapGif" src="" alt=""
-                            style="width:100%; height:auto; border-radius:4px; display:block;"
-                            onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
-                        <div id="mapError"
-                            style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
-                            Spatial map not generated for this model.
-                        </div>
+                    <div>
+                        <label for="mapRunSelect"><strong>Map Comparison: </strong></label>
+                        <select id="mapRunSelect" style="display:none;"></select>
                     </div>
                 </div>
             </div>
-
-            <!-- MODEL SHIFT MATRIX -->
-            <h2 class="section-title">Day-by-Day Model Consensus Shift (GW HDDs)</h2>
-            <div class="table-responsive">
-                <table id="shift-table">
-                    <thead>
-                        <tr id="shift-header">
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="shift-body">
-                    </tbody>
-                </table>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                <!-- Chart Left -->
+                <div style="flex: 1 1 50%; min-width: 300px;">
+                    <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Top 4 Runs vs 30-Year Normal
+                    </h3>
+                    <canvas id="runChart" height="150"></canvas>
+                </div>
+                <!-- Map Right -->
+                <div style="flex: 1 1 40%; min-width: 300px; overflow: hidden;" class="map-section" id="mapContainer">
+                    <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Spatial Run-to-Run Delta</h3>
+                    <img id="shiftMapGif" src="" alt=""
+                        style="width:100%; height:auto; border-radius:4px; display:block;"
+                        onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
+                    <div id="mapError"
+                        style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
+                        Spatial map not generated for this model.
+                    </div>
+                </div>
             </div>
-            <br><br>
         </div>
+
+        <!-- MODEL SHIFT MATRIX -->
+        <h2 class="section-title">Day-by-Day Model Consensus Shift (GW HDDs)</h2>
+        <div class="table-responsive">
+            <table id="shift-table">
+                <thead>
+                    <tr id="shift-header">
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="shift-body">
+                </tbody>
+            </table>
+        </div>
+        <br><br>
+    </div>
     </div>
 
     <script>
@@ -522,14 +528,15 @@
 
         async function loadDashboard() {
             try {
-                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData] = await Promise.all([
+                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest] = await Promise.all([
                     fetchCSV("composite_bull_bear_signal.csv"),
                     fetchCSV("vs_normal.csv"),
                     fetchCSV("run_delta.csv"),
                     fetchCSV("model_shift_table.csv"),
                     fetchCSV("run_change.csv"),
                     fetchCSV("convergence_alert.csv"),
-                    fetchCSV("tdd_master.csv")
+                    fetchCSV("tdd_master.csv"),
+                    fetch("outputs/maps_manifest.json").then(r => r.ok ? r.json() : {}).catch(() => ({}))
                 ]);
 
                 // 1. Bias
@@ -735,27 +742,49 @@
 
             sel.addEventListener('change', () => {
                 updateChart(masterData, normalMap, normal10Map, sel.value);
-                updateMap(sel.value);
+                updateMap(sel.value, mapManifest);
             });
 
             updateChart(masterData, normalMap, normal10Map, sel.value || models[0]);
-            updateMap(sel.value || models[0]);
+            updateMap(sel.value || models[0], mapManifest);
         }
 
-        function updateMap(selectedModel) {
+        function updateMap(selectedModel, manifest) {
             let img = document.getElementById('shiftMapGif');
             let err = document.getElementById('mapError');
+            let mapSelect = document.getElementById('mapRunSelect');
 
-            if (selectedModel === 'ECMWF' || selectedModel === 'GFS') {
+            if ((selectedModel === 'ECMWF' || selectedModel === 'GFS') && manifest[selectedModel] && manifest[selectedModel].length > 0) {
                 img.style.display = 'block';
                 err.style.display = 'none';
+                mapSelect.style.display = 'inline-block';
+
+                // Clear dropdown
+                mapSelect.innerHTML = '';
+
+                // Populate dropdown
+                manifest[selectedModel].forEach(mapObj => {
+                    let opt = document.createElement('option');
+                    opt.value = mapObj.file;
+                    opt.innerText = `Latest vs ${mapObj.previous}`;
+                    mapSelect.appendChild(opt);
+                });
+
                 const ts = new Date().getTime();
-                // GIFs are stored in outputs/maps/
-                img.src = `outputs/maps/${selectedModel}_shift.gif?t=${ts}`;
+
+                // Set initial image to the first map (Latest vs Prev)
+                img.src = `outputs/maps/${manifest[selectedModel][0].file}?t=${ts}`;
                 img.onerror = () => { img.style.display = 'none'; err.style.display = 'block'; };
+
+                // Add listener to dropdown to change the map
+                mapSelect.onchange = () => {
+                    img.src = `outputs/maps/${mapSelect.value}?t=${ts}`;
+                };
+
             } else {
                 img.style.display = 'none';
                 err.style.display = 'block';
+                mapSelect.style.display = 'none';
             }
         }
 

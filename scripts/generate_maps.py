@@ -21,8 +21,8 @@ from pathlib import Path
 MAPS_DIR = "outputs/maps"
 
 
-def get_latest_two_runs(folder):
-    """Return two most recent run dirs that actually contain GRIB data."""
+def get_available_runs(folder):
+    """Return all run dirs that actually contain GRIB data, sorted newest to oldest."""
     def has_gribs(d):
         for f in os.listdir(d):
             f_lo = f.lower()
@@ -33,10 +33,8 @@ def get_latest_two_runs(folder):
     dirs = sorted([
         d for d in os.listdir(folder)
         if os.path.isdir(os.path.join(folder, d)) and has_gribs(os.path.join(folder, d))
-    ])
-    if len(dirs) < 2:
-        return None, None, None, None
-    return os.path.join(folder, dirs[-1]), os.path.join(folder, dirs[-2]), dirs[-1], dirs[-2]
+    ], reverse=True)
+    return dirs
 
 
 def build_daily_mean_dataset(run_dir, is_ecmwf=False):
@@ -105,25 +103,39 @@ def build_daily_mean_dataset(run_dir, is_ecmwf=False):
         return res, lat_vals, lon_vals
 
 
-def generate_gif(model_name, folder, is_ecmwf):
-    print(f"\n--- Generating Map for {model_name} ---")
-    latest_path, prev_path, r_latest, r_prev = get_latest_two_runs(folder)
-    if not latest_path:
+def generate_gifs_for_model(model_name, folder, is_ecmwf, manifest):
+    print(f"\n--- Generating Maps for {model_name} ---")
+    available_runs = get_available_runs(folder)
+    
+    if len(available_runs) < 2:
         print(f"Not enough data for {model_name}.")
         return
 
-    print(f"Comparing {r_latest} to {r_prev}")
+    latest_run = available_runs[0]
+    latest_path = os.path.join(folder, latest_run)
     
-    # Extract data
+    print(f"Latest run is {latest_run}")
+    
+    # Extract latest data once
     res_latest = build_daily_mean_dataset(latest_path, is_ecmwf)
-    res_prev = build_daily_mean_dataset(prev_path, is_ecmwf)
-    
-    if not res_latest or not res_prev:
-        print("Missing GRIB subsets.")
+    if not res_latest:
+        print("Missing latest GRIB subset.")
         return
         
     ds_curr, lats, lons = res_latest
-    ds_prev, _, _ = res_prev
+    
+    # Compare latest against all older available runs
+    manifest[model_name] = []
+    
+    for prev_run in available_runs[1:]:
+        print(f"  Comparing {latest_run} to {prev_run}")
+        prev_path = os.path.join(folder, prev_run)
+        res_prev = build_daily_mean_dataset(prev_path, is_ecmwf)
+        
+        if not res_prev:
+            continue
+            
+        ds_prev, _, _ = res_prev
     
     # Handle longitude 0-360 vs -180/180 for cartopy
     if lons.max() > 180:
@@ -136,86 +148,110 @@ def generate_gif(model_name, folder, is_ecmwf):
             return grid[:, sort_idx]
     else:
         def align_lons(grid): return grid
-    
-    # Find overlapping dates (usually next 15 days)
-    if is_ecmwf:
-        dates1 = set(ds_curr.date.values)
-        dates2 = set(ds_prev.date.values)
-        common_dates = sorted(list(dates1 & dates2))
-    else:
-        dates1 = set(ds_curr.keys())
-        dates2 = set(ds_prev.keys())
-        common_dates = sorted(list(dates1 & dates2))
         
-    if not common_dates:
-        print("No overlapping days found to compare.")
-        return
+    for prev_run in available_runs[1:]:
+        print(f"  Comparing {latest_run} to {prev_run}")
+        prev_path = os.path.join(folder, prev_run)
+        res_prev = build_daily_mean_dataset(prev_path, is_ecmwf)
         
-    os.makedirs(MAPS_DIR, exist_ok=True)
-    frames = []
+        if not res_prev:
+            continue
+            
+        ds_prev, _, _ = res_prev
     
-    for i, d in enumerate(common_dates):
+        # Find overlapping dates (usually next 15 days)
         if is_ecmwf:
-            grid_curr = ds_curr.sel(date=d).values
-            grid_prev = ds_prev.sel(date=d).values
+            dates1 = set(ds_curr.date.values)
+            dates2 = set(ds_prev.date.values)
+            common_dates = sorted(list(dates1 & dates2))
         else:
-            grid_curr = ds_curr[d]
-            grid_prev = ds_prev[d]
+            dates1 = set(ds_curr.keys())
+            dates2 = set(ds_prev.keys())
+            common_dates = sorted(list(dates1 & dates2))
             
-        delta = grid_curr - grid_prev
-        delta = align_lons(delta)
+        if not common_dates:
+            print(f"  No overlapping days found between {latest_run} and {prev_run}.")
+            continue
         
-        # Plot
-        fig = plt.figure(figsize=(10, 6))
-        ax = plt.axes(projection=ccrs.LambertConformal(central_longitude=-96, central_latitude=39))
+        os.makedirs(MAPS_DIR, exist_ok=True)
+        frames = []
         
-        # CONUS bounds
-        ax.set_extent([-120, -70, 22, 50], ccrs.PlateCarree())
-        
-        ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
-        ax.add_feature(cfeature.BORDERS, linewidth=0.8)
-        ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black', alpha=0.5)
-
-        # Plot Delta (Red = Warmer = Bearish, Blue = Colder = Bullish)
-        # Using a balanced cmap centered at 0
-        mesh = ax.pcolormesh(
-            lons, lats, delta,
-            transform=ccrs.PlateCarree(),
-            cmap='coolwarm',
-            vmin=-15, vmax=15, # Hard bounds so colors are consistent daily
-            shading='auto'
-        )
-        
-        cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
-        cbar.set_label("Temperature Shift (°F)", fontsize=10)
-
-        date_str = pd.to_datetime(d).strftime('%Y-%m-%d')
-        plt.title(f"{model_name} Run-to-Run Delta: {date_str}\n{r_latest} minus {r_prev}", fontsize=12, fontweight='bold')
-        
-        frame_path = f"{MAPS_DIR}/{model_name}_frame_{i}.png"
-        plt.savefig(frame_path, dpi=100, bbox_inches='tight')
-        plt.close()
-        frames.append(frame_path)
-
-    # Compile GIF
-    out_gif = f"{MAPS_DIR}/{model_name}_shift.gif"
-    with imageio.get_writer(out_gif, mode='I', duration=800) as writer: # 0.8s per frame
-        for filename in frames:
-            image = imageio.imread(filename)
-            writer.append_data(image)
+        for i, d in enumerate(common_dates):
+            if is_ecmwf:
+                grid_curr = ds_curr.sel(date=d).values
+                grid_prev = ds_prev.sel(date=d).values
+            else:
+                grid_curr = ds_curr[d]
+                grid_prev = ds_prev[d]
+                
+            delta = grid_curr - grid_prev
+            delta = align_lons(delta)
             
-    # Cleanup frames
-    for f in frames:
-        os.remove(f)
+            # Plot
+            fig = plt.figure(figsize=(10, 6))
+            ax = plt.axes(projection=ccrs.LambertConformal(central_longitude=-96, central_latitude=39))
+            
+            # CONUS bounds
+            ax.set_extent([-120, -70, 22, 50], ccrs.PlateCarree())
+            
+            ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+            ax.add_feature(cfeature.BORDERS, linewidth=0.8)
+            ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black', alpha=0.5)
+
+            # Plot Delta (Red = Warmer = Bearish, Blue = Colder = Bullish)
+            # Using a balanced cmap centered at 0
+            mesh = ax.pcolormesh(
+                lons, lats, delta,
+                transform=ccrs.PlateCarree(),
+                cmap='coolwarm',
+                vmin=-15, vmax=15, # Hard bounds so colors are consistent daily
+                shading='auto'
+            )
+            
+            cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
+            cbar.set_label("Temperature Shift (°F)", fontsize=10)
+
+            date_str = pd.to_datetime(d).strftime('%Y-%m-%d')
+            plt.title(f"{model_name} Run-to-Run Delta: {date_str}\n{latest_run} minus {prev_run}", fontsize=12, fontweight='bold')
+            
+            frame_path = f"{MAPS_DIR}/{model_name}_{latest_run}_vs_{prev_run}_frame_{i}.png"
+            plt.savefig(frame_path, dpi=100, bbox_inches='tight')
+            plt.close()
+            frames.append(frame_path)
+
+        # Compile GIF for this pair
+        out_gif_name = f"{model_name}_shift_{latest_run}_vs_{prev_run}.gif"
+        out_gif_path = f"{MAPS_DIR}/{out_gif_name}"
         
-    print(f"[OK] Generated {out_gif}")
+        with imageio.get_writer(out_gif_path, mode='I', duration=800) as writer: # 0.8s per frame
+            for filename in frames:
+                image = imageio.imread(filename)
+                writer.append_data(image)
+                
+        # Cleanup frames
+        for f in frames:
+            os.remove(f)
+            
+        print(f"  [OK] Generated {out_gif_name}")
+        manifest[model_name].append({
+            "latest": latest_run,
+            "previous": prev_run,
+            "file": out_gif_name
+        })
 
-
+import json
 
 def main():
     print("=== Generating Dynamic Shift Maps ===")
-    generate_gif("ECMWF", "data/ecmwf", is_ecmwf=True)
-    generate_gif("GFS", "data/gfs", is_ecmwf=False)
+    manifest = {}
+    generate_gifs_for_model("ECMWF", "data/ecmwf", is_ecmwf=True, manifest=manifest)
+    generate_gifs_for_model("GFS", "data/gfs", is_ecmwf=False, manifest=manifest)
+    
+    # Save manifest for frontend
+    manifest_path = "outputs/maps_manifest.json"
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=4)
+        print(f"\n[OK] Wrote manifest to {manifest_path}")
 
 
 if __name__ == "__main__":
