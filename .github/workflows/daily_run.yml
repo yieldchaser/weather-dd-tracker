@@ -94,10 +94,11 @@ jobs:
         run: |
           mkdir -p data/ai_models
           kaggle kernels output prateekriders/weather-dd-ai-inference -p /tmp/kaggle_out
-          # Copy any CSV files to data/ai_models/
+          # CSVs are saved to /kaggle/working/output/ inside the kernel
           find /tmp/kaggle_out -name "*.csv" -exec cp {} data/ai_models/ \;
           echo "Downloaded files:"
-          ls -la /tmp/kaggle_out/ || true
+          ls -la /tmp/kaggle_out/ 2>/dev/null || true
+          ls -la /tmp/kaggle_out/output/ 2>/dev/null || true
           ls -la data/ai_models/ || true
 
       - name: Commit pipeline state and AI model results
