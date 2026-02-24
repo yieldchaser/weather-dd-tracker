@@ -49,24 +49,31 @@ def url_exists(url, timeout=10):
         return False
 
 
-def find_latest_available_run():
+def find_latest_available_runs(max_runs=4):
     """
     Try recent GFS runs in descending order.
-    Return (run_date, cycle) for the first run that actually exists.
+    Return a list of (run_date, cycle) for runs that actually exist (up to max_runs).
     """
     now = datetime.datetime.now(datetime.UTC)
+    runs = []
 
-    for day_offset in [0, -1]:
+    for day_offset in [0, -1, -2, -3]:
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
-            test_file = f"gfs.t{cycle}z.pgrb2.0p25.f000"
+            # Check for the last forecast hour to ensure it's fully uploaded
+            last_fh_str = f"{FORECAST_HOURS[-1]:03d}"
+            test_file = f"gfs.t{cycle}z.pgrb2.0p25.f{last_fh_str}"
             test_url = f"{BASE_URL}/gfs.{date}/{cycle}/atmos/{test_file}"
-            print(f"Checking availability: {date}_{cycle}Z")
+            print(f"Checking availability: {date}_{cycle}Z (f{last_fh_str})")
             if url_exists(test_url):
-                print(f"[OK] Found available run: {date}_{cycle}Z")
-                return date, cycle
+                print(f"[OK] Found available full run: {date}_{cycle}Z")
+                runs.append((date, cycle))
+                if len(runs) >= max_runs:
+                    return runs
 
-    raise RuntimeError("No available GFS run found in last 48 hours.")
+    if not runs:
+        raise RuntimeError("No fully available GFS run found in last 3 days.")
+    return runs
 
 
 def fetch_idx(idx_url, timeout=15):
@@ -116,72 +123,84 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
     print(f"  [OK] Saved {size_kb:.1f} KB -> {os.path.basename(output_path)}")
 
 
-# -----------------------------
-# Main logic
-# -----------------------------
-
 def fetch_latest_gfs():
-    run_date, cycle = find_latest_available_run()
-    run_id = f"{run_date}_{cycle}"
-    run_dir = os.path.join(OUTPUT_DIR, run_id)
-    ensure_dir(run_dir)
+    available_runs = find_latest_available_runs(max_runs=5)
 
-    print(f"\nFetching GFS run: {run_id}Z (t2m only via byte-range)")
+    for run_date, cycle in available_runs:
+        run_id = f"{run_date}_{cycle}"
+        run_dir = os.path.join(OUTPUT_DIR, run_id)
+        
+        # Skip if we already downloaded the manifest indicating full success
+        mani_path = os.path.join(run_dir, "manifest.json")
+        if os.path.exists(mani_path):
+            try:
+                with open(mani_path, "r") as f:
+                    mani = json.load(f)
+                # Check if all forecast hours were fetched successfully
+                last_fh = FORECAST_HOURS[-1]
+                if last_fh in mani.get("forecast_hours", []):
+                    print(f"[{run_id}Z] Already fetched fully. Skipping.")
+                    continue
+            except:
+                pass
 
-    fetched_hours = []
-    skipped_hours = []
+        ensure_dir(run_dir)
+        print(f"\nFetching GFS run: {run_id}Z (t2m only via byte-range)")
 
-    for fh in FORECAST_HOURS:
-        fh_str = f"{fh:03d}"
-        base_name = f"gfs.t{cycle}z.pgrb2.0p25.f{fh_str}"
-        base_url = f"{BASE_URL}/gfs.{run_date}/{cycle}/atmos/{base_name}"
-        idx_url = base_url + ".idx"
-        output_path = os.path.join(run_dir, base_name)
+        fetched_hours = []
+        skipped_hours = []
 
-        print(f"\nTimestep f{fh_str}:")
+        for fh in FORECAST_HOURS:
+            fh_str = f"{fh:03d}"
+            base_name = f"gfs.t{cycle}z.pgrb2.0p25.f{fh_str}"
+            base_url = f"{BASE_URL}/gfs.{run_date}/{cycle}/atmos/{base_name}"
+            idx_url = base_url + ".idx"
+            output_path = os.path.join(run_dir, base_name)
 
-        # Step 1: fetch the index
-        try:
-            idx_text = fetch_idx(idx_url)
-        except Exception as e:
-            print(f"  [ERR] Could not fetch .idx: {e}")
-            skipped_hours.append(fh)
-            continue
+            print(f"\nTimestep f{fh_str}:")
 
-        # Step 2: locate 2m temp byte range
-        start_byte, end_byte = parse_t2m_byte_range(idx_text)
-        if start_byte is None:
-            print(f"  [ERR] TMP:2 m above ground not found in .idx for f{fh_str}")
-            skipped_hours.append(fh)
-            continue
+            # Step 1: fetch the index
+            try:
+                idx_text = fetch_idx(idx_url)
+            except Exception as e:
+                print(f"  [ERR] Could not fetch .idx: {e}")
+                skipped_hours.append(fh)
+                continue
 
-        range_desc = f"{start_byte}-{end_byte if end_byte else 'EOF'}"
-        print(f"  Byte range for t2m: {range_desc}")
+            # Step 2: locate 2m temp byte range
+            start_byte, end_byte = parse_t2m_byte_range(idx_text)
+            if start_byte is None:
+                print(f"  [ERR] TMP:2 m above ground not found in .idx for f{fh_str}")
+                skipped_hours.append(fh)
+                continue
 
-        # Step 3: download only those bytes
-        try:
-            download_byte_range(base_url, start_byte, end_byte, output_path)
-            fetched_hours.append(fh)
-        except Exception as e:
-            print(f"  [ERR] Download failed: {e}")
-            skipped_hours.append(fh)
+            range_desc = f"{start_byte}-{end_byte if end_byte else 'EOF'}"
+            print(f"  Byte range for t2m: {range_desc}")
 
-    manifest = {
-        "model": "GFS",
-        "run_date": run_date,
-        "cycle": cycle,
-        "field": "TMP:2 m above ground (byte-range extracted)",
-        "forecast_hours": fetched_hours,
-        "skipped_hours": skipped_hours,
-        "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
-    }
+            # Step 3: download only those bytes
+            try:
+                download_byte_range(base_url, start_byte, end_byte, output_path)
+                fetched_hours.append(fh)
+            except Exception as e:
+                print(f"  [ERR] Download failed: {e}")
+                skipped_hours.append(fh)
 
-    with open(os.path.join(run_dir, "manifest.json"), "w") as f:
-        json.dump(manifest, f, indent=2)
+        manifest = {
+            "model": "GFS",
+            "run_date": run_date,
+            "cycle": cycle,
+            "field": "TMP:2 m above ground (byte-range extracted)",
+            "forecast_hours": fetched_hours,
+            "skipped_hours": skipped_hours,
+            "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
+        }
 
-    print(f"\nFetch complete.")
-    print(f"  Fetched hours : {fetched_hours}")
-    print(f"  Skipped hours : {skipped_hours}")
+        with open(os.path.join(run_dir, "manifest.json"), "w") as f:
+            json.dump(manifest, f, indent=2)
+
+        print(f"\nFetch complete for {run_id}.")
+        print(f"  Fetched hours : {fetched_hours}")
+        print(f"  Skipped hours : {skipped_hours}")
 
 
 if __name__ == "__main__":

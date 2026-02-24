@@ -54,50 +54,62 @@ def count_grib_messages(path):
         return None
 
 
-def fetch():
-    date   = today()
-    client = Client(source="ecmwf")
+def fetch(max_runs=4):
+    runs_fetched = 0
+    now = datetime.datetime.now(datetime.UTC)
+    
+    # Check today and yesterday
+    for day_offset in [0, -1, -2]:
+        date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
+        client = Client(source="ecmwf")
 
-    for cycle in CYCLES:
-        run_id  = f"{date}_{cycle}"
-        out_dir = os.path.join(BASE_DIR, run_id)
-        os.makedirs(out_dir, exist_ok=True)
-        target  = os.path.join(out_dir, "ifs_t2m.grib2")
+        for cycle in CYCLES:
+            if runs_fetched >= max_runs:
+                return
+                
+            run_id  = f"{date}_{cycle}"
+            out_dir = os.path.join(BASE_DIR, run_id)
+            os.makedirs(out_dir, exist_ok=True)
+            target  = os.path.join(out_dir, "ifs_t2m.grib2")
 
-        print(f"Trying ECMWF IFS HRES: {run_id} (CONUS area only)")
+            # Check if we already have it fully downloaded
+            if os.path.exists(target):
+                msg_count = count_grib_messages(target)
+                if msg_count is not None and msg_count >= len(EXPECTED_STEPS):
+                    print(f"[{run_id}Z] Already fetched fully. Skipping.")
+                    runs_fetched += 1
+                    continue
 
-        try:
-            client.retrieve(
-                model="ifs",
-                stream="oper",
-                type="fc",
-                resol="0p25",
-                date=date,
-                time=cycle,
-                step=[str(x) for x in EXPECTED_STEPS],
-                param="2t",
-                target=target,
-            )
+            print(f"Trying ECMWF IFS HRES: {run_id} (CONUS area only)")
+            try:
+                client.retrieve(
+                    model="ifs",
+                    stream="oper",
+                    type="fc",
+                    resol="0p25",
+                    date=date,
+                    time=cycle,
+                    step=[str(x) for x in EXPECTED_STEPS],
+                    param="2t",
+                    target=target,
+                )
 
-            msg_count = count_grib_messages(target)
-            if msg_count is not None and msg_count < len(EXPECTED_STEPS):
-                print(f"  [WARN] Incomplete: expected {len(EXPECTED_STEPS)} steps, "
-                      f"got {msg_count}. Trying next cycle.")
-                os.remove(target)
-                try:
-                    os.rmdir(out_dir)
-                except OSError:
-                    pass
-                continue
+                msg_count = count_grib_messages(target)
+                if msg_count is not None and msg_count < len(EXPECTED_STEPS):
+                    print(f"  [WARN] Incomplete: expected {len(EXPECTED_STEPS)} steps, "
+                          f"got {msg_count}. Deleting.")
+                    os.remove(target)
+                    continue
 
-            steps_confirmed = msg_count if msg_count else "unknown"
-            print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
-            return run_id
+                steps_confirmed = msg_count if msg_count else "unknown"
+                print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
+                runs_fetched += 1
 
-        except Exception as e:
-            print(f"[ERR] {run_id} not available yet: {e}")
+            except Exception as e:
+                print(f"[ERR] {run_id} not available: {e}")
 
-    print("No complete ECMWF IFS runs available today. Exiting gracefully without crash for downstream AI runs.")
+    if runs_fetched == 0:
+        print("No complete ECMWF IFS runs available today. Exiting gracefully without crash for downstream AI runs.")
 
 
 if __name__ == "__main__":

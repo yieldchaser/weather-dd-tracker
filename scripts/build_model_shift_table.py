@@ -69,6 +69,12 @@ def main():
         if col_name in model_data:
             shift_df[col_name] = model_data[col_name]
             
+    # Rename ensemble columns to match frontend UI expectations
+    if "GEFS Op Chg" in shift_df.columns:
+        shift_df.rename(columns={"GEFS Op Chg": "GFS Ens Chg"}, inplace=True)
+    if "ECMWF_ENS Op Chg" in shift_df.columns:
+        shift_df.rename(columns={"ECMWF_ENS Op Chg": "Euro Ens Chg"}, inplace=True)
+            
     # Also we may want EPS (Ensemble) shifts if they existed. They don't yet, but we will create placeholders.
     if "GFS Ens Chg" not in shift_df.columns: shift_df["GFS Ens Chg"] = np.nan
     if "Euro Ens Chg" not in shift_df.columns: shift_df["Euro Ens Chg"] = np.nan
