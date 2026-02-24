@@ -13,6 +13,7 @@ Strategy:
     subset the 51 members down to just CONUS coordinates.
   - This prevents global 51-member GRIB arrays from overwhelming GitHub Actions memory.
   - Fetches `2t` up to 360 hours (15 days).
+  - UPDATED: Now only fetches 11 members (Control + 10 perturbed) to ensure reliable execution.
 """
 
 import os
@@ -56,25 +57,49 @@ def fetch():
         os.makedirs(out_dir, exist_ok=True)
         target  = os.path.join(out_dir, "ens_t2m.grib2")
 
-        print(f"Trying ECMWF ENS: {run_id} (CONUS area + 51 members)")
+        print(f"Trying ECMWF ENS: {run_id} (CONUS area + 11-member subset)")
 
         try:
+            # Fetch Control Member (cf)
             client.retrieve(
                 model="ifs",
-                stream="enfo",            # Ensemble forecast stream
-                type=["cf", "pf"],        # Control + Perturbed members
-                resol="0p40",             # ENS resolution
+                stream="enfo",
+                type="cf",
+                resol="0p40",
                 date=date,
                 time=cycle,
                 step=[str(x) for x in EXPECTED_STEPS],
                 param="2t",
-                target=target,
+                target=f"{target}.cf",
             )
+
+            # Fetch Perturbed Members 1-10 (pf)
+            client.retrieve(
+                model="ifs",
+                stream="enfo",
+                type="pf",
+                number=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 
+                resol="0p40",
+                date=date,
+                time=cycle,
+                step=[str(x) for x in EXPECTED_STEPS],
+                param="2t",
+                target=f"{target}.pf",
+            )
+
+            # Combine them into the final target
+            import shutil
+            with open(target, 'wb') as wfd:
+                for tf in [f"{target}.cf", f"{target}.pf"]:
+                    if os.path.exists(tf):
+                        with open(tf, 'rb') as rfd:
+                            shutil.copyfileobj(rfd, wfd)
+                        os.remove(tf)
 
             msg_count = count_grib_messages(target)
             
-            # 51 members * 16 steps = 816 expected messages
-            expected_total = 51 * len(EXPECTED_STEPS)
+            # 1 Control + 10 Perturbed = 11 members * 16 steps = 176 expected messages
+            expected_total = 11 * len(EXPECTED_STEPS)
             
             if msg_count is not None and msg_count < expected_total:
                 print(f"  [WARN] Incomplete: expected {expected_total} steps/members, "
@@ -87,7 +112,7 @@ def fetch():
                 continue
 
             steps_confirmed = msg_count if msg_count else "unknown"
-            print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
+            print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, 11-member subset)")
             return run_id
 
         except Exception as e:
