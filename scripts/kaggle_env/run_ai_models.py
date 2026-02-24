@@ -16,6 +16,21 @@ import datetime
 import pandas as pd
 import subprocess
 
+# --- PyTorch 2.6 Security Bypass ---
+# FourCastNetV2 weights use a legacy pickle format blocked by default in PyTorch 2.6.
+# This patches torch.load globally so ai-models can open the weights file.
+import torch
+import functools
+_orig_torch_load = torch.load
+torch.load = functools.partial(_orig_torch_load, weights_only=False)
+# Also add the specific global class that ruamel.yaml uses inside the weights
+try:
+    import ruamel.yaml.scalarfloat
+    torch.serialization.add_safe_globals([ruamel.yaml.scalarfloat.ScalarFloat])
+except Exception:
+    pass
+
+
 # --- Config ---
 # fourcastnetv2-small is the only model that safely fits in 16GB Kaggle VRAM
 AI_MODELS_CLI = ["fourcastnetv2-small"]
