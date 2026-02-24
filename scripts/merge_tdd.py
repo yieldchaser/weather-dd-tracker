@@ -17,7 +17,7 @@ def load_all():
         + glob("data/gefs/*_tdd.csv")
         + glob("data/icon/*_tdd.csv")
         + glob("data/open_meteo/*_tdd.csv")
-        + glob("data/ai_models/**/ai_tdd_latest.csv", recursive=True)
+        + glob("data/ai_models/**/*_tdd*.csv", recursive=True)
     )
 
     if not files:
@@ -35,6 +35,10 @@ def load_all():
                 df["model"] = "ECMWF"
             else:
                 df["model"] = "OPEN_METEO"
+        # Normalize date column format
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"].astype(str)).dt.strftime('%Y-%m-%d')
+            
         dfs.append(df)
 
     combined = pd.concat(dfs, ignore_index=True)

@@ -112,7 +112,7 @@ def main():
         convergence_days = shift_df[signs.apply(all_same_sign, axis=1)].index
         if len(convergence_days) > 0:
             direction = "WARMER" if shift_df.loc[convergence_days[0], chg_cols[0]] < 0 else "COLDER"
-            print(f"\n🎯 CONVERGENCE ALERT: Models aligning {direction} on {len(convergence_days)} day(s):")
+            print(f"\n[ALERT] CONVERGENCE ALERT: Models aligning {direction} on {len(convergence_days)} day(s):")
             for d in convergence_days[:5]:
                 row_str = "  " + ", ".join(
                     f"{c.split()[0]}: {shift_df.loc[d, c]:+.1f}" for c in chg_cols if pd.notnull(shift_df.loc[d, c])
