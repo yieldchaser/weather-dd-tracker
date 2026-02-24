@@ -583,12 +583,12 @@
                         let w3_fcst = 0, w3_norm = 0, w3_anom = 0, w3_norm10 = 0, w3_anom10 = 0, len3 = 0;
 
                         currentRun.forEach((r, idx) => {
-                            let f = r.tdd_gw || r.tdd || 0;
-                            let n = r.hdd_normal_gw || r.hdd_normal || 0;
-                            let a = r.hdd_anomaly_gw || r.hdd_anomaly || 0;
+                            let f = parseFloat(r.tdd_gw || r.tdd || 0);
+                            let n = parseFloat(r.hdd_normal_gw || r.hdd_normal || 0);
+                            let a = parseFloat(r.hdd_anomaly_gw || r.hdd_anomaly || 0);
 
-                            let n10 = r.hdd_normal_gw_10yr || r.hdd_normal_10yr || 0;
-                            let a10 = r.hdd_anomaly_gw_10yr || r.hdd_anomaly_10yr || 0;
+                            let n10 = parseFloat(r.hdd_normal_gw_10yr || r.hdd_normal_10yr || 0);
+                            let a10 = parseFloat(r.hdd_anomaly_gw_10yr || r.hdd_anomaly_10yr || 0);
 
                             if (idx < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++; }
                             else if (idx < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++; }
@@ -723,20 +723,22 @@
             // Compute base normals across the forecast horizon so we can plot it
             // We'll extract a unique mapping from date -> hdd_normal_gw (or hdd_normal) from vsNormal
             let normalMap = {};
+            let normal10Map = {};
             if (vsNormal && vsNormal.length > 0) {
                 vsNormal.forEach(r => {
                     if (r.date) {
-                        normalMap[r.date.substring(0, 10)] = r.hdd_normal_gw || r.hdd_normal || null;
+                        normalMap[r.date.substring(0, 10)] = parseFloat(r.hdd_normal_gw || r.hdd_normal || null);
+                        normal10Map[r.date.substring(0, 10)] = parseFloat(r.hdd_normal_gw_10yr || r.hdd_normal_10yr || null);
                     }
                 });
             }
 
             sel.addEventListener('change', () => {
-                updateChart(masterData, normalMap, sel.value);
+                updateChart(masterData, normalMap, normal10Map, sel.value);
                 updateMap(sel.value);
             });
 
-            updateChart(masterData, normalMap, sel.value || models[0]);
+            updateChart(masterData, normalMap, normal10Map, sel.value || models[0]);
             updateMap(sel.value || models[0]);
         }
 
@@ -757,7 +759,7 @@
             }
         }
 
-        function updateChart(data, normalMap, selectedModel) {
+        function updateChart(data, normalMap, normal10Map, selectedModel) {
             let modelData = data.filter(r => r.model === selectedModel && r.date);
 
             let runs = [...new Set(modelData.map(r => String(r.run_id)))].sort((a, b) => b.localeCompare(a));
@@ -794,13 +796,28 @@
 
             // Add the Normal line if available
             let normalPoints = labels.map(lbl => normalMap[lbl]);
-            if (normalPoints.some(p => p !== null && p !== undefined)) {
+            if (normalPoints.some(p => p !== null && !isNaN(p))) {
                 datasets.push({
                     label: "30-Year Normal",
                     data: normalPoints,
                     borderColor: '#c5c6c7',
                     borderWidth: 2,
                     borderDash: [2, 2],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0
+                });
+            }
+
+            // Add the 10-Year Normal line
+            let normal10Points = labels.map(lbl => normal10Map[lbl]);
+            if (normal10Points.some(p => p !== null && !isNaN(p))) {
+                datasets.push({
+                    label: "10-Year Normal",
+                    data: normal10Points,
+                    borderColor: '#a39171',
+                    borderWidth: 2,
+                    borderDash: [4, 4],
                     pointRadius: 0,
                     fill: false,
                     tension: 0
