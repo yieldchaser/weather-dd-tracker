@@ -7,6 +7,8 @@ for 30 days of data on every daily GitHub Action cycle.
 """
 
 import os
+import sys
+import time
 import pandas as pd
 import gridstatus
 import datetime
@@ -27,22 +29,25 @@ def get_ercot_daily_mix(dt):
     except AttributeError:
         iso = gridstatus.ercot()
         
-    try:
-        # get_fuel_mix_detailed is strictly required to get Gas out of ERCOT
-        df = iso.get_fuel_mix_detailed(date=dt)
-        if df.empty:
-             return None
-             
-        # gridstatus returns 5 min intervals. Average them across the day.
-        # Columns natively include: 'Natural Gas', 'Wind', 'Solar', 'Coal', etc
-        cols_to_keep = ["Natural Gas", "Wind", "Solar", "Coal", "Nuclear"]
-        means = {c: df[c].mean() if c in df.columns else 0.0 for c in cols_to_keep}
-        means["iso"] = "ERCOT"
-        means["date"] = dt.strftime("%Y-%m-%d")
-        return means
-    except Exception as e:
-        print(f"  [WARN] ERCOT detailed fuel fetch failed for {dt.strftime('%m-%d')}: {e}")
-        return None
+    for attempt in range(3):
+        try:
+            # get_fuel_mix_detailed is strictly required to get Gas out of ERCOT
+            df = iso.get_fuel_mix_detailed(date=dt)
+            if df.empty:
+                 return None
+                 
+            # gridstatus returns 5 min intervals. Average them across the day.
+            # Columns natively include: 'Natural Gas', 'Wind', 'Solar', 'Coal', etc
+            cols_to_keep = ["Natural Gas", "Wind", "Solar", "Coal", "Nuclear"]
+            means = {c: df[c].mean() if c in df.columns else 0.0 for c in cols_to_keep}
+            means["iso"] = "ERCOT"
+            means["date"] = dt.strftime("%Y-%m-%d")
+            return means
+        except Exception as e:
+            print(f"  [WARN] ERCOT detailed fuel fetch failed for {dt.strftime('%m-%d')} (Attempt {attempt+1}/3): {e}")
+            time.sleep(2)
+            
+    return None
 
 def fetch_live_grid():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -148,8 +153,24 @@ def fetch_live_grid():
             print(out_df.to_string(index=False))
         else:
             print("\n  [ERR] Failed to compute live grid snapshot. Incomplete data.")
+            cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
+            fallback_df = pd.DataFrame([{c: float('nan') for c in cols}])
+            fallback_df["date"] = today_str
+            fallback_df["iso"] = "ERCOT"
+            fallback_df["gas_burn_impact"] = "NEUTRAL"
+            fallback_df.to_csv(OUTPUT_FILE, index=False)
+            print(f"  [WARN] Saved NaN Fallback -> {OUTPUT_FILE}")
+            sys.exit(1)
     else:
         print("\n  [ERR] Cache is completely empty and APIs failed. Exiting gracefully.")
+        cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
+        fallback_df = pd.DataFrame([{c: float('nan') for c in cols}])
+        fallback_df["date"] = pd.to_datetime(today).strftime("%Y-%m-%d")
+        fallback_df["iso"] = "ERCOT"
+        fallback_df["gas_burn_impact"] = "NEUTRAL"
+        fallback_df.to_csv(OUTPUT_FILE, index=False)
+        print(f"  [WARN] Saved NaN Fallback -> {OUTPUT_FILE}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     fetch_live_grid()
