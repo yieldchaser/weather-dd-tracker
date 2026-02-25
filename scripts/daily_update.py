@@ -97,7 +97,7 @@ print("\n5c. Building Model Shift Table...")
 subprocess.run(f"{PY} scripts/build_model_shift_table.py", shell=True)
 
 print("\n5d. Estimating USA Freeze-Offs...")
-subprocess.run(f"{PY} scripts/build_freeze_offs.py", shell=True)
+# Removed: subprocess.run(f"{PY} scripts/build_freeze_offs.py", shell=True)
 
 print("\n5e. Generating Trader Charts & Historical Matrix...")
 subprocess.run(f"{PY} scripts/build_crossover_matrix.py", shell=True)
@@ -112,8 +112,7 @@ subprocess.run(f"{PY} scripts/build_historical_monthly_charts.py", shell=True)
 
 print("\n5f. Generating Market Proxies & Composite Score...")
 subprocess.run(f"{PY} scripts/market_logic/physics_vs_ai_disagreement.py", shell=True)
-subprocess.run(f"{PY} scripts/market_logic/power_burn_proxy.py", shell=True)
-subprocess.run(f"{PY} scripts/market_logic/renewables_generation_proxy.py", shell=True)
+subprocess.run(f"{PY} scripts/market_logic/fetch_live_grid.py", shell=True)
 subprocess.run(f"{PY} scripts/market_logic/composite_score.py", shell=True)
 
 # ------------------------------------------
