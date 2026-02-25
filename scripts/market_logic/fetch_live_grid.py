@@ -111,26 +111,32 @@ def fetch_live_grid():
             # Today's live snapshot
             today_data = iso_data[iso_data["date"].dt.strftime("%Y-%m-%d") == today_str]
             
-            if not today_data.empty and pd.notna(hist_wind):
+            if not today_data.empty:
                 row = today_data.iloc[0].to_dict()
                 live_wind = row["Wind"]
-                anomaly = live_wind - hist_wind
                 
                 # Formatting for UI
                 row["natural_gas_mw"] = round(row["Natural Gas"])
                 row["wind_mw"] = round(live_wind)
                 row["solar_mw"] = round(row["Solar"])
                 row["coal_mw"] = round(row["Coal"])
-                row["wind_30d_avg_mw"] = round(hist_wind)
-                row["wind_anomaly_mw"] = round(anomaly)
                 
-                # Simple heuristic: heavily negative anomaly means wind died -> burns more gas
-                if anomaly < -1000:
-                    impact = "BULLISH (Wind Drought)"
-                elif anomaly > 1500:
-                    impact = "BEARISH (Strong Wind)"
+                if pd.notna(hist_wind):
+                    anomaly = live_wind - hist_wind
+                    row["wind_30d_avg_mw"] = round(hist_wind)
+                    row["wind_anomaly_mw"] = round(anomaly)
+                    
+                    # Simple heuristic: heavily negative anomaly means wind died -> burns more gas
+                    if anomaly < -1000:
+                        impact = "BULLISH (Wind Drought)"
+                    elif anomaly > 1500:
+                        impact = "BEARISH (Strong Wind)"
+                    else:
+                        impact = "NEUTRAL"
                 else:
-                    impact = "NEUTRAL"
+                    row["wind_30d_avg_mw"] = float('nan')
+                    row["wind_anomaly_mw"] = float('nan')
+                    impact = "CALCULATING BASELINE"
                 
                 row["gas_burn_impact"] = impact
                 
