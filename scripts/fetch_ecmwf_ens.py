@@ -51,7 +51,7 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         "daily": "temperature_2m_mean",
         "temperature_unit": "celsius",
         "forecast_days": forecast_days,
-        "models": "ecmwf_ifs04",
+        "models": "ecmwf_ifs025",
         "timezone": "UTC",
     }
     try:
@@ -61,22 +61,9 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         daily = data.get("daily", {})
         dates = daily.get("time", [])
         
-        # User requested manual averaging of the 51 members explicitly
-        member_keys = [k for k in daily.keys() if "temperature_2m_mean_member" in k]
-        
-        if member_keys:
-            # Calculate the ensemble mean from the individual member arrays
-            member_arrays = [daily[k] for k in member_keys]
-            temps = []
-            for i in range(len(dates)):
-                valid_vals = [arr[i] for arr in member_arrays if arr[i] is not None]
-                if valid_vals:
-                    temps.append(sum(valid_vals) / len(valid_vals))
-                else:
-                    temps.append(None)
-        else:
-            # Fallback if the ensemble API returns a pre-calculated mean
-            temps = daily.get("temperature_2m_mean", [])
+        # Open-Meteo limits raw ECMWF member data due to licensing, but provides
+        # the pre-calculated statistical ensemble mean variable freely.
+        temps = daily.get("temperature_2m_mean", [])
             
         return {d: t for d, t in zip(dates, temps) if t is not None}
     except Exception as e:
