@@ -28,6 +28,11 @@ def compare():
     df["day"]   = df["date"].dt.day
 
     # Phase 1: merge simple national normals
+    if "hdd_normal_10yr" not in normals.columns:
+        normals["hdd_normal_10yr"] = normals["hdd_normal"]
+    if "cdd_normal_10yr" not in normals.columns:
+        normals["cdd_normal_10yr"] = normals["cdd_normal"]
+        
     merged = df.merge(
         normals[["month", "day", "hdd_normal", "cdd_normal", "mean_temp_f", "hdd_normal_10yr", "cdd_normal_10yr"]],
         on=["month", "day"],

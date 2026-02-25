@@ -786,7 +786,7 @@
             let err = document.getElementById('mapError');
             let mapSelect = document.getElementById('mapRunSelect');
 
-            if ((selectedModel === 'ECMWF' || selectedModel === 'GFS') && manifest[selectedModel] && manifest[selectedModel].length > 0) {
+            if ((selectedModel === 'ECMWF' || selectedModel === 'GFS' || selectedModel === 'CMC_ENS') && manifest[selectedModel] && manifest[selectedModel].length > 0) {
                 img.style.display = 'block';
                 err.style.display = 'none';
                 mapSelect.style.display = 'inline-block';
