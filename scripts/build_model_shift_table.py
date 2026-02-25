@@ -48,10 +48,15 @@ def main():
         prev_df = m_df[m_df["run_id"] == prev_run][["date", "hdd_value"]].rename(columns={"hdd_value": "prev"})
         
         merged = pd.merge(latest_df, prev_df, on="date", how="outer")
+        merged = merged.set_index("date").sort_index()
+        
+        # Interpolate missing days if occasional HTTP fetches dropped files
+        merged["latest"] = merged["latest"].interpolate(method="time", limit=2)
+        merged["prev"] = merged["prev"].interpolate(method="time", limit=2)
+        
         merged["shift"] = merged["latest"] - merged["prev"]
         
         # Keep track of shifts for this model
-        merged = merged.set_index("date")
         model_data[f"{model} Op Chg"] = merged["shift"]
         model_data[f"{model} Latest"] = merged["latest"] # Just in case we want to show it
         

@@ -612,7 +612,7 @@
                     }
                 };
 
-                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest] = await Promise.all([
+                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest, historicalData] = await Promise.all([
                     fetchCSV("composite_bull_bear_signal.csv"),
                     fetchCSV("vs_normal.csv"),
                     fetchCSV("run_delta.csv"),
@@ -801,7 +801,6 @@
                 }
 
                 // 6. Build Spaghetti & Monthly Charts
-                const historicalData = arguments[0][8]; // historical_degree_days.csv is the 9th item in Promise.all array
                 if (historicalData && historicalData.length > 0) {
                     initWinterSpaghettiChart(historicalData);
                     initMonthlyOutlierChart(historicalData);

@@ -44,14 +44,14 @@ def compute_tdd(temp_f):
     return max(BASE_TEMP_F - temp_f, 0)
 
 def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
-    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
         "longitude": lon,
         "daily": "temperature_2m_mean",
         "temperature_unit": "celsius",
         "forecast_days": forecast_days,
-        "models": "ecmwf_ensemble",
+        "models": "ecmwf_ifs025",
         "timezone": "UTC",
     }
     try:
