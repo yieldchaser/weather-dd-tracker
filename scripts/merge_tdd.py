@@ -15,6 +15,7 @@ def load_all():
         + glob("data/hrrr/*_tdd.csv")
         + glob("data/nam/*_tdd.csv")
         + glob("data/gefs/*_tdd.csv")
+        + glob("data/gefs_subseasonal/*_tdd.csv")
         + glob("data/icon/*_tdd.csv")
         + glob("data/open_meteo/*_tdd.csv")
         + glob("data/ai_models/**/*_tdd*.csv", recursive=True)

@@ -43,6 +43,18 @@ def check_gfs_complete(date_str, cycle):
     except requests.RequestException:
         return False
 
+def check_gefs_complete(date_str, cycle):
+    """
+    Checks if the GEFS ensemble run is completely uploaded to AWS S3.
+    The final hour needed for standard horizon is f384.
+    """
+    url = f"https://noaa-gefs-pds.s3.amazonaws.com/gefs.{date_str}/{cycle}/atmos/pgrb2ap5/gec00.t{cycle}z.pgrb2a.0p50.f384.idx"
+    try:
+        r = requests.head(url, timeout=10)
+        return r.status_code == 200
+    except requests.RequestException:
+        return False
+
 def check_ecmwf_complete(date_str, cycle):
     """
     Checks if the ECMWF run is completely uploaded.
@@ -85,18 +97,22 @@ def poll():
     print(f"--- WEATHER DESK POLLER ---")
     print(f"Time: {now_utc.isoformat()} UTC")
     
-    # 1. Check GFS
+    # 1. Check GFS & GEFS Synchronization
     latest_gfs_avail = None
     for d in dates_to_check:
         for c in GFS_CYCLES:
             run_id = f"{d}_{c}"
             if run_id > state.get("GFS", ""):
-                print(f"  [PING] Checking GFS {run_id} completion...")
+                print(f"  [PING] Checking GFS OP completion for {run_id}...")
                 if check_gfs_complete(d, c):
-                    latest_gfs_avail = run_id
-                    
+                    print(f"  [PING] GFS OP complete. Checking GEFS ENS synchronization for {run_id}...")
+                    if check_gefs_complete(d, c):
+                        latest_gfs_avail = run_id
+                    else:
+                        print(f"  [WAIT] GEFS ENS {run_id} is still uploading. Pausing trigger to maintain OP/ENS pair sync.")
+                        
     if latest_gfs_avail and latest_gfs_avail > state.get("GFS", ""):
-        print(f"  >>> [NEW] GFS Run Detected & Completed: {latest_gfs_avail} <<<")
+        print(f"  >>> [NEW] Synced GFS/GEFS Run Detected & Completed: {latest_gfs_avail} <<<")
         new_state["GFS"] = latest_gfs_avail
         triggered = True
         

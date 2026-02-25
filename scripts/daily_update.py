@@ -35,6 +35,7 @@ print("\n1-2. Fetching all models in parallel...")
 FETCH_SCRIPTS = [
     "fetch_ecmwf_ifs.py", "fetch_gfs.py", "fetch_nbm.py",
     "fetch_ecmwf_ens.py", "fetch_ecmwf_aifs.py", "fetch_gefs.py",
+    "fetch_gefs_subseasonal.py",
     "fetch_hrrr.py", "fetch_nam.py", "fetch_icon.py",
     "fetch_historical_eia_normals.py",
 ]
