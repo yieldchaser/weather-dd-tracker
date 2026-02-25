@@ -375,6 +375,27 @@
                 </div>
             </div>
 
+            <!-- REAL-TIME GRID MONITOR -->
+            <h2 class="section-title" style="margin-top: 25px;">Real-Time Grid Monitor (ERCOT)</h2>
+            <div class="summary-row">
+                <div class="summary-card">
+                    <h3>NatGas Burn (MW)</h3>
+                    <div class="val" id="live-gas-burn">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Wind Generation (MW)</h3>
+                    <div class="val" id="live-wind-gen">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Wind Anomaly (vs 30d)</h3>
+                    <div class="val" id="live-wind-anomaly">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Grid Impact</h3>
+                    <div class="val" id="live-grid-impact" style="font-size: 1.2rem;">--</div>
+                </div>
+            </div>
+
             <!-- TIME HORIZON PANELS -->
             <h2 class="section-title">Gas-Weighted Heating Degree Days by Horizon (All Models)</h2>
             <div class="weeks-grid">
@@ -543,7 +564,7 @@
                     }
                 };
 
-                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest] = await Promise.all([
+                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest, liveGrid] = await Promise.all([
                     fetchCSV("composite_bull_bear_signal.csv"),
                     fetchCSV("vs_normal.csv"),
                     fetchCSV("run_delta.csv"),
@@ -551,7 +572,8 @@
                     fetchCSV("run_change.csv"),
                     fetchCSV("convergence_alert.csv"),
                     fetchCSV("tdd_master.csv"),
-                    fetchManifest()
+                    fetchManifest(),
+                    fetchCSV("live_grid_generation.csv")
                 ]);
 
                 // 1. Bias
@@ -577,6 +599,34 @@
                         let chgCol = latestFr.hdd_change_gw ? latestFr.hdd_change_gw : latestFr.hdd_change;
                         let arr = chgCol > 0 ? "▲" : "▼";
                         document.getElementById('rev-text').innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} HDDs`;
+                    }
+                }
+
+                // 2B. Live Grid Monitor
+                if (liveGrid && liveGrid.length > 0) {
+                    // Extract latest ERCOT row (should usually only be one row in output anyway)
+                    // The backend handles ISO filtering, but we'll be safe
+                    let ercotGrid = liveGrid.filter(r => r.iso === 'ERCOT');
+                    if (ercotGrid.length > 0) {
+                        let latestGrid = ercotGrid[ercotGrid.length - 1];
+
+                        document.getElementById('live-gas-burn').innerText = latestGrid.natural_gas_mw ? formatNum(latestGrid.natural_gas_mw, 0) : 'NaN';
+                        document.getElementById('live-wind-gen').innerText = latestGrid.wind_mw ? formatNum(latestGrid.wind_mw, 0) : 'NaN';
+
+                        let anomalyEl = document.getElementById('live-wind-anomaly');
+                        if (latestGrid.wind_anomaly_mw) {
+                            anomalyEl.innerText = formatNum(latestGrid.wind_anomaly_mw, 0, true);
+                            if (latestGrid.wind_anomaly_mw < 0) anomalyEl.classList.add('bullish-text'); // Drought = Bullish
+                            else if (latestGrid.wind_anomaly_mw > 0) anomalyEl.classList.add('bearish-text');
+                        } else {
+                            anomalyEl.innerText = 'NaN';
+                        }
+
+                        let impactEl = document.getElementById('live-grid-impact');
+                        let impactStr = String(latestGrid.gas_burn_impact || 'NEUTRAL');
+                        impactEl.innerText = impactStr;
+                        if (impactStr.includes('BULL')) impactEl.classList.add('bullish-text');
+                        if (impactStr.includes('BEAR')) impactEl.classList.add('bearish-text');
                     }
                 }
 
