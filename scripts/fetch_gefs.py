@@ -16,6 +16,17 @@ import os
 import re
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+def get_session():
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    return session
+
+session = get_session()
 
 # -----------------------------
 # Configuration
@@ -42,9 +53,9 @@ MAX_WORKERS = 10  # AWS handles concurrent GETs easily
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
 
-def url_exists(url, timeout=10):
+def url_exists(url, timeout=15):
     try:
-        r = requests.head(url, timeout=timeout)
+        r = session.head(url, timeout=timeout)
         return r.status_code == 200
     except Exception:
         return False
@@ -69,20 +80,23 @@ def find_latest_available_runs(max_runs=2):
     return runs
 
 def parse_t2m_byte_range(idx_url):
-    r = requests.get(idx_url, timeout=15)
-    if r.status_code != 200:
+    try:
+        r = session.get(idx_url, timeout=15)
+        if r.status_code != 200:
+            return None, None
+        lines = r.text.strip().splitlines()
+        for i, line in enumerate(lines):
+            if T2M_PATTERN.search(line):
+                parts = line.split(":")
+                start_byte = int(parts[1])
+                if i + 1 < len(lines):
+                    end_byte = int(lines[i + 1].split(":")[1]) - 1
+                else:
+                    end_byte = None
+                return start_byte, end_byte
         return None, None
-    lines = r.text.strip().splitlines()
-    for i, line in enumerate(lines):
-        if T2M_PATTERN.search(line):
-            parts = line.split(":")
-            start_byte = int(parts[1])
-            if i + 1 < len(lines):
-                end_byte = int(lines[i + 1].split(":")[1]) - 1
-            else:
-                end_byte = None
-            return start_byte, end_byte
-    return None, None
+    except Exception:
+        return None, None
 
 def download_member_timestep(args):
     """Worker function for concurrent downloading."""
@@ -110,7 +124,7 @@ def download_member_timestep(args):
         headers["Range"] = f"bytes={start_byte}-"
 
     try:
-        r = requests.get(base_url, headers=headers, stream=True, timeout=30)
+        r = session.get(base_url, headers=headers, stream=True, timeout=30)
         if r.status_code not in (200, 206):
             return (member, fh, False, f"HTTP {r.status_code}")
         

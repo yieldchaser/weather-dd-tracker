@@ -13,6 +13,17 @@ import json
 import os
 import re
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+def get_session():
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    return session
+
+session = get_session()
 
 # -----------------------------
 # Configuration
@@ -34,9 +45,9 @@ T2M_PATTERN = re.compile(r"TMP:2 m above ground")
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
 
-def url_exists(url, timeout=10):
+def url_exists(url, timeout=15):
     try:
-        r = requests.head(url, timeout=timeout)
+        r = session.head(url, timeout=timeout)
         return r.status_code == 200
     except Exception:
         return False
@@ -58,7 +69,7 @@ def find_latest_available_run():
     raise RuntimeError("No completed NAM run found in last 72 hours.")
 
 def fetch_idx(idx_url, timeout=15):
-    r = requests.get(idx_url, timeout=timeout)
+    r = session.get(idx_url, timeout=timeout)
     r.raise_for_status()
     return r.text
 
@@ -83,7 +94,7 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
     else:
         headers["Range"] = f"bytes={start_byte}-"
 
-    r = requests.get(url, headers=headers, stream=True, timeout=timeout)
+    r = session.get(url, headers=headers, stream=True, timeout=timeout)
     if r.status_code not in (200, 206):
         raise RuntimeError(f"Unexpected HTTP {r.status_code} for {url}")
 

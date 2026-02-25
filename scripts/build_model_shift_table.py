@@ -51,8 +51,9 @@ def main():
         merged = merged.set_index("date").sort_index()
         
         # Interpolate missing days if occasional HTTP fetches dropped files
-        merged["latest"] = merged["latest"].interpolate(method="time", limit=2)
-        merged["prev"] = merged["prev"].interpolate(method="time", limit=2)
+        # STRICT LIMIT: Max 3 consecutive days. Massive outages should break the chart with NaN.
+        merged["latest"] = merged["latest"].interpolate(method="time", limit=3)
+        merged["prev"] = merged["prev"].interpolate(method="time", limit=3)
         
         merged["shift"] = merged["latest"] - merged["prev"]
         
