@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 # Optional: if you add ECMWF Ens and GFS Ens later, they can be added here
-MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "NBM"]
+MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "NBM", "GEFS_35D"]
 
 def main():
     print("\n--- Generating Model Shift Table ---")

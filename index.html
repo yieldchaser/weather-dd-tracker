@@ -604,7 +604,12 @@
                         let w2_fcst = 0, w2_norm = 0, w2_anom = 0, w2_norm10 = 0, w2_anom10 = 0, len2 = 0;
                         let w3_fcst = 0, w3_norm = 0, w3_anom = 0, w3_norm10 = 0, w3_anom10 = 0, len3 = 0;
 
-                        currentRun.forEach((r, idx) => {
+                        let runY = latestRunId.substring(0, 4);
+                        let runM = latestRunId.substring(4, 6);
+                        let runD = latestRunId.substring(6, 8);
+                        let baseDate = new Date(`${runY}-${runM}-${runD}T00:00:00Z`);
+
+                        currentRun.forEach((r) => {
                             let f = parseFloat(r.tdd_gw || r.tdd || 0);
                             let n = parseFloat(r.hdd_normal_gw || r.hdd_normal || 0);
                             let a = parseFloat(r.hdd_anomaly_gw || r.hdd_anomaly || 0);
@@ -612,8 +617,11 @@
                             let n10 = parseFloat(r.hdd_normal_gw_10yr || r.hdd_normal_10yr || 0);
                             let a10 = parseFloat(r.hdd_anomaly_gw_10yr || r.hdd_anomaly_10yr || 0);
 
-                            if (idx < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++; }
-                            else if (idx < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++; }
+                            let rDate = new Date(`${r.date}T00:00:00Z`);
+                            let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
+
+                            if (dayDiff < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++; }
+                            else if (dayDiff < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++; }
                             else { w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++; }
                         });
 
@@ -626,14 +634,20 @@
                                 mDelta.sort((a, b) => String(b.run_latest).localeCompare(String(a.run_latest)));
                                 let latestTarget = mDelta[0].run_latest;
                                 let curDelta = mDelta.filter(r => r.run_latest === latestTarget);
-                                curDelta.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+                                let dtY = latestTarget.substring(0, 4);
+                                let dtM = latestTarget.substring(4, 6);
+                                let dtD = latestTarget.substring(6, 8);
+                                let deltaBase = new Date(`${dtY}-${dtM}-${dtD}T00:00:00Z`);
 
                                 let c1 = 0, c2 = 0, c3 = 0;
-                                curDelta.forEach((r, idx) => {
+                                curDelta.forEach((r) => {
+                                    let dtR = new Date(`${r.date}T00:00:00Z`);
+                                    let dDiff = Math.round((dtR - deltaBase) / (1000 * 60 * 60 * 24));
                                     let val = r.tdd_gw_change || r.tdd_change || 0;
                                     total_chg += val;
-                                    if (idx < 5) c1 += val;
-                                    else if (idx < 14) c2 += val;
+                                    if (dDiff < 5) c1 += val;
+                                    else if (dDiff < 14) c2 += val;
                                     else c3 += val;
                                 });
                                 w1_chg = c1 !== 0 ? formatNum(c1, 1, true) : '-';
@@ -817,19 +831,14 @@
             });
             let labels = Array.from(globalDatesSet).sort();
 
-            // Trim dead space: explicitly slice the global dates so X-axis minimum is precisely 
-            // aligned with the start date of the latest run of the currently selected model.
             if (top4Runs.length > 0) {
                 let latestRunRows = modelData.filter(r => String(r.run_id) === top4Runs[0]);
                 if (latestRunRows.length > 0) {
                     latestRunRows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
                     let minDate = latestRunRows[0].date.substring(0, 10);
-                    labels = labels.filter(d => d >= minDate).slice(0, 16);
-                } else {
-                    labels = labels.slice(0, 16);
+                    let maxDate = latestRunRows[latestRunRows.length - 1].date.substring(0, 10);
+                    labels = labels.filter(d => d >= minDate && d <= maxDate);
                 }
-            } else {
-                labels = labels.slice(0, 16);
             }
 
             // Colors for the 4 runs
