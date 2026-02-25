@@ -51,7 +51,7 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         "daily": "temperature_2m_mean",
         "temperature_unit": "celsius",
         "forecast_days": forecast_days,
-        "models": "ecmwf_ifs025",
+        "models": "ecmwf_ensemble",
         "timezone": "UTC",
     }
     try:
