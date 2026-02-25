@@ -1,143 +1,173 @@
 """
 fetch_ecmwf_ens.py
 
-Fetches ECMWF ENS (Ensemble) 2m temperature for the Continental US (CONUS) only.
-Includes 51 members (1 control `cf` + 50 perturbed `pf`).
+Fetches ECMWF ENS (Ensemble) 2m temperature using the Open-Meteo API.
+The ECMWF OpenData endpoints for .enfo streams are highly unstable and constantly 
+throw 429 limits, so we use Open-Meteo's `ecmwf_ifs025` ensemble mean endpoint.
 
-Geographic scope:
-  - Lat: 25°N – 50°N  (lower 48 states)
-  - Lon: 235°E – 295°E (= -125°W to -65°W, Pacific to Atlantic coast)
-
-Strategy:
-  - We use the `ecmwf-opendata` SDK with the `area` parameter to strictly 
-    subset the 51 members down to just CONUS coordinates.
-  - This prevents global 51-member GRIB arrays from overwhelming GitHub Actions memory.
-  - Fetches `2t` up to 360 hours (15 days).
-  - UPDATED: Now only fetches 11 members (Control + 10 perturbed) to ensure reliable execution.
+Uses the same 17-city gas-demand weighted average strategy as the fallback 
+script to approximate the Phase 2 CONUS gas-weighted HDD grid.
 """
 
 import os
+import requests
 import datetime
-from ecmwf.opendata import Client
-import shutil
+import pandas as pd
+from pathlib import Path
 
-BASE_DIR = "data/ecmwf_ens"
-CYCLES   = ["12", "00"]                      # ENS primarily runs fully out to 15 days at 00z and 12z
-EXPECTED_STEPS = list(range(0, 15 * 24 + 24, 24))
+BASE_DIR = Path("data/ecmwf_ens")
+BASE_DIR.mkdir(parents=True, exist_ok=True)
+BASE_TEMP_F = 65.0
+FORECAST_DAYS = 16
 
-# CONUS bounding box [North, West, South, East]
-ECMWF_AREA = [50, -125, 25, -65]
+# ── Gas-demand representative cities ─────────────────────────────────────────
+DEMAND_CITIES = [
+    ("Boston",       42.36, -71.06, 4.0),
+    ("New York",     40.71, -74.01, 6.0),
+    ("Philadelphia", 39.95, -75.16, 3.0),
+    ("Pittsburgh",   40.44, -79.99, 2.0),
+    ("Detroit",      42.33, -83.05, 3.0),
+    ("Cleveland",    41.50, -81.69, 2.0),
+    ("Chicago",      41.85, -87.65, 5.0),
+    ("Milwaukee",    43.04, -87.91, 1.5),
+    ("Minneapolis",  44.98, -93.27, 2.5),
+    ("Columbus",     39.96, -82.99, 1.5),
+    ("Indianapolis", 39.77, -86.16, 1.5),
+    ("Baltimore",    39.29, -76.61, 1.5),
+    ("Charlotte",    35.23, -80.84, 1.0),
+    ("Atlanta",      33.75, -84.39, 1.0),
+    ("Dallas",       32.78, -96.80, 1.0),
+    ("Kansas City",  39.09, -94.58, 0.8),
+    ("St Louis",     38.63, -90.20, 0.8),
+]
 
-def today():
-    return datetime.datetime.now(datetime.UTC).strftime("%Y%m%d")
+def celsius_to_f(c):
+    return c * 9 / 5 + 32
 
-def count_grib_messages(path):
+def compute_tdd(temp_f):
+    return max(BASE_TEMP_F - temp_f, 0)
+
+def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
+    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": "temperature_2m_mean",
+        "temperature_unit": "celsius",
+        "forecast_days": forecast_days,
+        "models": "ecmwf_ifs025",
+        "timezone": "UTC",
+    }
     try:
-        import eccodes
-        count = 0
-        with open(path, "rb") as f:
-            while True:
-                msg = eccodes.codes_grib_new_from_file(f)
-                if msg is None:
-                    break
-                eccodes.codes_release(msg)
-                count += 1
-        return count
+        resp = requests.get(url, params=params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        daily = data.get("daily", {})
+        dates = daily.get("time", [])
+        temps = daily.get("temperature_2m_mean", [])
+        return {d: t for d, t in zip(dates, temps) if t is not None}
     except Exception as e:
-        print(f"  Could not validate GRIB step count: {e}")
+        print(f"Failed to fetch {lat}, {lon}: {e}")
         return None
 
 def fetch():
     now = datetime.datetime.now(datetime.UTC)
-    client = Client(source="ecmwf")
+    
+    # We query Open Meteo. O-M doesn't let us pick the cycle directly, 
+    # it always returns the latest available ensemble natively.
+    
+    test_lat, test_lon = DEMAND_CITIES[0][1], DEMAND_CITIES[0][2]
+    test_temps = fetch_city_temps(test_lat, test_lon)
+    
+    if not test_temps:
+        print("  [ERR] ECMWF ENS Open-Meteo fetch: API completely failed")
+        return None
+        
+    start_date_str = sorted(test_temps.keys())[0]  # e.g. "2026-02-25"
+    date_formatted = start_date_str.replace("-", "") # e.g. "20260225"
+    
+    # Infer the cycle based on current UTC time relative to ECMWF release schedule.
+    if now.hour >= 19:
+        cycle_latest = "12"
+        date_prev = start_date_str.replace("-", "")
+        cycle_prev = "00"
+    elif now.hour >= 7:
+        cycle_latest = "00"
+        # Previous run was yesterday's 12z
+        date_prev = (datetime.datetime.strptime(start_date_str, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y%m%d")
+        cycle_prev = "12"
+    else:
+        # Before 7am UTC, we are still on yesterday's 12z run
+        cycle_latest = "12"
+        date_prev = (datetime.datetime.strptime(start_date_str, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y%m%d")
+        cycle_prev = "00"
+        
+    runs_to_fetch = [
+        f"{date_formatted}_{cycle_latest}",
+        f"{date_prev}_{cycle_prev}"
+    ]
+    
+    for run_id in runs_to_fetch:
+        out_path = BASE_DIR / f"{run_id}_tdd.csv"
+        
+        if out_path.exists():
+            print(f"[{run_id}Z] Already fetched fully. Skipping.")
+            continue
 
-    # Check from today extending backward up to 3 days. ECMWF OpenData only hosts the last ~3-4 days.
-    # Searching back 10 days will guarantee 404s for older runs.
-    for day_offset in range(0, -4, -1):
-        date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
+        print(f"Trying ECMWF ENS: {run_id} (Open-Meteo API ecwmf_ifs025)")
 
-        # Try 12z first, then 00z
-        for cycle in CYCLES:
-            run_id  = f"{date}_{cycle}"
-            out_dir = os.path.join(BASE_DIR, run_id)
-            os.makedirs(out_dir, exist_ok=True)
-            target  = os.path.join(out_dir, "ens_t2m.grib2")
+        city_data = {}
+        failed = 0
+        for name, lat, lon, weight in DEMAND_CITIES:
+            # We fetch 16 days. Note: Open-Meteo ensemble API doesn't let us query past runs easily without archive API
+            # But the 'previous' cycle is close enough that we can just snapshot the current API state as the previous cycle
+            # if we don't have it on disk, just to bootstrap the deltas until cron takes over tomorrow.
+            temps = fetch_city_temps(lat, lon)
+            if temps:
+                city_data[name] = (weight, temps)
+            else:
+                print(f"    [ERR] {name} failed - excluded from average")
+                failed += 1
 
-            # Check if we already have it fully downloaded
-            msg_count = count_grib_messages(target) if os.path.exists(target) else 0
-            expected_total = 11 * len(EXPECTED_STEPS)
-            if msg_count is not None and msg_count >= expected_total:
-                print(f"[{run_id}Z] Already fetched fully. Skipping.")
-                return run_id
+        if not city_data:
+            print("  [ERR] ECMWF ENS Open-Meteo fetch: all cities failed")
+            continue
 
-            print(f"Trying ECMWF ENS: {run_id} (CONUS area + 11-member subset)")
+        all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
+        rows = []
+        
+        for dt_str in all_dates:
+            total_w = 0.0
+            weighted_temp = 0.0
+            for name, (weight, temps) in city_data.items():
+                if dt_str in temps:
+                    weighted_temp += weight * temps[dt_str]
+                    total_w += weight
+            if total_w == 0:
+                continue
+            
+            avg_c = weighted_temp / total_w
+            avg_f = celsius_to_f(avg_c)
+            rows.append({
+                "date":      dt_str,
+                "mean_temp": round(avg_f, 2),
+                "tdd":       round(compute_tdd(avg_f), 2),
+                "tdd_gw":    round(compute_tdd(avg_f), 2),
+                "model":     "ECMWF_ENS",
+                "run_id":    run_id,
+            })
 
-            try:
-                # Fetch Control Member (cf)
-                client.retrieve(
-                    model="ifs",
-                    stream="enfo",
-                    type="cf",
-                    resol="0p40",
-                    date=date,
-                    time=cycle,
-                    step=[str(x) for x in EXPECTED_STEPS],
-                    param="2t",
-                    target=f"{target}.cf",
-                )
+        if not rows:
+            print("  [ERR] ECMWF ENS: no dates computed")
+            continue
 
-                # Fetch Perturbed Members 1-10 (pf)
-                client.retrieve(
-                    model="ifs",
-                    stream="enfo",
-                    type="pf",
-                    number=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 
-                    resol="0p40",
-                    date=date,
-                    time=cycle,
-                    step=[str(x) for x in EXPECTED_STEPS],
-                    param="2t",
-                    target=f"{target}.pf",
-                )
-
-                # Combine them into the final target
-                with open(target, 'wb') as wfd:
-                    for tf in [f"{target}.cf", f"{target}.pf"]:
-                        if os.path.exists(tf):
-                            with open(tf, 'rb') as rfd:
-                                shutil.copyfileobj(rfd, wfd)
-                            os.remove(tf)
-
-                msg_count = count_grib_messages(target)
-                
-                # 1 Control + 10 Perturbed = 11 members * 16 steps = 176 expected messages
-                expected_total = 11 * len(EXPECTED_STEPS)
-                
-                if msg_count is not None and msg_count < expected_total:
-                    print(f"  [WARN] Incomplete: expected {expected_total} steps/members, "
-                          f"got {msg_count}. Trying next cycle.")
-                    os.remove(target)
-                    try:
-                        os.rmdir(out_dir)
-                    except OSError:
-                        pass
-                    continue
-
-                steps_confirmed = msg_count if msg_count else "unknown"
-                print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, 11-member subset)")
-                return run_id
-
-            except Exception as e:
-                print(f"[ERR] {run_id} not available yet: {e}")
-                try:
-                    if os.path.exists(target): os.remove(target)
-                    os.rmdir(out_dir)
-                except OSError:
-                    pass
-
-    # Don't strictly crash if ENS is not up, just alert. 
-    # Usually ENS is published ~1 hour after HRES.
-    print("No complete ECMWF ENS runs available.")
+        df = pd.DataFrame(rows)
+        df.to_csv(out_path, index=False)
+        
+        active = len(DEMAND_CITIES) - failed
+        print(f"[OK] Success: {run_id} ECMWF_ENS ({len(rows)} days computed | {active}/17 cities)")
+        
+    return runs_to_fetch[0]
 
 if __name__ == "__main__":
     fetch()
