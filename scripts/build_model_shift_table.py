@@ -80,6 +80,7 @@ def main():
     # Also we may want EPS (Ensemble) shifts if they existed. They don't yet, but we will create placeholders.
     if "GFS Ens Chg" not in shift_df.columns: shift_df["GFS Ens Chg"] = np.nan
     if "Euro Ens Chg" not in shift_df.columns: shift_df["Euro Ens Chg"] = np.nan
+    if "CMC ENS CHG" not in shift_df.columns: shift_df["CMC ENS CHG"] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
     columns = ["GFS Op Chg", "GFS Ens Chg", "ECMWF Op Chg", "Euro Ens Chg", "CMC ENS CHG"]
