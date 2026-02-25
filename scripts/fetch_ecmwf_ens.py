@@ -19,6 +19,7 @@ Strategy:
 import os
 import datetime
 from ecmwf.opendata import Client
+import shutil
 
 BASE_DIR = "data/ecmwf_ens"
 CYCLES   = ["12", "00"]                      # ENS primarily runs fully out to 15 days at 00z and 12z
@@ -50,8 +51,9 @@ def fetch():
     now = datetime.datetime.now(datetime.UTC)
     client = Client(source="ecmwf")
 
-    # Check from today extending backward up to 10 days to handle extended API outages
-    for day_offset in range(0, -11, -1):
+    # Check from today extending backward up to 3 days. ECMWF OpenData only hosts the last ~3-4 days.
+    # Searching back 10 days will guarantee 404s for older runs.
+    for day_offset in range(0, -4, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
 
         # Try 12z first, then 00z
@@ -99,7 +101,6 @@ def fetch():
                 )
 
                 # Combine them into the final target
-                import shutil
                 with open(target, 'wb') as wfd:
                     for tf in [f"{target}.cf", f"{target}.pf"]:
                         if os.path.exists(tf):
@@ -136,7 +137,7 @@ def fetch():
 
     # Don't strictly crash if ENS is not up, just alert. 
     # Usually ENS is published ~1 hour after HRES.
-    print("No complete ECMWF ENS runs available today.")
+    print("No complete ECMWF ENS runs available.")
 
 if __name__ == "__main__":
     fetch()

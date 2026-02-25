@@ -149,7 +149,7 @@ def generate_gifs_for_model(model_name, folder, is_ecmwf, manifest):
     else:
         def align_lons(grid): return grid
         
-    for prev_run in available_runs[1:]:
+    for prev_run in available_runs[1:6]:
         print(f"  Comparing {latest_run} to {prev_run}")
         prev_path = os.path.join(folder, prev_run)
         res_prev = build_daily_mean_dataset(prev_path, is_ecmwf)

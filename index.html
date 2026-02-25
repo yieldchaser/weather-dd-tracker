@@ -809,13 +809,28 @@
             let runs = [...new Set(modelData.map(r => String(r.run_id)))].sort((a, b) => b.localeCompare(a));
             let top4Runs = runs.slice(0, 4);
 
-            // Fetch a global x-axis horizon (next 15 days) from the entire master dataset so short models
-            // don't collapse the chart and hide long models if users switch back and forth.
+            // Fetch a global x-axis horizon from the entire master dataset so short models 
+            // don't prematurely collapse the chart.
             let globalDatesSet = new Set();
             data.forEach(r => {
                 if (r.date) globalDatesSet.add(r.date.substring(0, 10));
             });
-            let labels = Array.from(globalDatesSet).sort().slice(0, 16); // limit to roughly 15-16 days out
+            let labels = Array.from(globalDatesSet).sort();
+
+            // Trim dead space: explicitly slice the global dates so X-axis minimum is precisely 
+            // aligned with the start date of the latest run of the currently selected model.
+            if (top4Runs.length > 0) {
+                let latestRunRows = modelData.filter(r => String(r.run_id) === top4Runs[0]);
+                if (latestRunRows.length > 0) {
+                    latestRunRows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+                    let minDate = latestRunRows[0].date.substring(0, 10);
+                    labels = labels.filter(d => d >= minDate).slice(0, 16);
+                } else {
+                    labels = labels.slice(0, 16);
+                }
+            } else {
+                labels = labels.slice(0, 16);
+            }
 
             // Colors for the 4 runs
             const colors = ['#66fcf1', '#4caf50', '#ff9800', '#f44336'];

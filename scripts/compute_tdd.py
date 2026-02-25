@@ -298,7 +298,10 @@ def process_gfs(run_path, weights, w_lats, w_lons):
             print(f"  Skipping {file.name}: {e}")
 
     if rows:
-        return pd.DataFrame(rows)
+        df = pd.DataFrame(rows)
+        # Average multiple intraday steps to daily to match GEFS/Ensemble horizon exactly
+        df = df.groupby("date").mean().reset_index()
+        return df
     print("  No valid rows computed.")
     return None
 

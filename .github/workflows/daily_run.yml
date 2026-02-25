@@ -65,18 +65,31 @@ jobs:
           python scripts/poll_models.py
           python scripts/generate_maps.py || echo "[WARN] Map generation failed."
 
-      - name: Trigger Kaggle AI Inference Kernel
+      - name: Trigger Kaggle AI Inference Kernel (00z/12z Major Cycles Only)
         if: env.NEW_DATA_FOUND == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          pip install kaggle -q
-          kaggle kernels push -p scripts/kaggle_env || echo "[INFO] Kernel already up-to-date"
-          echo "Kernel triggered. Waiting for completion..."
+          HOUR=$(date -u +%H)
+          echo "Current UTC Hour: $HOUR"
+          
+          # Only trigger heavy Kaggle inference between 03-09z (GFS/ECMWF 00z cycle completion)
+          # OR between 15-21z (GFS/ECMWF 12z cycle completion).
+          # This prevents HRRR/NAM hourly micro-updates from spamming GPU compute.
+          if [[ ( $HOUR -ge 3 && $HOUR -le 9 ) || ( $HOUR -ge 15 && $HOUR -le 21 ) ]]; then
+             echo "Major cycle window detected. Triggering Kaggle AI models..."
+             pip install kaggle -q
+             kaggle kernels push -p scripts/kaggle_env || echo "[INFO] Kernel already up-to-date"
+             echo "Kernel triggered. Waiting for completion..."
+             echo "RUN_KAGGLE=true" >> $GITHUB_ENV
+          else
+             echo "Minor cycle window. Skipping AI Inference to save Kaggle quotas."
+             echo "RUN_KAGGLE=false" >> $GITHUB_ENV
+          fi
 
       - name: Poll Kaggle until kernel completes
-        if: env.NEW_DATA_FOUND == 'true'
+        if: env.RUN_KAGGLE == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
@@ -91,7 +104,7 @@ jobs:
           echo "[WARN] Timed out waiting for kernel (60 min max)"
 
       - name: Download Kaggle kernel output
-        if: env.NEW_DATA_FOUND == 'true'
+        if: env.RUN_KAGGLE == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
