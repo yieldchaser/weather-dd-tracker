@@ -131,10 +131,10 @@ def fetch_live_grid():
     daily_pivot = daily_avg.pivot(index="date", columns="type-name", values="value").reset_index()
     daily_pivot["date"] = pd.to_datetime(daily_pivot["date"])
     
-    # Ensure all required columns exist in pivot just in case EIA dropped one for a day
+    # Ensure all required columns exist in pivot just in case EIA dropped one for an entire month
     for col in fuel_map.values():
         if col not in daily_pivot.columns:
-            daily_pivot[col] = 0.0
+            daily_pivot[col] = float('nan')
 
     daily_pivot.sort_values("date", inplace=True)
     
@@ -163,13 +163,14 @@ def fetch_live_grid():
         live_wind = row["Wind"]
         
         # Formatting UI Math
+        # Only round numerical values, allow NaNs to propagate natively to UI
         out_row = {
             "date": row["date"].strftime("%Y-%m-%d"),
             "iso": "ERCOT",
-            "natural_gas_mw": round(row["Natural Gas"]),
-            "wind_mw": round(live_wind),
-            "solar_mw": round(row["Solar"]),
-            "coal_mw": round(row["Coal"])
+            "natural_gas_mw": round(row["Natural Gas"]) if pd.notna(row["Natural Gas"]) else float('nan'),
+            "wind_mw": round(live_wind) if pd.notna(live_wind) else float('nan'),
+            "solar_mw": round(row["Solar"]) if pd.notna(row["Solar"]) else float('nan'),
+            "coal_mw": round(row["Coal"]) if pd.notna(row["Coal"]) else float('nan')
         }
         
         if pd.notna(hist_wind):
