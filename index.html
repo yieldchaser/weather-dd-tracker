@@ -375,6 +375,23 @@
                 </div>
             </div>
 
+            <!-- NATIONAL POWER GRID -->
+            <h2 class="section-title" style="margin-top: 25px;">National Power Grid (Big 4 ISOs)</h2>
+            <div class="summary-row">
+                <div class="summary-card">
+                    <h3>Total NatGas Burn (MW)</h3>
+                    <div class="val" id="national-gas-burn">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Total Wind Generation (MW)</h3>
+                    <div class="val" id="national-wind-gen">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>National Wind Anomaly</h3>
+                    <div class="val" id="national-wind-anomaly">--</div>
+                </div>
+            </div>
+
             <!-- REAL-TIME GRID MONITOR -->
             <h2 class="section-title" style="margin-top: 25px;">Real-Time Grid Monitor (ERCOT)</h2>
             <div class="summary-row">
@@ -604,7 +621,24 @@
 
                 // 2B. Live Grid Monitor
                 if (liveGrid && liveGrid.length > 0) {
-                    // Extract latest ERCOT row (should usually only be one row in output anyway)
+
+                    let nationalGrid = liveGrid.filter(r => r.iso === 'NATIONAL');
+                    if (nationalGrid.length > 0) {
+                        let natGrid = nationalGrid[nationalGrid.length - 1];
+                        document.getElementById('national-gas-burn').innerText = natGrid.natural_gas_mw ? formatNum(natGrid.natural_gas_mw, 0) : 'NaN';
+                        document.getElementById('national-wind-gen').innerText = natGrid.wind_mw ? formatNum(natGrid.wind_mw, 0) : 'NaN';
+
+                        let natAnomalyEl = document.getElementById('national-wind-anomaly');
+                        if (natGrid.wind_anomaly_mw) {
+                            natAnomalyEl.innerText = formatNum(natGrid.wind_anomaly_mw, 0, true);
+                            if (natGrid.wind_anomaly_mw < 0) natAnomalyEl.classList.add('bullish-text');
+                            else if (natGrid.wind_anomaly_mw > 0) natAnomalyEl.classList.add('bearish-text');
+                        } else {
+                            natAnomalyEl.innerText = 'NaN';
+                        }
+                    }
+
+                    // Extract latest ERCOT row
                     // The backend handles ISO filtering, but we'll be safe
                     let ercotGrid = liveGrid.filter(r => r.iso === 'ERCOT');
                     if (ercotGrid.length > 0) {
