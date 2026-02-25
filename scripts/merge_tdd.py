@@ -11,6 +11,7 @@ def load_all():
         + glob("data/ecmwf/*_tdd.csv")
         + glob("data/ecmwf_aifs/*_tdd.csv")
         + glob("data/ecmwf_ens/*_tdd.csv")
+        + glob("data/cmc_ens/*_tdd.csv")
         + glob("data/nbm/*_tdd.csv")
         + glob("data/hrrr/*_tdd.csv")
         + glob("data/nam/*_tdd.csv")
@@ -32,6 +33,8 @@ def load_all():
                 df["model"] = "GFS"
             elif "ecmwf_ens" in f.lower():
                 df["model"] = "ECMWF_ENS"
+            elif "cmc_ens" in f.lower():
+                df["model"] = "CMC_ENS"
             elif "ecmwf" in f.lower():
                 df["model"] = "ECMWF"
             else:

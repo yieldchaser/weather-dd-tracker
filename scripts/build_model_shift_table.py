@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 # Optional: if you add ECMWF Ens and GFS Ens later, they can be added here
-MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "NBM", "GEFS_35D"]
+MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "NBM", "GEFS_35D", "CMC_ENS"]
 
 def main():
     print("\n--- Generating Model Shift Table ---")
@@ -80,7 +80,7 @@ def main():
     if "Euro Ens Chg" not in shift_df.columns: shift_df["Euro Ens Chg"] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
-    columns = ["GFS Op Chg", "GFS Ens Chg", "ECMWF Op Chg", "Euro Ens Chg"]
+    columns = ["GFS Op Chg", "GFS Ens Chg", "ECMWF Op Chg", "Euro Ens Chg", "CMC_ENS Op Chg"]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
     # --- STRICT SYNCHRONIZATION ALIGNMENT ---
