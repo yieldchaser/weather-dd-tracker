@@ -2,11 +2,8 @@
 fetch_ecmwf_ens.py
 
 Fetches ECMWF ENS (Ensemble) 2m temperature using the Open-Meteo API.
-The ECMWF OpenData endpoints for .enfo streams are highly unstable and constantly 
-throw 429 limits, so we use Open-Meteo's `ecmwf_ifs025` ensemble mean endpoint.
-
-Uses the same 17-city gas-demand weighted average strategy as the fallback 
-script to approximate the Phase 2 CONUS gas-weighted HDD grid.
+Uses `ecmwf_ifs04` (the 0.4-degree ensemble API).
+Uses the 17-city gas-demand weighted average strategy.
 """
 
 import os
@@ -20,7 +17,6 @@ BASE_DIR.mkdir(parents=True, exist_ok=True)
 BASE_TEMP_F = 65.0
 FORECAST_DAYS = 16
 
-# ── Gas-demand representative cities ─────────────────────────────────────────
 DEMAND_CITIES = [
     ("Boston",       42.36, -71.06, 4.0),
     ("New York",     40.71, -74.01, 6.0),
@@ -64,6 +60,7 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         data = resp.json()
         daily = data.get("daily", {})
         dates = daily.get("time", [])
+        # We explicitly rely on the API's pre-calculated ensemble mean of the 51 members
         temps = daily.get("temperature_2m_mean", [])
         return {d: t for d, t in zip(dates, temps) if t is not None}
     except Exception as e:
@@ -73,9 +70,6 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
 def fetch():
     now = datetime.datetime.now(datetime.UTC)
     
-    # We query Open Meteo. O-M doesn't let us pick the cycle directly, 
-    # it always returns the latest available ensemble natively.
-    
     test_lat, test_lon = DEMAND_CITIES[0][1], DEMAND_CITIES[0][2]
     test_temps = fetch_city_temps(test_lat, test_lon)
     
@@ -83,91 +77,75 @@ def fetch():
         print("  [ERR] ECMWF ENS Open-Meteo fetch: API completely failed")
         return None
         
-    start_date_str = sorted(test_temps.keys())[0]  # e.g. "2026-02-25"
-    date_formatted = start_date_str.replace("-", "") # e.g. "20260225"
+    start_date_str = sorted(test_temps.keys())[0]
+    date_formatted = start_date_str.replace("-", "")
     
-    # Infer the cycle based on current UTC time relative to ECMWF release schedule.
+    # Open-Meteo Ensemble mirrors ECMWF's twice-a-day schedule
     if now.hour >= 19:
-        cycle_latest = "12"
-        date_prev = start_date_str.replace("-", "")
-        cycle_prev = "00"
+        cycle = "12"
     elif now.hour >= 7:
-        cycle_latest = "00"
-        # Previous run was yesterday's 12z
-        date_prev = (datetime.datetime.strptime(start_date_str, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y%m%d")
-        cycle_prev = "12"
+        cycle = "00"
     else:
-        # Before 7am UTC, we are still on yesterday's 12z run
-        cycle_latest = "12"
-        date_prev = (datetime.datetime.strptime(start_date_str, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y%m%d")
-        cycle_prev = "00"
+        cycle = "12"
+        # Since it's before 7am, the "start date" returned by API is still yesterday
         
-    runs_to_fetch = [
-        f"{date_formatted}_{cycle_latest}",
-        f"{date_prev}_{cycle_prev}"
-    ]
+    run_id = f"{date_formatted}_{cycle}"
+    out_path = BASE_DIR / f"{run_id}_tdd.csv"
     
-    for run_id in runs_to_fetch:
-        out_path = BASE_DIR / f"{run_id}_tdd.csv"
-        
-        if out_path.exists():
-            print(f"[{run_id}Z] Already fetched fully. Skipping.")
+    if out_path.exists():
+        print(f"[{run_id}Z] Already fetched fully. Skipping.")
+        return run_id
+
+    print(f"Trying ECMWF ENS: {run_id} (Open-Meteo API ecmwf_ifs04)")
+
+    city_data = {}
+    failed = 0
+    for name, lat, lon, weight in DEMAND_CITIES:
+        temps = fetch_city_temps(lat, lon)
+        if temps:
+            city_data[name] = (weight, temps)
+        else:
+            print(f"    [ERR] {name} failed")
+            failed += 1
+
+    if not city_data:
+        print("  [ERR] ECMWF ENS Open-Meteo fetch: all cities failed")
+        return None
+
+    all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
+    rows = []
+    
+    for dt_str in all_dates:
+        total_w = 0.0
+        weighted_temp = 0.0
+        for name, (weight, temps) in city_data.items():
+            if dt_str in temps:
+                weighted_temp += weight * temps[dt_str]
+                total_w += weight
+        if total_w == 0:
             continue
-
-        print(f"Trying ECMWF ENS: {run_id} (Open-Meteo API ecwmf_ifs025)")
-
-        city_data = {}
-        failed = 0
-        for name, lat, lon, weight in DEMAND_CITIES:
-            # We fetch 16 days. Note: Open-Meteo ensemble API doesn't let us query past runs easily without archive API
-            # But the 'previous' cycle is close enough that we can just snapshot the current API state as the previous cycle
-            # if we don't have it on disk, just to bootstrap the deltas until cron takes over tomorrow.
-            temps = fetch_city_temps(lat, lon)
-            if temps:
-                city_data[name] = (weight, temps)
-            else:
-                print(f"    [ERR] {name} failed - excluded from average")
-                failed += 1
-
-        if not city_data:
-            print("  [ERR] ECMWF ENS Open-Meteo fetch: all cities failed")
-            continue
-
-        all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
-        rows = []
         
-        for dt_str in all_dates:
-            total_w = 0.0
-            weighted_temp = 0.0
-            for name, (weight, temps) in city_data.items():
-                if dt_str in temps:
-                    weighted_temp += weight * temps[dt_str]
-                    total_w += weight
-            if total_w == 0:
-                continue
-            
-            avg_c = weighted_temp / total_w
-            avg_f = celsius_to_f(avg_c)
-            rows.append({
-                "date":      dt_str,
-                "mean_temp": round(avg_f, 2),
-                "tdd":       round(compute_tdd(avg_f), 2),
-                "tdd_gw":    round(compute_tdd(avg_f), 2),
-                "model":     "ECMWF_ENS",
-                "run_id":    run_id,
-            })
+        avg_c = weighted_temp / total_w
+        avg_f = celsius_to_f(avg_c)
+        rows.append({
+            "date":      dt_str,
+            "mean_temp": round(avg_f, 2),
+            "tdd":       round(compute_tdd(avg_f), 2),
+            "tdd_gw":    round(compute_tdd(avg_f), 2),
+            "model":     "ECMWF_ENS",
+            "run_id":    run_id,
+        })
 
-        if not rows:
-            print("  [ERR] ECMWF ENS: no dates computed")
-            continue
+    if not rows:
+        print("  [ERR] ECMWF ENS: no dates computed")
+        return None
 
-        df = pd.DataFrame(rows)
-        df.to_csv(out_path, index=False)
-        
-        active = len(DEMAND_CITIES) - failed
-        print(f"[OK] Success: {run_id} ECMWF_ENS ({len(rows)} days computed | {active}/17 cities)")
-        
-    return runs_to_fetch[0]
+    df = pd.DataFrame(rows)
+    df.to_csv(out_path, index=False)
+    
+    active = len(DEMAND_CITIES) - failed
+    print(f"[OK] Success: {run_id} ECMWF_ENS ({len(rows)} days computed | {active}/17 cities)")
+    return run_id
 
 if __name__ == "__main__":
     fetch()

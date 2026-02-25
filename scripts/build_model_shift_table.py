@@ -81,9 +81,25 @@ def main():
     
     # Let's order the columns like a proper trading desk shift table
     columns = ["GFS Op Chg", "GFS Ens Chg", "ECMWF Op Chg", "Euro Ens Chg"]
-    # Wait, my columns name for ECMWF is ECMWF Op Chg
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
+    # --- STRICT SYNCHRONIZATION ALIGNMENT ---
+    # Ensure GFS OP and GFS ENS terminate on the exact same date (intersection)
+    if "GFS Op Chg" in shift_df.columns and "GFS Ens Chg" in shift_df.columns:
+        valid_op = shift_df["GFS Op Chg"].dropna().index.max()
+        valid_ens = shift_df["GFS Ens Chg"].dropna().index.max()
+        if pd.notnull(valid_op) and pd.notnull(valid_ens):
+            min_date = min(valid_op, valid_ens)
+            shift_df.loc[shift_df.index > min_date, ["GFS Op Chg", "GFS Ens Chg"]] = np.nan
+            
+    # Ensure ECMWF OP and EURO ENS terminate on the exact same date
+    if "ECMWF Op Chg" in shift_df.columns and "Euro Ens Chg" in shift_df.columns:
+        valid_ecmwf_op = shift_df["ECMWF Op Chg"].dropna().index.max()
+        valid_euro_ens = shift_df["Euro Ens Chg"].dropna().index.max()
+        if pd.notnull(valid_ecmwf_op) and pd.notnull(valid_euro_ens):
+            min_date_eu = min(valid_ecmwf_op, valid_euro_ens)
+            shift_df.loc[shift_df.index > min_date_eu, ["ECMWF Op Chg", "Euro Ens Chg"]] = np.nan
+            
     shift_df = shift_df.round(1).dropna(how="all")
     
     # Save the raw data
