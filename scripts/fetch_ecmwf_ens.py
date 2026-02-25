@@ -44,14 +44,14 @@ def compute_tdd(temp_f):
     return max(BASE_TEMP_F - temp_f, 0)
 
 def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
-    url = "https://api.open-meteo.com/v1/forecast"
+    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
     params = {
         "latitude": lat,
         "longitude": lon,
         "daily": "temperature_2m_mean",
         "temperature_unit": "celsius",
         "forecast_days": forecast_days,
-        "models": "ecmwf_ifs025",
+        "models": "ecmwf_ifs04",
         "timezone": "UTC",
     }
     try:
@@ -60,8 +60,24 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         data = resp.json()
         daily = data.get("daily", {})
         dates = daily.get("time", [])
-        # We explicitly rely on the API's pre-calculated ensemble mean of the 51 members
-        temps = daily.get("temperature_2m_mean", [])
+        
+        # User requested manual averaging of the 51 members explicitly
+        member_keys = [k for k in daily.keys() if "temperature_2m_mean_member" in k]
+        
+        if member_keys:
+            # Calculate the ensemble mean from the individual member arrays
+            member_arrays = [daily[k] for k in member_keys]
+            temps = []
+            for i in range(len(dates)):
+                valid_vals = [arr[i] for arr in member_arrays if arr[i] is not None]
+                if valid_vals:
+                    temps.append(sum(valid_vals) / len(valid_vals))
+                else:
+                    temps.append(None)
+        else:
+            # Fallback if the ensemble API returns a pre-calculated mean
+            temps = daily.get("temperature_2m_mean", [])
+            
         return {d: t for d, t in zip(dates, temps) if t is not None}
     except Exception as e:
         print(f"Failed to fetch {lat}, {lon}: {e}")
