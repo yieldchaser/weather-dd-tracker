@@ -140,10 +140,13 @@ def send():
             if "fast_revision" in rc.columns:
                 chg_col = "hdd_change_gw" if "hdd_change_gw" in rc.columns else "hdd_change"
                 flagged = rc[rc["fast_revision"] == True].copy()
+                # Enforce absolute threshold > 15.0 HDDs for the cumulative shift
+                flagged = flagged[flagged[chg_col].abs() > 15.0]
+                
                 # Only show the latest run per model
                 flagged = flagged.sort_values("run_id").groupby("model").last().reset_index()
                 if not flagged.empty:
-                    lines.append("⚡ FAST REVISION ALERTS:")
+                    lines.append("⚡ FAST REVISION ALERTS (Cumulative Shift > 15 HDD):")
                     for _, fr in flagged.iterrows():
                         arrow = "▲" if fr[chg_col] > 0 else "▼"
                         lines.append(f"  {fr['model']} {arrow} {fr[chg_col]:+.1f} HDD ({fr['run_id']})")

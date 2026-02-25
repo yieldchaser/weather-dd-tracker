@@ -400,7 +400,7 @@
                 </div>
                 <!-- Medium-Term -->
                 <div class="week-card">
-                    <div class="week-header">Medium-Term (Days 6 - 14)</div>
+                    <div class="week-header">Medium-Term (Days 6 - 15)</div>
                     <div class="table-responsive">
                         <table class="horizon-table">
                             <thead>
@@ -621,7 +621,7 @@
                             let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
 
                             if (dayDiff < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++; }
-                            else if (dayDiff < 14) { w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++; }
+                            else if (dayDiff < 15) { w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++; }
                             else { w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++; }
                         });
 
@@ -647,7 +647,7 @@
                                     let val = r.tdd_gw_change || r.tdd_change || 0;
                                     total_chg += val;
                                     if (dDiff < 5) c1 += val;
-                                    else if (dDiff < 14) c2 += val;
+                                    else if (dDiff < 15) c2 += val;
                                     else c3 += val;
                                 });
                                 w1_chg = c1 !== 0 ? formatNum(c1, 1, true) : '-';
