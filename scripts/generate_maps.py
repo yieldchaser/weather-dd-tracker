@@ -37,41 +37,56 @@ def get_available_runs(folder):
     return dirs
 
 
-def build_daily_mean_dataset(run_dir, is_ecmwf=False):
-    if is_ecmwf:
-        # ECMWF has one single file
+def build_daily_mean_dataset(run_dir, model_name):
+    is_single = model_name.startswith("ECMWF")
+    
+    if is_single:
+        # Single file models (ECMWF, ECMWF_ENS, ECMWF_AIFS)
         files = list(Path(run_dir).glob("*.grib2"))
         if not files: return None
-        ds = xr.open_dataset(files[0], engine="cfgrib")
+        
+        # Special handling for ECMWF_ENS to avoid dataType conflict and get all members
+        backend_kwargs = {"indexpath": ""}
+        if model_name == "ECMWF_ENS":
+             backend_kwargs["filter_by_keys"] = {"dataType": "pf"}
+        
         try:
-             var = list(ds.data_vars)[0]
-             # Get valid time and slice to daily means
-             da = ds[var]
-             # Extract lat/lon names
-             lat_name = next(d for d in da.dims if "lat" in d.lower())
-             lon_name = next(d for d in da.dims if "lon" in d.lower())
-             
-             # Convert to Fahrenheit
-             da_f = (da - 273.15) * 9/5 + 32
-             
-             # Group by date
-             dates = pd.to_datetime(da.valid_time.values).floor('D')
-             da_f = da_f.assign_coords(date=("step", dates))
-             daily = da_f.groupby("date").mean()
-             return daily, da[lat_name].values, da[lon_name].values
+            ds = xr.open_dataset(files[0], engine="cfgrib", backend_kwargs=backend_kwargs)
+            var = list(ds.data_vars)[0]
+            da = ds[var]
+            
+            # Step 1: Average across ensemble members if they exist
+            if "number" in da.dims:
+                da = da.mean(dim="number")
+                
+            lat_name = next(d for d in da.dims if "lat" in d.lower())
+            lon_name = next(d for d in da.dims if "lon" in d.lower())
+            
+            # Convert to Fahrenheit
+            da_f = (da - 273.15) * 9/5 + 32
+            
+            # Group by date
+            dates = pd.to_datetime(da.valid_time.values).floor('D')
+            da_f = da_f.assign_coords(date=("step", dates))
+            daily = da_f.groupby("date").mean()
+            return daily, da[lat_name].values, da[lon_name].values
         except Exception:
-             return None
+            return None
              
     else:
-        # GFS has multiple files per run
-        files = sorted(list(Path(run_dir).glob("gfs.*")))
+        # Multiple file models (GFS, GEFS)
+        pattern = "gfs.*" if model_name == "GFS" else "ge*"
+        files = sorted(list(Path(run_dir).glob(pattern)))
         if not files: return None
         
         daily_grids = {}
         lat_vals, lon_vals = None, None
         
         for f in files:
+            # Skip index files
+            if str(f).endswith(".idx"): continue
             try:
+                # GEFS/GFS are usually t2m at heightAboveGround=2
                 ds = xr.open_dataset(
                     f, engine="cfgrib",
                     backend_kwargs={"filter_by_keys": {"typeOfLevel": "heightAboveGround", "level": 2}, "indexpath": ""}
@@ -93,7 +108,7 @@ def build_daily_mean_dataset(run_dir, is_ecmwf=False):
                 
         if not daily_grids: return None
         
-        # Average intra-day files
+        # Average all frames (intra-day AND ensemble members) for each day
         res = {}
         for d, grids in daily_grids.items():
             res[d] = np.mean(grids, axis=0)
@@ -103,7 +118,7 @@ def build_daily_mean_dataset(run_dir, is_ecmwf=False):
         return res, lat_vals, lon_vals
 
 
-def generate_gifs_for_model(model_name, folder, is_ecmwf, manifest):
+def generate_gifs_for_model(model_name, folder, manifest):
     print(f"\n--- Generating Maps for {model_name} ---")
     available_runs = get_available_runs(folder)
     
@@ -117,25 +132,16 @@ def generate_gifs_for_model(model_name, folder, is_ecmwf, manifest):
     print(f"Latest run is {latest_run}")
     
     # Extract latest data once
-    res_latest = build_daily_mean_dataset(latest_path, is_ecmwf)
+    res_latest = build_daily_mean_dataset(latest_path, model_name)
     if not res_latest:
         print("Missing latest GRIB subset.")
         return
         
     ds_curr, lats, lons = res_latest
     
-    # Compare latest against all older available runs
+    # Compare latest against older available runs
     manifest[model_name] = []
-    
-    for prev_run in available_runs[1:]:
-        print(f"  Comparing {latest_run} to {prev_run}")
-        prev_path = os.path.join(folder, prev_run)
-        res_prev = build_daily_mean_dataset(prev_path, is_ecmwf)
-        
-        if not res_prev:
-            continue
-            
-        ds_prev, _, _ = res_prev
+    is_single_file = model_name.startswith("ECMWF")
     
     # Handle longitude 0-360 vs -180/180 for cartopy
     if lons.max() > 180:
@@ -149,10 +155,10 @@ def generate_gifs_for_model(model_name, folder, is_ecmwf, manifest):
     else:
         def align_lons(grid): return grid
         
-    for prev_run in available_runs[1:6]:
+    for prev_run in available_runs[1:6]: # Limit to last 5 comparisons
         print(f"  Comparing {latest_run} to {prev_run}")
         prev_path = os.path.join(folder, prev_run)
-        res_prev = build_daily_mean_dataset(prev_path, is_ecmwf)
+        res_prev = build_daily_mean_dataset(prev_path, model_name)
         
         if not res_prev:
             continue
@@ -160,7 +166,7 @@ def generate_gifs_for_model(model_name, folder, is_ecmwf, manifest):
         ds_prev, _, _ = res_prev
     
         # Find overlapping dates (usually next 15 days)
-        if is_ecmwf:
+        if is_single_file:
             dates1 = set(ds_curr.date.values)
             dates2 = set(ds_prev.date.values)
             common_dates = sorted(list(dates1 & dates2))
@@ -177,7 +183,7 @@ def generate_gifs_for_model(model_name, folder, is_ecmwf, manifest):
         frames = []
         
         for i, d in enumerate(common_dates):
-            if is_ecmwf:
+            if is_single_file:
                 grid_curr = ds_curr.sel(date=d).values
                 grid_prev = ds_prev.sel(date=d).values
             else:
@@ -244,8 +250,19 @@ import json
 def main():
     print("=== Generating Dynamic Shift Maps ===")
     manifest = {}
-    generate_gifs_for_model("ECMWF", "data/ecmwf", is_ecmwf=True, manifest=manifest)
-    generate_gifs_for_model("GFS", "data/gfs", is_ecmwf=False, manifest=manifest)
+    
+    # Configure models to process
+    MODELS_TO_GENERATE = [
+        {"name": "ECMWF",      "path": "data/ecmwf"},
+        {"name": "GFS",        "path": "data/gfs"},
+        {"name": "GEFS",       "path": "data/gefs"},
+        {"name": "ECMWF_ENS",  "path": "data/ecmwf_ens"},
+        {"name": "ECMWF_AIFS", "path": "data/ecmwf_aifs"}
+    ]
+    
+    for m in MODELS_TO_GENERATE:
+        if os.path.exists(m["path"]):
+            generate_gifs_for_model(m["name"], m["path"], manifest)
     
     # Save manifest for frontend
     manifest_path = "outputs/maps_manifest.json"

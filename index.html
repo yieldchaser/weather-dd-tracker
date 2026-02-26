@@ -1360,7 +1360,8 @@
             let err = document.getElementById('mapError');
             let mapSelect = document.getElementById('mapRunSelect');
 
-            if ((selectedModel === 'ECMWF' || selectedModel === 'GFS' || selectedModel === 'CMC_ENS') && manifest[selectedModel] && manifest[selectedModel].length > 0) {
+            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'ECMWF_ENS', 'ECMWF_AIFS', 'CMC_ENS'];
+            if (mapModels.includes(selectedModel) && manifest[selectedModel] && manifest[selectedModel].length > 0) {
                 img.style.display = 'block';
                 err.style.display = 'none';
                 mapSelect.style.display = 'inline-block';
