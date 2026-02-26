@@ -864,6 +864,7 @@
 
             let cumes = {};
             let seasonKeys = Object.keys(seasons).sort();
+            let currentSeasonKey = seasonKeys[seasonKeys.length - 1];
 
             let normal30 = {};
             allLabels.forEach(lbl => {
@@ -906,7 +907,6 @@
             });
 
             let datasets = [];
-            let currentSeasonKey = seasonKeys[seasonKeys.length - 1];
 
             seasonKeys.forEach(sKey => {
                 if (sKey === currentSeasonKey) {
