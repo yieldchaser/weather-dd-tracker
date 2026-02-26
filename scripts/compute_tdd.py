@@ -123,11 +123,19 @@ def process_ecmwf_grib(run_path, weights, w_lats, w_lons, ensemble=False):
     try:
         ds = xr.open_dataset(file, engine="cfgrib")
     except Exception as e:
-        print(f"  Error opening GRIB: {e}")
-        return None
+        if "multiple values for unique key" in str(e):
+            print("  [INFO] Multiple data types found, filtering for 'pf' (perturbed forecast)")
+            try:
+                ds = xr.open_dataset(file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"dataType": "pf"}})
+            except Exception:
+                print("  [INFO] 'pf' failed, trying 'cf' (control forecast)")
+                ds = xr.open_dataset(file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"dataType": "cf"}})
+        else:
+            print(f"  Error opening GRIB: {e}")
+            return None
 
     ds = crop_to_conus(ds)
-    if ensemble and "number" in ds.dims:
+    if "number" in ds.dims:
         ds = ds.mean(dim="number", keep_attrs=True)
 
     var = list(ds.data_vars)[0]
@@ -395,6 +403,8 @@ _MODELS = [
     ("NAM",        "data/nam",        "generic",     {"prefix": "nam."}),
     ("GEFS",       "data/gefs",       "generic",     {}),
     ("ICON",       "data/icon",       "generic",     {}),
+    ("CMC_ENS",    "data/cmc_ens",    "external",    {}),
+    ("GEFS_35D",   "data/gefs_subseasonal", "external", {}),
 ]
 
 def process_all():
@@ -421,6 +431,8 @@ def process_all():
                 df = process_nbm(run_path, weights, w_lats, w_lons)
             elif proc == "gfs":
                 df = process_gfs(run_path, weights, w_lats, w_lons)
+            elif proc == "external":
+                df = None # These models produce TDD CSVs directly via specialized fetchers
             else:  # generic
                 df = process_grib_files(run_path, weights, w_lats, w_lons, **kwargs)
             if df is None or df.empty:
