@@ -42,6 +42,12 @@ def compare():
         on=["month", "day"],
         how="left"
     )
+    
+    # [FIX] Issue 1: Handle out-of-range or missing normal dates (e.g. Feb 29 in non-leap year normals)
+    # If a date fails to join, we fill with the nearest available normal (forward-fill then back-fill)
+    # This prevents null normals for subseasonal horizons or rare dates.
+    norm_cols = ["hdd_normal", "cdd_normal", "mean_temp_f", "hdd_normal_10yr", "cdd_normal_10yr"]
+    merged[norm_cols] = merged[norm_cols].ffill().bfill()
 
     # HDD anomaly (simple)
     merged["hdd_anomaly"] = merged["tdd"] - merged["hdd_normal"]

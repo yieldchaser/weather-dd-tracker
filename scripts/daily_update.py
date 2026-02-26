@@ -96,7 +96,10 @@ subprocess.run(f"{PY} scripts/compute_run_delta.py", shell=True)
 print("\n5c. Building Model Shift Table...")
 subprocess.run(f"{PY} scripts/build_model_shift_table.py", shell=True)
 
-print("\n5d. Estimating USA Freeze-Offs...")
+print("\n5d. Generating Run-to-Run Delta Maps...")
+subprocess.run(f"{PY} scripts/generate_maps.py", shell=True)
+
+print("\n5e. Estimating USA Freeze-Offs...")
 # Removed: subprocess.run(f"{PY} scripts/build_freeze_offs.py", shell=True)
 
 print("\n5e. Generating Trader Charts & Historical Matrix...")

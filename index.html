@@ -619,8 +619,9 @@
 
 
         function fetchCSV(filename) {
+            const url = basePath + filename + "?t=" + Date.now();
             return new Promise((resolve, reject) => {
-                Papa.parse(basePath + filename, {
+                Papa.parse(url, {
                     download: true,
                     header: true,
                     dynamicTyping: true,
@@ -658,7 +659,7 @@
                 // Create a robust fetcher for the JSON manifest that guarantees a safe object is returned
                 const fetchManifest = async () => {
                     try {
-                        let res = await fetch("outputs/maps_manifest.json");
+                        let res = await fetch("outputs/maps_manifest.json?t=" + Date.now());
                         if (!res.ok) return { ECMWF: [], GFS: [] };
                         return await res.json();
                     } catch (e) {
@@ -849,9 +850,13 @@
                         cols.filter(c => c !== "date").forEach(c => {
                             let td = document.createElement('td');
                             let val = row[c];
-                            td.innerText = formatNum(val, 1, true);
-                            if (val > 0) td.classList.add('pos-val');
-                            else if (val < 0) td.classList.add('neg-val');
+                            if (val === 0.0) {
+                                td.innerText = "-";
+                            } else {
+                                td.innerText = formatNum(val, 1, true);
+                                if (val > 0) td.classList.add('pos-val');
+                                else if (val < 0) td.classList.add('neg-val');
+                            }
                             tr.appendChild(td);
                         });
                         tbody.appendChild(tr);

@@ -49,26 +49,26 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         print(f"Failed to fetch {lat}, {lon}: {e}")
         return None
 
-def fetch():
+def fetch(target_date=None):
     now = datetime.datetime.now(datetime.UTC)
-    
-    test_lat, test_lon = DEMAND_CITIES[0][1], DEMAND_CITIES[0][2]
-    test_temps = fetch_city_temps(test_lat, test_lon)
-    
-    if not test_temps:
-        print("  [ERR] CMC ENS Open-Meteo fetch: API completely failed")
-        return None
-        
-    start_date_str = sorted(test_temps.keys())[0]
-    date_formatted = start_date_str.replace("-", "")
-    
-    # Estimate CMC cycle bounds identical to GFS/ECMWF standard upload timings
-    if now.hour >= 19:
-        cycle = "12"
-    elif now.hour >= 7:
-        cycle = "00"
+    if target_date:
+        # Use target date directly
+        date_formatted = target_date
+        cycle = "00" # Default for bootstrap
     else:
-        cycle = "12"
+        test_lat, test_lon = DEMAND_CITIES[0][1], DEMAND_CITIES[0][2]
+        test_temps = fetch_city_temps(test_lat, test_lon)
+        if not test_temps:
+            print("  [ERR] CMC ENS Open-Meteo fetch: API completely failed")
+            return None
+        start_date_str = sorted(test_temps.keys())[0]
+        date_formatted = start_date_str.replace("-", "")
+        if now.hour >= 19:
+            cycle = "12"
+        elif now.hour >= 7:
+            cycle = "00"
+        else:
+            cycle = "12"
         
     run_id = f"{date_formatted}_{cycle}"
     out_path = BASE_DIR / f"{run_id}_tdd.csv"
@@ -127,6 +127,11 @@ def fetch():
     active = len(DEMAND_CITIES) - failed
     print(f"[OK] Success: {run_id} CMC_ENS ({len(rows)} days computed | {active}/17 cities)")
     return run_id
+
+if __name__ == "__main__":
+    import sys
+    target = sys.argv[1] if len(sys.argv) > 1 else None
+    fetch(target)
 
 if __name__ == "__main__":
     fetch()
