@@ -114,6 +114,7 @@ def send():
 
     # Bias reading
     market_bias_str = "NEUTRAL ⚪"
+    pct_dev_str = ""
     bias_file = Path("outputs/composite_bull_bear_signal.csv")
     if bias_file.exists():
         try:
@@ -122,6 +123,9 @@ def send():
                 val = str(df_bias['market_bias'].iloc[0]).upper()
                 if "BULL" in val: market_bias_str = "BULLISH 🟢"
                 elif "BEAR" in val: market_bias_str = "BEARISH 🔴"
+                if "15d_pct_deviation" in df_bias.columns:
+                    dev = df_bias["15d_pct_deviation"].iloc[0]
+                    pct_dev_str = f" | 15-Day vs 10yr Normal: {dev:+.1f}%"
         except:
             pass
 
@@ -129,8 +133,33 @@ def send():
     mode_tag = " [Gas-Weighted]" if (tdd_col == "tdd_gw" and gw_mode) else " [CONUS avg]"
     lines = [
         f"WEATHER DESK -- {today}{mode_tag}",
-        f"Algorithmic Bias: {market_bias_str}\n"
+        f"Algorithmic Bias: {market_bias_str}{pct_dev_str}\n"
     ]
+
+    # Historical Magnitude Matrix Alert
+    hist_file = Path("outputs/historical_degree_days.csv")
+    if hist_file.exists():
+        try:
+            hd = pd.read_csv(hist_file)
+            current_month = date.today().month
+            hd["month"] = pd.to_datetime(hd["date"]).dt.month
+            hd["year"] = pd.to_datetime(hd["date"]).dt.year
+            hd_month = hd[hd["month"] == current_month]
+            yearly_sums = hd_month.groupby("year")["tdd_gw" if "tdd_gw" in hd.columns else "hdd"].sum().sort_index()
+            
+            if not yearly_sums.empty:
+                current_year = yearly_sums.index[-1]
+                sorted_vals = yearly_sums.sort_values(ascending=False)
+                rank = list(sorted_vals.index).index(current_year) + 1
+                total_years = len(yearly_sums)
+                
+                if rank <= 5:
+                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked # {rank} COLDEST {date.today().strftime('%B')} in the last {total_years} years! 🥶\n")
+                elif rank > total_years - 5:
+                    bottom_rank = total_years - rank + 1
+                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked # {bottom_rank} WARMEST {date.today().strftime('%B')} in the last {total_years} years! 🌡️\n")
+        except Exception as e:
+            print(f"[WARN] Could not process historical matrix: {e}")
 
     # Fast revision alerts
     run_chg_file = Path("outputs/run_change.csv")

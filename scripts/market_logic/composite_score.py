@@ -25,11 +25,12 @@ NORMALS_FILE = Path("data/normals/us_daily_normals.csv")
 WIND_FILE = OUTPUT_DIR / "wind_generation_anomaly_proxy.csv"
 
 def load_normals():
-    if not NORMALS_FILE.exists():
+    gw_file = Path("data/normals/us_gas_weighted_normals.csv")
+    target = gw_file if gw_file.exists() else NORMALS_FILE
+    if not target.exists():
         return None
     try:
-        df = pd.read_csv(NORMALS_FILE)
-        # Assuming normals has 'day_of_year' and 'normal_tdd'
+        df = pd.read_csv(target)
         return df
     except:
         return None
@@ -46,14 +47,14 @@ def compute_composite():
     df_pb = None
     if POWER_BURN_FILE.exists():
         df_pb = pd.read_csv(POWER_BURN_FILE)
-        df_pb["date"] = df_pb["date"].astype(str)
+        df_pb["date"] = df_pb["date"].astype(str).str.replace("-", "")
         
     df_wind = None
     if WIND_FILE.exists():
         df_wind = pd.read_csv(WIND_FILE)
-        df_wind["date"] = df_wind["date"].astype(str)
+        df_wind["date"] = df_wind["date"].astype(str).str.replace("-", "")
         
-    df_models["date"] = df_models["date"].astype(str)
+    df_models["date"] = df_models["date"].astype(str).str.replace("-", "")
     
     if df_pb is not None and not df_pb.empty and df_models.empty:
         merged = df_pb.copy()
@@ -83,12 +84,18 @@ def compute_composite():
     
     # Build (month, day) → hdd_normal lookup from the normals file
     normals_lookup = {}
+    normals_10yr_lookup = {}
     df_norms = load_normals()
     if df_norms is not None and {"month", "day", "hdd_normal"}.issubset(df_norms.columns):
         for _, nr in df_norms.iterrows():
-            normals_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr["hdd_normal"])
+            normals_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("hdd_normal_gw", nr["hdd_normal"]))
+            normals_10yr_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("hdd_normal_gw_10yr", nr.get("hdd_normal_10yr", nr["hdd_normal"])))
 
     rows = []
+    
+    sum_15d_forecast = 0.0
+    sum_15d_normal = 0.0
+    days_counted = 0
     
     for idx, row in merged.iterrows():
         date_str = row["date"]
@@ -103,6 +110,16 @@ def compute_composite():
             ai_val, phys_val = 0.0, 0.0
             
         master_tdd = (ai_val + phys_val) / 2.0
+        
+        if days_counted < 15:
+            sum_15d_forecast += master_tdd
+            if normals_10yr_lookup and len(date_str) >= 8:
+                try:
+                    m, d = int(date_str[4:6]), int(date_str[6:8])
+                    sum_15d_normal += normals_10yr_lookup.get((m, d), 0.0)
+                except:
+                    pass
+            days_counted += 1
         
         # Seasonal bull signal: how far above normal is the TDD?
         # Use the normals lookup keyed by date string (YYYYMMDD → month/day).
@@ -159,8 +176,16 @@ def compute_composite():
             "market_bias": trend
         })
         
+    print(f"DEBUG: days_counted={days_counted}, sum_15d_forecast={sum_15d_forecast}, sum_15d_normal={sum_15d_normal}")
+    
+    if days_counted > 0 and sum_15d_normal > 0:
+        pct_dev = ((sum_15d_forecast - sum_15d_normal) / sum_15d_normal) * 100.0
+    else:
+        pct_dev = 0.0
+        
     if rows:
         out_df = pd.DataFrame(rows)
+        out_df["15d_pct_deviation"] = round(pct_dev, 2)
         out_path = OUTPUT_DIR / "composite_bull_bear_signal.csv"
         out_df.to_csv(out_path, index=False)
         print(f"[OK] Generated Composite Signal -> {out_path}")
