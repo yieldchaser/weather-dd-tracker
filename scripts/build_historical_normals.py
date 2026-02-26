@@ -18,7 +18,7 @@ import requests
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from fetch_open_meteo import DEMAND_CITIES, TOTAL_WEIGHT
+from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT
 
 URL = "https://archive-api.open-meteo.com/v1/archive"
 START_DATE = "1991-01-01"
