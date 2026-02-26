@@ -64,7 +64,12 @@ def main():
         
     actuals_df = pd.read_csv(master_path)
     actuals_df["date"] = pd.to_datetime(actuals_df["date"])
-    actuals_df["hdd_value"] = actuals_df["tdd_gw"].fillna(actuals_df["tdd"]) if "tdd_gw" in actuals_df.columns else actuals_df["tdd"]
+    
+    # Use season-appropriate metric
+    if chart_metric == "CDD":
+        actuals_df["hdd_value"] = actuals_df["cdd_gw"].fillna(actuals_df["forecast_cdd"] if "forecast_cdd" in actuals_df.columns else 0) if "cdd_gw" in actuals_df.columns else actuals_df["tdd"]
+    else:
+        actuals_df["hdd_value"] = actuals_df["hdd_gw"].fillna(actuals_df["tdd_gw"] if "tdd_gw" in actuals_df.columns else actuals_df["tdd"]) if "hdd_gw" in actuals_df.columns else actuals_df["tdd"]
 
     # Build Normal Accumulation Curve from normals file
     if season in ("CDD", "BOTH") and "cdd_normal" not in normals_df.columns:

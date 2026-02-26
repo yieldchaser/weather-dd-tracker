@@ -860,8 +860,13 @@
 
                 // 6. Build Spaghetti & Monthly Charts
                 if (historicalData && historicalData.length > 0) {
-                    initSeasonalSpaghettiChart(historicalData);
-                    initMonthlyOutlierChart(historicalData);
+                    // Merge forecast data from the selected model (default ECMWF) into historicalData 
+                    // so the Spaghetti Chart shows the "Current Season" including the forecast.
+                    const forecastData = masterData.filter(r => r.model === 'ECMWF');
+                    const combinedData = [...historicalData, ...forecastData];
+
+                    initSeasonalSpaghettiChart(combinedData);
+                    initMonthlyOutlierChart(combinedData);
                 }
 
                 // 7. Build Model Chart
@@ -881,6 +886,47 @@
 
         // Spaghetti chart instance — kept at module scope so SEASON changes can destroy+re-init
         let spaghettiChartInstance = null;
+
+        function computeSeasonNormal(historicalData, allLabels, getSeasonKey) {
+            let seasons = {};
+            historicalData.forEach(row => {
+                if (!row.date) return;
+                let parts = String(row.date).split('-');
+                if (parts.length !== 3) return;
+                let y = parseInt(parts[0]);
+                let m = parseInt(parts[1]);
+                let dt = parts[1] + '-' + parts[2];
+                let sKey = getSeasonKey(y, m);
+                if (!sKey) return;
+                if (!seasons[sKey]) seasons[sKey] = {};
+                seasons[sKey][dt] = ddVal(row);
+            });
+
+            let seasonKeys = Object.keys(seasons).sort();
+            let normal30 = {};
+            allLabels.forEach(lbl => { normal30[lbl] = { sum: 0, count: 0 }; });
+
+            seasonKeys.forEach(sKey => {
+                let running = 0;
+                let started = false;
+                let baseYear = parseInt(sKey.split('-')[0]);
+                if (baseYear < 1991 || baseYear > 2020) return;
+
+                allLabels.forEach(lbl => {
+                    if (seasons[sKey][lbl] !== undefined) {
+                        running += seasons[sKey][lbl];
+                        started = true;
+                        normal30[lbl].sum += running;
+                        normal30[lbl].count += 1;
+                    } else if (started) {
+                        normal30[lbl].sum += running;
+                        normal30[lbl].count += 1;
+                    }
+                });
+            });
+
+            return allLabels.map(lbl => (normal30[lbl].count > 0 ? normal30[lbl].sum / normal30[lbl].count : null));
+        }
 
         function initSeasonalSpaghettiChart(historicalData) {
             if (!historicalData || historicalData.length === 0) return;
@@ -972,11 +1018,10 @@
 
             let currentSeasonKey = seasonKeys[seasonKeys.length - 1];
 
+            const normData = computeSeasonNormal(historicalData, allLabels, getSeasonKey);
+
             // --- Build cumulative series ---
             let cumes = {};
-            let normal30 = {};
-            allLabels.forEach(lbl => { normal30[lbl] = { sum: 0, count: 0 }; });
-
             seasonKeys.forEach(sKey => {
                 cumes[sKey] = [];
                 let running = 0;
@@ -992,30 +1037,14 @@
                         running += seasons[sKey][lbl];
                         cumes[sKey].push(running);
                         started = true;
-                        // Determine the base year from the key for 30-yr normal calculation
-                        let baseYear = parseInt(sKey.split('-')[0]);
-                        if (baseYear >= 1991 && baseYear <= 2020) {
-                            normal30[lbl].sum += running;
-                            normal30[lbl].count += 1;
-                        }
                     } else {
                         if (started) {
                             cumes[sKey].push(running);
-                            let baseYear = parseInt(sKey.split('-')[0]);
-                            if (baseYear >= 1991 && baseYear <= 2020) {
-                                normal30[lbl].sum += running;
-                                normal30[lbl].count += 1;
-                            }
                         } else {
                             cumes[sKey].push(null);
                         }
                     }
                 });
-            });
-
-            let normData = allLabels.map(lbl => {
-                if (normal30[lbl].count > 0) return normal30[lbl].sum / normal30[lbl].count;
-                return null;
             });
 
             // --- Build chart datasets ---
@@ -1127,7 +1156,7 @@
             if (!historicalData || historicalData.length === 0) return;
 
             let monthSel = document.getElementById('monthSelect');
-            let currentMonth = new Date().getMonth() + 1; // 1-12
+            let currentMonth = (TIME_TRAVEL_DATE || new Date()).getMonth() + 1; // 1-12
             monthSel.value = currentMonth;
 
             function renderChart(targetMonth) {
@@ -1230,44 +1259,49 @@
                 }
 
                 if (monthlyChartInstance) {
-                    monthlyChartInstance.destroy();
-                }
-
-                let ctx = document.getElementById('monthlyOutlierChart').getContext('2d');
-                monthlyChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: displayYears,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: {
-                                labels: { color: '#c5c6c7' }
+                    monthlyChartInstance.data.labels = displayYears;
+                    monthlyChartInstance.data.datasets = datasets;
+                    monthlyChartInstance.options.plugins.legend.labels.color = '#c5c6c7';
+                    monthlyChartInstance.options.plugins.tooltip.callbacks.label = (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`;
+                    monthlyChartInstance.options.scales.y.title.text = `${DD_LABEL}s`;
+                    monthlyChartInstance.update();
+                } else {
+                    let ctx = document.getElementById('monthlyOutlierChart').getContext('2d');
+                    monthlyChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: displayYears,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: {
+                                    labels: { color: '#c5c6c7' }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(31,40,51,0.9)',
+                                    callbacks: {
+                                        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                                    }
+                                }
                             },
-                            tooltip: {
-                                backgroundColor: 'rgba(31,40,51,0.9)',
-                                callbacks: {
-                                    label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                            scales: {
+                                x: {
+                                    ticks: { color: '#c5c6c7', maxRotation: 45, minRotation: 45 },
+                                    grid: { display: false }
+                                },
+                                y: {
+                                    ticks: { color: '#c5c6c7' },
+                                    grid: { color: '#2a3642' },
+                                    title: { display: true, text: `${DD_LABEL}s`, color: SEASON_COLOR }
                                 }
                             }
-                        },
-                        scales: {
-                            x: {
-                                ticks: { color: '#c5c6c7', maxRotation: 45, minRotation: 45 },
-                                grid: { display: false }
-                            },
-                            y: {
-                                ticks: { color: '#c5c6c7' },
-                                grid: { color: '#2a3642' },
-                                title: { display: true, text: `${DD_LABEL}s`, color: SEASON_COLOR }
-                            }
                         }
-                    }
-                });
+                    });
+                }
             }
 
             renderChart(monthSel.value);
@@ -1302,12 +1336,17 @@
                 });
             }
 
+            // Fetch a global x-axis horizon once
+            let globalDatesSet = new Set();
+            masterData.forEach(r => { if (r.date) globalDatesSet.add(r.date.substring(0, 10)); });
+            const globalLabels = Array.from(globalDatesSet).sort();
+
             sel.addEventListener('change', () => {
-                updateChart(masterData, normalMap, normal10Map, sel.value);
+                updateChart(masterData, normalMap, normal10Map, sel.value, globalLabels);
                 updateMap(sel.value, mapManifest);
             });
 
-            updateChart(masterData, normalMap, normal10Map, sel.value || models[0]);
+            updateChart(masterData, normalMap, normal10Map, sel.value || models[0], globalLabels);
             updateMap(sel.value || models[0], mapManifest);
         }
 
@@ -1350,19 +1389,13 @@
             }
         }
 
-        function updateChart(data, normalMap, normal10Map, selectedModel) {
+        function updateChart(data, normalMap, normal10Map, selectedModel, globalLabels) {
             let modelData = data.filter(r => r.model === selectedModel && r.date);
 
             let runs = [...new Set(modelData.map(r => String(r.run_id)))].sort((a, b) => b.localeCompare(a));
             let top4Runs = runs.slice(0, 4);
 
-            // Fetch a global x-axis horizon from the entire master dataset so short models 
-            // don't prematurely collapse the chart.
-            let globalDatesSet = new Set();
-            data.forEach(r => {
-                if (r.date) globalDatesSet.add(r.date.substring(0, 10));
-            });
-            let labels = Array.from(globalDatesSet).sort();
+            let labels = [...globalLabels];
 
             if (top4Runs.length > 0) {
                 let latestRunRows = modelData.filter(r => String(r.run_id) === top4Runs[0]);

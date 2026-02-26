@@ -19,8 +19,17 @@ def kelvin_to_f(k):
     return (k - 273.15) * 9 / 5 + 32
 
 
-def tdd(temp_f):
+def hdd(temp_f):
     return max(BASE_TEMP_F - temp_f, 0)
+
+
+def cdd(temp_f):
+    return max(temp_f - BASE_TEMP_F, 0)
+
+
+def tdd(temp_f):
+    """Total Degree Days (HDD + CDD)."""
+    return hdd(temp_f) + cdd(temp_f)
 
 
 def load_weights():
@@ -150,8 +159,10 @@ def process_ecmwf_grib(run_path, weights, w_lats, w_lons, ensemble=False):
                 tf_gw = tf_simple
         rows.append({
             "date": pd.Timestamp(vt).date(),
-            "mean_temp": round(tf_simple, 2), "tdd": round(tdd(tf_simple), 2),
-            "mean_temp_gw": round(tf_gw, 2), "tdd_gw": round(tdd(tf_gw), 2),
+            "mean_temp": round(tf_simple, 2), 
+            "hdd": round(hdd(tf_simple), 2), "cdd": round(cdd(tf_simple), 2), "tdd": round(tdd(tf_simple), 2),
+            "mean_temp_gw": round(tf_gw, 2), 
+            "hdd_gw": round(hdd(tf_gw), 2), "cdd_gw": round(cdd(tf_gw), 2), "tdd_gw": round(tdd(tf_gw), 2),
         })
     return pd.DataFrame(rows)
 
@@ -219,9 +230,9 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
             rows.append({
                 "date": date,
                 "mean_temp": round(temp_f_simple, 2),
-                "tdd": round(tdd(temp_f_simple), 2),
-                "mean_temp_gw": round(temp_f_gw, 2),
-                "tdd_gw": round(tdd(temp_f_gw), 2),
+                "hdd": round(hdd(temp_f_simple), 2), "cdd": round(cdd(temp_f_simple), 2), "tdd": round(tdd(temp_f_simple), 2),
+                "mean_temp_gw": round(temp_f_gw, 2), 
+                "hdd_gw": round(hdd(temp_f_gw), 2), "cdd_gw": round(cdd(temp_f_gw), 2), "tdd_gw": round(tdd(temp_f_gw), 2),
             })
         except Exception as e:
             print(f"  Skipping {file.name}: {e}")
@@ -290,8 +301,12 @@ def process_gfs(run_path, weights, w_lats, w_lons):
             rows.append({
                 "date":         date,
                 "mean_temp":    round(temp_f_simple, 2),
+                "hdd":          round(hdd(temp_f_simple), 2),
+                "cdd":          round(cdd(temp_f_simple), 2),
                 "tdd":          round(tdd(temp_f_simple), 2),
                 "mean_temp_gw": round(temp_f_gw, 2),
+                "hdd_gw":       round(hdd(temp_f_gw), 2),
+                "cdd_gw":       round(cdd(temp_f_gw), 2),
                 "tdd_gw":       round(tdd(temp_f_gw), 2),
             })
         except Exception as e:
@@ -348,8 +363,12 @@ def process_nbm(run_path, weights, w_lats, w_lons):
             rows.append({
                 "date":         date,
                 "mean_temp":    round(temp_f_simple, 2),
+                "hdd":          round(hdd(temp_f_simple), 2),
+                "cdd":          round(cdd(temp_f_simple), 2),
                 "tdd":          round(tdd(temp_f_simple), 2),
                 "mean_temp_gw": round(temp_f_gw, 2),
+                "hdd_gw":       round(hdd(temp_f_gw), 2),
+                "cdd_gw":       round(cdd(temp_f_gw), 2),
                 "tdd_gw":       round(tdd(temp_f_gw), 2),
             })
         except Exception as e:
@@ -410,7 +429,7 @@ def process_all():
             df["run_id"] = run_id
             df.to_csv(out, index=False)
             print(f"  [OK] Saved: {out}")
-            print(df[["date", "tdd", "tdd_gw"]].head(3).to_string(index=False))
+            print(df[["date", "hdd_gw", "cdd_gw", "tdd_gw"]].head(3).to_string(index=False))
 
 
 if __name__ == "__main__":
