@@ -894,6 +894,11 @@
                     } else {
                         if (started) {
                             cumes[sKey].push(running);
+                            let baseYear = parseInt(sKey.split("-")[0]);
+                            if (baseYear >= 1991 && baseYear <= 2020) {
+                                normal30[lbl].sum += running;
+                                normal30[lbl].count += 1;
+                            }
                         } else {
                             cumes[sKey].push(null);
                         }
