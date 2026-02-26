@@ -1134,7 +1134,7 @@
                 targetMonth = parseInt(targetMonth);
 
                 // Group data by year for the target month
-                let yearlyData = {}; // year -> sum of tdd_gw
+                let yearlyData = {}; // year -> sum of seasonally-correct DDs (ddVal)
                 let yearlyCounts = {}; // year -> count of days (to detect partial months)
 
                 historicalData.forEach(row => {
@@ -1248,7 +1248,12 @@
                             legend: {
                                 labels: { color: '#c5c6c7' }
                             },
-                            tooltip: { backgroundColor: 'rgba(31,40,51,0.9)' }
+                            tooltip: {
+                                backgroundColor: 'rgba(31,40,51,0.9)',
+                                callbacks: {
+                                    label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                                }
+                            }
                         },
                         scales: {
                             x: {
@@ -1437,7 +1442,12 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { labels: { color: '#c5c6c7' } },
-                        tooltip: { backgroundColor: 'rgba(31,40,51,0.9)' }
+                        tooltip: {
+                            backgroundColor: 'rgba(31,40,51,0.9)',
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                            }
+                        }
                     },
                     scales: {
                         x: { ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' } },
