@@ -5,10 +5,14 @@ FIX (Issue #3): Upgraded to Phase 2 gas-weighted columns.
 - Reads gas-weighted normals (us_gas_weighted_normals.csv) if available.
 - Computes both simple and GW anomaly columns for full comparison.
 - vs_normal.csv now contains: hdd_anomaly (simple) + hdd_anomaly_gw (gas-weighted)
+- Seasonal: HDD Nov-Mar, CDD Apr-Sep, TDD (net) for shoulder months Apr/Oct.
 """
 
+import sys
 import pandas as pd
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+from season_utils import active_metric
 
 NORMALS_SIMPLE = Path("data/normals/us_daily_normals.csv")
 NORMALS_GW     = Path("data/normals/us_gas_weighted_normals.csv")
@@ -67,10 +71,13 @@ def compare():
         merged["hdd_anomaly_gw_10yr"] = None
         print("  [WARN]  Gas-weighted anomaly not computed (GW normals or tdd_gw not available).")
 
-    # Dominant anomaly: CDD in Jun–Aug, HDD otherwise
+    # Dominant anomaly: season-aware (HDD Nov-Mar, CDD Apr-Sep, TDD net for shoulder Apr/Oct)
     def dominant_anomaly(row):
-        if row["month"] in [6, 7, 8]:
+        metric = active_metric(int(row["month"]))
+        if metric == "CDD":
             return row["cdd_anomaly"]
+        if metric == "BOTH":  # shoulder month: net TDD anomaly
+            return row.get("tdd_gw", row["tdd"]) - row["hdd_normal"] - row.get("cdd_normal", 0)
         return row["hdd_anomaly"]
 
     merged["anomaly"] = merged.apply(dominant_anomaly, axis=1)
@@ -105,8 +112,20 @@ def compare():
         summary["vs_normal_hdd_gw"] = summary["forecast_hdd_avg_gw"] - summary["normal_hdd_avg_gw"]
         summary["vs_normal_hdd_gw_10yr"] = summary["forecast_hdd_avg_gw"] - summary["normal_hdd_avg_gw_10yr"]
 
-    # Signal from simple HDD (baseline)
-    summary["signal"] = summary["vs_normal_hdd"].apply(
+    # Signal: season-aware (HDD Nov-Mar, CDD Apr-Sep, TDD net shoulder)
+    import datetime
+    _cur_metric = active_metric(datetime.date.today().month)
+    if _cur_metric == "CDD":
+        _sig_col = "vs_normal_cdd"
+    elif _cur_metric == "BOTH":
+        summary["vs_normal_tdd"] = (
+            summary["forecast_hdd_avg"] + summary["forecast_cdd_avg"]
+            - summary["normal_hdd_avg"] - summary["normal_cdd_avg"]
+        )
+        _sig_col = "vs_normal_tdd"
+    else:
+        _sig_col = "vs_normal_hdd"
+    summary["signal"] = summary[_sig_col].apply(
         lambda x: "BULLISH" if x > 0.5 else ("BEARISH" if x < -0.5 else "NEUTRAL")
     )
 

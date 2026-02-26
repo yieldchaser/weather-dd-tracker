@@ -1,8 +1,11 @@
 import os
+import sys
 import requests
 import pandas as pd
 from pathlib import Path
 from datetime import date
+sys.path.insert(0, str(Path(__file__).parent))
+from season_utils import active_metric, metric_label
 
 NEAR_TERM_DAYS = 7
 EXTENDED_DAYS  = 14
@@ -84,13 +87,15 @@ def send():
         hdd_col  = "hdd_normal"
         norm_label = "Normal"
 
+    season = active_metric(date.today().month)
+
     if "tdd_gw" in df.columns:
         df["tdd_gw"] = df["tdd_gw"].fillna(df["tdd"])
         tdd_col = "tdd_gw"
-        metric_label = "GW HDD/day"
+        metric_lbl = metric_label(date.today().month, gas_weighted=True)
     else:
         tdd_col = "tdd"
-        metric_label = "HDD/day"
+        metric_lbl = metric_label(date.today().month, gas_weighted=False)
 
     df = df.merge(norms[["month", "day", hdd_col]], on=["month", "day"], how="left")
 
@@ -131,8 +136,9 @@ def send():
 
     today = date.today().strftime("%Y-%m-%d")
     mode_tag = " [Gas-Weighted]" if (tdd_col == "tdd_gw" and gw_mode) else " [CONUS avg]"
+    season_tag = f" [{season} Season]" if season != "BOTH" else " [Shoulder/TDD]"
     lines = [
-        f"WEATHER DESK -- {today}{mode_tag}",
+        f"WEATHER DESK -- {today}{mode_tag}{season_tag}",
         f"Algorithmic Bias: {market_bias_str}{pct_dev_str}\n"
     ]
 
@@ -152,12 +158,15 @@ def send():
                 sorted_vals = yearly_sums.sort_values(ascending=False)
                 rank = list(sorted_vals.index).index(current_year) + 1
                 total_years = len(yearly_sums)
-                
+                month_name = date.today().strftime('%B')
+                extreme_label = "COLDEST" if season in ("HDD", "BOTH") else "HOTTEST"
+                mild_label = "WARMEST" if season in ("HDD", "BOTH") else "MILDEST"
+                metric_tag = season if season != "BOTH" else "TDD"
                 if rank <= 5:
-                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked # {rank} COLDEST {date.today().strftime('%B')} in the last {total_years} years! 🥶\n")
+                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked #{rank} {extreme_label} {month_name} [{metric_tag}] in last {total_years}yrs! 🥶\n")
                 elif rank > total_years - 5:
                     bottom_rank = total_years - rank + 1
-                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked # {bottom_rank} WARMEST {date.today().strftime('%B')} in the last {total_years} years! 🌡️\n")
+                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked #{bottom_rank} {mild_label} {month_name} [{metric_tag}] in last {total_years}yrs! 🌡️\n")
         except Exception as e:
             print(f"[WARN] Could not process historical matrix: {e}")
 
@@ -175,10 +184,11 @@ def send():
                 # Only show the latest run per model
                 flagged = flagged.sort_values("run_id").groupby("model").last().reset_index()
                 if not flagged.empty:
-                    lines.append("⚡ FAST REVISION ALERTS (Cumulative Shift > 15 HDD):")
+                    dd_lbl = season if season != "BOTH" else "TDD"
+                    lines.append(f"⚡ FAST REVISION ALERTS (Cumulative Shift > 15 {dd_lbl}):")
                     for _, fr in flagged.iterrows():
                         arrow = "▲" if fr[chg_col] > 0 else "▼"
-                        lines.append(f"  {fr['model']} {arrow} {fr[chg_col]:+.1f} HDD ({fr['run_id']})")
+                        lines.append(f"  {fr['model']} {arrow} {fr[chg_col]:+.1f} {dd_lbl} ({fr['run_id']})")
                     lines.append("")
         except Exception as e:
             print(f"[WARN] Could not load run_change.csv: {e}")
@@ -214,15 +224,19 @@ def send():
             ex_vs = (ex_avg - ex_nm) if ex_avg is not None else None
 
             prev_rows = prev[prev["model"] == model]
+            common = set() # Initialize common to an empty set
             if not prev_rows.empty:
                 prev_run   = prev_rows["run_id"].values[0]
                 lat_dates  = set(df[(df["model"] == model) & (df["run_id"] == run_id)]["date"])
                 prv_dates  = set(df[(df["model"] == model) & (df["run_id"] == prev_run)]["date"])
                 common     = lat_dates & prv_dates
+            
+            run_chg_lbl = season if season != "BOTH" else "TDD"
+            if not prev_rows.empty:
                 if common:
                     lat_avg  = df[(df["model"]==model)&(df["run_id"]==run_id)&(df["date"].isin(common))][tdd_col].mean()
                     prev_avg = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))][tdd_col].mean()
-                    run_chg  = f"{lat_avg - prev_avg:+.1f} HDD"
+                    run_chg  = f"{lat_avg - prev_avg:+.1f} {run_chg_lbl}"
                 else:
                     run_chg = "no overlap"
             else:
@@ -304,7 +318,8 @@ def send():
             spread_lbl = "MODERATE"
         else:
             spread_lbl = "WIDE"
-        lines.append(f"Primary Spread: {spread:.1f} HDD ({spread_lbl})")
+        dd_lbl = season if season != "BOTH" else "TDD"
+        lines.append(f"Primary Spread: {spread:.1f} {dd_lbl} ({spread_lbl})")
 
     msg = "\n".join(lines).strip()
     

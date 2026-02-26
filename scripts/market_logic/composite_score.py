@@ -11,9 +11,12 @@ Purpose:
 """
 
 import os
+import sys
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date as _date
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from season_utils import active_metric
 
 OUTPUT_DIR = Path("outputs")
 DISAGREEMENT_FILE = OUTPUT_DIR / "physics_vs_ai_disagreement.csv"
@@ -121,22 +124,40 @@ def compute_composite():
                     pass
             days_counted += 1
         
-        # Seasonal bull signal: how far above normal is the TDD?
-        # Use the normals lookup keyed by date string (YYYYMMDD → month/day).
+        # Seasonal bull signal: season-aware polarity
+        # HDD season: colder (positive anomaly) = bullish
+        # CDD season: hotter (positive anomaly) = bullish
+        # Shoulder (BOTH): use TDD net anomaly
         normal_tdd = 0.0
+        normal_cdd = 0.0
+        row_month = 0
         if normals_lookup and len(date_str) >= 8:
             try:
                 m, d = int(date_str[4:6]), int(date_str[6:8])
+                row_month = m
                 normal_tdd = normals_lookup.get((m, d), 0.0)
+                # CDD normal approximated from normals file if available
+                if df_norms is not None and "cdd_normal" in df_norms.columns:
+                    _cdd_row = df_norms[(df_norms["month"] == m) & (df_norms["day"] == d)]
+                    normal_cdd = float(_cdd_row["cdd_normal"].values[0]) if not _cdd_row.empty else 0.0
             except Exception:
                 pass
 
-        tdd_anomaly = master_tdd - normal_tdd   # positive = colder than normal (bullish)
+        season = active_metric(row_month) if row_month else active_metric(_date.today().month)
+
+        if season == "HDD":
+            tdd_anomaly = master_tdd - normal_tdd   # positive = colder → bullish
+        elif season == "CDD":
+            # In CDD season master_tdd represents cooling output; positive anomaly = hotter → bullish
+            tdd_anomaly = master_tdd - normal_cdd
+        else:  # BOTH shoulder: net (HDD - HDD_norm) + (CDD - CDD_norm)
+            tdd_anomaly = (master_tdd - normal_tdd) + (master_tdd - normal_cdd)
+
         bull_signal = 0.0
         if tdd_anomaly > 0:
-            bull_signal += tdd_anomaly * 0.06   # excess HDD vs normal → bullish
+            bull_signal += tdd_anomaly * 0.06
         elif tdd_anomaly < -2:
-            bull_signal += tdd_anomaly * 0.04   # well below normal → bearish (negative signal)
+            bull_signal += tdd_anomaly * 0.04
             
         # Add Power Burn weight
         pb_val = row.get("power_burn_cdd", 0)
