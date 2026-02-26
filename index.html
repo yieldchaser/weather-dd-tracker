@@ -403,17 +403,17 @@
                     <div class="val" id="macro-bias">--</div>
                 </div>
                 <div class="summary-card">
-                    <h3>Total Forecast HDDs (Gas-Weighted)</h3>
+                    <h3 id="macro-dd-label">Total Forecast DDs (Gas-Weighted)</h3>
                     <div class="val" id="macro-total-hdd">--</div>
                 </div>
                 <div class="summary-card">
-                    <h3>Avg Daily HDD Shift (Run-to-Run)</h3>
+                    <h3 id="macro-delta-label">Avg Daily DD Shift (Run-to-Run)</h3>
                     <div class="val" id="macro-delta">--</div>
                 </div>
             </div>
 
             <!-- TIME HORIZON PANELS -->
-            <h2 class="section-title">Gas-Weighted Heating Degree Days by Horizon (All Models)</h2>
+            <h2 class="section-title" id="horizon-title">Gas-Weighted Degree Days by Horizon (All Models)</h2>
             <div class="weeks-grid">
                 <!-- Short-Term -->
                 <div class="week-card">
@@ -478,7 +478,7 @@
             </div>
 
             <!-- HISTORICAL MONTHLY OUTLIER CHART -->
-            <h2 class="section-title">Historical Monthly Degree Days (TDD)</h2>
+            <h2 class="section-title" id="monthly-matrix-title">Historical Monthly Degree Days</h2>
             <div class="chart-section" style="position: relative;">
                 <div class="chart-controls" style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
                     <label for="monthSelect" style="margin-right: 10px; font-weight: bold; margin-top: 8px;">Select
@@ -503,8 +503,8 @@
                 </div>
             </div>
 
-            <!-- HISTORICAL WINTER SPAGHETTI CHART -->
-            <h2 class="section-title">Winter Season Cumulative HDDs (Gas-Weighted)</h2>
+            <!-- HISTORICAL SEASON CUMULATIVE CHART -->
+            <h2 class="section-title" id="spaghetti-title">Season Cumulative Degree Days (Gas-Weighted)</h2>
             <div class="chart-section" style="height: 400px; position: relative;">
                 <canvas id="winterSpaghettiChart"></canvas>
             </div>
@@ -545,7 +545,7 @@
         </div>
 
         <!-- MODEL SHIFT MATRIX -->
-        <h2 class="section-title">Day-by-Day Model Consensus Shift (GW HDDs)</h2>
+        <h2 class="section-title" id="shift-title">Day-by-Day Model Consensus Shift (GW Degree Days)</h2>
         <div class="table-responsive">
             <table id="shift-table">
                 <thead>
@@ -563,6 +563,60 @@
 
     <script>
         const basePath = "outputs/";
+
+        // --- Season Helper ---
+        // SEASON: 'HEATING' = Nov–Mar, 'COOLING' = May–Sep, 'TDD' = Apr & Oct
+        // TIME_TRAVEL_DATE: set to a hardcoded Date for dry-run testing; null = use real clock
+        const TIME_TRAVEL_DATE = null;
+        const _MONTH = (TIME_TRAVEL_DATE || new Date()).getMonth() + 1; // 1-12
+        const SEASON = (_MONTH >= 11 || _MONTH <= 3)
+            ? 'HEATING'
+            : (_MONTH === 4 || _MONTH === 10 ? 'TDD' : 'COOLING');
+        const DD_LABEL = SEASON === 'COOLING' ? 'CDD' : (SEASON === 'TDD' ? 'TDD' : 'HDD');
+        // DD_FIELD: canonical field name used in data objects (e.g. point[DD_FIELD])
+        const DD_FIELD = SEASON === 'COOLING' ? 'cdd_gw' : (SEASON === 'TDD' ? 'tdd_gw' : 'hdd_gw');
+        const IS_CDD = SEASON === 'COOLING';
+        const IS_BOTH = SEASON === 'TDD';
+
+        // Season-aware color accent (for chart palette hints)
+        const SEASON_COLOR = SEASON === 'COOLING' ? '#ff7043' : (SEASON === 'TDD' ? '#66bb6a' : '#66fcf1');
+
+        // Dual-key value resolver: tries metric-specific columns, falls back to tdd_gw/tdd
+        function ddVal(row) {
+            if (IS_CDD)
+                return parseFloat(row.cdd_gw ?? row.cdd ?? row.tdd_gw ?? row.tdd ?? 0);
+            if (IS_BOTH)
+                return parseFloat(row.tdd_gw ?? row.tdd ?? 0);
+            return parseFloat(row.hdd_gw ?? row.tdd_gw ?? row.tdd ?? 0);
+        }
+        function anomVal(row) {
+            if (IS_CDD)
+                return parseFloat(row.cdd_anomaly_gw ?? row.cdd_anomaly ?? row.hdd_anomaly_gw ?? row.hdd_anomaly ?? 0);
+            if (IS_BOTH)
+                return parseFloat(row.hdd_anomaly_gw ?? row.hdd_anomaly ?? 0) + parseFloat(row.cdd_anomaly_gw ?? row.cdd_anomaly ?? 0);
+            return parseFloat(row.hdd_anomaly_gw ?? row.hdd_anomaly ?? 0);
+        }
+        function normVal(row, yr10 = false) {
+            if (IS_CDD)
+                return yr10
+                    ? parseFloat(row.cdd_normal_10yr ?? row.cdd_normal ?? 0)
+                    : parseFloat(row.cdd_normal ?? 0);
+            return yr10
+                ? parseFloat(row.hdd_normal_gw_10yr ?? row.hdd_normal_10yr ?? row.hdd_normal_gw ?? row.hdd_normal ?? 0)
+                : parseFloat(row.hdd_normal_gw ?? row.hdd_normal ?? 0);
+        }
+
+        // Apply dynamic labels to static elements on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const ddL = DD_LABEL;
+            const el = (id) => document.getElementById(id);
+            if (el('macro-dd-label')) el('macro-dd-label').innerText = `Total Forecast ${ddL}s (Gas-Weighted)`;
+            if (el('macro-delta-label')) el('macro-delta-label').innerText = `Avg Daily ${ddL} Shift (Run-to-Run)`;
+            if (el('horizon-title')) el('horizon-title').innerText = `Gas-Weighted ${ddL}s by Horizon (All Models)`;
+            if (el('spaghetti-title')) el('spaghetti-title').innerText = `Season Cumulative ${ddL}s (Gas-Weighted)`;
+            if (el('monthly-matrix-title')) el('monthly-matrix-title').innerText = `Historical Monthly ${ddL}s`;
+        });
+
 
         function fetchCSV(filename) {
             return new Promise((resolve, reject) => {
@@ -644,9 +698,11 @@
                     if (fr.length > 0) {
                         let latestFr = fr[fr.length - 1];
                         document.getElementById('alert-fast-rev').style.display = 'block';
-                        let chgCol = latestFr.hdd_change_gw ? latestFr.hdd_change_gw : latestFr.hdd_change;
+                        let chgCol = latestFr[`${DD_FIELD.replace('_gw', '')}_change_gw`]
+                            ?? latestFr[`${DD_FIELD.replace('_gw', '')}_change`]
+                            ?? latestFr.hdd_change_gw ?? latestFr.tdd_change_gw ?? latestFr.cdd_change_gw ?? latestFr.hdd_change ?? 0;
                         let arr = chgCol > 0 ? "▲" : "▼";
-                        document.getElementById('rev-text').innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} HDDs`;
+                        document.getElementById('rev-text').innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} ${DD_LABEL}s`;
                     }
                 }
 
@@ -683,12 +739,14 @@
                         let isSubseasonal = SUBSEASONAL_MODELS.includes(m);
 
                         currentRun.forEach((r) => {
-                            let f = parseFloat(r.tdd_gw || r.tdd || 0);
-                            let n = parseFloat(r.hdd_normal_gw || r.hdd_normal || 0);
-                            let a = parseFloat(r.hdd_anomaly_gw || r.hdd_anomaly || 0);
+                            let f = ddVal(r);
+                            let n = normVal(r, false);
+                            let a = anomVal(r);
 
-                            let n10 = parseFloat(r.hdd_normal_gw_10yr || r.hdd_normal_10yr || 0);
-                            let a10 = parseFloat(r.hdd_anomaly_gw_10yr || r.hdd_anomaly_10yr || 0);
+                            let n10 = normVal(r, true);
+                            let a10 = IS_CDD
+                                ? parseFloat(r.cdd_anomaly_10yr || r.cdd_anomaly_gw || 0)
+                                : parseFloat(r.hdd_anomaly_gw_10yr || r.hdd_anomaly_10yr || 0);
 
                             let rDate = new Date(`${r.date}T00:00:00Z`);
                             let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
@@ -802,7 +860,7 @@
 
                 // 6. Build Spaghetti & Monthly Charts
                 if (historicalData && historicalData.length > 0) {
-                    initWinterSpaghettiChart(historicalData);
+                    initSeasonalSpaghettiChart(historicalData);
                     initMonthlyOutlierChart(historicalData);
                 }
 
@@ -821,16 +879,70 @@
             }
         }
 
-        function initWinterSpaghettiChart(historicalData) {
+        // Spaghetti chart instance — kept at module scope so SEASON changes can destroy+re-init
+        let spaghettiChartInstance = null;
+
+        function initSeasonalSpaghettiChart(historicalData) {
             if (!historicalData || historicalData.length === 0) return;
 
-            let seasons = {};
-            let allLabels = [];
+            // Destroy previous instance to prevent 'canvas already in use' errors
+            if (spaghettiChartInstance) {
+                spaghettiChartInstance.destroy();
+                spaghettiChartInstance = null;
+            }
 
-            const monthsDays = [
-                { m: 11, d: 30 }, { m: 12, d: 31 }, { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }
-            ];
-            monthsDays.forEach(item => {
+            // --- Branch: define season window & key builder per SEASON ---
+            // Returns { inSeason: bool, sKey: string } for a given (y, m) data point
+            let monthAxis, xTickLabels, getSeasonKey;
+
+            if (SEASON === 'COOLING') {
+                // Apr 1 – Oct 31, single-year key e.g. "2026"
+                const coolingMonths = [4, 5, 6, 7, 8, 9, 10];
+                const coolingMonthDays = [
+                    { m: 4, d: 30 }, { m: 5, d: 31 }, { m: 6, d: 30 },
+                    { m: 7, d: 31 }, { m: 8, d: 31 }, { m: 9, d: 30 }, { m: 10, d: 31 }
+                ];
+                monthAxis = coolingMonthDays;
+                xTickLabels = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+                getSeasonKey = (y, m) => {
+                    if (!coolingMonths.includes(m)) return null;
+                    return String(y);
+                };
+            } else if (SEASON === 'HEATING') {
+                // Nov – Mar, two-year crossover key: year anchored to Nov start
+                // e.g. a date of Jan 3 2026 → key "2025-2026" (Nov falls in 2025)
+                const heatingMonths = [11, 12, 1, 2, 3];
+                const heatingMonthDays = [
+                    { m: 11, d: 30 }, { m: 12, d: 31 }, { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }
+                ];
+                monthAxis = heatingMonthDays;
+                xTickLabels = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+                getSeasonKey = (y, m) => {
+                    if (!heatingMonths.includes(m)) return null;
+                    // If month is Nov or Dec, season starts THIS year
+                    const y1 = (m >= 11) ? y : y - 1;
+                    const y2 = y1 + 1;
+                    return `${y1}-${y2}`;
+                };
+            } else {
+                // TDD — shoulder season: March–April and October–November
+                // Two sub-windows combined into a single view, keyed as "YYYY-shoulder"
+                const tddMonths = [3, 4, 10, 11];
+                const tddMonthDays = [
+                    { m: 3, d: 31 }, { m: 4, d: 30 }, { m: 10, d: 31 }, { m: 11, d: 30 }
+                ];
+                monthAxis = tddMonthDays;
+                xTickLabels = ['Mar', 'Apr', 'Oct', 'Nov'];
+                getSeasonKey = (y, m) => {
+                    if (!tddMonths.includes(m)) return null;
+                    // Spring shoulder (Mar-Apr) keyed to the year itself; fall shoulder (Oct-Nov) same
+                    return `${y}-shoulder`;
+                };
+            }
+
+            // --- Build day-level label array (MM-DD) ---
+            let allLabels = [];
+            monthAxis.forEach(item => {
                 for (let i = 1; i <= item.d; i++) {
                     let mStr = item.m < 10 ? '0' + item.m : '' + item.m;
                     let dStr = i < 10 ? '0' + i : '' + i;
@@ -838,38 +950,32 @@
                 }
             });
 
+            // --- Bucket historical data into season groups ---
+            let seasons = {};
             historicalData.forEach(row => {
                 if (!row.date) return;
                 let parts = String(row.date).split('-');
                 if (parts.length !== 3) return;
                 let y = parseInt(parts[0]);
                 let m = parseInt(parts[1]);
-                let dt = parts[1] + '-' + parts[2];
+                let dt = parts[1] + '-' + parts[2]; // MM-DD
 
-                let seasonY1 = y, seasonY2 = y;
-                if (m >= 11) {
-                    seasonY1 = y;
-                    seasonY2 = y + 1;
-                } else if (m <= 3) {
-                    seasonY1 = y - 1;
-                    seasonY2 = y;
-                } else {
-                    return;
-                }
+                let sKey = getSeasonKey(y, m);
+                if (!sKey) return; // not in this season's window
 
-                let sKey = seasonY1 + "-" + seasonY2;
                 if (!seasons[sKey]) seasons[sKey] = {};
-                seasons[sKey][dt] = parseFloat(row.hdd_gw || 0);
+                seasons[sKey][dt] = ddVal(row);
             });
 
-            let cumes = {};
             let seasonKeys = Object.keys(seasons).sort();
+            if (seasonKeys.length === 0) return; // no data for this season window
+
             let currentSeasonKey = seasonKeys[seasonKeys.length - 1];
 
+            // --- Build cumulative series ---
+            let cumes = {};
             let normal30 = {};
-            allLabels.forEach(lbl => {
-                normal30[lbl] = { sum: 0, count: 0 };
-            });
+            allLabels.forEach(lbl => { normal30[lbl] = { sum: 0, count: 0 }; });
 
             seasonKeys.forEach(sKey => {
                 cumes[sKey] = [];
@@ -886,7 +992,8 @@
                         running += seasons[sKey][lbl];
                         cumes[sKey].push(running);
                         started = true;
-                        let baseYear = parseInt(sKey.split("-")[0]);
+                        // Determine the base year from the key for 30-yr normal calculation
+                        let baseYear = parseInt(sKey.split('-')[0]);
                         if (baseYear >= 1991 && baseYear <= 2020) {
                             normal30[lbl].sum += running;
                             normal30[lbl].count += 1;
@@ -894,7 +1001,7 @@
                     } else {
                         if (started) {
                             cumes[sKey].push(running);
-                            let baseYear = parseInt(sKey.split("-")[0]);
+                            let baseYear = parseInt(sKey.split('-')[0]);
                             if (baseYear >= 1991 && baseYear <= 2020) {
                                 normal30[lbl].sum += running;
                                 normal30[lbl].count += 1;
@@ -911,21 +1018,21 @@
                 return null;
             });
 
+            // --- Build chart datasets ---
             let datasets = [];
-
             seasonKeys.forEach(sKey => {
                 if (sKey === currentSeasonKey) {
                     datasets.push({
-                        label: 'Current Season (' + sKey + ')',
+                        label: `Current Season (${sKey})`,
                         data: cumes[sKey],
-                        borderColor: '#ffeb3b', // Bold Yellow for contrast
+                        borderColor: '#ffeb3b',
                         borderWidth: 4,
                         tension: 0.1,
                         fill: false,
                         zIndex: 10
                     });
                 } else {
-                    let baseYear = parseInt(sKey.split("-")[0]);
+                    let baseYear = parseInt(sKey.split('-')[0]);
                     if (baseYear >= 1991 && baseYear <= 2020) {
                         datasets.push({
                             label: sKey,
@@ -942,9 +1049,9 @@
             });
 
             datasets.push({
-                label: '30-yr Normal (1991-2020)',
+                label: `30-yr Normal (1991-2020)`,
                 data: normData,
-                borderColor: '#66fcf1',
+                borderColor: SEASON_COLOR,
                 borderWidth: 2,
                 borderDash: [5, 5],
                 tension: 0.1,
@@ -953,13 +1060,22 @@
                 zIndex: 9
             });
 
+            // Build x-axis month label positions (one label per month group)
+            // Chart.js will use allLabels (MM-DD) as tick values; we override callbacks for month headings
+            const monthGroupStarts = {};
+            xTickLabels.forEach((lbl, idx) => {
+                // Find first allLabels entry for this month index
+                const targetM = monthAxis[idx].m;
+                const mStr = targetM < 10 ? '0' + targetM : '' + targetM;
+                const firstDayLabel = mStr + '-01';
+                const pos = allLabels.indexOf(firstDayLabel);
+                if (pos !== -1) monthGroupStarts[pos] = lbl;
+            });
+
             let ctx = document.getElementById('winterSpaghettiChart').getContext('2d');
-            new Chart(ctx, {
+            spaghettiChartInstance = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: allLabels,
-                    datasets: datasets
-                },
+                data: { labels: allLabels, datasets: datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -967,16 +1083,39 @@
                     plugins: {
                         legend: {
                             labels: {
-                                color: '#c5c6c7', filter: function (item, chart) {
-                                    return item.text.includes('Current') || item.text.includes('Normal');
-                                }
+                                color: '#c5c6c7',
+                                filter: (item) => item.text.includes('Current') || item.text.includes('Normal')
                             }
                         },
-                        tooltip: { backgroundColor: 'rgba(31,40,51,0.9)' }
+                        tooltip: {
+                            backgroundColor: 'rgba(31,40,51,0.9)',
+                            callbacks: {
+                                title: (items) => items[0]?.label ?? '',
+                                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                            }
+                        }
                     },
                     scales: {
-                        x: { ticks: { color: '#c5c6c7', maxTicksLimit: 12 }, grid: { color: '#2a3642' } },
-                        y: { ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: true, text: 'Cumulative Gas-Weighted HDDs', color: '#66fcf1' } }
+                        x: {
+                            ticks: {
+                                color: '#c5c6c7',
+                                maxTicksLimit: 20,
+                                callback: function (val, idx) {
+                                    // Show month name only at the first day of each month
+                                    return monthGroupStarts[idx] ?? null;
+                                }
+                            },
+                            grid: { color: '#2a3642' }
+                        },
+                        y: {
+                            ticks: { color: '#c5c6c7' },
+                            grid: { color: '#2a3642' },
+                            title: {
+                                display: true,
+                                text: `Cumulative Gas-Weighted ${DD_LABEL}s`,
+                                color: SEASON_COLOR
+                            }
+                        }
                     }
                 }
             });
@@ -1010,7 +1149,7 @@
                             yearlyData[y] = 0;
                             yearlyCounts[y] = 0;
                         }
-                        yearlyData[y] += parseFloat(row.tdd_gw || 0);
+                        yearlyData[y] += ddVal(row);
                         yearlyCounts[y] += 1;
                     }
                 });
@@ -1053,7 +1192,7 @@
                 });
 
                 let datasets = [{
-                    label: 'Total Degree Days (GW)',
+                    label: `${DD_LABEL}s (Gas-Weighted)`,
                     data: displayData,
                     backgroundColor: bgColors,
                     borderWidth: 0,
@@ -1119,7 +1258,7 @@
                             y: {
                                 ticks: { color: '#c5c6c7' },
                                 grid: { color: '#2a3642' },
-                                title: { display: true, text: 'Degree Days', color: '#66fcf1' }
+                                title: { display: true, text: `${DD_LABEL}s`, color: SEASON_COLOR }
                             }
                         }
                     }
@@ -1146,15 +1285,14 @@
                 sel.appendChild(opt);
             });
 
-            // Compute base normals across the forecast horizon so we can plot it
-            // We'll extract a unique mapping from date -> hdd_normal_gw (or hdd_normal) from vsNormal
+            // Compute base normals across the forecast horizon — resolved dynamically via normVal
             let normalMap = {};
             let normal10Map = {};
             if (vsNormal && vsNormal.length > 0) {
                 vsNormal.forEach(r => {
                     if (r.date) {
-                        normalMap[r.date.substring(0, 10)] = parseFloat(r.hdd_normal_gw || r.hdd_normal || null);
-                        normal10Map[r.date.substring(0, 10)] = parseFloat(r.hdd_normal_gw_10yr || r.hdd_normal_10yr || null);
+                        normalMap[r.date.substring(0, 10)] = normVal(r, false);
+                        normal10Map[r.date.substring(0, 10)] = normVal(r, true);
                     }
                 });
             }
@@ -1239,7 +1377,7 @@
                 // Map run data to ordered labels
                 let dataPoints = labels.map(lbl => {
                     let row = runRows.find(r => r.date.substring(0, 10) === lbl);
-                    return row ? (row.tdd_gw !== null && row.tdd_gw !== undefined ? row.tdd_gw : row.tdd) : null;
+                    return row ? ddVal(row) : null;
                 });
 
                 return {
@@ -1306,7 +1444,7 @@
                         y: {
                             ticks: { color: '#c5c6c7' },
                             grid: { color: '#2a3642' },
-                            title: { display: true, text: 'Gas-Weighted HDDs', color: '#66fcf1' }
+                            title: { display: true, text: `Gas-Weighted ${DD_LABEL}s`, color: SEASON_COLOR }
                         }
                     }
                 }
