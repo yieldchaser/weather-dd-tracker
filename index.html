@@ -480,9 +480,15 @@
             <!-- HISTORICAL MONTHLY OUTLIER CHART -->
             <h2 class="section-title" id="monthly-matrix-title">Historical Monthly Degree Days</h2>
             <div class="chart-section" style="position: relative;">
-                <div class="chart-controls" style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-                    <label for="monthSelect" style="margin-right: 10px; font-weight: bold; margin-top: 8px;">Select
-                        Month: </label>
+                <div class="chart-controls"
+                    style="display: flex; justify-content: flex-end; margin-bottom: 10px; align-items: center; gap: 10px;">
+                    <label for="metricSelect" style="font-weight: bold;">Select Metric: </label>
+                    <select id="metricSelect">
+                        <option value="HDD">HDD</option>
+                        <option value="CDD">CDD</option>
+                        <option value="TDD">TDD</option>
+                    </select>
+                    <label for="monthSelect" style="font-weight: bold;">Select Month: </label>
                     <select id="monthSelect">
                         <option value="1">January</option>
                         <option value="2">February</option>
@@ -1160,15 +1166,21 @@
         function initMonthlyOutlierChart(historicalData) {
             if (!historicalData || historicalData.length === 0) return;
 
+            let metricSel = document.getElementById('metricSelect');
             let monthSel = document.getElementById('monthSelect');
+
+            // Default metric to global DD_LABEL on load
+            metricSel.value = DD_LABEL;
+
             let currentMonth = (TIME_TRAVEL_DATE || new Date()).getMonth() + 1; // 1-12
             monthSel.value = currentMonth;
 
-            function renderChart(targetMonth) {
+            function renderChart(targetMonth, targetMetric) {
                 targetMonth = parseInt(targetMonth);
+                const metricField = { 'HDD': 'hdd_gw', 'CDD': 'cdd_gw', 'TDD': 'tdd_gw' }[targetMetric];
 
                 // Group data by year for the target month
-                let yearlyData = {}; // year -> sum of seasonally-correct DDs (ddVal)
+                let yearlyData = {}; // year -> sum of seasonally-correct DDs (requested field)
                 let yearlyCounts = {}; // year -> count of days (to detect partial months)
 
                 historicalData.forEach(row => {
@@ -1183,7 +1195,7 @@
                             yearlyData[y] = 0;
                             yearlyCounts[y] = 0;
                         }
-                        yearlyData[y] += ddVal(row);
+                        yearlyData[y] += parseFloat(row[metricField] ?? 0);
                         yearlyCounts[y] += 1;
                     }
                 });
@@ -1267,8 +1279,8 @@
                     monthlyChartInstance.data.labels = displayYears;
                     monthlyChartInstance.data.datasets = datasets;
                     monthlyChartInstance.options.plugins.legend.labels.color = '#c5c6c7';
-                    monthlyChartInstance.options.plugins.tooltip.callbacks.label = (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`;
-                    monthlyChartInstance.options.scales.y.title.text = `${DD_LABEL}s`;
+                    monthlyChartInstance.options.plugins.tooltip.callbacks.label = (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${targetMetric}s`;
+                    monthlyChartInstance.options.scales.y.title.text = `${targetMetric}s`;
                     monthlyChartInstance.update();
                 } else {
                     let ctx = document.getElementById('monthlyOutlierChart').getContext('2d');
@@ -1289,7 +1301,7 @@
                                 tooltip: {
                                     backgroundColor: 'rgba(31,40,51,0.9)',
                                     callbacks: {
-                                        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                                        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${targetMetric}s`
                                     }
                                 }
                             },
@@ -1301,17 +1313,23 @@
                                 y: {
                                     ticks: { color: '#c5c6c7' },
                                     grid: { color: '#2a3642' },
-                                    title: { display: true, text: `${DD_LABEL}s`, color: SEASON_COLOR }
+                                    title: { display: true, text: `${targetMetric}s`, color: SEASON_COLOR }
                                 }
                             }
                         }
                     });
                 }
+
+                // Update section title
+                document.getElementById('monthly-matrix-title').innerText = `Historical Monthly ${targetMetric}s`;
             }
 
-            renderChart(monthSel.value);
+            renderChart(monthSel.value, metricSel.value);
             monthSel.addEventListener('change', () => {
-                renderChart(monthSel.value);
+                renderChart(monthSel.value, metricSel.value);
+            });
+            metricSel.addEventListener('change', () => {
+                renderChart(monthSel.value, metricSel.value);
             });
         }
 
