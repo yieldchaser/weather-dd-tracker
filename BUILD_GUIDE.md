@@ -1454,3 +1454,93 @@ pip install sqlite3              # Built-in Python â€” forecast archive
 - NOAA CFS v2: https://cfs.ncep.noaa.gov/
 - ECMWF S2S Dataset: https://apps.ecmwf.int/datasets/data/s2s/
 - IRI Data Library (S2S exploration): https://iridl.ldeo.columbia.edu/
+
+---
+
+## 7-Day Sprint — Honest Assessment
+
+### What AI handles instantly
+All the boilerplate, API calls, parsing, OLS math, schema design, k-means setup. Basically everything in that guide.
+
+### What only YOU can do
+Getting API keys, running the ERA5 download (it's slow, data-side bottleneck), validating outputs make physical sense, wiring Telegram alerts.
+
+### Day 1 — Foundation + Quick Wins (Systems 3 & 4)
+**Morning:** Get your keys in order.
+- EIA v2 key: https://www.eia.gov/opendata/ — instant approval
+- CDS API key: https://cds.climate.copernicus.eu/ — instant, need this for ERA5
+- ECMWF Open Data: no key needed, just pip install ecmwf-opendata
+
+**Afternoon with AI:** Build and ship Systems 3 and 4 together. They share the same GFS/EIA data pipeline you already have. Freeze-off trigger + dynamic sensitivity coefficient. Both should be in `outputs/` by end of day.
+- **Blocker:** Nothing. These are pure API calls on infrastructure you already own.
+
+### Day 2 — Teleconnections + Wind Drought (Systems 1 & 5)
+Full day with AI. CPC ASCII files are trivially parsed. EIA wind generation you already pull. This is mostly wiring existing pipes together.
+
+By end of Day 2 you should have:
+- AO/NAO/PNA/EPO updating twice daily
+- Composite teleconnection score feeding into your bull/bear output
+- Wind drought streak counter live across all 4 ISOs
+- National wind composite signal firing to Telegram
+- **Blocker:** None. All free APIs, no heavy compute.
+
+### Day 3 — ERA5 Download Day (System 2 Setup)
+This is the waiting day. Kick the ERA5 download in the morning — 40 years of 500mb Z at 1-degree resolution over CONUS is roughly 400-600MB and takes 2-6 hours depending on CDS queue.
+
+```bash
+# Fire this at 8am and walk away
+python scripts/regimes/download_era5.py
+```
+
+**While it downloads:** Have AI build the full regime training script, transition matrix code, and operational classifier. Everything ready to run the moment data lands.
+
+**Evening:** ERA5 is probably done. Run the k-means training. It takes 10-20 minutes on CPU. You'll have your first regime labels by midnight.
+- **Blocker:** CDS queue can be slow. If it's not done by evening, Day 4 morning is fine — it doesn't block Days 1-2.
+
+### Day 4 — Regime Calibration + Verification Archive Starts (Systems 2 & 7)
+**Morning:** Sanity check the regime clusters. Plot the composite 500mb anomaly maps per cluster. You want to see recognizable patterns — a clear ridge cluster, a clear trough cluster. If the clusters look like noise, bump k up or down by 2 and retrain. AI does this in 10 minutes.
+
+**Afternoon:** SQLite verification archive goes live. Every model run from this point forward gets logged. You won't use the weights for ~60 days but the clock starts today.
+
+Cross-reference your regime labels against the freeze-off events from Image 2. Feb 2021 should be a clear cold-regime day. If it's not, something's wrong with your clustering.
+- **Blocker:** Regime sanity check is the one thing you have to eyeball yourself. AI can plot the composites, you have to decide if they make meteorological sense.
+
+### Day 5 — Sub-Seasonal Bridge (System 6)
+CFS v2 is on NOMADS, no registration needed. Herbie handles it. Have AI build the tercile probability engine and the teleconnection corroboration layer.
+
+The CPC Week 3-4 outlook (https://www.cpc.ncep.noaa.gov/products/predictions/WK34/) is already published every Thursday. Parse it as a sanity check against your own CFS-derived terciles — if they disagree badly, flag it.
+
+Wire the Week 3-4 signal into Telegram as a weekly digest, not a daily update. S2S doesn't move fast enough to warrant daily noise.
+- **Blocker:** S2S data access learning curve is real but AI + Herbie eliminates it.
+
+### Day 6 — Integration + Composite Scoring
+Pull all 7 systems into the unified `compute_composite_weather_signal()` function from the guide. This is the day everything talks to each other.
+
+The composite score now replaces your current single-model HDD anomaly as the primary bull/bear input. Your existing Telegram bot just needs one new function call.
+
+Spend the afternoon backtesting the composite score against the historical events you already have in your archive. Does it flag Feb 2021 louder than a normal cold week? Does it correctly flag the warm summer anomalies as bearish? This is your QA.
+- **Blocker:** Integration bugs. AI resolves most, but expect 2-3 hours of "why is this number wrong" debugging. Budget for it.
+
+### Day 7 — Hardening + Docs
+- Add failure handling everywhere. CDS goes down. NOMADS returns 503s. EIA API rate-limits. Every fetch needs a retry wrapper and a graceful fallback.
+- Update GitHub Actions workflows so all 7 systems run on their appropriate schedules.
+- Update the README.
+- Run one full end-to-end pipeline cycle and verify every output file looks right.
+
+### Realistic Output at Day 7
+
+| System | Status |
+| :--- | :--- |
+| Freeze-off trigger | Live, backtested |
+| Dynamic sensitivity | Live |
+| Teleconnection dashboard | Live, updating 2x daily |
+| Regime classifier | Trained, operational |
+| Wind drought tracker | Live, 4 ISOs |
+| Sub-seasonal bridge | Live, weekly cadence |
+| Verification archive | Running, weights usable in ~60 days |
+| Composite score | Replacing your current bull/bear signal |
+
+### The One Real Risk
+ERA5 CDS queue on Day 3. If the Copernicus servers are backed up, your download can sit in queue for 12-24 hours. **Mitigation:** Submit the request Day 1 evening as soon as you have your CDS key, not Day 3 morning. 
+
+Everything else? You're done in 7 days. Possibly 5 if the ERA5 cooperates.
