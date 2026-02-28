@@ -475,28 +475,38 @@ This project **does not expose any REST API**. It consumes the following externa
 - GitHub Actions workflow runs at `0 4,10,16,22 UTC` (every 6 hours); the architecture plan describes 15-minute polling — the workflow uses a concurrency group `weather-poller` to prevent overlapping runs.
 - All 12 development phases are marked complete as of the 2026-02-23 audit; Phase 13 is in planning.
 
-### Pending Features
+### Implemented Features (Previously Marked Pending)
 
-The following features are tracked as ❌ Pending in `MASTER_ARCHITECTURE_PLAN.md`:
+The following were listed as ❌ Pending in earlier architecture docs but are **confirmed active** based on committed data and pipeline state:
+
+| Feature | Evidence |
+|---|---|
+| GEFS Subseasonal (35-day) | `data/gefs_subseasonal/*_tdd.csv` with model `GEFS_35D`; dashboard handles it explicitly |
+| CMC Ensemble | `data/cmc_ens/*_tdd.csv` committed; dashboard lists `CMC_ENS` as a map model |
+| FourCastNetV2 (NVIDIA) | `data/ai_models/fourcastnetv2-small_tdd.csv` with live run output |
+| Physics vs AI Disagreement Index | `pipeline_state.json`: `run_disagreement: "success"` |
+| Power Burn Proxy | `pipeline_state.json`: `run_power_burn: "success"` |
+| Wind/Renewables Anomaly | `pipeline_state.json`: `run_wind_anomaly: "success"`; `grid.html` Power Grid Monitor |
+| Composite Bull/Bear Score | `pipeline_state.json`: `run_composite: "success"`; dashboard renders it |
+| Fast Revision Alert | UI element in `index.html` reads `fast_revision` flag from `run_change.csv` |
+| Convergence Alert | UI element in `index.html` reads `convergence_alert.csv` |
+| Spatial Run-to-Run Delta Maps | `generate_maps.py` runs every cycle; `index.html` has full `updateMap()` logic |
+
+### Phase 13 — Pending Features
+
+The following features are genuinely not yet implemented (Phase 13 roadmap):
 
 | Feature | Priority |
 |---|---|
-| ECMWF AIFS (Track A, no GPU) | Highest Priority AI Addition |
-| Model convergence detector | Pending |
-| Fast revision detection (>3 HDD single run) | Pending |
-| 5-day and 10-day rolling trend change | Pending |
-| Ensemble mean HDD/CDD per model | Pending |
-| Ensemble spread (volatility proxy) | Pending |
-| Probability of above/below normal HDD | Pending |
-| All-model consensus direction + Confidence Score | Pending |
+| ECMWF AIFS committed output (Track A, no GPU) | Highest Priority — fetcher exists but no committed CSV output yet |
 | Storage draw/injection weekly estimate (EIA weekly) | Pending |
-| Implied Volatility Signal (ensemble spread + disagreement) | Pending |
-| REST API endpoint | Pending |
+| Ensemble spread as implied volatility proxy | Pending |
+| All-model confidence score (spread-weighted) | Pending |
 | UKMET / ARPEGE via Open-Meteo | Pending |
 | NVIDIA Earth-2 Medium Range (Atlas) | Pending |
 | NVIDIA Earth-2 Nowcasting (StormScope) | Pending |
 | Aurora (Microsoft) | Pending |
-| Canadian GEPS & UK MOGREPS-G ensemble models | Low Priority |
+| REST API endpoint | Pending |
 
 ---
 
