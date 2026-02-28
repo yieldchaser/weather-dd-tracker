@@ -61,6 +61,7 @@ Natural gas demand is highly weather-sensitive. Traders need to know, in near-re
 | `pytz` | Timezone handling |
 | `selenium` + `webdriver-manager` | Browser automation (legacy) |
 | `kaggle` | Kaggle API client (trigger/poll GPU kernels) |
+| `requirements.txt` | Python dependencies (see note in Known Issues) |
 
 ### Frontend — HTML5 / CSS3 / Vanilla JavaScript (ES2020+)
 
@@ -293,7 +294,7 @@ Simultaneous tracking of physics and AI weather models:
 |---|---|
 | Physics (deterministic) | ECMWF HRES, GFS, HRRR, NAM, ICON, NBM |
 | Physics (ensemble) | GEFS (31-member), ECMWF ENS (51-member), CMC ENS |
-| AI models | ECMWF AIFS, FourCastNetV2, PanguWeather, GraphCast |
+| AI models | ECMWF AIFS, FourCastNetV2 (NVIDIA) |
 | Subseasonal | GEFS Subseasonal (35-day) |
 
 ### 3. Run-to-Run Change Tracking
@@ -491,6 +492,17 @@ The following were listed as ❌ Pending in earlier architecture docs but are **
 | Fast Revision Alert | UI element in `index.html` reads `fast_revision` flag from `run_change.csv` |
 | Convergence Alert | UI element in `index.html` reads `convergence_alert.csv` |
 | Spatial Run-to-Run Delta Maps | `generate_maps.py` runs every cycle; `index.html` has full `updateMap()` logic |
+
+### AI Model Availability
+
+| Model | Status | Notes |
+|-------|--------|-------|
+| FOURCASTNetV2-SMALL | ✅ Present | Data in `data/ai_models/fourcastnetv2-small_tdd.csv` |
+| ECMWF AIFS | ⚠️ Pipeline Ready | Scripts exist, no committed data |
+| PanguWeather | ❌ Not Available | Listed in docs but NOT in pipeline |
+| GraphCast | ❌ Not Available | Listed in docs but NOT in pipeline |
+
+> **Note:** The AI models section previously listed PanguWeather and GraphCast, but these are not currently in the pipeline. Only FOURCASTNetV2-SMALL has committed data.
 
 ### Phase 13 — Pending Features
 
