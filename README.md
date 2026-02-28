@@ -293,7 +293,9 @@ Simultaneous tracking of physics and AI weather models:
 |---|---|
 | Physics (deterministic) | ECMWF HRES, GFS, HRRR, NAM, ICON, NBM |
 | Physics (ensemble) | GEFS (31-member), ECMWF ENS (51-member), CMC ENS |
-| AI models | ECMWF AIFS, FourCastNetV2, PanguWeather, GraphCast |
+| AI models | ECMWF AIFS, FourCastNetV2 |
+
+> **Note:** PanguWeather and GraphCast are supported in the dashboard architecture but require additional data pipeline setup.
 | Subseasonal | GEFS Subseasonal (35-day) |
 
 ### 3. Run-to-Run Change Tracking
@@ -353,7 +355,8 @@ The entire pipeline runs on GitHub Actions (free for public repos) + Kaggle free
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 5: AI MODELS (Kaggle GPU)                                │
 │  Track A: ECMWF AIFS (no GPU, GitHub Actions native)           │
-│  Track B: FourCastNetV2, PanguWeather, GraphCast (NVIDIA T4)   │
+│  Track B: FourCastNetV2 (NVIDIA T4)  │
+│             (PanguWeather, GraphCast - pipeline ready, data pending) │
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 4: ENSEMBLE INTELLIGENCE                                 │
 │  GEFS (31-member) │ ECMWF ENS (51-member) │ CMC ENS            │
