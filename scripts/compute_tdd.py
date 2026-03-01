@@ -11,6 +11,9 @@ BASE_TEMP_F = 65
 CONUS_LAT_MIN, CONUS_LAT_MAX = 25.0, 50.0
 CONUS_LON_MIN, CONUS_LON_MAX = 235.0, 295.0   # 0–360° convention
 
+# Minimum percentage of daily coverage (hours) to count a day in daily average (prevent start/end day bias)
+MIN_DAY_COVERAGE = 0.75 
+
 WEIGHTS_FILE = Path("data/weights/conus_gas_weights.npy")
 WEIGHTS_META = Path("data/weights/conus_gas_weights_meta.json")
 
@@ -167,10 +170,24 @@ def process_ecmwf_grib(run_path, weights, w_lats, w_lons, ensemble=False):
             "date": pd.Timestamp(vt).date(),
             "mean_temp": round(tf_simple, 2), 
             "hdd": round(hdd(tf_simple), 2), "cdd": round(cdd(tf_simple), 2), "tdd": round(tdd(tf_simple), 2),
-            "mean_temp_gw": round(tf_gw, 2), 
-            "hdd_gw": round(hdd(tf_gw), 2), "cdd_gw": round(cdd(tf_gw), 2), "tdd_gw": round(tdd(tf_gw), 2),
+            "mean_temp_gw": round(tf_gw, 2) if tf_gw is not None else None, 
+            "hdd_gw": round(hdd(tf_gw), 2) if tf_gw is not None else None, 
+            "cdd_gw": round(cdd(tf_gw), 2) if tf_gw is not None else None, 
+            "tdd_gw": round(tdd(tf_gw), 2) if tf_gw is not None else None,
         })
-    return pd.DataFrame(rows)
+    # Filter out incomplete days (e.g. today or f-last day with only 1-2 hours)
+    df = pd.DataFrame(rows)
+    # Group by date to count steps
+    steps = df.groupby("date").size().max()
+    min_steps = max(1, int(steps * MIN_DAY_COVERAGE))
+    
+    # Keep only days with enough steps
+    day_counts = df.groupby("date").size()
+    valid_days = day_counts[day_counts >= min_steps].index
+    df = df[df["date"].isin(valid_days)]
+
+    # Final daily average
+    return df.groupby("date").mean().reset_index()
 
 
 # Keep old names as thin wrappers for backward compatibility
@@ -235,17 +252,24 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
                 "date": date,
                 "mean_temp": round(temp_f_simple, 2),
                 "hdd": round(hdd(temp_f_simple), 2), "cdd": round(cdd(temp_f_simple), 2), "tdd": round(tdd(temp_f_simple), 2),
-                "mean_temp_gw": round(temp_f_gw, 2), 
-                "hdd_gw": round(hdd(temp_f_gw), 2), "cdd_gw": round(cdd(temp_f_gw), 2), "tdd_gw": round(tdd(temp_f_gw), 2),
+                "mean_temp_gw": round(temp_f_gw, 2) if temp_f_gw is not None else None, 
+                "hdd_gw": round(hdd(temp_f_gw), 2) if temp_f_gw is not None else None, 
+                "cdd_gw": round(cdd(temp_f_gw), 2) if temp_f_gw is not None else None, 
+                "tdd_gw": round(tdd(temp_f_gw), 2) if temp_f_gw is not None else None,
             })
         except Exception as e:
             print(f"  Skipping {file.name}: {e}")
 
     if rows:
         df = pd.DataFrame(rows)
-        # Average multiple intraday steps to daily (relevant for HRRR)
-        df = df.groupby("date").mean().reset_index()
-        return df
+        # Filter out incomplete days (start/end biasing)
+        steps = df.groupby("date").size().max()
+        min_steps = max(1, int(steps * MIN_DAY_COVERAGE))
+        day_counts = df.groupby("date").size()
+        valid_days = day_counts[day_counts >= min_steps].index
+        df = df[df["date"].isin(valid_days)]
+        
+        return df.groupby("date").mean(numeric_only=True).reset_index()
     print("  No valid rows computed.")
     return None
 
@@ -306,19 +330,24 @@ def process_gfs(run_path, weights, w_lats, w_lons):
                 "hdd":          round(hdd(temp_f_simple), 2),
                 "cdd":          round(cdd(temp_f_simple), 2),
                 "tdd":          round(tdd(temp_f_simple), 2),
-                "mean_temp_gw": round(temp_f_gw, 2),
-                "hdd_gw":       round(hdd(temp_f_gw), 2),
-                "cdd_gw":       round(cdd(temp_f_gw), 2),
-                "tdd_gw":       round(tdd(temp_f_gw), 2),
+                "mean_temp_gw": round(temp_f_gw, 2) if temp_f_gw is not None else None,
+                "hdd_gw":       round(hdd(temp_f_gw), 2) if temp_f_gw is not None else None,
+                "cdd_gw":       round(cdd(temp_f_gw), 2) if temp_f_gw is not None else None,
+                "tdd_gw":       round(tdd(temp_f_gw), 2) if temp_f_gw is not None else None,
             })
         except Exception as e:
             print(f"  Skipping {file.name}: {e}")
 
     if rows:
         df = pd.DataFrame(rows)
-        # Average multiple intraday steps to daily to match GEFS/Ensemble horizon exactly
-        df = df.groupby("date").mean().reset_index()
-        return df
+        # Filter out incomplete days
+        steps = df.groupby("date").size().max()
+        min_steps = max(1, int(steps * MIN_DAY_COVERAGE))
+        day_counts = df.groupby("date").size()
+        valid_days = day_counts[day_counts >= min_steps].index
+        df = df[df["date"].isin(valid_days)]
+        
+        return df.groupby("date").mean(numeric_only=True).reset_index()
     print("  No valid rows computed.")
     return None
 
@@ -372,19 +401,24 @@ def process_nbm(run_path, weights, w_lats, w_lons):
                 "hdd":          round(hdd(temp_f_simple), 2),
                 "cdd":          round(cdd(temp_f_simple), 2),
                 "tdd":          round(tdd(temp_f_simple), 2),
-                "mean_temp_gw": round(temp_f_gw, 2),
-                "hdd_gw":       round(hdd(temp_f_gw), 2),
-                "cdd_gw":       round(cdd(temp_f_gw), 2),
-                "tdd_gw":       round(tdd(temp_f_gw), 2),
+                "mean_temp_gw": round(temp_f_gw, 2) if temp_f_gw is not None else None,
+                "hdd_gw":       round(hdd(temp_f_gw), 2) if temp_f_gw is not None else None,
+                "cdd_gw":       round(cdd(temp_f_gw), 2) if temp_f_gw is not None else None,
+                "tdd_gw":       round(tdd(temp_f_gw), 2) if temp_f_gw is not None else None,
             })
         except Exception as e:
             print(f"  Skipping {file.name}: {e}")
 
     if rows:
         df = pd.DataFrame(rows)
-        # NBM generates multiple hours for the same day; we want daily average TDDs.
-        df = df.groupby(["date"]).mean().reset_index()
-        return df
+        # Filter out incomplete days
+        steps = df.groupby("date").size().max()
+        min_steps = max(1, int(steps * MIN_DAY_COVERAGE))
+        day_counts = df.groupby("date").size()
+        valid_days = day_counts[day_counts >= min_steps].index
+        df = df[df["date"].isin(valid_days)]
+
+        return df.groupby(["date"]).mean(numeric_only=True).reset_index()
 
     print("  No valid rows computed for NBM.")
     return None
