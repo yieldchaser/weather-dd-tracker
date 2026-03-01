@@ -897,11 +897,11 @@
                             let val = row[c];
 
                             // Check if this model is empty in the shiftTable (true N/A)
-                            let allNull = shiftTable.every(r => r[c] === null || r[c] === undefined);
+                            let allNull = shiftTable.every(r => r[c] === null || r[c] === undefined || r[c] === "");
 
                             if (allNull) {
                                 td.innerHTML = '<span style="color:#888; font-size:0.7rem;">Prev Run (N/A)</span>';
-                            } else if (val === null || val === undefined) {
+                            } else if (val === null || val === undefined || val === "") {
                                 td.innerText = "-";
                             } else {
                                 let gapFlag = (shiftMeta.models[c] && shiftMeta.models[c].gap) ? '*' : '';

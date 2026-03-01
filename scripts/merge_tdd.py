@@ -98,12 +98,38 @@ def load_all():
 
 
 def main():
-    df = load_all()
-    df = df.sort_values(["model", "run_id", "date"])
+    df_new = load_all()
+    
     os.makedirs("outputs", exist_ok=True)
-    df.to_csv(MASTER_PATH, index=False)
-    print("\nMASTER UPDATED:")
-    print(df.tail(10))
+    
+    # Preserve existing history data that may not have been downloaded in this exact run
+    if os.path.exists(MASTER_PATH):
+        try:
+            df_old = pd.read_csv(MASTER_PATH)
+            
+            # Combine old and new, and deduplicate, keeping the newest generated rows
+            if not df_new.empty:
+                df_combined = pd.concat([df_old, df_new], ignore_index=True)
+            else:
+                df_combined = df_old
+                
+            # If the script that generated the new data had better parsing (e.g. gas weights)
+            # we want to keep the NEWEST row (keep="last" since we appended df_new last)
+            df = df_combined.drop_duplicates(subset=["model", "run_id", "date"], keep="last")
+            print(f"  [INFO] Merged with existing history: kept {len(df)} rows.")
+        except Exception as e:
+            print(f"  [ERR] Failed to load existing master: {e}")
+            df = df_new
+    else:
+        df = df_new
+
+    if not df.empty:
+        df = df.sort_values(["model", "run_id", "date"])
+        df.to_csv(MASTER_PATH, index=False)
+        print("\nMASTER UPDATED:")
+        print(df.tail(10))
+    else:
+        print("\n[WARN] No data to write to master.")
 
 
 if __name__ == "__main__":
