@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Optional: if you add ECMWF Ens and GFS Ens later, they can be added here
 # Models to track in the shift table
-MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "ECMWF_AIFS", "HRRR", "NAM"]
+MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "ECMWF_AIFS", "HRRR", "NAM", "NBM", "FOURCASTNETV2-SMALL"]
 
 def main():
     print("\n--- Generating Model Shift Table ---")
@@ -60,8 +60,8 @@ def main():
         
         # Calculate time gap between runs
         try:
-            t1 = datetime.strptime(latest_run, "%Y%m%d_%H")
-            t2 = datetime.strptime(prev_run, "%Y%m%d_%H")
+            t1 = datetime.strptime(latest_run.replace("_AI", ""), "%Y%m%d_%H")
+            t2 = datetime.strptime(prev_run.replace("_AI", ""), "%Y%m%d_%H")
             gap_hours = abs((t1 - t2).total_seconds() / 3600)
         except:
             gap_hours = 0
@@ -96,18 +96,20 @@ def main():
         "CMC_ENS Op Chg": "CMC ENS CHG",
         "ECMWF_AIFS Op Chg": "EURO AI CHG",
         "HRRR Op Chg": "HRRR CHG",
-        "NAM Op Chg": "NAM CHG"
+        "NAM Op Chg": "NAM CHG",
+        "NBM Op Chg": "NBM CHG",
+        "FOURCASTNETV2-SMALL Op Chg": "EURO AI CHG" # We bucket FourCastNet under AI
     }
     shift_df.rename(columns=rename_map, inplace=True)
             
     # Ensure all expected columns exist even if empty (for UI stability)
-    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG"]
+    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
     for col in expected_cols:
         if col not in shift_df.columns:
             shift_df[col] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
-    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG"]
+    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
     # --- STRICT SYNCHRONIZATION ALIGNMENT ---
