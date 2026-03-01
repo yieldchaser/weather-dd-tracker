@@ -262,13 +262,22 @@ def main():
         if grib:
             df = extract_conus_tdd(grib, model)
             if df is not None:
-                csv_path = os.path.join(OUTPUT_DIR, f"{model}_tdd.csv")
-                df.to_csv(csv_path, index=False)
-                succeeded.append(df)
+                # Provide a unique run-based name so Github Actions tracks physical historical runs
                 try:
-                    push_to_github(csv_path, f"{model}_tdd.csv")
-                except Exception as push_err:
-                    print(f"[WARN] Push failed for {model}: {push_err}")
+                    run_id = df.iloc[0]["run_id"]
+                except Exception:
+                    run_id = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H_AI")
+                
+                historical_name = f"{model}_{run_id}_tdd.csv"
+                historical_path = os.path.join(OUTPUT_DIR, historical_name)
+                
+                # We also save a general latest version for possible downstream pipeline overrides
+                latest_path = os.path.join(OUTPUT_DIR, f"{model}_latest.csv")
+                
+                df.to_csv(historical_path, index=False)
+                df.to_csv(latest_path, index=False)
+                succeeded.append(df)
+                print(f"[OK] Saved historical output for {model} to {historical_name}")
         # Crucial: free memory before loading the next model
         nuke_memory()
         os.system(f"rm -f {os.path.join(OUTPUT_DIR, model + '_out.grib')}")
@@ -278,6 +287,15 @@ def main():
         csv_path = os.path.join(OUTPUT_DIR, "ai_tdd_latest.csv")
         final_df.to_csv(csv_path, index=False)
         print(f"[OK] Combined CSV saved to {csv_path}")
+        
+        # Keep a master historical history too
+        try:
+            run_ids = final_df["run_id"].unique()
+            primary_run = run_ids[0] if len(run_ids) > 0 else datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H_AI")
+            hist_csv_path = os.path.join(OUTPUT_DIR, f"ai_tdd_{primary_run}.csv")
+            final_df.to_csv(hist_csv_path, index=False)
+        except Exception as e:
+            pass
     else:
         print("[ERR] No AI data gathered successfully.")
 
