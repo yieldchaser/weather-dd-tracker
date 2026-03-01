@@ -54,7 +54,7 @@ def load_data():
     if ecmwf_cf:
         try:
             df = pd.read_csv(ecmwf_cf)
-            if "model" not in df.columns: df["model"] = "ECMWF_HRES"
+            if "model" not in df.columns: df["model"] = "ECMWF"
             dfs.append(df)
         except Exception as e:
             print(f"[WARN] Could not load ECMWF: {e}")
@@ -63,7 +63,7 @@ def load_data():
     if gfs_cf:
         try:
             df = pd.read_csv(gfs_cf)
-            if "model" not in df.columns: df["model"] = "GFS_HRES"
+            if "model" not in df.columns: df["model"] = "GFS"
             dfs.append(df)
         except Exception as e:
             print(f"[WARN] Could not load GFS: {e}")
@@ -73,7 +73,7 @@ def load_data():
     if aifs_cf:
         try:
             df = pd.read_csv(aifs_cf)
-            if "model" not in df.columns: df["model"] = "AIFS"
+            df["model"] = "ECMWF_AIFS"
             dfs.append(df)
         except Exception as e:
             print(f"[WARN] Could not load AIFS: {e}")
@@ -90,7 +90,16 @@ def load_data():
         print("[ERR] No model data available to compare.")
         return None
         
-    return pd.concat(dfs, ignore_index=True)
+    combined = pd.concat(dfs, ignore_index=True)
+    # Normalize dates to YYYY-MM-DD string
+    # Strip dashes if any, then parse as YYYYMMDD for consistency
+    combined["date"] = pd.to_datetime(combined["date"].astype(str).str.replace("-", ""), format="%Y%m%d").dt.strftime("%Y-%m-%d")
+    
+    for m in combined["model"].unique():
+        m_df = combined[combined["model"] == m]
+        # print(f"       - {m:12}: {m_df['date'].min()} to {m_df['date'].max()} ({len(m_df)} rows)")
+    
+    return combined
 
 def compute_disagreement():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -103,9 +112,8 @@ def compute_disagreement():
         print("[ERR] Loaded data does not conform to (date, tdd, model) schema.")
         return
 
-    # Filter out historical/bogus dates, keep next 10 days
-    today_cmp = datetime.now(timezone.utc).strftime("%Y%m%d")
-    df["date"] = df["date"].astype(str).str[:8]  # normalize to YYYYMMDD string
+    # Filter out historical/bogus dates, keep forecast horizon
+    today_cmp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     df = df[df["date"] >= today_cmp]
     
     # Group by Date and Model
@@ -113,8 +121,8 @@ def compute_disagreement():
     pivot = df.pivot_table(index="date", columns="model", values="tdd", aggfunc="last")
     
     # Categorize
-    physics_cols = [c for c in pivot.columns if c in ["ECMWF_HRES", "GFS_HRES", "NAM", "ICON"]]
-    ai_cols = [c for c in pivot.columns if c in ["AIFS", "GRAPHCAST", "PANGUWEATHER"]]
+    physics_cols = [c for c in pivot.columns if c in ["ECMWF_HRES", "GFS_HRES", "NAM", "HRRR", "ICON", "CMC_ENS", "GFS", "ECMWF"]]
+    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL"]]
     
     # Calculate means where possible
     if physics_cols:
@@ -149,7 +157,7 @@ def compute_disagreement():
     if not pivot.empty and physics_cols and ai_cols:
         max_idx = pivot["disagreement_abs"].idxmax()
         max_row = pivot.loc[max_idx]
-        print(f"\n⚡ HIGH DISAGREEMENT WARNING ⚡")
+        print(f"\n!!! HIGH DISAGREEMENT WARNING !!!")
         print(f"Date: {max_idx}")
         print(f"Physics Mean: {max_row['physics_mean']:.1f} TDD")
         print(f"AI Mean:      {max_row['ai_mean']:.1f} TDD")

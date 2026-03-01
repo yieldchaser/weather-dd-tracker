@@ -38,49 +38,53 @@ def count_grib_messages(path):
         return None
 
 def fetch():
-    date   = today()
     client = Client(source="ecmwf")
+    now = datetime.datetime.now(datetime.timezone.utc)
+    
+    # Try today and yesterday
+    for day_offset in [0, -1]:
+        date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
+        
+        # AIFS open data might not have the exact same cycles up immediately, but 00/12 are standard.
+        # We will try all 4 in case.
+        for cycle in CYCLES:
+            run_id  = f"{date}_{cycle}"
+            out_dir = os.path.join(BASE_DIR, run_id)
+            os.makedirs(out_dir, exist_ok=True)
+            target  = os.path.join(out_dir, "aifs_t2m.grib2")
 
-    # AIFS open data might not have the exact same cycles up immediately, but 00/12 are standard.
-    # We will try all 4 in case.
-    for cycle in CYCLES:
-        run_id  = f"{date}_{cycle}"
-        out_dir = os.path.join(BASE_DIR, run_id)
-        os.makedirs(out_dir, exist_ok=True)
-        target  = os.path.join(out_dir, "aifs_t2m.grib2")
+            print(f"Trying ECMWF AIFS: {run_id} (CONUS area only)")
 
-        print(f"Trying ECMWF AIFS: {run_id} (CONUS area only)")
+            try:
+                client.retrieve(
+                    model="aifs-single",
+                    stream="oper",
+                    type="fc",
+                    resol="0p25",
+                    date=date,
+                    time=cycle,
+                    step=[str(x) for x in EXPECTED_STEPS],
+                    param="2t",
+                    target=target,
+                )
 
-        try:
-            client.retrieve(
-                model="aifs-single",
-                stream="oper",
-                type="fc",
-                resol="0p25",
-                date=date,
-                time=cycle,
-                step=[str(x) for x in EXPECTED_STEPS],
-                param="2t",
-                target=target,
-            )
+                msg_count = count_grib_messages(target)
+                if msg_count is not None and msg_count < len(EXPECTED_STEPS):
+                    print(f"  [WARN] Incomplete: expected {len(EXPECTED_STEPS)} steps, "
+                          f"got {msg_count}. Trying next cycle.")
+                    os.remove(target)
+                    try:
+                        os.rmdir(out_dir)
+                    except OSError:
+                        pass
+                    continue
 
-            msg_count = count_grib_messages(target)
-            if msg_count is not None and msg_count < len(EXPECTED_STEPS):
-                print(f"  [WARN] Incomplete: expected {len(EXPECTED_STEPS)} steps, "
-                      f"got {msg_count}. Trying next cycle.")
-                os.remove(target)
-                try:
-                    os.rmdir(out_dir)
-                except OSError:
-                    pass
-                continue
+                steps_confirmed = msg_count if msg_count else "unknown"
+                print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
+                return run_id
 
-            steps_confirmed = msg_count if msg_count else "unknown"
-            print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
-            return run_id
-
-        except Exception as e:
-            print(f"[ERR] {run_id} not available yet: {e}")
+            except Exception as e:
+                print(f"[ERR] {run_id} not available yet: {e}")
 
     # Fallback exception
     raise RuntimeError("No complete ECMWF AIFS runs available today.")

@@ -74,8 +74,14 @@ def fetch(target_date=None):
     out_path = BASE_DIR / f"{run_id}_tdd.csv"
     
     if out_path.exists():
-        print(f"[{run_id}Z] Already fetched fully. Skipping.")
-        return run_id
+        # Check staleness: if file is older than 6 hours, we refetch to ensure we aren't stuck on old OM data
+        mtime = datetime.datetime.fromtimestamp(out_path.stat().st_mtime, datetime.timezone.utc)
+        age_hours = (datetime.datetime.now(datetime.timezone.utc) - mtime).total_seconds() / 3600
+        if age_hours < 6:
+            print(f"[{run_id}Z] Already fetched within last 6h. Skipping.")
+            return run_id
+        else:
+            print(f"[{run_id}Z] Cache stale ({age_hours:.1f}h). Refetching...")
 
     print(f"Trying CMC ENS: {run_id} (Open-Meteo API gem_global_ensemble)")
 

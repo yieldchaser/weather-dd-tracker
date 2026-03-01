@@ -4,7 +4,8 @@ from pathlib import Path
 from datetime import datetime
 
 # Optional: if you add ECMWF Ens and GFS Ens later, they can be added here
-MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "NBM", "GEFS_35D", "CMC_ENS"]
+# Models to track in the shift table
+MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "ECMWF_AIFS", "HRRR", "NAM"]
 
 def main():
     print("\n--- Generating Model Shift Table ---")
@@ -52,8 +53,10 @@ def main():
         
         # Interpolate missing days if occasional HTTP fetches dropped files
         # STRICT LIMIT: Max 3 consecutive days. Massive outages should break the chart with NaN.
-        merged["latest"] = merged["latest"].interpolate(method="time", limit=3)
-        merged["prev"] = merged["prev"].interpolate(method="time", limit=3)
+        # Ensure we have enough data points to interpolate (limit+1)
+        if len(merged) > 3:
+            merged["latest"] = merged["latest"].interpolate(method="time", limit=3)
+            merged["prev"] = merged["prev"].interpolate(method="time", limit=3)
         
         merged["shift"] = merged["latest"] - merged["prev"]
         
@@ -76,20 +79,24 @@ def main():
             shift_df[col_name] = model_data[col_name]
             
     # Rename ensemble columns to match frontend UI expectations
-    if "GEFS Op Chg" in shift_df.columns:
-        shift_df.rename(columns={"GEFS Op Chg": "GFS Ens Chg"}, inplace=True)
-    if "ECMWF_ENS Op Chg" in shift_df.columns:
-        shift_df.rename(columns={"ECMWF_ENS Op Chg": "Euro Ens Chg"}, inplace=True)
-    if "CMC_ENS Op Chg" in shift_df.columns:
-        shift_df.rename(columns={"CMC_ENS Op Chg": "CMC ENS CHG"}, inplace=True)
+    rename_map = {
+        "GEFS Op Chg": "GFS Ens Chg",
+        "ECMWF_ENS Op Chg": "Euro Ens Chg",
+        "CMC_ENS Op Chg": "CMC ENS CHG",
+        "ECMWF_AIFS Op Chg": "Euro AI Chg",
+        "HRRR Op Chg": "HRRR Chg",
+        "NAM Op Chg": "NAM Chg"
+    }
+    shift_df.rename(columns=rename_map, inplace=True)
             
-    # Also we may want EPS (Ensemble) shifts if they existed. They don't yet, but we will create placeholders.
-    if "GFS Ens Chg" not in shift_df.columns: shift_df["GFS Ens Chg"] = np.nan
-    if "Euro Ens Chg" not in shift_df.columns: shift_df["Euro Ens Chg"] = np.nan
-    if "CMC ENS CHG" not in shift_df.columns: shift_df["CMC ENS CHG"] = np.nan
+    # Ensure all expected columns exist even if empty (for UI stability)
+    expected_cols = ["GFS Ens Chg", "Euro Ens Chg", "CMC ENS CHG", "Euro AI Chg", "HRRR Chg", "NAM Chg"]
+    for col in expected_cols:
+        if col not in shift_df.columns:
+            shift_df[col] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
-    columns = ["GFS Op Chg", "GFS Ens Chg", "ECMWF Op Chg", "Euro Ens Chg", "CMC ENS CHG"]
+    columns = ["GFS Op Chg", "GFS Ens Chg", "ECMWF Op Chg", "Euro Ens Chg", "CMC ENS CHG", "Euro AI Chg", "HRRR Chg", "NAM Chg"]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
     # --- STRICT SYNCHRONIZATION ALIGNMENT ---

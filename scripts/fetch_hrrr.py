@@ -32,8 +32,13 @@ session = get_session()
 BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod"
 OUTPUT_DIR = "data/hrrr"
 
-FORECAST_HOURS = list(range(0, 19))   # 0 to 18 hours
-# Try the most recent hours first (descending 23 to 00)
+# HRRR runs every hour. 00, 06, 12, 18z runs are extended to 48 hours.
+# Other hourly runs go to 18 hours.
+EXTENDED_CYCLES = ["00", "06", "12", "18"]
+STANDARD_FORECAST_HOURS = list(range(0, 19))
+EXTENDED_FORECAST_HOURS = list(range(0, 49))
+
+# Try the most recent cycles first (descending 23 to 00)
 CYCLES = [f"{i:02d}" for i in range(23, -1, -1)]
 T2M_PATTERN = re.compile(r"TMP:2 m above ground")
 
@@ -118,12 +123,16 @@ def fetch_latest_hrrr():
     run_dir = os.path.join(OUTPUT_DIR, run_id)
     ensure_dir(run_dir)
 
+    # Use extended hours if it's a major cycle
+    forecast_hours = EXTENDED_FORECAST_HOURS if cycle in EXTENDED_CYCLES else STANDARD_FORECAST_HOURS
+    
     print(f"\nFetching HRRR run: {run_id}Z (t2m only via byte-range)")
+    print(f"Targeting {max(forecast_hours)} forecast hours.")
 
     fetched_hours = []
     skipped_hours = []
 
-    for fh in FORECAST_HOURS:
+    for fh in forecast_hours:
         fh_str = f"{fh:02d}"
         base_name = f"hrrr.t{cycle}z.wrfsfcf{fh_str}.grib2"
         base_url = f"{BASE_URL}/hrrr.{run_date}/conus/{base_name}"
@@ -137,6 +146,10 @@ def fetch_latest_hrrr():
         except Exception as e:
             print(f"  [ERR] Could not fetch .idx: {e}")
             skipped_hours.append(fh)
+            # If we fail on f19+ it might be because a non-extended run was misidentified or slow
+            if fh > 18:
+                print("  [INFO] Extended hours not available. Ending fetch.")
+                break
             continue
 
         start_byte, end_byte = parse_t2m_byte_range(idx_text)

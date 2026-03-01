@@ -726,6 +726,7 @@
 
                     models.forEach(m => {
                         let mRows = vsNormal.filter(r => r.model === m);
+                        // Sort by numeric timestamp if possible, or string. Ensure latest is first.
                         mRows.sort((a, b) => String(b.run_id).localeCompare(String(a.run_id)));
                         if (mRows.length === 0) return;
 
@@ -758,9 +759,17 @@
                             let rDate = new Date(`${r.date}T00:00:00Z`);
                             let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
 
-                            if (dayDiff < 5) { w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++; }
-                            else if (dayDiff < 15 || !isSubseasonal) { w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++; }
-                            else { w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++; }
+                            // FALLBACK: If model has very short horizon (like HRRR/NAM), 
+                            // we force it into Short-Term bucket instead of leaving it empty.
+                            if (dayDiff < 5 || currentRun.length < 5) {
+                                w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++;
+                            }
+                            else if (dayDiff < 15 || !isSubseasonal) {
+                                w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++;
+                            }
+                            else {
+                                w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++;
+                            }
                         });
 
                         // Get Delta
