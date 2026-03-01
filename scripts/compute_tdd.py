@@ -343,21 +343,25 @@ def process_nbm(run_path, weights, w_lats, w_lons):
                     "indexpath": ""
                 }
             )
-            # NBM 'co' grids are already bounded to CONUS and use 2D Lambert projections.
-            # We skip 'crop_to_conus' and gas-weight interpolation.
+            # NBM 'co' grids are already bounded to CONUS, but we further crop it 
+            # to our standard 25-50N, 235-295E box for true comparisons.
             var = list(ds.data_vars)[0]
+            lat_2d = ds.latitude.values
+            lon_2d = ds.longitude.values
+            mask = (lat_2d >= CONUS_LAT_MIN) & (lat_2d <= CONUS_LAT_MAX) & \
+                   (lon_2d >= CONUS_LON_MIN) & (lon_2d <= CONUS_LON_MAX)
 
             temp_k_2d = ds[var].values
             temp_f_2d = kelvin_to_f(temp_k_2d)
-            if temp_f_2d.size == 0:
-                print(f"  [WARN] Empty data array in {file.name}")
+            if temp_f_2d.size == 0 or not mask.any():
+                print(f"  [WARN] Empty data or out-of-bounds in {file.name}")
                 continue
             
-            temp_f_simple = float(temp_f_2d.mean())
+            # Simple average over the cropped CONUS box
+            temp_f_simple = float(np.nanmean(temp_f_2d[mask]))
             
-            # Since interpolation over 2D Lambert Coordinates requires heavy Cartopy bounds, 
-            # we utilize the direct NBM CONUS area average as the baseline signal.
-            temp_f_gw = None
+            # We use simple mean as GW fallback for now to avoid cartographic heavy lifting
+            temp_f_gw = temp_f_simple
 
             vt = ds.valid_time.values
             date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()

@@ -36,9 +36,9 @@ OUTPUT_DIR = "data/nbm"
 
 # NBM is generated heavily at 00, 06, 12, 18z for long term.
 CYCLES = ["12", "00"]
-# Usually NBM goes out to 264 hours
-FORECAST_HOURS = list(range(1, 265, 3)) 
-
+# NBM 00z/12z long-term runs provide hourly data to f36, then 3-hourly to f264.
+# We'll fetch 3-hourly slices, but we must shift alignment after f36.
+FORECAST_HOURS = list(range(1, 37, 3)) + list(range(36, 265, 3))
 T2M_PATTERN = re.compile(r"TMP:2 m above ground")
 MAX_WORKERS = 5
 
