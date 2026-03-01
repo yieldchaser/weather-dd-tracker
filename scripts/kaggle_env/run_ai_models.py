@@ -42,8 +42,8 @@ print("[SETUP] Dependencies ready. Starting inference...")
 
 import pandas as pd
 
-AI_MODELS_CLI = ["fourcastnetv2-small", "panguweather"]
-LEAD_TIME_HOURS = 240 # Days 0-10 for high accuracy consensus
+AI_MODELS_CLI = ["fourcastnetv2-small"]
+LEAD_TIME_HOURS = 360
 OUTPUT_DIR = "/kaggle/working/output"
 
 # Remote weights to match dashboard math
