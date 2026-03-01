@@ -1,0 +1,53 @@
+{
+  "models": {
+    "GFS": {
+      "latest": "20260228_18",
+      "prev": "20260228_12",
+      "gap": false,
+      "has_gw": true
+    },
+    "ECMWF": {
+      "latest": "20260228_12",
+      "prev": "20260228_00",
+      "gap": false,
+      "has_gw": true
+    },
+    "Euro Ens Chg": {
+      "latest": "20260301_12",
+      "prev": "20260226_00",
+      "gap": true,
+      "has_gw": true
+    },
+    "GFS Ens Chg": {
+      "latest": "20260228_18",
+      "prev": "20260228_12",
+      "gap": false,
+      "has_gw": true
+    },
+    "CMC ENS CHG": {
+      "latest": "20260301_12",
+      "prev": "20260226_00",
+      "gap": true,
+      "has_gw": true
+    },
+    "Euro AI Chg": {
+      "latest": "20260228_18",
+      "prev": "20260226_06",
+      "gap": true,
+      "has_gw": true
+    },
+    "HRRR Chg": {
+      "latest": "20260301_02",
+      "prev": "20260226_14",
+      "gap": true,
+      "has_gw": true
+    },
+    "NAM Chg": {
+      "latest": "20260301_00",
+      "prev": "20260226_12",
+      "gap": true,
+      "has_gw": true
+    }
+  },
+  "generated_at": "2026-03-01T10:48:40.774683"
+}

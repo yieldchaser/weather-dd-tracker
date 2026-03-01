@@ -163,8 +163,6 @@ def process_ecmwf_grib(run_path, weights, w_lats, w_lons, ensemble=False):
                 continue
             tf_simple = float(np.nanmean(tf))
             tf_gw = apply_gas_weights(tf, w_interp) if w_interp is not None else None
-            if tf_gw is None:
-                tf_gw = tf_simple
         rows.append({
             "date": pd.Timestamp(vt).date(),
             "mean_temp": round(tf_simple, 2), 
@@ -230,8 +228,6 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
                 continue
             temp_f_simple = float(np.nanmean(temp_f_2d))
             temp_f_gw = apply_gas_weights(temp_f_2d, w_interp) if w_interp is not None else None
-            if temp_f_gw is None:
-                temp_f_gw = temp_f_simple
 
             vt = ds.valid_time.values
             date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()
@@ -298,10 +294,8 @@ def process_gfs(run_path, weights, w_lats, w_lons):
 
             if w_interp is not None:
                 temp_f_gw = apply_gas_weights(temp_f_2d, w_interp)
-                if temp_f_gw is None:
-                    temp_f_gw = temp_f_simple
             else:
-                temp_f_gw = temp_f_simple
+                temp_f_gw = None
 
             vt = ds.valid_time.values
             date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()
@@ -363,7 +357,7 @@ def process_nbm(run_path, weights, w_lats, w_lons):
             
             # Since interpolation over 2D Lambert Coordinates requires heavy Cartopy bounds, 
             # we utilize the direct NBM CONUS area average as the baseline signal.
-            temp_f_gw = temp_f_simple
+            temp_f_gw = None
 
             vt = ds.valid_time.values
             date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()

@@ -23,8 +23,7 @@ def compute_delta():
     df = pd.read_csv(MASTER, parse_dates=["date"])
 
     gw_mode = "tdd_gw" in df.columns
-    if gw_mode:
-        df["tdd_gw"] = df["tdd_gw"].fillna(df["tdd"])
+    # REMOVED global fillna to preserve native NaN state for apples-to-apples check
 
     all_deltas = []
 

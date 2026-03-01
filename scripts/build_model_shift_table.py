@@ -58,11 +58,20 @@ def main():
             merged["latest"] = merged["latest"].interpolate(method="time", limit=3)
             merged["prev"] = merged["prev"].interpolate(method="time", limit=3)
         
+        # Calculate time gap between runs
+        try:
+            t1 = datetime.strptime(latest_run, "%Y%m%d_%H")
+            t2 = datetime.strptime(prev_run, "%Y%m%d_%H")
+            gap_hours = abs((t1 - t2).total_seconds() / 3600)
+        except:
+            gap_hours = 0
+            
         merged["shift"] = merged["latest"] - merged["prev"]
         
         # Keep track of shifts for this model
         model_data[f"{model} Op Chg"] = merged["shift"]
-        model_data[f"{model} Latest"] = merged["latest"] # Just in case we want to show it
+        model_data[f"{model} Latest"] = merged["latest"] 
+        model_data[f"{model} Gap"] = gap_hours > 24
         
         latest_dates.update(merged.index.tolist())
         
@@ -135,6 +144,44 @@ def main():
     
     shift_df.reset_index(names="date").to_csv(out_csv, index=False)
     print(f"\n  [OK] Saved Model Shift Table -> {out_csv}")
+
+    # Save metadata for frontend
+    meta = {
+        "models": {},
+        "generated_at": datetime.now().isoformat()
+    }
+    for model in MODELS:
+        if f"{model} Op Chg" in model_data or f"{model} Chg" in shift_df.columns:
+            m_key = rename_map.get(f"{model} Op Chg", f"{model} Op Chg")
+            # Pull runs from locals/outer scope variables
+            # We need to re-find them or store them during the loop
+            pass 
+            
+    # Actually, let's just re-collect them in the loop below
+    meta_runs = {}
+    for model in MODELS:
+        m_df = df[df["model"] == model]
+        if not m_df.empty:
+            runs = sorted(m_df["run_id"].unique(), reverse=True)
+            if len(runs) >= 2:
+                t1 = datetime.strptime(runs[0], "%Y%m%d_%H")
+                t2 = datetime.strptime(runs[1], "%Y%m%d_%H")
+                gap = abs((t1 - t2).total_seconds() / 3600) > 24
+                # Check for gas-weighting consistency in latest run
+                latest_rows = m_df[m_df["run_id"] == runs[0]]
+                has_gw = latest_rows["tdd_gw"].notna().any()
+                
+                meta_runs[rename_map.get(f"{model} Op Chg", model)] = {
+                    "latest": runs[0],
+                    "prev": runs[1],
+                    "gap": gap,
+                    "has_gw": bool(has_gw)
+                }
+    meta["models"] = meta_runs
+    import json
+    with open(out_dir / "shift_meta.json", "w") as f:
+        json.dump(meta, f, indent=2)
+    print(f"  [OK] Saved Shift Metadata -> outputs/shift_meta.json")
 
     # ── Convergence Detector ──────────────────────────────────────────────────
     # Fires when multi-model spread collapses: models that disagreed now align.

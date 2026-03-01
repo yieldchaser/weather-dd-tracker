@@ -588,7 +588,13 @@
         const SEASON_COLOR = SEASON === 'COOLING' ? '#ff7043' : (SEASON === 'TDD' ? '#66bb6a' : '#66fcf1');
 
         // Dual-key value resolver: tries metric-specific columns, falls back to tdd_gw/tdd
-        function ddVal(row) {
+        // IMPROVEMENT: If 'has_gw' metadata is false, we should ideally use simple averages 
+        // to maintain apples-to-apples if the other run also lacks GW.
+        function ddVal(row, forceSimple = false) {
+            if (forceSimple) {
+                if (IS_CDD) return parseFloat(row.cdd ?? row.tdd ?? 0);
+                return parseFloat(row.hdd ?? row.tdd ?? 0);
+            }
             if (IS_CDD)
                 return parseFloat(row.cdd_gw ?? row.cdd ?? row.tdd_gw ?? row.tdd ?? 0);
             if (IS_BOTH)
@@ -673,7 +679,7 @@
                     }
                 };
 
-                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest, historicalData] = await Promise.all([
+                const [biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest, historicalData, shiftMeta] = await Promise.all([
                     fetchCSV("composite_bull_bear_signal.csv"),
                     fetchCSV("vs_normal.csv"),
                     fetchCSV("run_delta.csv"),
@@ -682,7 +688,8 @@
                     fetchCSV("convergence_alert.csv"),
                     fetchCSV("tdd_master.csv"),
                     fetchManifest(),
-                    fetchCSV("historical_degree_days.csv")
+                    fetchCSV("historical_degree_days.csv"),
+                    fetch("outputs/shift_meta.json").then(r => r.ok ? r.json() : { models: {} }).catch(e => ({ models: {} }))
                 ]);
 
                 // 1. Bias
@@ -775,6 +782,9 @@
                         // Get Delta
                         let w1_chg = '-', w2_chg = '-', w3_chg = '-';
                         let total_chg = 0;
+                        let gapFlag = (shiftMeta.models[m] && shiftMeta.models[m].gap) ? ' <small style="color:#ff9800">*Gap</small>' : '';
+                        let gwWarning = (shiftMeta.models[m] && shiftMeta.models[m].has_gw === false) ? ' <small title="Gas-weighting failed - using simple average" style="color:#f44336; cursor:help">⚠️</small>' : '';
+
                         if (runDelta && runDelta.length > 0) {
                             let mDelta = runDelta.filter(r => r.model === m);
                             if (mDelta.length > 0) {
@@ -791,15 +801,21 @@
                                 curDelta.forEach((r) => {
                                     let dtR = new Date(`${r.date}T00:00:00Z`);
                                     let dDiff = Math.round((dtR - deltaBase) / (1000 * 60 * 60 * 24));
-                                    let val = r.tdd_gw_change || r.tdd_change || 0;
+
+                                    // FIX: Apples-to-apples check
+                                    let val = r.tdd_gw_change;
+                                    if (val === undefined || val === null || isNaN(val)) {
+                                        val = r.tdd_change || 0;
+                                    }
+
                                     total_chg += val;
                                     if (dDiff < 5) c1 += val;
                                     else if (dDiff < 15 || !isSubseasonal) c2 += val;
                                     else c3 += val;
                                 });
-                                w1_chg = c1 !== 0 ? formatNum(c1, 1, true) : '-';
-                                w2_chg = c2 !== 0 ? formatNum(c2, 1, true) : '-';
-                                w3_chg = c3 !== 0 ? formatNum(c3, 1, true) : '-';
+                                w1_chg = c1 !== 0 ? formatNum(c1 / Math.max(1, len1), 1, true) + gapFlag : '-';
+                                w2_chg = c2 !== 0 ? formatNum(c2 / Math.max(1, len2), 1, true) + gapFlag : '-';
+                                w3_chg = c3 !== 0 ? formatNum(c3 / Math.max(1, len3), 1, true) + gapFlag : '-';
 
                                 let c1_cls = c1 > 0 ? 'pos-val' : (c1 < 0 ? 'neg-val' : '');
                                 let c2_cls = c2 > 0 ? 'pos-val' : (c2 < 0 ? 'neg-val' : '');
@@ -819,13 +835,13 @@
                         let a3_cls10 = w3_anom10 > 0 ? 'pos-val' : (w3_anom10 < 0 ? 'neg-val' : '');
 
                         if (len1 > 0) {
-                            shortTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w1_fcst, 1)}</td><td>${formatNum(w1_norm, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom, 1, true)}</td><td>${formatNum(w1_norm10, 1)}</td><td class="${a1_cls10}">${formatNum(w1_anom10, 1, true)}</td><td>${w1_chg}</td></tr>`;
+                            shortTermHtml += `<tr><td><strong>${m} <small>(${len1}d)</small>${gwWarning}</strong></td><td>${formatNum(w1_fcst / len1, 1)}</td><td>${formatNum(w1_norm / len1, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom / len1, 1, true)}</td><td>${formatNum(w1_norm10 / len1, 1)}</td><td class="${a1_cls10}">${formatNum(w1_anom10 / len1, 1, true)}</td><td>${w1_chg}</td></tr>`;
                         }
                         if (len2 > 0) {
-                            medTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w2_fcst, 1)}</td><td>${formatNum(w2_norm, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom, 1, true)}</td><td>${formatNum(w2_norm10, 1)}</td><td class="${a2_cls10}">${formatNum(w2_anom10, 1, true)}</td><td>${w2_chg}</td></tr>`;
+                            medTermHtml += `<tr><td><strong>${m} <small>(${len2}d)</small>${gwWarning}</strong></td><td>${formatNum(w2_fcst / len2, 1)}</td><td>${formatNum(w2_norm / len2, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom / len2, 1, true)}</td><td>${formatNum(w2_norm10 / len2, 1)}</td><td class="${a2_cls10}">${formatNum(w2_anom10 / len2, 1, true)}</td><td>${w2_chg}</td></tr>`;
                         }
                         if (len3 > 0) {
-                            longTermHtml += `<tr><td><strong>${m}</strong></td><td>${formatNum(w3_fcst, 1)}</td><td>${formatNum(w3_norm, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom, 1, true)}</td><td>${formatNum(w3_norm10, 1)}</td><td class="${a3_cls10}">${formatNum(w3_anom10, 1, true)}</td><td>${w3_chg}</td></tr>`;
+                            longTermHtml += `<tr><td><strong>${m} <small>(${len3}d)</small>${gwWarning}</strong></td><td>${formatNum(w3_fcst / len3, 1)}</td><td>${formatNum(w3_norm / len3, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom / len3, 1, true)}</td><td>${formatNum(w3_norm10 / len3, 1)}</td><td class="${a3_cls10}">${formatNum(w3_anom10 / len3, 1, true)}</td><td>${w3_chg}</td></tr>`;
                         }
 
                         // Macro updates (prefer ECMWF, fallback GFS if ECMWF empty)
@@ -865,10 +881,18 @@
                         cols.filter(c => c !== "date").forEach(c => {
                             let td = document.createElement('td');
                             let val = row[c];
-                            if (val === 0.0) {
+
+                            // Check if this model exists in shiftMeta and if it has a non-overlapping run
+                            // We can infer this if ALL rows for this model are NaN in the shiftTable
+                            let allNull = shiftTable.every(r => r[c] === null || r[c] === undefined || r[c] === 0.0);
+
+                            if (allNull) {
+                                td.innerHTML = '<span style="color:#888; font-size:0.7rem;">Prev Run (N/A)</span>';
+                            } else if (val === 0.0 || val === null || val === undefined) {
                                 td.innerText = "-";
                             } else {
-                                td.innerText = formatNum(val, 1, true);
+                                let gapFlag = (shiftMeta.models[c] && shiftMeta.models[c].gap) ? '*' : '';
+                                td.innerText = formatNum(val, 1, true) + gapFlag;
                                 if (val > 0) td.classList.add('pos-val');
                                 else if (val < 0) td.classList.add('neg-val');
                             }
@@ -1436,9 +1460,18 @@
                     latestRunRows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
                     let minDate = latestRunRows[0].date.substring(0, 10);
                     let maxDate = latestRunRows[latestRunRows.length - 1].date.substring(0, 10);
-                    labels = labels.filter(d => d >= minDate && d <= maxDate);
+                    // REDRAW X-AXIS: If model is short-range (HRRR/NAM), use its specific window
+                    if (selectedModel === 'HRRR' || selectedModel === 'NAM') {
+                        labels = labels.filter(d => d >= minDate && d <= maxDate);
+                    } else {
+                        // For global models, show 16 days
+                        labels = globalLabels.slice(0, 16);
+                    }
                 }
             }
+
+            // Re-sort labels to ensure chronological order for the selected model window
+            labels.sort();
 
             // Colors for the 4 runs
             const colors = ['#66fcf1', '#4caf50', '#ff9800', '#f44336'];
