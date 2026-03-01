@@ -834,14 +834,29 @@
                         let a2_cls10 = w2_anom10 > 0 ? 'pos-val' : (w2_anom10 < 0 ? 'neg-val' : '');
                         let a3_cls10 = w3_anom10 > 0 ? 'pos-val' : (w3_anom10 < 0 ? 'neg-val' : '');
 
+                        const MODEL_HORIZONS = {
+                            'HRRR': 2,
+                            'NAM': 3.5,
+                            'GFS': 16,
+                            'ECMWF': 10,
+                            'ECMWF_ENS': 15,
+                            'GEFS': 16,
+                            'CMC_ENS': 15,
+                            'ECMWF_AIFS': 10
+                        };
+
+                        let h1 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] <= 5) ? MODEL_HORIZONS[m] : len1;
+                        let h2 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 5 && MODEL_HORIZONS[m] <= 15) ? MODEL_HORIZONS[m] : len2;
+                        let h3 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 15) ? MODEL_HORIZONS[m] : len3;
+
                         if (len1 > 0) {
-                            shortTermHtml += `<tr><td><strong>${m} <small>(${len1}d)</small>${gwWarning}</strong></td><td>${formatNum(w1_fcst / len1, 1)}</td><td>${formatNum(w1_norm / len1, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom / len1, 1, true)}</td><td>${formatNum(w1_norm10 / len1, 1)}</td><td class="${a1_cls10}">${formatNum(w1_anom10 / len1, 1, true)}</td><td>${w1_chg}</td></tr>`;
+                            shortTermHtml += `<tr><td><strong>${m} <small>(${h1}d)</small>${gwWarning}</strong></td><td>${formatNum(w1_fcst / len1, 1)}</td><td>${formatNum(w1_norm / len1, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom / len1, 1, true)}</td><td>${formatNum(w1_norm10 / len1, 1)}</td><td class="${a1_cls10}">${formatNum(w1_anom10 / len1, 1, true)}</td><td>${w1_chg}</td></tr>`;
                         }
                         if (len2 > 0) {
-                            medTermHtml += `<tr><td><strong>${m} <small>(${len2}d)</small>${gwWarning}</strong></td><td>${formatNum(w2_fcst / len2, 1)}</td><td>${formatNum(w2_norm / len2, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom / len2, 1, true)}</td><td>${formatNum(w2_norm10 / len2, 1)}</td><td class="${a2_cls10}">${formatNum(w2_anom10 / len2, 1, true)}</td><td>${w2_chg}</td></tr>`;
+                            medTermHtml += `<tr><td><strong>${m} <small>(${h2}d)</small>${gwWarning}</strong></td><td>${formatNum(w2_fcst / len2, 1)}</td><td>${formatNum(w2_norm / len2, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom / len2, 1, true)}</td><td>${formatNum(w2_norm10 / len2, 1)}</td><td class="${a2_cls10}">${formatNum(w2_anom10 / len2, 1, true)}</td><td>${w2_chg}</td></tr>`;
                         }
                         if (len3 > 0) {
-                            longTermHtml += `<tr><td><strong>${m} <small>(${len3}d)</small>${gwWarning}</strong></td><td>${formatNum(w3_fcst / len3, 1)}</td><td>${formatNum(w3_norm / len3, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom / len3, 1, true)}</td><td>${formatNum(w3_norm10 / len3, 1)}</td><td class="${a3_cls10}">${formatNum(w3_anom10 / len3, 1, true)}</td><td>${w3_chg}</td></tr>`;
+                            longTermHtml += `<tr><td><strong>${m} <small>(${h3}d)</small>${gwWarning}</strong></td><td>${formatNum(w3_fcst / len3, 1)}</td><td>${formatNum(w3_norm / len3, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom / len3, 1, true)}</td><td>${formatNum(w3_norm10 / len3, 1)}</td><td class="${a3_cls10}">${formatNum(w3_anom10 / len3, 1, true)}</td><td>${w3_chg}</td></tr>`;
                         }
 
                         // Macro updates (prefer ECMWF, fallback GFS if ECMWF empty)
@@ -1460,12 +1475,19 @@
                     latestRunRows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
                     let minDate = latestRunRows[0].date.substring(0, 10);
                     let maxDate = latestRunRows[latestRunRows.length - 1].date.substring(0, 10);
+
+                    // RUBBER BAND FIX: Clip x-axis to start at Today or Yesterday to avoid historical clutter
+                    const today = (TIME_TRAVEL_DATE || new Date());
+                    const bufferDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                    const bufferStr = bufferDate.toISOString().substring(0, 10);
+                    const startClip = (minDate < bufferStr) ? bufferStr : minDate;
+
                     // REDRAW X-AXIS: If model is short-range (HRRR/NAM), use its specific window
                     if (selectedModel === 'HRRR' || selectedModel === 'NAM') {
-                        labels = labels.filter(d => d >= minDate && d <= maxDate);
+                        labels = labels.filter(d => d >= startClip && d <= maxDate);
                     } else {
-                        // For global models, show 16 days
-                        labels = globalLabels.slice(0, 16);
+                        // For global models, show 16 days starting from startClip
+                        labels = globalLabels.filter(d => d >= startClip).slice(0, 16);
                     }
                 }
             }
