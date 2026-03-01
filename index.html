@@ -766,16 +766,15 @@
                             let rDate = new Date(`${r.date}T00:00:00Z`);
                             let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
 
-                            // FALLBACK: If model has very short horizon (like HRRR/NAM), 
-                            // we force it into Short-Term bucket instead of leaving it empty.
-                            if (dayDiff < 5 || currentRun.length < 5) {
+                            // Any data past day 15 goes into Long-Term bucket
+                            if (dayDiff > 14) {
+                                w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++;
+                            }
+                            else if (dayDiff < 5) {
                                 w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++;
                             }
-                            else if (dayDiff < 15 || !isSubseasonal) {
-                                w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++;
-                            }
                             else {
-                                w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++;
+                                w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++;
                             }
                         });
 
@@ -897,13 +896,12 @@
                             let td = document.createElement('td');
                             let val = row[c];
 
-                            // Check if this model exists in shiftMeta and if it has a non-overlapping run
-                            // We can infer this if ALL rows for this model are NaN in the shiftTable
-                            let allNull = shiftTable.every(r => r[c] === null || r[c] === undefined || r[c] === 0.0);
+                            // Check if this model is empty in the shiftTable (true N/A)
+                            let allNull = shiftTable.every(r => r[c] === null || r[c] === undefined);
 
                             if (allNull) {
                                 td.innerHTML = '<span style="color:#888; font-size:0.7rem;">Prev Run (N/A)</span>';
-                            } else if (val === 0.0 || val === null || val === undefined) {
+                            } else if (val === null || val === undefined) {
                                 td.innerText = "-";
                             } else {
                                 let gapFlag = (shiftMeta.models[c] && shiftMeta.models[c].gap) ? '*' : '';

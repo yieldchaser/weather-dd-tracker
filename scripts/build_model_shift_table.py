@@ -89,23 +89,25 @@ def main():
             
     # Rename ensemble columns to match frontend UI expectations
     rename_map = {
-        "GEFS Op Chg": "GFS Ens Chg",
-        "ECMWF_ENS Op Chg": "Euro Ens Chg",
+        "GFS Op Chg": "GFS OP CHG",
+        "ECMWF Op Chg": "ECMWF OP CHG",
+        "GEFS Op Chg": "GFS ENS CHG",
+        "ECMWF_ENS Op Chg": "EURO ENS CHG",
         "CMC_ENS Op Chg": "CMC ENS CHG",
-        "ECMWF_AIFS Op Chg": "Euro AI Chg",
-        "HRRR Op Chg": "HRRR Chg",
-        "NAM Op Chg": "NAM Chg"
+        "ECMWF_AIFS Op Chg": "EURO AI CHG",
+        "HRRR Op Chg": "HRRR CHG",
+        "NAM Op Chg": "NAM CHG"
     }
     shift_df.rename(columns=rename_map, inplace=True)
             
     # Ensure all expected columns exist even if empty (for UI stability)
-    expected_cols = ["GFS Ens Chg", "Euro Ens Chg", "CMC ENS CHG", "Euro AI Chg", "HRRR Chg", "NAM Chg"]
+    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG"]
     for col in expected_cols:
         if col not in shift_df.columns:
             shift_df[col] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
-    columns = ["GFS Op Chg", "GFS Ens Chg", "ECMWF Op Chg", "Euro Ens Chg", "CMC ENS CHG", "Euro AI Chg", "HRRR Chg", "NAM Chg"]
+    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG"]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
     # --- STRICT SYNCHRONIZATION ALIGNMENT ---
