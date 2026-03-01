@@ -97,8 +97,7 @@ def main():
         "ECMWF_AIFS Op Chg": "EURO AI CHG",
         "HRRR Op Chg": "HRRR CHG",
         "NAM Op Chg": "NAM CHG",
-        "NBM Op Chg": "NBM CHG",
-        "FOURCASTNETV2-SMALL Op Chg": "EURO AI CHG" # We bucket FourCastNet under AI
+        "NBM Op Chg": "NBM CHG"
     }
     shift_df.rename(columns=rename_map, inplace=True)
             
