@@ -18,14 +18,12 @@ def compute_run_changes():
     df = df[df["run_id"].notna()]
 
     gw_mode = "tdd_gw" in df.columns
-    if gw_mode:
-        # Backfill tdd_gw from tdd for old pre-Phase-2 rows
-        df["tdd_gw"] = df["tdd_gw"].fillna(df["tdd"])
+    # REMOVED global fillna to preserve methodology integrity
 
-    # Compute total HDD per run (simple)
-    agg = {"tdd": "sum"}
+    # Compute Average HDD per run (normalized)
+    agg = {"tdd": "mean"}
     if gw_mode:
-        agg["tdd_gw"] = "sum"
+        agg["tdd_gw"] = "mean"
 
     run_totals = (
         df.groupby(["model", "run_id"])
@@ -40,24 +38,47 @@ def compute_run_changes():
         m = run_totals[run_totals["model"] == model].copy().reset_index(drop=True)
         m["prev_tdd"]    = m["tdd"].shift(1)
         m["hdd_change"]  = m["tdd"] - m["prev_tdd"]
+        
         if gw_mode:
             m["prev_tdd_gw"]   = m["tdd_gw"].shift(1)
-            m["hdd_change_gw"] = m["tdd_gw"] - m["prev_tdd_gw"]
+            m["prev_tdd"]      = m["tdd"].shift(1)
+            
+            # METHODOLOGY INTEGRITY: If tdd_gw exactly equals tdd, it's a fallback 'pollutant'.
+            # We treat such rows as missing GW data to ensure apples-to-apples.
+            def get_gw_change(row):
+                curr_gw = row["tdd_gw"]
+                curr_si = row["tdd"]
+                prev_gw = row["prev_tdd_gw"]
+                prev_si = row["prev_tdd"]
+                
+                # Check for NaNs and Fallback-Equality
+                if pd.isna(curr_gw) or pd.isna(prev_gw): return None
+                if abs(curr_gw - curr_si) < 0.01: return None # Current is simple fallback
+                if abs(prev_gw - prev_si) < 0.01: return None # Prev is simple fallback
+                
+                return curr_gw - prev_gw
+
+            m["hdd_change_gw"] = m.apply(get_gw_change, axis=1)
         all_rows.append(m)
 
     result = pd.concat(all_rows, ignore_index=True)
 
-    # Fast revision flag: any single run moving >3 HDD (gas-weighted preferred)
-    chg_col = "hdd_change_gw" if gw_mode else "hdd_change"
-    result["fast_revision"] = result[chg_col].abs() > 3.0
+    # Fast revision flag: any single run moving >3 HDD
+    # Use GW change if available, otherwise fall back to simple change
+    if gw_mode:
+        result["effective_change"] = result["hdd_change_gw"].fillna(result["hdd_change"])
+    else:
+        result["effective_change"] = result["hdd_change"]
+        
+    result["fast_revision"] = result["effective_change"].abs() > 1.0
 
     os.makedirs("outputs", exist_ok=True)
     result.to_csv(OUTPUT, index=False)
 
     flagged = result[result["fast_revision"]]
     if not flagged.empty:
-        print("\n⚡ FAST REVISION ALERT (>3 HDD in one run):")
-        print(flagged[["model", "run_id", chg_col]].to_string(index=False))
+        print("\n[ALERT] FAST REVISION ALERT (>1.0 HDD/day in one run):")
+        print(flagged[["model", "run_id", "effective_change"]].to_string(index=False))
 
     print("\nTOTAL HDD PER RUN + RUN-TO-RUN CHANGE:\n")
     print(result.to_string())

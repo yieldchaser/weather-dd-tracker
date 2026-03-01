@@ -14,9 +14,11 @@ GW_NORMALS = Path("data/normals/us_gas_weighted_normals.csv")
 STD_NORMALS = Path("data/normals/us_daily_normals.csv")
 
 # Classifications for grouped Telegram output
-PRIMARY_MODELS = ["ECMWF", "GFS", "ECMWF_ENS", "GEFS"]
+PRIMARY_MODELS = ["ECMWF", "GFS", "ECMWF_ENS", "GEFS", "CMC_ENS", "GEFS_35D"]
 SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
 AI_MODELS = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "FOURCASTNETV2", "AURORA", "ECMWF_AIFS"]
+# Categories that should NOT be in AI Consensus groups
+PHYSICS_ENSEMBLES = ["CMC_ENS", "GEFS_35D", "ECMWF_ENS", "GEFS"]
 
 
 def _signal(vs_normal):
@@ -90,7 +92,7 @@ def send():
     season = active_metric(date.today().month)
 
     if "tdd_gw" in df.columns:
-        df["tdd_gw"] = df["tdd_gw"].fillna(df["tdd"])
+        # REMOVED global fillna to preserve integrity
         tdd_col = "tdd_gw"
         metric_lbl = metric_label(date.today().month, gas_weighted=True)
     else:
@@ -176,19 +178,34 @@ def send():
         try:
             rc = pd.read_csv(run_chg_file)
             if "fast_revision" in rc.columns:
-                chg_col = "hdd_change_gw" if "hdd_change_gw" in rc.columns else "hdd_change"
-                flagged = rc[rc["fast_revision"] == True].copy()
-                # Enforce absolute threshold > 15.0 HDDs for the cumulative shift
-                flagged = flagged[flagged[chg_col].abs() > 15.0]
+                chg_col = "effective_change" if "effective_change" in rc.columns else "hdd_change_gw"
+                if chg_col not in rc.columns: chg_col = "hdd_change"
                 
-                # Only show the latest run per model
-                flagged = flagged.sort_values("run_id").groupby("model").last().reset_index()
+                flagged = rc[rc["fast_revision"] == True].copy()
+                
+                # FIX: STALE ALERT PREVENTION
+                latest_run_ids = latest.set_index("model")["run_id"].to_dict()
+                flagged["is_latest"] = flagged.apply(lambda r: latest_run_ids.get(r["model"]) == r["run_id"], axis=1)
+                flagged = flagged[flagged["is_latest"] == True]
+                
+                # FIX: TIME-GAP FILTER
+                # Only show alerts from runs created in the last 48 hours to avoid stale outliers
+                def is_fresh(run_id):
+                    try:
+                        run_date = pd.to_datetime(run_id.split('_')[0], format='%Y%m%d')
+                        return (pd.Timestamp.now() - run_date).days <= 2
+                    except: return False
+                flagged = flagged[flagged["run_id"].apply(is_fresh)]
+                
+                # Enforce absolute threshold > 1.0 HDDs/day for the revision
+                flagged = flagged[flagged[chg_col].abs() > 1.0]
+                
                 if not flagged.empty:
                     dd_lbl = season if season != "BOTH" else "TDD"
-                    lines.append(f"⚡ FAST REVISION ALERTS (Cumulative Shift > 15 {dd_lbl}):")
+                    lines.append(f"⚡ FAST REVISION ALERTS (Shift > 1.0 {dd_lbl}/Day):")
                     for _, fr in flagged.iterrows():
                         arrow = "▲" if fr[chg_col] > 0 else "▼"
-                        lines.append(f"  {fr['model']} {arrow} {fr[chg_col]:+.1f} {dd_lbl} ({fr['run_id']})")
+                        lines.append(f"  {fr['model']} {arrow} {fr[chg_col]:+.1f} {dd_lbl}/d ({fr['run_id']})")
                     lines.append("")
         except Exception as e:
             print(f"[WARN] Could not load run_change.csv: {e}")
@@ -234,9 +251,24 @@ def send():
             run_chg_lbl = season if season != "BOTH" else "TDD"
             if not prev_rows.empty:
                 if common:
-                    lat_avg  = df[(df["model"]==model)&(df["run_id"]==run_id)&(df["date"].isin(common))][tdd_col].mean()
-                    prev_avg = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))][tdd_col].mean()
-                    run_chg  = f"{lat_avg - prev_avg:+.1f} {run_chg_lbl}"
+                    f_lat = df[(df["model"]==model)&(df["run_id"]==run_id)&(df["date"].isin(common))][tdd_col].mean()
+                    f_prv = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))][tdd_col].mean()
+                    
+                    # POLLUTION CHECK: If tdd_gw == tdd for either run_id across common dates, trigger simple fallback
+                    # This ensures we don't compare a Gas-Weighted run to a Simple-Mean fallback run.
+                    lat_si = df[(df["model"]==model)&(df["run_id"]==run_id)&(df["date"].isin(common))]["tdd"].mean()
+                    prv_si = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))]["tdd"].mean()
+                    
+                    is_polluted = False
+                    if tdd_col == "tdd_gw":
+                        if pd.notna(f_lat) and abs(f_lat - lat_si) < 0.01: is_polluted = True
+                        if pd.notna(f_prv) and abs(f_prv - prv_si) < 0.01: is_polluted = True
+                    
+                    if pd.isna(f_lat) or pd.isna(f_prv) or is_polluted:
+                        f_lat = lat_si
+                        f_prv = prv_si
+                        
+                    run_chg  = f"{f_lat - f_prv:+.1f} {run_chg_lbl}"
                 else:
                     run_chg = "no overlap"
             else:
