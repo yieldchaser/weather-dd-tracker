@@ -784,7 +784,7 @@
                         // Get Delta
                         let w1_chg = '-', w2_chg = '-', w3_chg = '-';
                         let total_chg = 0;
-                        let gapFlag = (shiftMeta.models[m] && shiftMeta.models[m].gap) ? ' <small style="color:#ff9800">*Gap</small>' : '';
+                        let gapFlag = (shiftMeta.models[m] && shiftMeta.models[m].gap) ? ' <small style="color:#ff9800">*</small>' : '';
                         let gwWarning = (shiftMeta.models[m] && shiftMeta.models[m].has_gw === false) ? ' <small title="Gas-weighting failed - using simple average" style="color:#f44336; cursor:help">⚠️</small>' : '';
 
                         if (runDelta && runDelta.length > 0) {
