@@ -167,8 +167,8 @@ def main():
         if not m_df.empty:
             runs = sorted(m_df["run_id"].unique(), reverse=True)
             if len(runs) >= 2:
-                t1 = datetime.strptime(runs[0], "%Y%m%d_%H")
-                t2 = datetime.strptime(runs[1], "%Y%m%d_%H")
+                t1 = datetime.strptime(runs[0].replace("_AI", ""), "%Y%m%d_%H")
+                t2 = datetime.strptime(runs[1].replace("_AI", ""), "%Y%m%d_%H")
                 gap = abs((t1 - t2).total_seconds() / 3600) > 24
                 # Check for gas-weighting consistency in latest run
                 latest_rows = m_df[m_df["run_id"] == runs[0]]
