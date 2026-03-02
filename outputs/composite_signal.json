@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-03-02T17:39:44.572611Z",
+  "composite_bull_bear_score": 0.5,
+  "signal": "NEUTRAL",
+  "detail": {
+    "bull_accumulator": 2.5,
+    "bear_accumulator": 2.0,
+    "components": [
+      "Teleconnections Warm/Neutral (+2.0 Bear)",
+      "Bullish Weather Regime (Regime 3 (Arctic Block)) (+2.5 Bull)"
+    ]
+  },
+  "system_status": {
+    "teleconnections_connected": true,
+    "freeze_connected": true,
+    "sensitivity_connected": false,
+    "wind_connected": true,
+    "regimes_connected": true
+  }
+}
