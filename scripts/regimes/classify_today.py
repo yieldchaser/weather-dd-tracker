@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -21,7 +21,8 @@ OUTPUT_PATH = "outputs/regimes/current_regime.json"
 
 def get_today_z500():
     try:
-        now = datetime.utcnow()
+        # Subtract 6 hours to ensure we grab a fully uploaded GFS run
+        now = datetime.now(UTC) - timedelta(hours=6)
         cycle = (now.hour // 6) * 6
         run_date = now.replace(hour=cycle, minute=0, second=0, microsecond=0)
         
@@ -59,7 +60,7 @@ def classify_today():
     ds, run_date = get_today_z500()
     if ds is None:
         logging.warning("Failed to fetch live data using Herbie - using mocked cluster classification for now.")
-        run_date = datetime.utcnow()
+        run_date = datetime.now(UTC)
         import random
         cluster_idx = random.choice([0, 1, 2, 3])
         regime_lbl = labels.get(cluster_idx, f"Regime {cluster_idx}")
