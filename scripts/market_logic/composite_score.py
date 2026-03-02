@@ -12,6 +12,7 @@ Purpose:
 
 import os
 import sys
+import json
 import pandas as pd
 from datetime import datetime, timezone, date as _date
 from pathlib import Path
@@ -84,6 +85,19 @@ def compute_composite():
     # 1. High absolute TDD (extreme cold or extreme heat) is Bullish.
     # 2. High Model Disagreement reduces confidence, pulling the score toward 0 (Neutral).
     # 3. Summer Power Burn carries a +1.5x multiplier to the Bull score.
+    # 4. We apply the rolling coefficient to convert HDD anomalies into expected Bcf anomalies before scoring.
+    
+    coeff_file = Path("outputs/sensitivity/rolling_coeff.json")
+    rolling_coeff = 2.0
+    if coeff_file.exists():
+        try:
+            with open(coeff_file, "r") as f:
+                rolling_coeff = json.load(f).get("rolling_30d_coeff", 2.0)
+        except Exception:
+            pass
+
+    def weight_adjusted_hdd_signal(hdd, coeff):
+        return hdd * coeff
     
     # Build (month, day) → hdd_normal lookup from the normals file
     normals_lookup = {}
@@ -153,11 +167,14 @@ def compute_composite():
         else:  # BOTH shoulder: net (HDD - HDD_norm) + (CDD - CDD_norm)
             tdd_anomaly = (master_tdd - normal_tdd) + (master_tdd - normal_cdd)
 
+        # Convert degree-day anomaly to BCF anomaly using Dynamic Sensitivity Coefficient
+        bcf_anomaly = weight_adjusted_hdd_signal(tdd_anomaly, rolling_coeff)
+
         bull_signal = 0.0
-        if tdd_anomaly > 0:
-            bull_signal += tdd_anomaly * 0.06
-        elif tdd_anomaly < -2:
-            bull_signal += tdd_anomaly * 0.04
+        if bcf_anomaly > 0:
+            bull_signal += bcf_anomaly * 0.03  # half standard scaling since BCF is ~2x HDD
+        elif bcf_anomaly < -4:
+            bull_signal += bcf_anomaly * 0.02
             
         # Add Power Burn weight
         pb_val = row.get("power_burn_cdd", 0)
