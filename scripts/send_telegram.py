@@ -119,30 +119,47 @@ def send():
     latest    = sorted_s.groupby("model").last().reset_index()
     prev      = sorted_s.groupby("model").nth(-2).reset_index()
 
-    # Bias reading
+    # Master Composite Logic Reading
     market_bias_str = "NEUTRAL ⚪"
-    pct_dev_str = ""
-    bias_file = Path("outputs/composite_bull_bear_signal.csv")
+    bias_detail_str = ""
+    component_lines = []
+    
+    bias_file = Path("outputs/composite_signal.json")
     if bias_file.exists():
         try:
-            df_bias = pd.read_csv(bias_file)
-            if not df_bias.empty:
-                val = str(df_bias['market_bias'].iloc[0]).upper()
-                if "BULL" in val: market_bias_str = "BULLISH 🟢"
-                elif "BEAR" in val: market_bias_str = "BEARISH 🔴"
-                if "15d_pct_deviation" in df_bias.columns:
-                    dev = df_bias["15d_pct_deviation"].iloc[0]
-                    pct_dev_str = f" | 15-Day vs 10yr Normal: {dev:+.1f}%"
-        except:
-            pass
+            import json
+            with open(bias_file, "r") as f:
+                comp_data = json.load(f)
+                
+            val = comp_data.get("signal", "NEUTRAL").upper()
+            if "STRONG BULL" in val: market_bias_str = "STRONG BULLISH 🟢🔥"
+            elif "STRONG BEAR" in val: market_bias_str = "STRONG BEARISH 🔴🧊"
+            elif "BULL" in val: market_bias_str = "BULLISH 🟢"
+            elif "BEAR" in val: market_bias_str = "BEARISH 🔴"
+            
+            score = comp_data.get("composite_bull_bear_score", 0.0)
+            bias_detail_str = f" | Net Score: {score:+.2f}"
+            
+            components = comp_data.get("detail", {}).get("components", [])
+            if components:
+                component_lines.append("🌡️ MASTER WEATHER COMPOSITE CATALYSTS:")
+                for c in components:
+                     component_lines.append(f"  • {c}")
+                component_lines.append("")
+        except Exception as e:
+            print(f"[WARN] Could not parse composite_signal.json: {e}")
 
     today = date.today().strftime("%Y-%m-%d")
     mode_tag = " [Gas-Weighted]" if (tdd_col == "tdd_gw" and gw_mode) else " [CONUS avg]"
     season_tag = f" [{season} Season]" if season != "BOTH" else " [Shoulder/TDD]"
+    
     lines = [
         f"WEATHER DESK -- {today}{mode_tag}{season_tag}",
-        f"Algorithmic Bias: {market_bias_str}{pct_dev_str}\n"
+        f"Algorithmic Bias: {market_bias_str}{bias_detail_str}\n"
     ]
+    
+    if component_lines:
+        lines.extend(component_lines)
 
     # Historical Magnitude Matrix Alert
     hist_file = Path("outputs/historical_degree_days.csv")
