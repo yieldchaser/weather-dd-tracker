@@ -7,6 +7,8 @@ import numpy as np
 import xarray as xr
 import pickle
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 # Optional dependency just like in system3
 try:
@@ -76,11 +78,11 @@ def classify_today():
         
         # Interpolate to train coords
         z_interp = z_gfs.interp(latitude=train_lat, longitude=train_lon, method='linear')
-        if 'time' in z_interp.coords:
+        if 'time' in z_interp.dims:
            z_interp = z_interp.squeeze('time')
-        elif 'valid_time' in z_interp.coords:
+        elif 'valid_time' in z_interp.dims:
            z_interp = z_interp.squeeze('valid_time')
-        elif 'step' in z_interp.coords:
+        elif 'step' in z_interp.dims:
            z_interp = z_interp.squeeze('step')
            
         z_interp = z_interp.squeeze()
@@ -98,14 +100,14 @@ def classify_today():
         # Flatten
         anomaly_flat = anomaly.values.flatten().reshape(1, -1)
         
-        # Replace any NaNs with 0
-        anomaly_flat = np.nan_to_num(anomaly_flat)
+        # Replace any NaNs with 0 and cast to float64 for sklearn
+        anomaly_flat = np.nan_to_num(anomaly_flat).astype(np.float64)
         
         # PCA Transform
         pcs = pca.transform(anomaly_flat)
         
-        # KMeans Predict
-        cluster_idx = int(kmeans.predict(pcs)[0])
+        # KMeans Predict expects same type as trained. ERA5 anoms were float32.
+        cluster_idx = int(kmeans.predict(pcs.astype(np.float32))[0])
         regime_lbl = labels.get(cluster_idx, f"Regime {cluster_idx}")
     
     # Output to JSON
