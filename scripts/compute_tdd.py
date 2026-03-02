@@ -7,6 +7,21 @@ from pathlib import Path
 
 BASE_TEMP_F = 65
 
+def load_rolling_coeff():
+    coeff_file = Path("outputs/sensitivity/rolling_coeff.json")
+    if coeff_file.exists():
+        try:
+            with open(coeff_file, "r") as f:
+                data = json.load(f)
+                return data.get("rolling_30d_coeff", 2.0)
+        except Exception:
+            pass
+    return 2.0  # Fallback fixed sensitivity
+
+def weight_adjusted_hdd_signal(hdd_gw, coeff):
+    """Calculate the weight-adjusted signal (e.g., predicted Bcf demand)"""
+    return hdd_gw * coeff
+
 # ── CONUS bounding box (must match build_gas_weights.py) ──────────────────────
 CONUS_LAT_MIN, CONUS_LAT_MAX = 25.0, 50.0
 CONUS_LON_MIN, CONUS_LON_MAX = 235.0, 295.0   # 0–360° convention
@@ -471,6 +486,14 @@ def process_all():
                 continue
             df["model"]  = model
             df["run_id"] = run_id
+            
+            # Apply dynamic sensitivity
+            rolling_coeff = load_rolling_coeff()
+            if "hdd_gw" in df.columns:
+                df["adjusted_hdd_signal"] = df["hdd_gw"].apply(lambda x: weight_adjusted_hdd_signal(x, rolling_coeff) if pd.notna(x) else None)
+            else:
+                df["adjusted_hdd_signal"] = df["hdd"].apply(lambda x: weight_adjusted_hdd_signal(x, rolling_coeff) if pd.notna(x) else None)
+                
             df.to_csv(out, index=False)
             print(f"  [OK] Saved: {out}")
             print(df[["date", "hdd_gw", "cdd_gw", "tdd_gw"]].head(3).to_string(index=False))
