@@ -1,5 +1,14 @@
 {
-  "current_regime": 3,
-  "regime_label": "Regime 3 (Arctic Block)",
-  "persistence_days": 1
+  "current_regime": 0,
+  "regime_label": "Regime 0 (Ridge East / Trough West)",
+  "persistence_days": 1,
+  "season": "Spring",
+  "transition_probs": {
+    "Regime 0": 0.0,
+    "Regime 1": 0.0,
+    "Regime 2": 0.0,
+    "Regime 3": 0.0,
+    "Regime 4": 0.0,
+    "Regime 5": 0.0
+  }
 }
