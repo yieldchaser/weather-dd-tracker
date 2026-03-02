@@ -119,10 +119,22 @@ def classify_today():
         except Exception:
             pass
 
+    # Determine Season
+    m = run_date.month
+    if m in [12, 1, 2]: season = "Winter"
+    elif m in [3, 4, 5]: season = "Spring"
+    elif m in [6, 7, 8]: season = "Summer"
+    else: season = "Fall"
+
+    # Calculate basic transition probabilities (soft distances logic could go here, sending empty mock for schema compliance)
+    transition_probs = {f"Regime {i}": 0.0 for i in labels.keys()}
+
     out_data = {
         "current_regime": cluster_idx,
         "regime_label": regime_lbl,
-        "persistence_days": persistence
+        "persistence_days": persistence,
+        "season": season,
+        "transition_probs": transition_probs
     }
     
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)

@@ -90,11 +90,12 @@ def compute_composite_weather_signal():
         
     # 5. Weather Regimes
     # Trough East / Arctic Block usually bullish in winter
-    curr_regime = regimes.get('current_regime', -1)
-    if curr_regime in [0, 3]:  # 0: Trough East, 3: Arctic Block
+    regime_lbl = regimes.get('regime_label', '').lower()
+    
+    if any(word in regime_lbl for word in ["trough", "arctic", "block"]):
         bull_score += 2.5
         components.append(f"Bullish Weather Regime ({regimes.get('regime_label','')}) (+2.5 Bull)")
-    elif curr_regime in [1, 2]: # 1: Ridge West (sometimes warm east), 2: Zonal Flow (mild)
+    elif any(word in regime_lbl for word in ["ridge", "zonal"]):
         bear_score += 2.0
         components.append(f"Bearish/Mild Weather Regime ({regimes.get('regime_label','')}) (+2.0 Bear)")
 

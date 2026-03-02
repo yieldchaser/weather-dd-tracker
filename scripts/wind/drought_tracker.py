@@ -102,10 +102,23 @@ def run_wind_drought_tracker():
     national_cf_anomaly = sum(anomalies) / len(anomalies) if anomalies else 0.0
     in_drought = national_cf_anomaly <= -0.10
 
+    if national_cf_anomaly <= -0.15:
+        impact = "HIGH BCF BURN"
+    elif national_cf_anomaly <= -0.05:
+        impact = "MODERATE BCF BURN"
+    elif national_cf_anomaly >= 0.10:
+        impact = "DISPLACED GAS"
+    else:
+        impact = "NEUTRAL"
+        
+    per_iso = dict(zip(isos, [round(a, 3) for a in anomalies]))
+
     output = {
         "national_cf_anomaly": round(national_cf_anomaly, 3),
         "drought_isos": drought_isos,
-        "in_drought": bool(in_drought)
+        "in_drought": bool(in_drought),
+        "power_burn_impact_signal": impact,
+        "per_iso": per_iso
     }
 
     out_file = "outputs/wind/drought.json"

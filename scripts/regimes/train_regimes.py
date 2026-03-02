@@ -6,6 +6,7 @@ import numpy as np
 import pickle
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -69,23 +70,67 @@ def train_regimes():
     pca = PCA(n_components=0.90, random_state=42)
     pcs = pca.fit_transform(anomalies_flat)
     
-    logging.info("Training KMeans...")
-    kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
-    clusters = kmeans.fit_predict(pcs)
+    logging.info("Training KMeans and finding optimal K (6 to 15)...")
+    best_k = 6
+    best_score = -1
+    best_kmeans = None
     
-    # Create labels mapping
-    regime_labels = {
-        0: "Regime 0 (Trough East)",
-        1: "Regime 1 (Ridge West)",
-        2: "Regime 2 (Zonal Flow)",
-        3: "Regime 3 (Arctic Block)"
-    }
+    for k in range(6, 16):
+        km = KMeans(n_clusters=k, random_state=42, n_init=10)
+        labels_k = km.fit_predict(pcs)
+        score = silhouette_score(pcs, labels_k)
+        logging.info(f"  k={k}: Silhouette Score = {score:.4f}")
+        if score > best_score:
+            best_score = score
+            best_k = k
+            best_kmeans = km
+            
+    logging.info(f"Optimal clusters chosen: {best_k} (score: {best_score:.4f})")
+    
+    clusters = best_kmeans.predict(pcs)
+    
+    # Dynamically assign meaningful semantic labels based on cluster centroids
+    lat_arr = da.latitude.values if 'latitude' in da.coords else da.lat.values
+    lon_arr = da.longitude.values if 'longitude' in da.coords else da.lon.values
+    
+    regime_labels = {}
+    centroids_pc = best_kmeans.cluster_centers_
+    centroids_flat = pca.inverse_transform(centroids_pc) 
+    
+    # Reshape back to lat/lon spatial map representation
+    centroids_2d = centroids_flat.reshape(best_k, len(lat_arr), len(lon_arr))
+    
+    for i in range(best_k):
+        # Convert Geopotential to Geopotential Height (m) for meteorological thresholds
+        c_2d = centroids_2d[i] / 9.80665  
+        
+        # Georeference the slices dynamically
+        # USA bounds rough approximation
+        west_cond = (lon_arr <= 260) if lon_arr.max() > 180 else (lon_arr <= -100)
+        east_cond = (lon_arr >= 275) if lon_arr.max() > 180 else (lon_arr >= -85)
+        north_cond = lat_arr >= 55
+        
+        west_anom = c_2d[:, west_cond].mean()
+        east_anom = c_2d[:, east_cond].mean()
+        north_anom = c_2d[north_cond, :].mean()
+        
+        tags = []
+        if north_anom > 30: tags.append("Arctic Block")
+        if east_anom < -20: tags.append("Trough East")
+        elif east_anom > 20: tags.append("Ridge East")
+        if west_anom > 20: tags.append("Ridge West")
+        elif west_anom < -20: tags.append("Trough West")
+        
+        if not tags:
+            tags.append("Zonal Flow")
+            
+        regime_labels[i] = f"Regime {i} ({' / '.join(tags)})"
     
     os.makedirs(os.path.dirname(OUTPUT_MODEL_PATH), exist_ok=True)
     with open(OUTPUT_MODEL_PATH, "wb") as f:
         pickle.dump({
             'pca': pca,
-            'kmeans': kmeans,
+            'kmeans': best_kmeans,
             'climatology': climatology,
             'lat': da.latitude.values if 'latitude' in da.coords else da.lat.values,
             'lon': da.longitude.values if 'longitude' in da.coords else da.lon.values,
