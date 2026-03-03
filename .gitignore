@@ -1,3 +1,13 @@
+# ── Large binary model/weather data (never commit) ────────────────────────────
+*.grib
+*.grib2
+*.grib2.*
+*.idx
+*.onnx
+*.tar
+*.nc
+
+# ── Raw GRIB download dirs (populated by fetchers, not committed) ──────────────
 data/ecmwf/*/ifs_t2m.grib2
 data/ecmwf/*/*.idx
 data/gfs/*/gfs.t*
@@ -11,23 +21,41 @@ data/hrrr/
 data/nam/
 data/gefs/
 data/icon/
+
+# ── Weight grid (large binary, rebuilt via build_gas_weights.py) ───────────────
+# Note: regime_model.pkl IS committed (retrained quarterly)
+data/weights/conus_gas_weights.npy
+data/weights/conus_gas_weights_meta.json
+
+# ── Kaggle ────────────────────────────────────────────────────────────────────
 kaggle_logs/
 kaggle_logs_v*/
-*.onnx
-*.tar
-*.npy
-*.log
-*.tmp
-fetch_logs*.py
-test_nbm.py
-__pycache__/
-.vscode/
-# Large binary / temp artefacts
-*.grib
-*.grib2
-*.download
-output/
 kaggle_logs_v*.txt
 data/ai_models/.deps_installed
 data/ai_models/output/
+
+# ── Python cache ───────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Logs (runtime only, not source) ───────────────────────────────────────────
+*.log
+*.tmp
+logs/
 *log*.txt
+
+# ── IDE / OS ───────────────────────────────────────────────────────────────────
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ── Misc scratch / test files ──────────────────────────────────────────────────
+fetch_logs*.py
+test_nbm.py
+output/
+
+# ── Stray root-level GRIB index files ─────────────────────────────────────────
+ecmwf_*.idx
+*.download
