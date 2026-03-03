@@ -52,85 +52,63 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         print(f"Failed to fetch {lat}, {lon}: {e}")
         return None
 
-def fetch():
-    now = datetime.datetime.now(datetime.UTC)
-    
-    test_lat, test_lon = DEMAND_CITIES[0][1], DEMAND_CITIES[0][2]
-    test_temps = fetch_city_temps(test_lat, test_lon)
-    
-    if not test_temps:
-        print("  [ERR] ECMWF ENS Open-Meteo fetch: API completely failed")
-        return None
-        
-    start_date_str = sorted(test_temps.keys())[0]
-    date_formatted = start_date_str.replace("-", "")
-    
-    # Open-Meteo Ensemble mirrors ECMWF's twice-a-day schedule
-    if now.hour >= 19:
-        cycle = "12"
-    elif now.hour >= 7:
-        cycle = "00"
-    else:
-        cycle = "12"
-        # Since it's before 7am, the "start date" returned by API is still yesterday
-        
-    run_id = f"{date_formatted}_{cycle}"
+def fetch_run(date_str, cycle):
+    run_id = f"{date_str}_{cycle}"
     out_path = BASE_DIR / f"{run_id}_tdd.csv"
     
     if out_path.exists():
-        print(f"[{run_id}Z] Already fetched fully. Skipping.")
-        return run_id
+        print(f"  [SKIP] ECMWF ENS run {run_id}Z already fetched.")
+        return True
 
-    print(f"Trying ECMWF ENS: {run_id} (Open-Meteo API ecmwf_ifs04)")
+    print(f"Syncing ECMWF ENS: {run_id} (Open-Meteo API ecmwf_ifs025)")
 
     city_data = {}
     failed = 0
     for name, lat, lon, weight in DEMAND_CITIES:
+        # We fetch the OM ensemble mean for this city.
+        # OM usually mirrors 00z and 12z cycles for ECMWF.
         temps = fetch_city_temps(lat, lon)
         if temps:
             city_data[name] = (weight, temps)
         else:
-            print(f"    [ERR] {name} failed")
             failed += 1
 
     if not city_data:
-        print("  [ERR] ECMWF ENS Open-Meteo fetch: all cities failed")
-        return None
+        return False
 
     all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
     rows = []
-    
     for dt_str in all_dates:
-        total_w = 0.0
-        weighted_temp = 0.0
+        total_w, weighted_temp = 0.0, 0.0
         for name, (weight, temps) in city_data.items():
             if dt_str in temps:
                 weighted_temp += weight * temps[dt_str]
                 total_w += weight
-        if total_w == 0:
-            continue
-        
-        avg_c = weighted_temp / total_w
-        avg_f = celsius_to_f(avg_c)
-        rows.append({
-            "date":      dt_str,
-            "mean_temp": round(avg_f, 2),
-            "tdd":       round(compute_tdd(avg_f), 2),
-            "tdd_gw":    round(compute_tdd(avg_f), 2),
-            "model":     "ECMWF_ENS",
-            "run_id":    run_id,
-        })
+        if total_w > 0:
+            avg_f = celsius_to_f(weighted_temp / total_w)
+            rows.append({
+                "date": dt_str, "mean_temp": round(avg_f, 2), "tdd": round(compute_tdd(avg_f), 2),
+                "tdd_gw": round(compute_tdd(avg_f), 2), "model": "ECMWF_ENS", "run_id": run_id,
+            })
 
-    if not rows:
-        print("  [ERR] ECMWF ENS: no dates computed")
-        return None
+    if rows:
+        pd.DataFrame(rows).to_csv(out_path, index=False)
+        print(f"  [OK] Success: {run_id} ECMWF_ENS ({len(rows)} days)")
+        return True
+    return False
 
-    df = pd.DataFrame(rows)
-    df.to_csv(out_path, index=False)
-    
-    active = len(DEMAND_CITIES) - failed
-    print(f"[OK] Success: {run_id} ECMWF_ENS ({len(rows)} days computed | {active}/17 cities)")
-    return run_id
+def sync_all_ecmwf_ens():
+    print("\n--- ECMWF ENS SYNC SERVICE ---")
+    now = datetime.datetime.now(datetime.UTC)
+    for day_offset in range(-1, 1):
+        date_str = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
+        for cycle in ["00", "12"]:
+            # Logic: If it's today and before 08:30 UTC, 00z probably isn't ready on OM.
+            # If it's before 20:30 UTC, 12z isn't ready.
+            if day_offset == 0:
+                if cycle == "00" and now.hour < 8: continue
+                if cycle == "12" and now.hour < 20: continue
+            fetch_run(date_str, cycle)
 
 if __name__ == "__main__":
-    fetch()
+    sync_all_ecmwf_ens()

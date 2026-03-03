@@ -33,3 +33,7 @@ DEMAND_CITIES = [
 ]
 
 TOTAL_WEIGHT = sum(w for _, _, _, w in DEMAND_CITIES)
+
+def compute_tdd(temp_f):
+    """Simple Heating Degree Day (HDD) calculation against Base 65F."""
+    return max(65.0 - temp_f, 0)

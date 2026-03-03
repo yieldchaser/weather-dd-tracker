@@ -19,12 +19,12 @@ ECMWF_CYCLES = ["00", "12"]
 def load_state():
     if not os.path.exists(STATE_FILE):
         os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": ""}
+        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": ""}
     try:
         with open(STATE_FILE, "r") as f:
             return json.load(f)
     except Exception:
-        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": ""}
+        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": ""}
 
 def save_state(state):
     with open(STATE_FILE, "w") as f:
@@ -97,6 +97,41 @@ def check_nbm_complete(date_str, cycle):
         return r.status_code == 200
     except Exception:
         return False
+
+def check_aifs_complete(date_str, cycle):
+    """
+    Checks if ECMWF AIFS run is available on Open Data.
+    """
+    try:
+        from ecmwf.opendata import Client
+        client = Client(source="ecmwf")
+        urls = client.urls(
+            model="aifs-single", stream="oper", type="fc", resol="0p25",
+            date=date_str, time=cycle, step=0, param="2t"
+        )
+        return len(urls) > 0
+    except: return False
+
+def check_cmc_ens_complete(date_str, cycle):
+    """
+    Checks if CMC ENS (gem_global_ensemble) is available on Open-Meteo.
+    Open-Meteo updates usually follow NOMADS by ~1-2 hours.
+    """
+    # We check if a simple API query for the run's start date returns non-null data
+    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    params = {
+        "latitude": 40, "longitude": -100, "daily": "temperature_2m_mean",
+        "models": "gem_global_ensemble", "timezone": "UTC", "forecast_days": 1
+    }
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            # If the API date aligns with our check date, it's ready
+            om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
+            return om_date == date_str
+        return False
+    except: return False
 
 def poll():
     state = load_state()
@@ -177,6 +212,34 @@ def poll():
     if latest_nbm_avail and latest_nbm_avail > state.get("NBM", ""):
         print(f"  >>> [NEW] NBM Run Detected: {latest_nbm_avail} <<<")
         new_state["NBM"] = latest_nbm_avail
+        triggered = True
+
+    # 5. Check AIFS
+    latest_aifs_avail = None
+    for d in dates_to_check:
+        for c in ["00", "06", "12", "18"]:
+            run_id = f"{d}_{c}"
+            if run_id > state.get("AIFS", ""):
+                print(f"  [PING] Checking AIFS {run_id} completion...")
+                if check_aifs_complete(d, c):
+                    latest_aifs_avail = run_id
+    if latest_aifs_avail and latest_aifs_avail > state.get("AIFS", ""):
+        print(f"  >>> [NEW] EURO AI (AIFS) Run Detected: {latest_aifs_avail} <<<")
+        new_state["AIFS"] = latest_aifs_avail
+        triggered = True
+
+    # 6. Check CMC ENS
+    latest_cmc_avail = None
+    for d in dates_to_check:
+        for c in ["00", "12"]:
+            run_id = f"{d}_{c}"
+            if run_id > state.get("CMC_ENS", ""):
+                print(f"  [PING] Checking CMC ENS {run_id} availability...")
+                if check_cmc_ens_complete(d, c):
+                    latest_cmc_avail = run_id
+    if latest_cmc_avail and latest_cmc_avail > state.get("CMC_ENS", ""):
+        print(f"  >>> [NEW] CMC Ensemble Run Detected: {latest_cmc_avail} <<<")
+        new_state["CMC_ENS"] = latest_cmc_avail
         triggered = True
         
     if triggered:

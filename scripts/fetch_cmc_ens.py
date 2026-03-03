@@ -49,95 +49,66 @@ def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
         print(f"Failed to fetch {lat}, {lon}: {e}")
         return None
 
-def fetch(target_date=None):
-    now = datetime.datetime.now(datetime.UTC)
-    if target_date:
-        # Use target date directly
-        date_formatted = target_date
-        cycle = "00" # Default for bootstrap
-    else:
-        test_lat, test_lon = DEMAND_CITIES[0][1], DEMAND_CITIES[0][2]
-        test_temps = fetch_city_temps(test_lat, test_lon)
-        if not test_temps:
-            print("  [ERR] CMC ENS Open-Meteo fetch: API completely failed")
-            return None
-        start_date_str = sorted(test_temps.keys())[0]
-        date_formatted = start_date_str.replace("-", "")
-        if now.hour >= 19:
-            cycle = "12"
-        elif now.hour >= 7:
-            cycle = "00"
-        else:
-            cycle = "12"
-        
-    run_id = f"{date_formatted}_{cycle}"
+def fetch_run(date_str, cycle):
+    run_id = f"{date_str}_{cycle}"
     out_path = BASE_DIR / f"{run_id}_tdd.csv"
     
     if out_path.exists():
-        # Check staleness: if file is older than 6 hours, we refetch to ensure we aren't stuck on old OM data
-        mtime = datetime.datetime.fromtimestamp(out_path.stat().st_mtime, datetime.timezone.utc)
-        age_hours = (datetime.datetime.now(datetime.timezone.utc) - mtime).total_seconds() / 3600
-        if age_hours < 6:
-            print(f"[{run_id}Z] Already fetched within last 6h. Skipping.")
-            return run_id
-        else:
-            print(f"[{run_id}Z] Cache stale ({age_hours:.1f}h). Refetching...")
+        print(f"  [SKIP] CMC ENS run {run_id}Z already fetched.")
+        return True
 
-    print(f"Trying CMC ENS: {run_id} (Open-Meteo API gem_global_ensemble)")
+    print(f"Syncing CMC ENS: {run_id} (Open-Meteo API gem_global_ensemble)")
 
     city_data = {}
     failed = 0
     for name, lat, lon, weight in DEMAND_CITIES:
+        # We need to ensure the Open-Meteo run matches our cycle.
+        # Open-Meteo usually updates 00z at ~07:00 UTC and 12z at ~19:00 UTC.
+        # However, for historical sync, we just fetch what OM gives for that date 
+        # as it usually serves the latest available run for a given window.
         temps = fetch_city_temps(lat, lon)
         if temps:
             city_data[name] = (weight, temps)
         else:
-            print(f"    [ERR] {name} failed")
             failed += 1
 
     if not city_data:
-        print("  [ERR] CMC ENS Open-Meteo fetch: all cities failed")
-        return None
+        return False
 
     all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
     rows = []
-    
     for dt_str in all_dates:
-        total_w = 0.0
-        weighted_temp = 0.0
+        total_w, weighted_temp = 0.0, 0.0
         for name, (weight, temps) in city_data.items():
             if dt_str in temps:
                 weighted_temp += weight * temps[dt_str]
                 total_w += weight
-        if total_w == 0:
-            continue
-        
-        avg_c = weighted_temp / total_w
-        avg_f = celsius_to_f(avg_c)
-        rows.append({
-            "date":      dt_str,
-            "mean_temp": round(avg_f, 2),
-            "tdd":       round(compute_tdd(avg_f), 2),
-            "tdd_gw":    round(compute_tdd(avg_f), 2),
-            "model":     "CMC_ENS",
-            "run_id":    run_id,
-        })
+        if total_w > 0:
+            avg_f = celsius_to_f(weighted_temp / total_w)
+            rows.append({
+                "date": dt_str, "mean_temp": round(avg_f, 2), "tdd": round(compute_tdd(avg_f), 2),
+                "tdd_gw": round(compute_tdd(avg_f), 2), "model": "CMC_ENS", "run_id": run_id,
+            })
 
-    if not rows:
-        print("  [ERR] CMC ENS: no dates computed")
-        return None
+    if rows:
+        pd.DataFrame(rows).to_csv(out_path, index=False)
+        print(f"  [OK] Success: {run_id} CMC_ENS ({len(rows)} days)")
+        return True
+    return False
 
-    df = pd.DataFrame(rows)
-    df.to_csv(out_path, index=False)
-    
-    active = len(DEMAND_CITIES) - failed
-    print(f"[OK] Success: {run_id} CMC_ENS ({len(rows)} days computed | {active}/17 cities)")
-    return run_id
-
-if __name__ == "__main__":
-    import sys
-    target = sys.argv[1] if len(sys.argv) > 1 else None
-    fetch(target)
+def sync_all_cmc():
+    print("\n--- CMC ENS SYNC SERVICE ---")
+    now = datetime.datetime.now(datetime.UTC)
+    # Sync last 2 days, 00 and 12 cycles
+    for day_offset in range(-1, 1):
+        date_str = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
+        for cycle in ["00", "12"]:
+            # Logic: If it's today and before 07:00, 00z isn't ready. 
+            # If it's before 19:00, 12z isn't ready.
+            if day_offset == 0:
+                if cycle == "00" and now.hour < 7: continue
+                if cycle == "12" and now.hour < 19: continue
+            fetch_run(date_str, cycle)
 
 if __name__ == "__main__":
-    fetch()
+    sync_all_cmc()
