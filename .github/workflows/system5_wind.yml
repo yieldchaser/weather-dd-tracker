@@ -1,15 +1,15 @@
-name: System 1 - Teleconnections Dashboard
+name: System 5 - Wind Drought Tracker
 
 on:
   schedule:
-    - cron: '0 6,18 * * *'
+    - cron: '30 7 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  run-teleconnections:
+  run-wind-drought:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,16 +23,16 @@ jobs:
         run: |
           pip install pandas numpy requests
           
-      - name: Run System 1
+      - name: Run System 5
         env:
           EIA_KEY: ${{ secrets.EIA_KEY }}
-        run: python scripts/teleconnections/system1_teleconnections.py
+        run: python scripts/wind/drought_tracker.py
         
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add outputs/teleconnections/
-          git diff --staged --quiet || (git commit -m "Auto-update: Teleconnections state $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+          git add outputs/wind/
+          git diff --staged --quiet || (git commit -m "Auto-update: Wind Drought state $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

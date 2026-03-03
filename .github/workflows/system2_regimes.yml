@@ -1,0 +1,41 @@
+name: System 2 - Weather Regime Classifier
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-regimes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libeccodes-dev
+          
+      - name: Install python dependencies
+        run: |
+          pip install xarray pandas numpy scikit-learn herbie-data eccodes cfgrib requests
+          
+      - name: Run System 2
+        env:
+          EIA_KEY: ${{ secrets.EIA_KEY }}
+        run: python scripts/regimes/classify_today.py
+        
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add outputs/regimes/
+          git diff --staged --quiet || (git commit -m "Auto-update: Weather Regime state $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

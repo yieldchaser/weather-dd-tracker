@@ -1,15 +1,15 @@
-name: System 1 - Teleconnections Dashboard
+name: Master Weather Composite Signal
 
 on:
   schedule:
-    - cron: '0 6,18 * * *'
+    - cron: '30 8 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  run-teleconnections:
+  run-composite:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,18 +21,18 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install pandas numpy requests
+          pip install pandas numpy
           
-      - name: Run System 1
+      - name: Run Master Integration
         env:
           EIA_KEY: ${{ secrets.EIA_KEY }}
-        run: python scripts/teleconnections/system1_teleconnections.py
+        run: python scripts/compute_composite_weather_signal.py
         
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add outputs/teleconnections/
-          git diff --staged --quiet || (git commit -m "Auto-update: Teleconnections state $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+          git add outputs/composite_signal.json
+          git diff --staged --quiet || (git commit -m "Auto-update: Master Weather Signal $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

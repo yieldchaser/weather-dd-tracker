@@ -1,15 +1,15 @@
-name: System 1 - Teleconnections Dashboard
+name: System 4 - Weather Sensitivity Coefficient
 
 on:
   schedule:
-    - cron: '0 6,18 * * *'
+    - cron: '0 8 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  run-teleconnections:
+  run-sensitivity:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,18 +21,18 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install pandas numpy requests
+          pip install pandas numpy requests statsmodels
           
-      - name: Run System 1
+      - name: Run System 4
         env:
           EIA_KEY: ${{ secrets.EIA_KEY }}
-        run: python scripts/teleconnections/system1_teleconnections.py
+        run: python scripts/sensitivity/system4_sensitivity.py
         
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add outputs/teleconnections/
-          git diff --staged --quiet || (git commit -m "Auto-update: Teleconnections state $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+          git add outputs/sensitivity/
+          git diff --staged --quiet || (git commit -m "Auto-update: Weather Sensitivity state $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
