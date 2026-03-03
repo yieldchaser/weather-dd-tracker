@@ -78,8 +78,11 @@ def build_daily_mean_dataset(run_dir, model_name):
             return None
              
     else:
-        # Multiple file models (GFS, GEFS)
-        pattern = "gfs.*" if model_name == "GFS" else "ge*"
+        # Multiple file models (GFS, GEFS, GEFS_35D)
+        if model_name == "GFS":
+            pattern = "gfs.*"
+        else:
+            pattern = "ge*"   # covers gec00 + gep* for both GEFS and GEFS_35D
         files = sorted(list(Path(run_dir).glob(pattern)))
         if not files: return None
         
@@ -278,6 +281,7 @@ def main():
         {"name": "ECMWF",      "path": "data/ecmwf"},
         {"name": "GFS",        "path": "data/gfs"},
         {"name": "GEFS",       "path": "data/gefs"},
+        {"name": "GEFS_35D",   "path": "data/gefs_subseasonal"},
         {"name": "ECMWF_ENS",  "path": "data/ecmwf_ens"},
         {"name": "ECMWF_AIFS", "path": "data/ecmwf_aifs"},
     ]

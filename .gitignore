@@ -20,6 +20,7 @@ data/open_meteo/
 data/hrrr/
 data/nam/
 data/gefs/
+data/gefs_subseasonal/*/
 data/icon/
 
 # ── Weight grid (large binary, rebuilt via build_gas_weights.py) ───────────────
