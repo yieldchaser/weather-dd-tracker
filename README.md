@@ -5,16 +5,16 @@ An algorithmic weather dashboard designed for institutional natural gas trading.
 ## 🌦️ Supported Models & Horizons
 The terminal synchronizes data from over a dozen global and regional models, providing a comprehensive view of meteorological evolution:
 
-*   **Short-Range (0-3 Days):** 
+*   **Short-Range (0-5 Days):** 
     *   **HRRR:** 48h High-Resolution Rapid Refresh
     *   **NAM:** 84h North American Mesoscale
+    *   **NBM:** National Blend of Models (Full 11-day consensus)
 *   **Medium-Range Physics (0-16 Days):**
     *   **ECMWF / GFS:** Operational global standards
-    *   **CMC_ENS / GEFS:** Physics-based ensembles
-    *   **NBM:** National Blend of Models
+    *   **CMC_ENS / GEFS / ICON:** Physics-based ensembles
 *   **Medium-Range AI (ML Forecasts):**
-    *   **ECMWF_AIFS:** ECMWF's Artificial Intelligence Integrated Forecasting System
     *   **FourCastNetV2-Small:** NVIDIA-backed machine learning model
+    *   **ECMWF_AIFS:** ECMWF's Artificial Intelligence Integrated Forecasting System
 *   **Extended (Seasonal):**
     *   **GEFS_35D:** 35-day subseasonal ensemble
 
@@ -22,32 +22,31 @@ The terminal synchronizes data from over a dozen global and regional models, pro
 The terminal provides refined visualizations and tables optimized for rapid decision-making:
 
 *   **Model Consensus Shift Table:** Normalizes run-to-run changes to **Average HDDs/Day**. Unlike raw totals, this allows traders to compare a 2-day HRRR shift against a 16-day GFS shift on an apples-to-apples basis.
-*   **Gap Flags (*):** The UI automatically detects time-jumps between model fetches. If a run is more than 24 hours behind, it is flagged with a `*Gap` marker to distinguish "weather evolution" from single-cycle "model trends."
-*   **Dynamic Horizon Tags:** Models display their effective forecast window (e.g., `HRRR (2d)`, `NAM (3.5d)`) to alert users to the varying limits of predictive data.
-*   **X-Axis Clipping:** The main chart dynamically clips historical "rubber-banding," focusing the viewport strictly on forward-looking weather starting from Today.
+*   **Historical Magnitude Matrix:** Ranks the current forecast against the last 30 years of weather history. Instantly identifies "Top 5 Coldest/Hottest" regimes for historical context.
+*   **75% Stability Filter:** Automatically drops forecast days from averages if they contain <75% of their expected hourly data. This prevents "First-Hour Spikes" where a partial morning run could spoof a massive daily shift.
+*   **Gap Flags (*):** Orange asterisk identifies long time-jumps between model cycles, helping traders distinguish fresh trends from stale data gaps.
 
 ## ⚙️ Backend & Data Integrity
-The backend is designed for high-frequency updates and rigorous statistical accuracy:
+The backend is designed for rigorous statistical accuracy:
 
-*   **Master Data Store:** All processed data is consolidated into `tdd_master.csv`, the source of truth for all frontend and alert components.
-*   **The 'Pollution Check':** To prevent artificial spikes (e.g., +100 HDD shifts) caused by missing gas-weights, the pipeline detects if a model run lacks native gas-weighting data and automatically falls back to a **Simple vs. Simple** comparison.
-*   **Gas-Weighting methodology:** Applies weighted average temperature calculations based on regional natural gas consumption footprints.
+*   **Grid-Synced AI:** AI models (FourCastNet) now dynamically fetch the official **High-Resolution Gas-Weighting Grid** from GitHub at runtime, ensuring their math is 100% identical to the physics-based models (Apples-to-Apples).
+*   **Persistent Master Data:** `tdd_master.csv` acts as the source of truth, appending and deduplicating data to preserve historical run history for long-term analytics.
+*   **Gas-Weighting Methodology:** Applies high-resolution weighted average temperature calculations based on population-density and natural gas consumption footprints.
 
 ## 🤖 Telegram Alert Bot
-An automated alert system broadcasts high-priority shifts directly to trading channels:
+An automated alert system broadcasts high-priority signals directly to trading channels:
 
-*   **Fast Revision Alerts:** Identifies rapid model shifts. Includes a **48-Hour Freshness Filter** to automatically quarantine stale data, ensuring alerts only reflect live, actionable cycles.
-*   **Algorithmic Bias & Convergence:** Tracks model alignment (Bullish/Bearish) and daily convergence trends to identify high-conviction weather regimes.
-*   **AI vs Physics Consensus:** The bot separates AI models from traditional physics ensembles to generate a clean, ML-driven market signal.
+*   **Fast Revision Alerts:** Identifies rapid model shifts (>1.0 DD/day). Includes a **48-Hour Freshness Filter** to automatically quarantine stale data.
+*   **Consensus Grouping:** Segregates Primary, AI, and Short-Term signals to provide a structured market view.
+*   **Convergence detector:** Fires specifically when multi-model spreads collapse and independent models align on a single weather direction.
 
-## 🚀 Setup & Execution
-The terminal is designed for automated background operation:
+## 🚀 Execution & Pipeline
+The terminal is designed for automated background operation via `scripts/daily_update.py`:
 
-1.  **Schedule:** Configured for 4x daily updates (04:00, 10:00, 16:00, 22:00 UTC) via GitHub Actions.
-2.  **Data Ingestion:**
-    *   `scripts/fetch_nomads.py`: Pulls latest HRRR/NAM GRIB data.
-    *   `scripts/fetch_open_meteo.py`: Ingests ensemble and AI payloads.
-3.  **Processing Pipeline:**
-    *   `scripts/compute_tdd.py`: Calculates degree days and applies gas-weights.
-    *   `scripts/build_model_shift_table.py`: Generates the UI shift metadata and JSON payloads.
-4.  **Deployment:** Run using a local development server or hosted as a static site via GitHub Pages.
+1.  **Schedule:** Configured for high-frequency updates via GitHub Actions.
+2.  **Ingestion:** Parallel fetchers (`fetch_gfs.py`, `fetch_nbm.py`, `fetch_hrrr.py`, etc.) pull data from NOAA/AWS.
+3.  **Processing:** 
+    *   `compute_tdd.py`: Calculates degree days with stability filters.
+    *   `merge_tdd.py`: Aggregates historical and live data payloads.
+    *   `build_model_shift_table.py`: Generates UI shift metadata.
+4.  **Deployment:** Hosted as a static site via GitHub Pages (accelerated via `.nojekyll` bypass).
