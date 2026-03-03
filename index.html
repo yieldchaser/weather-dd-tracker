@@ -372,6 +372,19 @@
             .summary-card .val {
                 font-size: 1.6rem;
             }
+
+            /* Fix: Top 4 Runs chart — reduce height on mobile so legend + axes fit properly */
+            #runChartWrapper {
+                height: 260px;
+            }
+
+            /* Fix: Shift table — ensure cells never wrap so text doesn't overlap */
+            #shift-table th,
+            #shift-table td {
+                white-space: nowrap;
+                padding: 7px 8px;
+                font-size: 0.78rem;
+            }
         }
 
         /* ── Weather Intelligence Panel ── */
@@ -687,7 +700,9 @@
                 <div style="flex: 1 1 50%; min-width: 300px;">
                     <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Top 4 Runs vs 30-Year Normal
                     </h3>
-                    <canvas id="runChart" height="150"></canvas>
+                    <div id="runChartWrapper" style="position:relative; height:300px;">
+                        <canvas id="runChart"></canvas>
+                    </div>
                 </div>
                 <!-- Map Right -->
                 <div style="flex: 1 1 40%; min-width: 300px; overflow: hidden;" class="map-section" id="mapContainer">
@@ -706,10 +721,10 @@
         <!-- MODEL SHIFT MATRIX -->
         <h2 class="section-title" id="shift-title">Day-by-Day Model Consensus Shift (GW Degree Days)</h2>
         <div class="table-responsive">
-            <table id="shift-table">
+            <table id="shift-table" style="table-layout:auto; white-space:nowrap; min-width:max-content;">
                 <thead>
                     <tr id="shift-header">
-                        <th>Date</th>
+                        <th style="white-space:nowrap;">Date</th>
                     </tr>
                 </thead>
                 <tbody id="shift-body">
@@ -1712,6 +1727,7 @@
                 runChartInstance.destroy();
             }
 
+            const isMobile = window.innerWidth <= 768;
             let ctx = document.getElementById('runChart').getContext('2d');
             runChartInstance = new Chart(ctx, {
                 type: 'line',
@@ -1721,9 +1737,17 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: '#c5c6c7' } },
+                        legend: {
+                            labels: {
+                                color: '#c5c6c7',
+                                boxWidth: isMobile ? 20 : 40,
+                                font: { size: isMobile ? 10 : 12 },
+                                padding: isMobile ? 6 : 10
+                            }
+                        },
                         tooltip: {
                             backgroundColor: 'rgba(31,40,51,0.9)',
                             callbacks: {
@@ -1732,11 +1756,23 @@
                         }
                     },
                     scales: {
-                        x: { ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' } },
+                        x: {
+                            ticks: {
+                                color: '#c5c6c7',
+                                maxRotation: isMobile ? 45 : 0,
+                                minRotation: isMobile ? 45 : 0,
+                                font: { size: isMobile ? 9 : 12 }
+                            },
+                            grid: { color: '#2a3642' }
+                        },
                         y: {
-                            ticks: { color: '#c5c6c7' },
+                            ticks: { color: '#c5c6c7', font: { size: isMobile ? 9 : 12 } },
                             grid: { color: '#2a3642' },
-                            title: { display: true, text: `Gas-Weighted ${DD_LABEL}s`, color: SEASON_COLOR }
+                            title: {
+                                display: !isMobile,
+                                text: `Gas-Weighted ${DD_LABEL}s`,
+                                color: SEASON_COLOR
+                            }
                         }
                     }
                 }
