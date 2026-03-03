@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, UTC
 import urllib.request
 import logging
 
@@ -10,7 +10,11 @@ logging.basicConfig(level=logging.INFO)
 
 def fetch_cpc_csv(index_name, url):
     try:
-        df = pd.read_csv(url, skiprows=1, header=None, names=['year', 'month', 'day', 'value'])
+        if url.endswith('.txt'):
+            df = pd.read_csv(url, sep=r'\s+', header=None, names=['year', 'month', 'day', 'value'])
+        else:
+            df = pd.read_csv(url, skiprows=1, header=None, names=['year', 'month', 'day', 'value'])
+            
         df['date'] = pd.to_datetime(df[['year', 'month', 'day']]).dt.strftime('%Y-%m-%d')
         return df
     except Exception as e:
@@ -22,7 +26,7 @@ def run_system1():
         'AO': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.ao.cdas.z1000.19500101_current.csv',
         'NAO': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv',
         'PNA': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.pna.cdas.z500.19500101_current.csv',
-        'EPO': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.epo.cdas.z500.19500101_current.csv'
+        'EPO': 'https://downloads.psl.noaa.gov/Public/map/teleconnections/epo.reanalysis.t10trunc.1948-present.txt'
     }
 
     data = {}
@@ -119,7 +123,7 @@ def run_system1():
         logging.error(f"Analog matching error: {e}")
 
     output = {
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(UTC).isoformat().replace('+00:00', 'Z') if '+00:00' in datetime.now(UTC).isoformat() else datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         'teleconnections': data,
         'composite_cold_risk_score': score,
         'analog_years': analog_years,
