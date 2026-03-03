@@ -117,6 +117,7 @@ print("\n5f. Generating Market Proxies & Composite Score...")
 subprocess.run(f"{PY} scripts/market_logic/physics_vs_ai_disagreement.py", shell=True)
 subprocess.run(f"{PY} scripts/market_logic/fetch_live_grid.py", shell=True)
 subprocess.run(f"{PY} scripts/market_logic/composite_score.py", shell=True)
+subprocess.run(f"{PY} scripts/compute_composite_weather_signal.py", shell=True)  # 7-system intelligence signal
 
 # ------------------------------------------
 # Step 6: Send Telegram signal
