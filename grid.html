@@ -475,34 +475,26 @@
                     let nationalGrid = liveGrid.filter(r => r.iso === 'NATIONAL');
                     if (nationalGrid.length > 0) {
                         let natGrid = nationalGrid[nationalGrid.length - 1];
-                        document.getElementById('national-gas-burn').innerText = natGrid.natural_gas_mw ? formatNum(natGrid.natural_gas_mw, 0) : 'NaN';
-                        document.getElementById('national-wind-gen').innerText = natGrid.wind_mw ? formatNum(natGrid.wind_mw, 0) : 'NaN';
+                        document.getElementById('national-gas-burn').innerText = formatNum(natGrid.natural_gas_mw, 0);
+                        document.getElementById('national-wind-gen').innerText = formatNum(natGrid.wind_mw, 0);
 
                         let natAnomalyEl = document.getElementById('national-wind-anomaly');
-                        if (natGrid.wind_anomaly_mw) {
-                            natAnomalyEl.innerText = formatNum(natGrid.wind_anomaly_mw, 0, true);
-                            if (natGrid.wind_anomaly_mw < 0) natAnomalyEl.classList.add('bullish-text');
-                            else if (natGrid.wind_anomaly_mw > 0) natAnomalyEl.classList.add('bearish-text');
-                        } else {
-                            natAnomalyEl.innerText = 'NaN';
-                        }
+                        natAnomalyEl.innerText = formatNum(natGrid.wind_anomaly_mw, 0, true);
+                        if (natGrid.wind_anomaly_mw < 0) natAnomalyEl.classList.add('bullish-text');
+                        else if (natGrid.wind_anomaly_mw > 0) natAnomalyEl.classList.add('bearish-text');
                     }
 
                     let ercotGrid = liveGrid.filter(r => r.iso === 'ERCOT');
                     if (ercotGrid.length > 0) {
                         let latestGrid = ercotGrid[ercotGrid.length - 1];
 
-                        document.getElementById('live-gas-burn').innerText = latestGrid.natural_gas_mw ? formatNum(latestGrid.natural_gas_mw, 0) : 'NaN';
-                        document.getElementById('live-wind-gen').innerText = latestGrid.wind_mw ? formatNum(latestGrid.wind_mw, 0) : 'NaN';
+                        document.getElementById('live-gas-burn').innerText = formatNum(latestGrid.natural_gas_mw, 0);
+                        document.getElementById('live-wind-gen').innerText = formatNum(latestGrid.wind_mw, 0);
 
                         let anomalyEl = document.getElementById('live-wind-anomaly');
-                        if (latestGrid.wind_anomaly_mw) {
-                            anomalyEl.innerText = formatNum(latestGrid.wind_anomaly_mw, 0, true);
-                            if (latestGrid.wind_anomaly_mw < 0) anomalyEl.classList.add('bullish-text');
-                            else if (latestGrid.wind_anomaly_mw > 0) anomalyEl.classList.add('bearish-text');
-                        } else {
-                            anomalyEl.innerText = 'NaN';
-                        }
+                        anomalyEl.innerText = formatNum(latestGrid.wind_anomaly_mw, 0, true);
+                        if (latestGrid.wind_anomaly_mw < 0) anomalyEl.classList.add('bullish-text');
+                        else if (latestGrid.wind_anomaly_mw > 0) anomalyEl.classList.add('bearish-text');
 
                         let impactEl = document.getElementById('live-grid-impact');
                         let impactStr = String(latestGrid.gas_burn_impact || 'NEUTRAL');

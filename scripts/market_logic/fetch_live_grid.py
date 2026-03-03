@@ -23,7 +23,7 @@ OUTPUT_DIR = Path("outputs")
 OUTPUT_FILE = OUTPUT_DIR / "live_grid_generation.csv"
 
 # Configuration
-EIA_API_KEY = os.environ.get("EIA_API_KEY", "aV619Ak6xj07qNmW2f3sTYIL9Eb3ow486baGknRy")
+EIA_API_KEY = os.environ.get("EIA_KEY")
 
 ISO_LIST = ["ERCO", "PJM", "MISO", "SWPP"]
 
@@ -50,6 +50,10 @@ def get_eia_fuel_mix(iso_code, start_dt, today):
         "length": 5000
     }
     
+    if not EIA_API_KEY:
+        print("  [ERR] EIA_KEY env var not set. Skipping EIA fetch.")
+        return pd.DataFrame()
+
     print(f"--- Fetching Live Grid Generation ({iso_code} via EIA) ---")
     
     for attempt in range(3):
@@ -68,7 +72,7 @@ def get_eia_fuel_mix(iso_code, start_dt, today):
         except requests.exceptions.HTTPError as e:
             print(f"  [ERR] EIA API Fetch failed HTTP (Attempt {attempt+1}/3): {e}")
             if r.status_code == 403:
-                print("  [ERR] EIA API Key rejected. Ensure it is active.")
+                print("  [ERR] EIA API Key rejected. Ensure EIA_KEY secret is set correctly.")
                 break
         except Exception as e:
             print(f"  [ERR] EIA API Fetch failed (Attempt {attempt+1}/3): {e}")
@@ -89,11 +93,11 @@ def fetch_live_grid():
     out_rows = []
     
     fuel_map = {
-        "Natural gas": "Natural Gas",
-        "Wind": "Wind",
-        "Solar": "Solar",
-        "Coal": "Coal",
-        "Nuclear": "Nuclear"
+        "natural gas": "Natural Gas",
+        "wind": "Wind",
+        "solar": "Solar",
+        "coal": "Coal",
+        "nuclear": "Nuclear"
     }
 
     # ISO labels for output
@@ -113,7 +117,7 @@ def fetch_live_grid():
             continue
             
         df["date"] = pd.to_datetime(df["period"]).dt.date
-        df["type-name"] = df["type-name"].map(fuel_map)
+        df["type-name"] = df["type-name"].str.lower().str.strip().map(fuel_map)
         df = df.dropna(subset=["type-name", "value"])
         
         df["value"] = pd.to_numeric(df["value"], errors='coerce')
