@@ -1,52 +1,250 @@
-# Weather Desk: Institutional-Grade Weather Terminal
+# ⚡ Weather Desk — Institutional-Grade Weather Intelligence Terminal
 
-An algorithmic weather dashboard designed for institutional natural gas trading. This terminal tracks gas-weighted Degree Days (HDD/CDD), cross-model consensus, and market bias signals across physics-based ensembles and machine-learning (AI) forecast models.
+> **Live dashboard:** [yieldchaser.github.io/weather-dd-tracker](https://yieldchaser.github.io/weather-dd-tracker)
 
-## 🌦️ Supported Models & Horizons
-The terminal synchronizes data from over a dozen global and regional models, providing a comprehensive view of meteorological evolution:
+An automated, production-hardened weather analytics platform purpose-built for **natural gas market trading**. Tracks gas-weighted Degree Days (HDD/CDD/TDD), cross-model consensus, weather regime classification, teleconnection indices, and a composite weather intelligence signal — updated automatically 4× per day via GitHub Actions, hosted free on GitHub Pages.
 
-*   **Short-Range (0-5 Days):** 
-    *   **HRRR:** 48h High-Resolution Rapid Refresh
-    *   **NAM:** 84h North American Mesoscale
-    *   **NBM:** National Blend of Models (Full 11-day consensus)
-*   **Medium-Range Physics (0-16 Days):**
-    *   **ECMWF / GFS:** Operational global standards
-    *   **CMC_ENS / GEFS / ICON:** Physics-based ensembles
-*   **Medium-Range AI (ML Forecasts):**
-    *   **FourCastNetV2-Small:** NVIDIA-backed machine learning model
-    *   **ECMWF_AIFS:** ECMWF's Artificial Intelligence Integrated Forecasting System
-*   **Extended (Seasonal):**
-    *   **GEFS_35D:** 35-day subseasonal ensemble
+---
 
-## 📊 Core Features & UI
-The terminal provides refined visualizations and tables optimized for rapid decision-making:
+## 🏗️ System Architecture
 
-*   **Model Consensus Shift Table:** Normalizes run-to-run changes to **Average HDDs/Day**. Unlike raw totals, this allows traders to compare a 2-day HRRR shift against a 16-day GFS shift on an apples-to-apples basis.
-*   **Historical Magnitude Matrix:** Ranks the current forecast against the last 30 years of weather history. Instantly identifies "Top 5 Coldest/Hottest" regimes for historical context.
-*   **75% Stability Filter:** Automatically drops forecast days from averages if they contain <75% of their expected hourly data. This prevents "First-Hour Spikes" where a partial morning run could spoof a massive daily shift.
-*   **Gap Flags (*):** Orange asterisk identifies long time-jumps between model cycles, helping traders distinguish fresh trends from stale data gaps.
+```
+NOAA / ECMWF / EIA APIs
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    GitHub Actions Pipeline                   │
+│                                                             │
+│  daily_run.yml (04/10/16/22 UTC)  ─── poll_models.py       │
+│  system2_regimes.yml (07 UTC)     ─── classify_today.py    │
+│  teleconnections.yml              ─── system1_telecon.py   │
+│  system_composite.yml             ─── compute_composite.py │
+│  system4_sensitivity.yml          ─── sensitivity scripts  │
+│  system5_wind.yml                 ─── wind scripts         │
+│  retrain_regimes.yml (quarterly)  ─── train_regimes.py     │
+└────────────────┬────────────────────────────────────────────┘
+                 │ outputs/ (JSON + CSV)
+                 ▼
+         GitHub Pages (index.html + grid.html)
+```
 
-## ⚙️ Backend & Data Integrity
-The backend is designed for rigorous statistical accuracy:
+---
 
-*   **Grid-Synced AI:** AI models (FourCastNet) now dynamically fetch the official **High-Resolution Gas-Weighting Grid** from GitHub at runtime, ensuring their math is 100% identical to the physics-based models (Apples-to-Apples).
-*   **Persistent Master Data:** `tdd_master.csv` acts as the source of truth, appending and deduplicating data to preserve historical run history for long-term analytics.
-*   **Gas-Weighting Methodology:** Applies high-resolution weighted average temperature calculations based on population-density and natural gas consumption footprints.
+## 📡 Data Sources & Update Cadence
 
-## 🤖 Telegram Alert Bot
-An automated alert system broadcasts high-priority signals directly to trading channels:
+| Source | Data | Cadence | Auth Required |
+|---|---|---|---|
+| NOAA NOMADS | GFS GRIB2 (byte-range, t2m only) | 4× daily | None |
+| NOAA NOMADS | HRRR, NAM, NBM, GEFS | 4× daily | None |
+| ECMWF Open Data | ECMWF IFS, AIFS, ENS | 4× daily | None (10d lag) |
+| CMC Open | CMC Ensemble | Daily | None |
+| PSL/CPC NOAA | AO, NAO, PNA, EPO teleconnections | Daily | None |
+| EIA v2 API | Live grid fuel mix (Big 4 ISOs) | Daily | `EIA_KEY` secret |
+| ERA5 (local) | Regime model training data | Quarterly retrain | Local file |
+| Kaggle | AI model inference (FourCastNet) | 2× daily (00z/12z) | `KAGGLE_*` secrets |
 
-*   **Fast Revision Alerts:** Identifies rapid model shifts (>1.0 DD/day). Includes a **48-Hour Freshness Filter** to automatically quarantine stale data.
-*   **Consensus Grouping:** Segregates Primary, AI, and Short-Term signals to provide a structured market view.
-*   **Convergence detector:** Fires specifically when multi-model spreads collapse and independent models align on a single weather direction.
+---
 
-## 🚀 Execution & Pipeline
-The terminal is designed for automated background operation via `scripts/daily_update.py`:
+## 🌦️ Supported Forecast Models
 
-1.  **Schedule:** Configured for high-frequency updates via GitHub Actions.
-2.  **Ingestion:** Parallel fetchers (`fetch_gfs.py`, `fetch_nbm.py`, `fetch_hrrr.py`, etc.) pull data from NOAA/AWS.
-3.  **Processing:** 
-    *   `compute_tdd.py`: Calculates degree days with stability filters.
-    *   `merge_tdd.py`: Aggregates historical and live data payloads.
-    *   `build_model_shift_table.py`: Generates UI shift metadata.
-4.  **Deployment:** Hosted as a static site via GitHub Pages (accelerated via `.nojekyll` bypass).
+### Short-Range (0–5 Days)
+- **HRRR** — 3km High-Resolution Rapid Refresh (NOAA)
+- **NAM** — 12km North American Mesoscale (NOAA)
+- **NBM** — National Blend of Models (11-day consensus)
+
+### Medium-Range Physics (0–16 Days)
+- **GFS** — Global Forecast System (NOAA, 0.25°)
+- **ECMWF IFS** — European Centre Operational HRES
+- **ECMWF ENS** — 51-member European Ensemble
+- **GEFS** — Global Ensemble Forecast System (NOAA)
+- **CMC_ENS** — Canadian Meteorological Centre Ensemble
+- **ICON** — Icosahedral Nonhydrostatic (DWD Germany)
+
+### Medium-Range AI (ML Forecasts)
+- **ECMWF AIFS** — AI Integrated Forecasting System
+- **FourCastNetV2-Small** — NVIDIA Fourier Neural Operator
+
+### Extended / Sub-Seasonal (16–35 Days)
+- **GEFS 35D** — NOAA 35-day sub-seasonal ensemble
+
+---
+
+## 🧠 Intelligence Pipeline (7-System Backend)
+
+### System 1 — Teleconnections
+**Script:** `scripts/teleconnections/system1_teleconnections.py`
+Fetches AO, NAO, PNA, EPO from CPC/PSL. All 4 indices are **z-score normalized** against their full historical distribution (fixes raw EPO dam units). Computes cold risk score and historical analog years.
+- Output: `outputs/teleconnections/latest.json`
+
+### System 2 — Weather Regime Classifier
+**Scripts:** `scripts/regimes/train_regimes.py` + `classify_today.py`
+ERA5 Z500 geopotential anomaly → PCA → KMeans (optimal k selected by silhouette score).
+- **Cascading GFS retry:** steps back 6h at a time up to 24h before failing
+- **First-order Markov transition matrix** computed at training, stored in pickle, hydrated in JSON
+- **Quarterly auto-retrain** via `retrain_regimes.yml`
+- Output: `outputs/regimes/current_regime.json`
+
+### System 3 — Freeze-Off Trigger
+**Script:** `scripts/freeze/`
+Detects natural gas wellhead freeze conditions by monitoring temperature anomalies in major producing basins (Permian, Haynesville, Marcellus, DJ Basin, Appalachian).
+- Output: `outputs/freeze/alerts.json`
+
+### System 4 — Dynamic Sensitivity Coefficient
+**Script:** `scripts/sensitivity/`
+Rolling 30-day regression of HDD → gas demand (EIA storage withdrawals). Outputs a `Bcf/HDD` coefficient that adjusts the composite signal amplitude.
+- Output: `outputs/sensitivity/rolling_coeff.json`
+
+### System 5 — Wind Generation Anomaly
+**Script:** `scripts/wind/`
+Capacity factor anomaly vs 30-day climatology. Wind drought → higher gas burn → bullish.
+- Output: `outputs/wind/drought.json`
+
+### System 6 — Live Grid Monitor
+**Script:** `scripts/market_logic/fetch_live_grid.py`
+EIA v2 API → fuel mix for ERCOT, PJM, MISO, SWPP → NATIONAL aggregate.
+- **30s timeout** (handles EIA API latency on MISO/SWPP)
+- **Partial aggregation**: missing ISOs excluded from NATIONAL sum, not zeroed
+- Output: `outputs/live_grid_generation.csv`
+
+### System 7 — Composite Weather Intelligence Signal
+**Script:** `scripts/compute_composite_weather_signal.py`
+Integrates all 6 systems into a single `BULLISH / BEARISH / NEUTRAL` signal.
+- Confidence = 20% × number of connected upstream systems (0–100%)
+- Output: `outputs/composite_signal.json`
+
+---
+
+## 📊 Dashboard Features
+
+### Weather Desk (`index.html`)
+| Element | Source | Notes |
+|---|---|---|
+| Regime Badge (header) | `current_regime.json` | Live Markov probs, clean label parsing |
+| Teleconnection Panel | `teleconnections/latest.json` | AO/NAO/PNA/EPO, z-scored, color-coded |
+| Intelligence Signal Banner | `composite_signal.json` | Score + component breakdown |
+| Algorithmic Market Bias | `composite_bull_bear_signal.csv` | From physics model consensus |
+| Fast Revision Alert | `run_change.csv` | >1.0 DD/day threshold |
+| Convergence Alert | `convergence_alert.csv` | Multi-model alignment detection |
+| HDD Horizon Table | `vs_normal.csv` | Short/Medium/Long-Term vs 30y & 10y normals |
+| Model Run Chart | `run_delta.csv` | Top 4 runs vs 30-year normal |
+| Shift Matrix | `model_shift_table.csv` | Day-by-day consensus changes |
+
+### Power Grid (`grid.html`)
+| Element | Source |
+|---|---|
+| NATIONAL NatGas Burn | `live_grid_generation.csv` (NATIONAL row) |
+| Wind Anomaly | 30-day rolling baseline vs live |
+| ERCOT Real-Time | `live_grid_generation.csv` (ERCOT row) |
+| Grid Impact Signal | BULLISH (Wind Drought) / BEARISH (Strong Wind) / NEUTRAL |
+
+---
+
+## ⚙️ Key Engineering Decisions
+
+### Gas-Weighting Methodology
+All temperature grids are converted to a **population × gas-consumption weighted average** using `data/weights/conus_gas_weights.npy`. This ensures that a cold snap in sparsely populated Montana contributes less to the HDD signal than the same event over Chicago.
+
+- **Standard models (GFS, ECMWF, GEFS):** bilinear interpolation of weight grid to native model resolution
+- **NBM:** nearest-neighbour weight lookup on projected 2D lat/lon grid (Lambert Conformal)
+- **AI models:** same weight grid fetched at runtime from GitHub
+
+### 75% Day Coverage Filter
+Days with < 75% of their expected hourly/timestep data are excluded from daily averages. Prevents partial-run bias on the first and last days of a forecast.
+
+### Apples-to-Apples Delta Calculation
+All model shift comparisons use the **gas-weighted daily average** (`hdd_gw`, `cdd_gw`) not simple grid means, ensuring fair comparison across models with different native resolutions.
+
+---
+
+## 🔐 Required GitHub Secrets
+
+| Secret | Used By | Purpose |
+|---|---|---|
+| `EIA_KEY` | `fetch_live_grid.py`, all workflows | EIA v2 API authentication |
+| `TELEGRAM_TOKEN` | `send_telegram.py` | Alert bot token |
+| `TELEGRAM_CHAT_ID` | `send_telegram.py` | Target chat/channel |
+| `KAGGLE_USERNAME` | `daily_run.yml` | AI model inference |
+| `KAGGLE_KEY` | `daily_run.yml` | AI model inference |
+
+---
+
+## 🚀 Local Development
+
+```bash
+# Clone
+git clone https://github.com/yieldchaser/weather-dd-tracker.git
+cd weather-dd-tracker
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run individual pipeline components
+export EIA_KEY=your_key_here
+
+python scripts/regimes/classify_today.py        # Regime + Markov
+python scripts/teleconnections/system1_teleconnections.py
+python scripts/market_logic/fetch_live_grid.py
+python scripts/compute_composite_weather_signal.py
+
+# Full pipeline
+python scripts/poll_models.py
+python scripts/compute_tdd.py
+python scripts/merge_tdd.py
+```
+
+---
+
+## 📅 Automated Workflow Schedule
+
+| Workflow | Schedule (UTC) | Action |
+|---|---|---|
+| `daily_run.yml` | 04:00, 10:00, 16:00, 22:00 | Fetch all models, compute TDD, update dashboard |
+| `system2_regimes.yml` | 07:00 | GFS Z500 → classify regime → update JSON |
+| `teleconnections.yml` | Daily | AO/NAO/PNA/EPO fetch |
+| `system_composite.yml` | Daily | Composite signal integration |
+| `system4_sensitivity.yml` | Daily | Rolling HDD→demand coefficient |
+| `system5_wind.yml` | Daily | Wind capacity factor anomaly |
+| `retrain_regimes.yml` | Jan/Apr/Jul/Oct 1st | Quarterly ERA5 regime model retrain |
+
+All workflows support **manual trigger** via GitHub Actions → Run workflow.
+
+---
+
+## 🗂️ Output File Reference
+
+```
+outputs/
+├── composite_signal.json          # 7-system intelligence signal
+├── composite_bull_bear_signal.csv # Physics model market bias
+├── teleconnections/latest.json    # AO/NAO/PNA/EPO (z-scored)
+├── regimes/current_regime.json    # Regime + Markov transition probs
+├── freeze/alerts.json             # Freeze-off wellhead alerts
+├── sensitivity/rolling_coeff.json # Bcf/HDD demand coefficient
+├── wind/drought.json              # Wind capacity factor anomaly
+├── live_grid_generation.csv       # EIA fuel mix (Big 4 ISOs + NATIONAL)
+├── tdd_master.csv                 # Master HDD/CDD timeseries (all models)
+├── vs_normal.csv                  # Forecast vs 30y & 10y normals
+├── run_delta.csv                  # Run-to-run model deltas
+├── model_shift_table.csv          # Day-by-day consensus shift matrix
+└── maps/                          # Spatial run-to-run delta GIFs
+
+data/weights/
+├── conus_gas_weights.npy          # 2D gas consumption weight grid
+├── conus_gas_weights_meta.json    # Grid metadata (lat/lon/resolution)
+└── regime_model.pkl               # PCA + KMeans + Markov matrix (quarterly)
+```
+
+---
+
+## 🔮 Upgrade Paths (When Budget Allows)
+
+| Upgrade | Cost | Benefit |
+|---|---|---|
+| Small VPS ($5/mo) | ~$60/yr | 6-hourly pipeline, every GFS cycle |
+| ECMWF subscription | ~$500/yr | Real-time ECMWF (removes 10-day lag) |
+| Calibrated confidence | Free | Backtest hit-rate per signal level |
+| Live EIA storage API | Free | Same-day withdrawal estimates |
+
+---
+
+*Built with Python, xarray, scikit-learn, PapaParse, Chart.js, GitHub Actions, and GitHub Pages.*

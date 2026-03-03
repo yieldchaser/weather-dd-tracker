@@ -404,8 +404,33 @@ def process_nbm(run_path, weights, w_lats, w_lons):
             # Simple average over the cropped CONUS box
             temp_f_simple = float(np.nanmean(temp_f_2d[mask]))
             
-            # We use simple mean as GW fallback for now to avoid cartographic heavy lifting
-            temp_f_gw = temp_f_simple
+            # Apply gas weights via nearest-neighbour lookup on the 2D projected NBM grid.
+            # NBM uses Lambert Conformal projection so lat/lon are 2D arrays, not 1D axes.
+            # We flatten, match each point to its nearest cell in the weight grid, then
+            # compute the weighted mean — avoids heavy cartographic reprojection.
+            temp_f_gw = None
+            if weights is not None and w_lats is not None:
+                try:
+                    # Flatten 2D lat/lon + apply CONUS mask
+                    flat_lat = lat_2d[mask].flatten()
+                    flat_lon = lon_2d[mask].flatten()
+                    flat_tmp = temp_f_2d[mask].flatten()
+
+                    # Build index arrays into the weight grid
+                    lat_idx = np.clip(
+                        np.searchsorted(w_lats, flat_lat), 0, len(w_lats) - 1
+                    )
+                    lon_idx = np.clip(
+                        np.searchsorted(w_lons, flat_lon), 0, len(w_lons) - 1
+                    )
+                    w_vals = weights[lat_idx, lon_idx]
+                    w_total = w_vals.sum()
+                    if w_total > 0:
+                        temp_f_gw = float((flat_tmp * w_vals).sum() / w_total)
+                except Exception as gw_e:
+                    print(f"  [WARN] NBM GW lookup failed ({gw_e}), using simple mean")
+            if temp_f_gw is None:
+                temp_f_gw = temp_f_simple
 
             vt = ds.valid_time.values
             date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()

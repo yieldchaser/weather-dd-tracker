@@ -1,0 +1,38 @@
+name: Quarterly Regime Model Retrain
+
+# Runs on the 1st of Jan, Apr, Jul, Oct at 02:00 UTC
+# Also triggerable manually via GitHub Actions UI
+on:
+  schedule:
+    - cron: '0 2 1 1,4,7,10 *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install xarray pandas numpy scikit-learn eccodes cfgrib
+
+      - name: Retrain regime model
+        run: python scripts/regimes/train_regimes.py
+
+      - name: Commit updated model artifact
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/weights/regime_model.pkl
+          git diff --staged --quiet || (git commit -m "Auto-retrain: Regime model updated $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
