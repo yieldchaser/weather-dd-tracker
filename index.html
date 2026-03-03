@@ -373,6 +373,123 @@
                 font-size: 1.6rem;
             }
         }
+
+        /* ── Weather Intelligence Panel ── */
+        .telecon-panel {
+            display: none;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .telecon-panel.visible {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .telecon-card {
+            background-color: var(--card-bg);
+            border-radius: 4px;
+            border: 1px solid #333;
+            padding: 12px 18px;
+            flex: 1 1 130px;
+            min-width: 110px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .telecon-card .tc-name {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .telecon-card .tc-val {
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+
+        .telecon-card .tc-arrow {
+            font-size: 0.78rem;
+            margin-left: 4px;
+            opacity: 0.7;
+        }
+
+        .tc-cold {
+            color: var(--bearish);
+        }
+
+        .tc-warm {
+            color: var(--bullish);
+        }
+
+        .tc-zero {
+            color: var(--neutral);
+        }
+
+        /* ── Intelligence Signal Banner ── */
+        .intel-banner {
+            display: none;
+            background-color: var(--card-bg);
+            border-radius: 4px;
+            border: 1px solid #333;
+            padding: 14px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .intel-banner.visible {
+            display: block;
+        }
+
+        .intel-banner .ib-header {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .intel-banner .ib-score {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .intel-banner .ib-components {
+            margin-top: 8px;
+            font-size: 0.78rem;
+            color: #888;
+            line-height: 1.6;
+        }
+
+        /* ── Regime Badge ── */
+        .regime-badge {
+            display: none;
+            text-align: right;
+        }
+
+        .regime-badge.visible {
+            display: block;
+        }
+
+        .regime-badge .rb-label {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-main);
+        }
+
+        .regime-badge .rb-val {
+            font-size: 0.82rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .regime-badge .rb-persist {
+            font-size: 0.7rem;
+            color: #888;
+        }
     </style>
 </head>
 
@@ -387,7 +504,13 @@
 
         <div class="header">
             <h1>WEATHER DESK</h1>
-            <div class="timestamp" id="last-updated">Updating live...</div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                <div class="timestamp" id="last-updated">Updating live...</div>
+                <div class="regime-badge" id="regime-badge">
+                    <div class="rb-label">PATTERN: <span id="rb-val" class="rb-val"></span></div>
+                    <div class="rb-persist" id="rb-persist"></div>
+                </div>
+            </div>
         </div>
 
         <div id="loading" class="loader">Loading pipeline data...</div>
@@ -397,6 +520,33 @@
             <div class="alerts-container">
                 <div id="alert-fast-rev" class="alert-box">⚡ FAST REVISION ALERT: <span id="rev-text"></span></div>
                 <div id="alert-conv" class="alert-box conv">🎯 CONVERGENCE ALERT: <span id="conv-text"></span></div>
+            </div>
+
+            <!-- TELECONNECTION PANEL -->
+            <div class="telecon-panel" id="telecon-panel">
+                <div class="telecon-card" id="tc-ao">
+                    <div class="tc-name">AO</div>
+                    <div class="tc-val tc-zero" id="tc-ao-val">--</div>
+                </div>
+                <div class="telecon-card" id="tc-nao">
+                    <div class="tc-name">NAO</div>
+                    <div class="tc-val tc-zero" id="tc-nao-val">--</div>
+                </div>
+                <div class="telecon-card" id="tc-pna">
+                    <div class="tc-name">PNA</div>
+                    <div class="tc-val tc-zero" id="tc-pna-val">--</div>
+                </div>
+                <div class="telecon-card" id="tc-epo">
+                    <div class="tc-name">EPO</div>
+                    <div class="tc-val tc-zero" id="tc-epo-val">--</div>
+                </div>
+            </div>
+
+            <!-- INTELLIGENCE SIGNAL BANNER -->
+            <div class="intel-banner" id="intel-banner">
+                <div class="ib-header">WEATHER INTELLIGENCE SIGNAL</div>
+                <div class="ib-score" id="ib-score">--</div>
+                <div class="ib-components" id="ib-components"></div>
             </div>
 
             <!-- MACRO SUMMARY -->
@@ -1584,6 +1734,67 @@
         }
 
         window.onload = loadDashboard;
+
+        // ── Weather Intelligence Pipeline overlays (non-blocking) ──
+        async function fetchJSON(url) {
+            try {
+                const r = await fetch(url + '?t=' + Date.now());
+                if (!r.ok) return null;
+                return await r.json();
+            } catch (e) { return null; }
+        }
+
+        function setTcCard(valEl, value) {
+            valEl.textContent = Number(value).toFixed(1);
+            valEl.className = 'tc-val ' + (value < 0 ? 'tc-cold' : value > 0 ? 'tc-warm' : 'tc-zero');
+        }
+
+        async function loadIntelligenceOverlays() {
+            const [tcData, signalData, regimeData] = await Promise.all([
+                fetchJSON('outputs/teleconnections/latest.json'),
+                fetchJSON('outputs/composite_signal.json'),
+                fetchJSON('outputs/regimes/current_regime.json')
+            ]);
+
+            // Task 1 — Teleconnection Panel
+            if (tcData) {
+                const keys = { ao: 'tc-ao-val', nao: 'tc-nao-val', pna: 'tc-pna-val', epo: 'tc-epo-val' };
+                for (const [key, elId] of Object.entries(keys)) {
+                    if (tcData[key] !== undefined) {
+                        setTcCard(document.getElementById(elId), tcData[key]);
+                    }
+                }
+                document.getElementById('telecon-panel').classList.add('visible');
+            }
+
+            // Task 2 — Intelligence Signal Banner
+            if (signalData) {
+                const sig = String(signalData.signal || 'NEUTRAL').toUpperCase();
+                const score = signalData.composite_score;
+                const components = Array.isArray(signalData.components) ? signalData.components : [];
+                const scoreEl = document.getElementById('ib-score');
+                scoreEl.textContent = sig + ' (' + (score >= 0 ? '+' : '') + Number(score).toFixed(1) + ')';
+                scoreEl.className = 'ib-score ' + (
+                    sig.includes('BEAR') ? 'bearish-text' :
+                        sig.includes('BULL') ? 'bullish-text' : ''
+                );
+                document.getElementById('ib-components').innerHTML = components.map(c => '&#8226; ' + c).join('<br>');
+                document.getElementById('intel-banner').classList.add('visible');
+            }
+
+            // Task 3 — Regime Badge
+            if (regimeData && regimeData.regime_label) {
+                // Strip the leading "Regime N (...)" wrapper if present, show the clean name
+                const raw = regimeData.regime_label;
+                const clean = raw.replace(/^Regime\s+\d+\s*\((.+)\)$/, '$1');
+                document.getElementById('rb-val').textContent = clean;
+                document.getElementById('rb-persist').textContent =
+                    'Persistence: ' + (regimeData.persistence_days ?? '?') + ' day(s)';
+                document.getElementById('regime-badge').classList.add('visible');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadIntelligenceOverlays);
     </script>
 </body>
 
