@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import requests
 import pandas as pd
 from pathlib import Path
@@ -160,6 +161,92 @@ def send():
     
     if component_lines:
         lines.extend(component_lines)
+
+    # ── WEATHER INTELLIGENCE BLOCK ─────────────────────────────────────────────
+    intel_lines = []
+
+    # 1. Regime block
+    regime_file = Path("outputs/regimes/current_regime.json")
+    if regime_file.exists():
+        try:
+            regime_data = json.load(open(regime_file, "r"))
+            raw_label = regime_data.get("regime_label", "")
+            # Strip "Regime N (...)" wrapper → just the semantic label
+            import re
+            m = re.match(r"^Regime\s+\d+\s*\((.+)\)$", raw_label.strip())
+            clean_label = m.group(1).strip() if m else raw_label
+
+            persist = regime_data.get("persistence_days", 1)
+            season_r = regime_data.get("season", "")
+
+            # Bullish/bearish tag
+            lbl_lower = clean_label.lower()
+            if any(w in lbl_lower for w in ["trough", "arctic", "polar", "vortex"]):
+                regime_bias = "🟢 Bullish"
+            elif any(w in lbl_lower for w in ["ridge", "zonal"]):
+                regime_bias = "🔴 Bearish"
+            else:
+                regime_bias = "⚪ Neutral"
+
+            intel_lines.append(f"🗺️ WEATHER REGIME: {clean_label} [{season_r}]")
+            intel_lines.append(f"   Persistence: Day {persist} | Bias: {regime_bias}")
+
+            # Top-2 Markov transitions (exclude self)
+            tp = regime_data.get("transition_probs", {})
+            if tp:
+                others = {k: v for k, v in tp.items() if clean_label not in k}
+                top2 = sorted(others.items(), key=lambda x: x[1], reverse=True)[:2]
+                for label_k, prob in top2:
+                    m2 = re.match(r"^Regime\s+\d+\s*\((.+)\)$", label_k.strip())
+                    short = m2.group(1).strip() if m2 else label_k
+                    intel_lines.append(f"   Next → {short}: {prob:.1%}")
+        except Exception as e:
+            print(f"[WARN] Regime block failed: {e}")
+
+    # 2. Teleconnection block
+    tele_file = Path("outputs/teleconnections/latest.json")
+    if tele_file.exists():
+        try:
+            td = json.load(open(tele_file, "r"))
+
+            def _tele_arrow(val):
+                if val is None: return "N/A"
+                arrow = "↑" if val > 0 else "↓"
+                return f"{val:+.2f}{arrow}"
+
+            def _tele_signal(val, index):
+                """Negative AO/NAO/EPO/PNA = cold pattern = bullish for gas"""
+                if val is None: return ""
+                if val < -0.5: return "🟢"
+                if val > 0.5:  return "🔴"
+                return "⚪"
+
+            ao  = td.get("ao")
+            nao = td.get("nao")
+            pna = td.get("pna")
+            epo = td.get("epo")
+            cold_risk = td.get("composite_score", 0)
+            analogs = td.get("analogs", [])
+
+            intel_lines.append(f"\n📡 TELECONNECTIONS (z-scored anomaly):")
+            intel_lines.append(
+                f"   AO {_tele_arrow(ao)}{_tele_signal(ao,'ao')}  "
+                f"NAO {_tele_arrow(nao)}{_tele_signal(nao,'nao')}  "
+                f"PNA {_tele_arrow(pna)}{_tele_signal(pna,'pna')}  "
+                f"EPO {_tele_arrow(epo)}{_tele_signal(epo,'epo')}"
+            )
+            # Cold risk + analogs
+            risk_emoji = "🥶" if cold_risk > 60 else ("🌡️" if cold_risk < 30 else "⚖️")
+            intel_lines.append(f"   Cold Risk Score: {cold_risk}/100 {risk_emoji}")
+            if analogs:
+                intel_lines.append(f"   Historical Analogs: {', '.join(str(y) for y in analogs[:3])}")
+        except Exception as e:
+            print(f"[WARN] Teleconnection block failed: {e}")
+
+    if intel_lines:
+        lines.append("\n" + "─" * 30)
+        lines.extend(intel_lines)
+        lines.append("─" * 30)
 
     # Historical Magnitude Matrix Alert
     hist_file = Path("outputs/historical_degree_days.csv")
