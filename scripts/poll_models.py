@@ -19,12 +19,12 @@ ECMWF_CYCLES = ["00", "12"]
 def load_state():
     if not os.path.exists(STATE_FILE):
         os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-        return {"GFS": "", "ECMWF": ""}
+        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": ""}
     try:
         with open(STATE_FILE, "r") as f:
             return json.load(f)
-    except json.JSONDecodeError:
-        return {"GFS": "", "ECMWF": ""}
+    except Exception:
+        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": ""}
 
 def save_state(state):
     with open(STATE_FILE, "w") as f:
@@ -58,25 +58,43 @@ def check_gefs_complete(date_str, cycle):
 def check_ecmwf_complete(date_str, cycle):
     """
     Checks if the ECMWF run is completely uploaded.
-    Since ECMWF Open Data allows URL resolution without downloading,
-    we can ask the client if the final step (360h) exists.
     """
     try:
         from ecmwf.opendata import Client
-        from ecmwf.opendata.client import HttpError
-        
         client = Client(source="ecmwf")
         urls = client.urls(
-            model="ifs",
-            stream="oper",
-            type="fc",
-            resol="0p25",
-            date=date_str,
-            time=cycle,
-            step=360,
-            param="2t"
+            model="ifs", stream="oper", type="fc", resol="0p25",
+            date=date_str, time=cycle, step=360, param="2t"
         )
         return len(urls) > 0
+    except Exception as e:
+        print(f"  [WARN] ECMWF Check Error: {e}")
+        return False
+
+def check_ecmwf_ens_complete(date_str, cycle):
+    """
+    Checks if the ECMWF Ensemble run is completely uploaded.
+    """
+    try:
+        from ecmwf.opendata import Client
+        client = Client(source="ecmwf")
+        urls = client.urls(
+            model="ensm", stream="enfo", type="fc", resol="0p25",
+            date=date_str, time=cycle, step=360, param="2t"
+        )
+        return len(urls) > 0
+    except Exception:
+        return False
+
+def check_nbm_complete(date_str, cycle):
+    """
+    Checks if the NBM run is completely uploaded to NOMADS.
+    """
+    # Check for f264 (last hour)
+    url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod/blend.{date_str}/{cycle}/core/blend.t{cycle}z.core.f264.co.grib2.idx"
+    try:
+        r = requests.head(url, timeout=10)
+        return r.status_code == 200
     except Exception:
         return False
 
@@ -129,6 +147,36 @@ def poll():
     if latest_ecmwf_avail and latest_ecmwf_avail > state.get("ECMWF", ""):
         print(f"  >>> [NEW] ECMWF Run Detected & Completed: {latest_ecmwf_avail} <<<")
         new_state["ECMWF"] = latest_ecmwf_avail
+        triggered = True
+
+    # 3. Check ECMWF Ensemble
+    latest_ens_avail = None
+    for d in dates_to_check:
+        for c in ECMWF_CYCLES:
+            run_id = f"{d}_{c}"
+            if run_id > state.get("ECMWF_ENS", ""):
+                print(f"  [PING] Checking ECMWF ENS {run_id} completion...")
+                if check_ecmwf_ens_complete(d, c):
+                    latest_ens_avail = run_id
+
+    if latest_ens_avail and latest_ens_avail > state.get("ECMWF_ENS", ""):
+        print(f"  >>> [NEW] ECMWF Ensemble Run Detected: {latest_ens_avail} <<<")
+        new_state["ECMWF_ENS"] = latest_ens_avail
+        triggered = True
+
+    # 4. Check NBM
+    latest_nbm_avail = None
+    for d in dates_to_check:
+        for c in ["00", "06", "12", "18"]: # NBM cycles 4x daily
+            run_id = f"{d}_{c}"
+            if run_id > state.get("NBM", ""):
+                print(f"  [PING] Checking NBM {run_id} completion...")
+                if check_nbm_complete(d, c):
+                    latest_nbm_avail = run_id
+
+    if latest_nbm_avail and latest_nbm_avail > state.get("NBM", ""):
+        print(f"  >>> [NEW] NBM Run Detected: {latest_nbm_avail} <<<")
+        new_state["NBM"] = latest_nbm_avail
         triggered = True
         
     if triggered:

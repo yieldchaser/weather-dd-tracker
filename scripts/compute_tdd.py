@@ -496,7 +496,11 @@ def process_all():
                 
             df.to_csv(out, index=False)
             print(f"  [OK] Saved: {out}")
-            print(df[["date", "hdd_gw", "cdd_gw", "tdd_gw"]].head(3).to_string(index=False))
+            cols_to_print = ["date", "hdd", "cdd", "tdd"]
+            if all(c in df.columns for c in ["hdd_gw", "cdd_gw", "tdd_gw"]):
+                cols_to_print = ["date", "hdd_gw", "cdd_gw", "tdd_gw"]
+            
+            print(df[cols_to_print].head(3).to_string(index=False))
 
 
 if __name__ == "__main__":

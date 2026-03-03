@@ -40,7 +40,9 @@ CYCLES = ["12", "00"]
 # We'll fetch 3-hourly slices, but we must shift alignment after f36.
 FORECAST_HOURS = list(range(1, 37, 3)) + list(range(36, 265, 3))
 T2M_PATTERN = re.compile(r"TMP:2 m above ground")
-MAX_WORKERS = 5
+MAX_WORKERS = 4  # Reduced from 5 to be safer with rate limits
+MAX_RETRIES = 3
+FETCH_DELAY = 0.2 # Jitter delay between slice requests
 
 # -----------------------------
 # Helpers
@@ -56,19 +58,20 @@ def url_exists(url, timeout=15):
     except Exception:
         return False
 
-def find_latest_available_run():
+def find_available_runs(lookback_days=2):
+    """
+    Scans NOMADS for all completed long-term NBM runs in the lookback window.
+    """
     now = datetime.datetime.now(datetime.UTC)
-    for day_offset in [0, -1, -2]:
+    available = []
+    for day_offset in range(0, -lookback_days - 1, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
-            # Check availability of a late file to ensure complete run
             test_file = f"blend.t{cycle}z.core.f264.co.grib2"
             test_url = f"{BASE_URL}/blend.{date}/{cycle}/core/{test_file}"
-            print(f"Checking availability: {date}_{cycle}Z")
             if url_exists(test_url):
-                print(f"[OK] Found available run: {date}_{cycle}Z")
-                return date, cycle
-    raise RuntimeError("No available NBM run found.")
+                available.append((date, cycle))
+    return available
 
 def parse_t2m_byte_range(idx_url):
     try:
@@ -98,48 +101,65 @@ def download_timestep(args):
     
     output_path = os.path.join(run_dir, base_name)
     
-    if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 1000: # Ensure not a tiny error file
         return (fh, True, "Already exists")
 
-    start_byte, end_byte = parse_t2m_byte_range(idx_url)
-    if start_byte is None:
-        return (fh, False, "No IDX / Variable not found")
+    import time
+    time.sleep(FETCH_DELAY) # Avoid hammering
 
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    if end_byte is not None:
-        headers["Range"] = f"bytes={start_byte}-{end_byte}"
-    else:
-        headers["Range"] = f"bytes={start_byte}-"
+    for attempt in range(MAX_RETRIES):
+        try:
+            start_byte, end_byte = parse_t2m_byte_range(idx_url)
+            if start_byte is None:
+                if attempt < MAX_RETRIES - 1: continue
+                return (fh, False, "No IDX / Variable not found")
 
-    try:
-        r = session.get(base_url, headers=headers, stream=True, timeout=30)
-        if r.status_code not in (200, 206):
-            return (fh, False, f"HTTP {r.status_code}")
-        
-        with open(output_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-        return (fh, True, "OK")
-    except Exception as e:
-        return (fh, False, str(e))
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            if end_byte is not None:
+                headers["Range"] = f"bytes={start_byte}-{end_byte}"
+            else:
+                headers["Range"] = f"bytes={start_byte}-"
+
+            r = session.get(base_url, headers=headers, stream=True, timeout=30)
+            if r.status_code not in (200, 206):
+                if attempt < MAX_RETRIES - 1: continue
+                return (fh, False, f"HTTP {r.status_code}")
+            
+            with open(output_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return (fh, True, "OK")
+        except Exception as e:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(2 ** attempt)
+                continue
+            return (fh, False, str(e))
+    return (fh, False, "Max retries exceeded")
 
 # -----------------------------
 # Main logic
 # -----------------------------
 
-def fetch_latest_nbm():
-    run_date, cycle = find_latest_available_run()
+def fetch_run(run_date, cycle):
     run_id = f"{run_date}_{cycle}"
     run_dir = os.path.join(OUTPUT_DIR, run_id)
-    ensure_dir(run_dir)
+    manifest_path = os.path.join(run_dir, "manifest.json")
+    
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path, "r") as f:
+                m = json.load(f)
+                if m.get("total_files", 0) >= len(FORECAST_HOURS) - 5: # allow a few missing
+                    print(f"  [SKIP] Run {run_id}Z already fully fetched.")
+                    return True
+        except: pass
 
+    ensure_dir(run_dir)
     print(f"\nFetching NBM run: {run_id}Z via AWS S3 Byte-Range")
     
     tasks = [(run_date, cycle, fh, run_dir) for fh in FORECAST_HOURS]
     success_count = 0
     fail_count = 0
-    
-    print(f"Submitting {len(tasks)} slice extraction tasks...")
     
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {executor.submit(download_timestep, t): t for t in tasks}
@@ -149,11 +169,10 @@ def fetch_latest_nbm():
                 success_count += 1
             else:
                 fail_count += 1
-                if fail_count < 10:
+                if fail_count < 5:
                     print(f"  [ERR] f{fh:03d} failed: {msg}")
 
-    print(f"\n[OK] NBM Fetch complete for {run_id}Z.")
-    print(f"     Successfully retrieved: {success_count}/{len(tasks)} slices.")
+    print(f"  [OK] NBM Fetch complete for {run_id}Z. Retrieved: {success_count}/{len(tasks)} slices.")
     
     manifest = {
         "model": "NBM",
@@ -164,8 +183,26 @@ def fetch_latest_nbm():
         "failed_files": fail_count,
         "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
     }
-    with open(os.path.join(run_dir, "manifest.json"), "w") as f:
+    with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
+    return success_count > 0
+
+def fetch_latest_nbm():
+    print("\n--- NBM SYNC SERVICE ---")
+    available_runs = find_available_runs(lookback_days=2)
+    if not available_runs:
+        print("  [WARN] No available NBM runs found on NOMADS.")
+        return
+
+    # Sort available runs chronologically
+    available_runs.sort()
+    
+    # We want to ensure at least the last 2 long-term runs are synchronized
+    runs_to_sync = available_runs[-3:] # Sync last 3 available
+    print(f"  Syncing last {len(runs_to_sync)} available runs: {[r[0]+'_'+r[1] for r in runs_to_sync]}")
+    
+    for rd, cy in runs_to_sync:
+        fetch_run(rd, cy)
 
 if __name__ == "__main__":
     fetch_latest_nbm()
