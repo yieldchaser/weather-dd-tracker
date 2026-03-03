@@ -8,14 +8,18 @@ Generates an animated GIF mapping the differences across CONUS.
 
 import os
 import glob
+import json
 import pandas as pd
 import numpy as np
 import xarray as xr
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend — required for parallel workers
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import imageio.v2 as imageio
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
 MAPS_DIR = "outputs/maps"
@@ -155,7 +159,7 @@ def generate_gifs_for_model(model_name, folder, manifest):
     else:
         def align_lons(grid): return grid
         
-    for prev_run in available_runs[1:6]: # Limit to last 5 comparisons
+    for prev_run in available_runs[1:4]:  # Last 3 comparisons — enough for traders
         print(f"  Comparing {latest_run} to {prev_run}")
         prev_path = os.path.join(folder, prev_run)
         res_prev = build_daily_mean_dataset(prev_path, model_name)
@@ -220,8 +224,16 @@ def generate_gifs_for_model(model_name, folder, manifest):
             date_str = pd.to_datetime(d).strftime('%Y-%m-%d')
             plt.title(f"{model_name} Run-to-Run Delta: {date_str}\n{latest_run} minus {prev_run}", fontsize=12, fontweight='bold')
             
+            # SKIP if this GIF already exists (avoids redundant re-renders)
+            out_gif_name = f"{model_name}_shift_{latest_run}_vs_{prev_run}.gif"
+            out_gif_path = f"{MAPS_DIR}/{out_gif_name}"
+            if os.path.exists(out_gif_path):
+                print(f"  [SKIP] {out_gif_name} already exists")
+                manifest[model_name].append({"latest": latest_run, "previous": prev_run, "file": out_gif_name})
+                continue
+
             frame_path = f"{MAPS_DIR}/{model_name}_{latest_run}_vs_{prev_run}_frame_{i}.png"
-            plt.savefig(frame_path, dpi=100, bbox_inches='tight')
+            plt.savefig(frame_path, dpi=72, bbox_inches='tight')  # 72dpi: ~50% smaller, same browser quality
             plt.close()
             frames.append(frame_path)
 
@@ -247,23 +259,41 @@ def generate_gifs_for_model(model_name, folder, manifest):
 
 import json
 
+
+def _generate_worker(args):
+    """Top-level function (picklable) for ProcessPoolExecutor."""
+    model_cfg, manifest_slot = args
+    local_manifest = {}
+    if os.path.exists(model_cfg["path"]):
+        generate_gifs_for_model(model_cfg["name"], model_cfg["path"], local_manifest)
+    return local_manifest
+
+
 def main():
-    print("=== Generating Dynamic Shift Maps ===")
+    print("=== Generating Dynamic Shift Maps (parallel) ===")
     manifest = {}
-    
-    # Configure models to process
+
+    # Only models that store GRIB data locally
     MODELS_TO_GENERATE = [
         {"name": "ECMWF",      "path": "data/ecmwf"},
         {"name": "GFS",        "path": "data/gfs"},
         {"name": "GEFS",       "path": "data/gefs"},
         {"name": "ECMWF_ENS",  "path": "data/ecmwf_ens"},
-        {"name": "ECMWF_AIFS", "path": "data/ecmwf_aifs"}
+        {"name": "ECMWF_AIFS", "path": "data/ecmwf_aifs"},
     ]
-    
-    for m in MODELS_TO_GENERATE:
-        if os.path.exists(m["path"]):
-            generate_gifs_for_model(m["name"], m["path"], manifest)
-    
+
+    # Parallel: one worker per model, up to 4 simultaneous
+    with ProcessPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_generate_worker, (m, {})): m["name"] for m in MODELS_TO_GENERATE}
+        for fut in as_completed(futures):
+            model_name = futures[fut]
+            try:
+                result = fut.result()
+                manifest.update(result)
+                print(f"  [DONE] {model_name}")
+            except Exception as e:
+                print(f"  [ERR]  {model_name}: {e}")
+
     # Save manifest for frontend
     manifest_path = "outputs/maps_manifest.json"
     with open(manifest_path, "w") as f:
