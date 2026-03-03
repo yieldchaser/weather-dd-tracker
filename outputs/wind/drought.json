@@ -1,14 +1,14 @@
 {
-  "national_cf_anomaly": -0.102,
+  "national_cf_anomaly": -0.044,
   "drought_isos": [
     "SPP"
   ],
-  "in_drought": true,
-  "power_burn_impact_signal": "MODERATE BCF BURN",
+  "in_drought": false,
+  "power_burn_impact_signal": "NEUTRAL",
   "per_iso": {
-    "ERCOT": -0.043,
-    "PJM": -0.045,
-    "MISO": -0.144,
-    "SPP": -0.176
+    "ERCOT": 0.027,
+    "PJM": -0.047,
+    "MISO": 0.009,
+    "SPP": -0.164
   }
 }

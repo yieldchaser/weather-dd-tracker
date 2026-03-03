@@ -1,7 +1,15 @@
 {
-  "timestamp": "2026-03-02T14:21:26.731897Z",
-  "gfs_run": "2026-03-02T06:00:00Z",
-  "ecmwf_run": "2026-03-02T00:00:00Z",
+  "timestamp": "2026-03-03T01:51:30.123456Z",
+  "gfs_run": "2026-03-03T00:00:00Z",
+  "ecmwf_run": "2026-03-03T00:00:00Z",
+  "alert_level": {
+    "Permian": "NONE",
+    "Haynesville": "NONE",
+    "Barnett": "NONE",
+    "Eagle Ford": "NONE",
+    "Fayetteville": "NONE",
+    "SW Marcellus": "NONE"
+  },
   "active_alerts": [],
   "status": "success"
 }
