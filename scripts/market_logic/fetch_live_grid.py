@@ -58,7 +58,7 @@ def get_eia_fuel_mix(iso_code, start_dt, today):
     
     for attempt in range(3):
         try:
-            r = requests.get(url, params=params, timeout=15)
+            r = requests.get(url, params=params, timeout=30)
             r.raise_for_status()
             data = r.json()
             
@@ -185,36 +185,33 @@ def fetch_live_grid():
     nat_gas_mw_sum = 0.0
     wind_mw_sum = 0.0
     wind_anomaly_sum = 0.0
-    has_nan_gas = False
-    has_nan_wind = False
-    has_nan_anomaly = False
     solar_mw_sum = 0.0
     coal_mw_sum = 0.0
     wind_30d_sum = 0.0
-    
+    gas_isos = 0
+    wind_isos = 0
+    anomaly_isos = 0
+
     for r in out_rows:
-        if pd.isna(r["natural_gas_mw"]): has_nan_gas = True
-        else: nat_gas_mw_sum += r["natural_gas_mw"]
-            
-        if pd.isna(r["wind_mw"]): has_nan_wind = True
-        else: wind_mw_sum += r["wind_mw"]
-            
-        if pd.isna(r["wind_anomaly_mw"]): has_nan_anomaly = True
-        else: wind_anomaly_sum += r["wind_anomaly_mw"]
-            
+        if pd.notna(r["natural_gas_mw"]): nat_gas_mw_sum += r["natural_gas_mw"]; gas_isos += 1
+        if pd.notna(r["wind_mw"]): wind_mw_sum += r["wind_mw"]; wind_isos += 1
+        if pd.notna(r["wind_anomaly_mw"]): wind_anomaly_sum += r["wind_anomaly_mw"]; anomaly_isos += 1
         if pd.notna(r["solar_mw"]): solar_mw_sum += r["solar_mw"]
         if pd.notna(r["coal_mw"]): coal_mw_sum += r["coal_mw"]
         if pd.notna(r["wind_30d_avg_mw"]): wind_30d_sum += r["wind_30d_avg_mw"]
-        
+
+    total_isos = len(out_rows)
+    partial = gas_isos < total_isos
+
     nat_row = {
         "date": today_str,
         "iso": "NATIONAL",
-        "natural_gas_mw": float('nan') if has_nan_gas else int(round(nat_gas_mw_sum)),
-        "wind_mw": float('nan') if has_nan_wind else int(round(wind_mw_sum)),
+        "natural_gas_mw": int(round(nat_gas_mw_sum)) if gas_isos > 0 else float('nan'),
+        "wind_mw": int(round(wind_mw_sum)) if wind_isos > 0 else float('nan'),
         "solar_mw": int(round(solar_mw_sum)),
         "coal_mw": int(round(coal_mw_sum)),
-        "wind_30d_avg_mw": float('nan') if has_nan_anomaly else int(round(wind_30d_sum)),
-        "wind_anomaly_mw": float('nan') if has_nan_anomaly else int(round(wind_anomaly_sum)),
+        "wind_30d_avg_mw": int(round(wind_30d_sum)) if anomaly_isos > 0 else float('nan'),
+        "wind_anomaly_mw": int(round(wind_anomaly_sum)) if anomaly_isos > 0 else float('nan'),
     }
     
     if pd.notna(nat_row["wind_anomaly_mw"]):
@@ -224,6 +221,8 @@ def fetch_live_grid():
             impact = "BEARISH (Strong Wind)"
         else:
             impact = "NEUTRAL"
+        if partial:
+            impact += f" ({gas_isos}/{total_isos} ISOs)"
     else:
         impact = "CALCULATING BASELINE"
         
