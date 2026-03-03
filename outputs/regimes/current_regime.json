@@ -1,8 +1,8 @@
 {
-  "current_regime": 2,
-  "regime_label": "Regime 2 (Ridge East / Ridge West)",
-  "persistence_days": 2,
-  "season": "Spring",
+  "current_regime": 0,
+  "regime_label": "Regime 0 (Polar Vortex / Ridge East / Trough West)",
+  "persistence_days": 1,
+  "season": "Winter",
   "transition_probs": {
     "Regime 0": 0.0,
     "Regime 1": 0.0,

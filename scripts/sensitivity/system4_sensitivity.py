@@ -50,11 +50,16 @@ def calculate_OLS_sensitivity():
     coeff = float(model.params['hdd'])
     r2 = float(model.rsquared)
     
+    # Calculate a rough percentile for natural gas winter sensitivity (historical context)
+    # Range typically 1.5 to 3.0
+    percentile = min(max(int((coeff - 1.5) / (3.0 - 1.5) * 100), 0), 100)
+    
     # Write output
     output = {
         'timestamp': datetime.utcnow().isoformat() + 'Z',
-        'rolling_30d_coeff': round(coeff, 3),
-        'r2_fit': round(r2, 3),
+        'sensitivity_bcf_per_hdd': round(coeff, 3),
+        'r_squared': round(r2, 3),
+        'percentile': percentile,
         'base_demand': round(float(model.params['const']), 1)
     }
     

@@ -4,6 +4,9 @@ import logging
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 # Try to import required libraries. If missing during execution, they will surface errors.
 try:
@@ -195,10 +198,15 @@ def run_system3():
                 if a['lead_hours'] < final_alerts[b]['lead_hours']:
                     final_alerts[b] = a
                     
+    alert_level = {basin: 'NONE' for basin in BASINS}
+    for a in final_alerts.values():
+        alert_level[a['basin']] = a['tier']
+        
     output = {
         'timestamp': datetime.utcnow().isoformat() + 'Z',
         'gfs_run': gfs_run.isoformat() + 'Z',
         'ecmwf_run': ecmwf_run.isoformat() + 'Z',
+        'alert_level': alert_level,
         'active_alerts': list(final_alerts.values()),
         'status': 'success' if gfs_data else 'error'
     }

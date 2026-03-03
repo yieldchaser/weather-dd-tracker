@@ -137,10 +137,10 @@ def send():
             elif "BULL" in val: market_bias_str = "BULLISH 🟢"
             elif "BEAR" in val: market_bias_str = "BEARISH 🔴"
             
-            score = comp_data.get("composite_bull_bear_score", 0.0)
+            score = comp_data.get("composite_score", 0.0)
             bias_detail_str = f" | Net Score: {score:+.2f}"
             
-            components = comp_data.get("detail", {}).get("components", [])
+            components = comp_data.get("components", [])
             if components:
                 component_lines.append("🌡️ MASTER WEATHER COMPOSITE CATALYSTS:")
                 for c in components:

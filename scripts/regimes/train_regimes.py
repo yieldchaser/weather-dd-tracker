@@ -105,21 +105,29 @@ def train_regimes():
         c_2d = centroids_2d[i] / 9.80665  
         
         # Georeference the slices dynamically
-        # USA bounds rough approximation
-        west_cond = (lon_arr <= 260) if lon_arr.max() > 180 else (lon_arr <= -100)
-        east_cond = (lon_arr >= 275) if lon_arr.max() > 180 else (lon_arr >= -85)
+        # CONUS mid-latitudes: 25-50N
+        conus_lat_mask = (lat_arr >= 25) & (lat_arr <= 50)
+        
+        # USA bounds rough approximation (CONUS roughly 125W to 70W)
+        # Western: 125W-100W (West+Central transition)
+        west_cond = ((lon_arr >= 235) & (lon_arr <= 260)) if lon_arr.max() > 180 else ((lon_arr >= -125) & (lon_arr <= -100))
+        # Eastern: 100W-70W (Central+East transition)
+        east_cond = ((lon_arr >= 260) & (lon_arr <= 290)) if lon_arr.max() > 180 else ((lon_arr >= -100) & (lon_arr <= -70))
         north_cond = lat_arr >= 55
         
-        west_anom = c_2d[:, west_cond].mean()
-        east_anom = c_2d[:, east_cond].mean()
+        west_anom = c_2d[conus_lat_mask, :][:, west_cond].mean()
+        east_anom = c_2d[conus_lat_mask, :][:, east_cond].mean()
         north_anom = c_2d[north_cond, :].mean()
         
+        logging.info(f"Regime {i} Anoms: West {west_anom:.1f}, East {east_anom:.1f}, North {north_anom:.1f}")
+        
         tags = []
-        if north_anom > 30: tags.append("Arctic Block")
-        if east_anom < -20: tags.append("Trough East")
-        elif east_anom > 20: tags.append("Ridge East")
-        if west_anom > 20: tags.append("Ridge West")
-        elif west_anom < -20: tags.append("Trough West")
+        if north_anom > 15: tags.append("Arctic Block")
+        if north_anom < -30: tags.append("Polar Vortex")
+        if east_anom < -15: tags.append("Trough East")
+        elif east_anom > 15: tags.append("Ridge East")
+        if west_anom > 15: tags.append("Ridge West")
+        elif west_anom < -15: tags.append("Trough West")
         
         if not tags:
             tags.append("Zonal Flow")

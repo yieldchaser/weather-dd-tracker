@@ -124,9 +124,12 @@ def run_system1():
 
     output = {
         'timestamp': datetime.now(UTC).isoformat().replace('+00:00', 'Z') if '+00:00' in datetime.now(UTC).isoformat() else datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
-        'teleconnections': data,
-        'composite_cold_risk_score': score,
-        'analog_years': analog_years,
+        'ao': data.get('AO', {}).get('current', 0.0),
+        'nao': data.get('NAO', {}).get('current', 0.0),
+        'pna': data.get('PNA', {}).get('current', 0.0),
+        'epo': data.get('EPO', {}).get('current', 0.0),
+        'composite_score': score,
+        'analogs': analog_years,
         'status': 'success'
     }
 
