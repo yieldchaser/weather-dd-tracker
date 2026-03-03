@@ -1785,8 +1785,9 @@
             // Task 3 — Regime Badge
             if (regimeData && regimeData.regime_label) {
                 // Strip the leading "Regime N (...)" wrapper if present, show the clean name
-                const raw = regimeData.regime_label;
-                const clean = raw.replace(/^Regime\s+\d+\s*\((.+)\)$/, '$1');
+                const raw = (regimeData.regime_label || '').trim();
+                const m = raw.match(/^Regime\s+\d+\s*\((.+)\)\s*$/);
+                const clean = m ? m[1].trim() : raw;
                 document.getElementById('rb-val').textContent = clean;
                 document.getElementById('rb-persist').textContent =
                     'Persistence: ' + (regimeData.persistence_days ?? '?') + ' day(s)';

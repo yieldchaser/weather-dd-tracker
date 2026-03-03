@@ -44,10 +44,24 @@ def run_system1():
             if len(recent) > 0:
                 current_val = recent['value'].iloc[-1]
                 prev_val = recent['value'].iloc[-7] if len(recent) >= 7 else current_val
-                roc = current_val - prev_val
+                
+                # Z-score normalize against full history so all indices are on the same scale.
+                # AO/NAO/PNA from CPC are already ~normalized, but EPO from PSL is raw
+                # geopotential height anomaly (dam) — this brings it onto the same unit as the others.
+                hist_vals = df['value'].dropna()
+                hist_mean = hist_vals.mean()
+                hist_std  = hist_vals.std()
+                if hist_std > 0:
+                    current_norm = (current_val - hist_mean) / hist_std
+                    prev_norm    = (prev_val    - hist_mean) / hist_std
+                else:
+                    current_norm = current_val
+                    prev_norm    = prev_val
+                
+                roc = current_norm - prev_norm
                 data[idx] = {
-                    'current': float(round(current_val, 3)),
-                    'roc': float(round(roc, 3)),
+                    'current': float(round(current_norm, 3)),
+                    'roc':     float(round(roc, 3)),
                     'history': recent['value'].tail(15).tolist()
                 }
 
