@@ -59,21 +59,21 @@ def url_exists(url, timeout=15):
         return False
 
 
-def find_latest_available_run():
+def find_available_runs(lookback_days=2):
+    """
+    Scans NOMADS for all available HRRR runs in the lookback window.
+    """
     now = datetime.datetime.now(datetime.UTC)
-
-    # Search today and yesterday
-    for day_offset in [0, -1]:
+    available = []
+    # Narrow down the search for HRRR since it's hourly
+    for day_offset in range(0, -lookback_days - 1, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
             test_file = f"hrrr.t{cycle}z.wrfsfcf18.grib2"
             test_url = f"{BASE_URL}/hrrr.{date}/conus/{test_file}"
-            print(f"Checking availability: {date}_{cycle}Z")
             if url_exists(test_url):
-                print(f"[OK] Found available run: {date}_{cycle}Z")
-                return date, cycle
-
-    raise RuntimeError("No available HRRR run found in last 48 hours.")
+                available.append((date, cycle))
+    return available
 
 
 def fetch_idx(idx_url, timeout=15):
@@ -117,16 +117,21 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
 # Main logic
 # -----------------------------
 
-def fetch_latest_hrrr():
-    run_date, cycle = find_latest_available_run()
+def fetch_run(run_date, cycle):
     run_id = f"{run_date}_{cycle}"
     run_dir = os.path.join(OUTPUT_DIR, run_id)
-    ensure_dir(run_dir)
+    manifest_path = os.path.join(run_dir, "manifest.json")
+    
+    # Quick skip if manifest exists and is recent
+    if os.path.exists(manifest_path):
+        print(f"  [SKIP] HRRR run {run_id}Z already fully fetched.")
+        return True
 
+    ensure_dir(run_dir)
     # Use extended hours if it's a major cycle
     forecast_hours = EXTENDED_FORECAST_HOURS if cycle in EXTENDED_CYCLES else STANDARD_FORECAST_HOURS
     
-    print(f"\nFetching HRRR run: {run_id}Z (t2m only via byte-range)")
+    print(f"\nSyncing HRRR run: {run_id}Z (t2m only via byte-range)")
     print(f"Targeting {max(forecast_hours)} forecast hours.")
 
     fetched_hours = []
@@ -139,54 +144,52 @@ def fetch_latest_hrrr():
         idx_url = base_url + ".idx"
         output_path = os.path.join(run_dir, base_name)
 
-        print(f"\nTimestep f{fh_str}:")
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+            fetched_hours.append(fh)
+            continue
 
         try:
             idx_text = fetch_idx(idx_url)
-        except Exception as e:
-            print(f"  [ERR] Could not fetch .idx: {e}")
-            skipped_hours.append(fh)
-            # If we fail on f19+ it might be because a non-extended run was misidentified or slow
-            if fh > 18:
-                print("  [INFO] Extended hours not available. Ending fetch.")
-                break
-            continue
-
-        start_byte, end_byte = parse_t2m_byte_range(idx_text)
-        if start_byte is None:
-            print(f"  [ERR] TMP:2 m above ground not found in .idx for f{fh_str}")
-            skipped_hours.append(fh)
-            continue
-
-        range_desc = f"{start_byte}-{end_byte if end_byte else 'EOF'}"
-        print(f"  Byte range for t2m: {range_desc}")
-
-        try:
+            start_byte, end_byte = parse_t2m_byte_range(idx_text)
+            if start_byte is None:
+                skipped_hours.append(fh)
+                continue
+            
             download_byte_range(base_url, start_byte, end_byte, output_path)
-            size_kb = os.path.getsize(output_path) / 1024
-            print(f"  [OK] Saved {size_kb:.1f} KB -> {base_name}")
             fetched_hours.append(fh)
-        except Exception as e:
-            print(f"  [ERR] Download failed: {e}")
+        except Exception:
             skipped_hours.append(fh)
+            if fh > 18: break # End extended hours break
 
     manifest = {
         "model": "HRRR",
         "run_date": run_date,
         "cycle": cycle,
-        "field": "TMP:2 m above ground (byte-range extracted)",
         "forecast_hours": fetched_hours,
         "skipped_hours": skipped_hours,
         "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
     }
-
-    with open(os.path.join(run_dir, "manifest.json"), "w") as f:
+    with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
+    print(f"  [OK] HRRR {run_id}Z sync complete. ({len(fetched_hours)} slices)")
+    return True
 
-    print(f"\nFetch complete.")
-    print(f"  Fetched hours : {fetched_hours}")
-    print(f"  Skipped hours : {skipped_hours}")
+def fetch_all_available():
+    print("\n--- HRRR SYNC SERVICE ---")
+    available_runs = find_available_runs(lookback_days=1)
+    if not available_runs:
+        print("  [WARN] No HRRR runs found.")
+        return
+
+    available_runs.sort()
+    # HRRR is hourly. Syncing last 4 ensures continuous shift data even if poller skips.
+    runs_to_sync = available_runs[-4:]
+    print(f"  Available runs found: {len(available_runs)}")
+    print(f"  Syncing last {len(runs_to_sync)} runs to ensure model overlap.")
+
+    for rd, cy in runs_to_sync:
+        fetch_run(rd, cy)
 
 
 if __name__ == "__main__":
-    fetch_latest_hrrr()
+    fetch_all_available()

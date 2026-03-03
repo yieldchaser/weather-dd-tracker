@@ -52,21 +52,20 @@ def url_exists(url, timeout=15):
     except Exception:
         return False
 
-def find_latest_available_run():
+def find_available_runs(lookback_days=2):
+    """
+    Scans NOMADS for all completed available NAM runs in the lookback window.
+    """
     now = datetime.datetime.now(datetime.UTC)
-
-    for day_offset in [0, -1, -2]:
+    available = []
+    for day_offset in range(0, -lookback_days - 1, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
-            # Check for the final output file (f84) to ensure the run is complete
             test_file = f"nam.t{cycle}z.awphys84.tm00.grib2"
             test_url = f"{BASE_URL}/nam.{date}/{test_file}"
-            print(f"Checking availability: {date}_{cycle}Z")
             if url_exists(test_url):
-                print(f"[OK] Found complete available run: {date}_{cycle}Z")
-                return date, cycle
-
-    raise RuntimeError("No completed NAM run found in last 72 hours.")
+                available.append((date, cycle))
+    return available
 
 def fetch_idx(idx_url, timeout=15):
     r = session.get(idx_url, timeout=timeout)
@@ -106,13 +105,18 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
 # Main logic
 # -----------------------------
 
-def fetch_latest_nam():
-    run_date, cycle = find_latest_available_run()
+def fetch_run(run_date, cycle):
     run_id = f"{run_date}_{cycle}"
     run_dir = os.path.join(OUTPUT_DIR, run_id)
-    ensure_dir(run_dir)
+    manifest_path = os.path.join(run_dir, "manifest.json")
+    
+    # Skip if manifest exists
+    if os.path.exists(manifest_path):
+        print(f"  [SKIP] NAM run {run_id}Z already fully fetched.")
+        return True
 
-    print(f"\nFetching NAM run: {run_id}Z (t2m only via byte-range)")
+    ensure_dir(run_dir)
+    print(f"\nSyncing NAM run: {run_id}Z (t2m only via byte-range)")
 
     fetched_hours = []
     skipped_hours = []
@@ -124,49 +128,48 @@ def fetch_latest_nam():
         idx_url = base_url + ".idx"
         output_path = os.path.join(run_dir, base_name)
 
-        print(f"\nTimestep f{fh_str}:")
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+            fetched_hours.append(fh)
+            continue
 
         try:
             idx_text = fetch_idx(idx_url)
-        except Exception as e:
-            print(f"  [ERR] Could not fetch .idx: {e}")
-            skipped_hours.append(fh)
-            continue
-
-        start_byte, end_byte = parse_t2m_byte_range(idx_text)
-        if start_byte is None:
-            print(f"  [ERR] TMP:2 m above ground not found in .idx for f{fh_str}")
-            skipped_hours.append(fh)
-            continue
-
-        range_desc = f"{start_byte}-{end_byte if end_byte else 'EOF'}"
-        print(f"  Byte range for t2m: {range_desc}")
-
-        try:
+            start_byte, end_byte = parse_t2m_byte_range(idx_text)
+            if start_byte is None:
+                skipped_hours.append(fh)
+                continue
+            
             download_byte_range(base_url, start_byte, end_byte, output_path)
-            size_kb = os.path.getsize(output_path) / 1024
-            print(f"  [OK] Saved {size_kb:.1f} KB -> {base_name}")
             fetched_hours.append(fh)
-        except Exception as e:
-            print(f"  [ERR] Download failed: {e}")
+        except Exception:
             skipped_hours.append(fh)
 
     manifest = {
         "model": "NAM",
         "run_date": run_date,
         "cycle": cycle,
-        "field": "TMP:2 m above ground (byte-range extracted)",
         "forecast_hours": fetched_hours,
         "skipped_hours": skipped_hours,
         "created_utc": datetime.datetime.now(datetime.UTC).isoformat()
     }
-
-    with open(os.path.join(run_dir, "manifest.json"), "w") as f:
+    with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
+    print(f"  [OK] NAM {run_id}Z sync complete. ({len(fetched_hours)} slices)")
+    return True
 
-    print(f"\nFetch complete.")
-    print(f"  Fetched hours : {fetched_hours}")
-    print(f"  Skipped hours : {skipped_hours}")
+def sync_all_available():
+    print("\n--- NAM SYNC SERVICE ---")
+    available_runs = find_available_runs(lookback_days=2)
+    if not available_runs:
+        print("  [WARN] No NAM runs found.")
+        return
+    
+    available_runs.sort()
+    # Sync last 3 
+    runs_to_sync = available_runs[-3:]
+    print(f"  Syncing last {len(runs_to_sync)} NAM runs: {[r[0]+'_'+r[1] for r in runs_to_sync]}")
+    for rd, cy in runs_to_sync:
+        fetch_run(rd, cy)
 
 if __name__ == "__main__":
-    fetch_latest_nam()
+    sync_all_available()
