@@ -19,6 +19,7 @@ import json
 import os
 import re
 import requests
+from pathlib import Path
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -83,7 +84,19 @@ def find_latest_available_runs(max_runs=4):
                     return runs
 
     if not runs:
-        raise RuntimeError("No fully available GFS run found in last 3 days.")
+        # Before crashing, check if we already have a cached run locally
+        cached = sorted(
+            [d for d in Path(OUTPUT_DIR).iterdir()
+             if d.is_dir() and (d / "manifest.json").exists()],
+            reverse=True
+        ) if Path(OUTPUT_DIR).exists() else []
+        if cached:
+            import logging
+            logging.warning(
+                f"No remote GFS run found. Falling back to cached: {cached[0].name}"
+            )
+            return []   # empty list → fetch_latest_gfs skips re-fetch; compute_tdd uses existing files
+        raise RuntimeError("No fully available GFS run found remotely or in local cache.")
     return runs
 
 

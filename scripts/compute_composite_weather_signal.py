@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 
 logging.basicConfig(level=logging.INFO)
 
@@ -114,11 +114,17 @@ def compute_composite_weather_signal():
     else:
         signal = "NEUTRAL"
 
+    # Confidence: 20% per connected upstream system (max 100%)
+    connected_count = sum([
+        bool(teleconnections), bool(freeze), bool(sensitivity), bool(wind), bool(regimes)
+    ])
+    confidence = round(20.0 * connected_count, 1)
+
     output = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         "composite_score": round(net_score, 2),
         "signal": signal,
-        "confidence": 85.0, # Mocked confidence based on model cross-validation
+        "confidence": confidence,
         "components": components,
         "detail": {
             "bull_accumulator": round(bull_score, 2),

@@ -21,27 +21,29 @@ logging.basicConfig(level=logging.INFO)
 MODEL_PATH = "data/weights/regime_model.pkl"
 OUTPUT_PATH = "outputs/regimes/current_regime.json"
 
-def get_today_z500():
-    try:
-        # Subtract 6 hours to ensure we grab a fully uploaded GFS run
-        now = datetime.now(UTC) - timedelta(hours=6)
-        cycle = (now.hour // 6) * 6
-        run_date = now.replace(hour=cycle, minute=0, second=0, microsecond=0)
-        
-        # Herbie attempts to pull GFS initial state (0 hour forecast)
+def get_today_z500(max_lookback_hours=24):
+    """
+    Cascade through available GFS runs, stepping back 6h at a time,
+    before giving up and returning None. Avoids NOAA upload-lag crashes.
+    """
+    base = datetime.now(UTC)
+    for hours_back in range(6, max_lookback_hours + 1, 6):
+        candidate = base - timedelta(hours=hours_back)
+        cycle = (candidate.hour // 6) * 6
+        run_date = candidate.replace(hour=cycle, minute=0, second=0, microsecond=0)
         try:
-            H = Herbie(run_date.strftime("%Y-%m-%d %H:%M"), model='gfs', product='pgrb2.0p25', fxx=0)
-        except Exception:
-            run_date -= timedelta(hours=6)
-            H = Herbie(run_date.strftime("%Y-%m-%d %H:%M"), model='gfs', product='pgrb2.0p25', fxx=0)
-
-        logging.info(f"Downloading GFS 500mb Height for {run_date}")
-        # HGT 500 mb
-        ds = H.xarray("HGT:500 mb")
-        return ds, run_date
-    except Exception as e:
-        logging.error(f"Failed to fetch today's Z500: {e}")
-        return None, None
+            H = Herbie(
+                run_date.strftime("%Y-%m-%d %H:%M"),
+                model='gfs', product='pgrb2.0p25', fxx=0,
+                verbose=False
+            )
+            ds = H.xarray("HGT:500 mb")
+            logging.info(f"[OK] GFS Z500 fetched from run: {run_date}")
+            return ds, run_date
+        except Exception as e:
+            logging.warning(f"GFS run {run_date} unavailable ({type(e).__name__}), stepping back 6h...")
+    logging.error("All GFS runs exhausted up to %dh lookback. Returning None.", max_lookback_hours)
+    return None, None
 
 def classify_today():
     if not os.path.exists(MODEL_PATH):
@@ -57,57 +59,62 @@ def classify_today():
     train_lat = model_data['lat']
     train_lon = model_data['lon']
     labels = model_data['labels']
+    transition_matrix = model_data.get('transition_matrix')  # None if old pickle
     
     # 1. Fetch live data
     ds, run_date = get_today_z500()
     if ds is None:
-        logging.warning("Failed to fetch live data using Herbie - using mocked cluster classification for now.")
+        # Re-emit last known coherent state rather than randomizing cluster
+        logging.warning("All GFS runs failed — re-emitting last known regime state.")
+        if os.path.exists(OUTPUT_PATH):
+            with open(OUTPUT_PATH, "r") as f:
+                prev = json.load(f)
+            prev["persistence_days"] = prev.get("persistence_days", 1) + 1
+            prev["stale"] = True
+            os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+            with open(OUTPUT_PATH, "w") as f:
+                json.dump(prev, f, indent=2)
+            logging.warning("Re-emitted stale regime JSON with incremented persistence.")
+            return
+        # No prior JSON either — use regime 0 as safe default
         run_date = datetime.now(UTC)
-        import random
-        cluster_idx = random.choice([0, 1, 2, 3])
-        regime_lbl = labels.get(cluster_idx, f"Regime {cluster_idx}")
+        cluster_idx = 0
+        regime_lbl = labels.get(0, "Regime 0 (Unknown)")
     else:
-        # We rename 'gh' to 'z' just conceptually, but first let's interpolate to the ERA5 grid
         # Convert GFS lons (0-360) to (-180 to 180) if train_lons are negative
         if train_lon.min() < 0 and ds.longitude.max() > 180:
             ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))
             ds = ds.sortby('longitude')
             
-        # Also ERA5 Geopotential is Z = HGT * 9.80665
+        # ERA5 Geopotential Z = HGT * 9.80665
         z_gfs = ds['gh'] * 9.80665
         
         # Interpolate to train coords
         z_interp = z_gfs.interp(latitude=train_lat, longitude=train_lon, method='linear')
-        if 'time' in z_interp.dims:
-           z_interp = z_interp.squeeze('time')
-        elif 'valid_time' in z_interp.dims:
-           z_interp = z_interp.squeeze('valid_time')
-        elif 'step' in z_interp.dims:
-           z_interp = z_interp.squeeze('step')
-           
+        # Squeeze any size-1 time/step dims safely
+        for dim in ['time', 'valid_time', 'step']:
+            if dim in z_interp.dims and z_interp.sizes[dim] == 1:
+                z_interp = z_interp.squeeze(dim)
         z_interp = z_interp.squeeze()
+        
+        # Guard: check NaN coverage from interpolation edge effects
+        nan_frac = float(np.isnan(z_interp.values).mean())
+        if nan_frac > 0.10:
+            logging.warning(f"GFS→ERA5 interp: {nan_frac:.1%} NaN — regime classification may be unreliable.")
         
         # Calculate anomaly from climatology
         doy = run_date.timetuple().tm_yday
-        
-        # closest doy in climatology if exact day not found
         avail_doys = climatology.dayofyear.values
         closest_doy = avail_doys[np.argmin(np.abs(avail_doys - doy))]
-        
         clim_today = climatology.sel(dayofyear=closest_doy)
         anomaly = z_interp - clim_today
         
-        # Flatten
-        anomaly_flat = anomaly.values.flatten().reshape(1, -1)
+        # Flatten and cast to float32 (consistent with training)
+        anomaly_flat = np.nan_to_num(anomaly.values.flatten().reshape(1, -1), nan=0.0).astype(np.float32)
         
-        # Replace any NaNs with 0 and cast to float64 for sklearn
-        anomaly_flat = np.nan_to_num(anomaly_flat).astype(np.float64)
-        
-        # PCA Transform
+        # PCA + KMeans — both in float32, no mid-pipeline cast dance
         pcs = pca.transform(anomaly_flat)
-        
-        # KMeans Predict expects same type as trained. ERA5 anoms were float32.
-        cluster_idx = int(kmeans.predict(pcs.astype(np.float32))[0])
+        cluster_idx = int(kmeans.predict(pcs)[0])
         regime_lbl = labels.get(cluster_idx, f"Regime {cluster_idx}")
     
     # Output to JSON
@@ -129,8 +136,14 @@ def classify_today():
     elif m in [6, 7, 8]: season = "Summer"
     else: season = "Fall"
 
-    # Calculate basic transition probabilities (soft distances logic could go here, sending empty mock for schema compliance)
-    transition_probs = {f"Regime {i}": 0.0 for i in labels.keys()}
+    # Transition probabilities from trained Markov matrix (or zeros if old pickle)
+    if transition_matrix is not None:
+        transition_probs = {
+            labels.get(j, f"Regime {j}"): round(float(transition_matrix[cluster_idx, j]), 3)
+            for j in range(transition_matrix.shape[1])
+        }
+    else:
+        transition_probs = {labels.get(i, f"Regime {i}"): 0.0 for i in labels.keys()}
 
     out_data = {
         "current_regime": cluster_idx,

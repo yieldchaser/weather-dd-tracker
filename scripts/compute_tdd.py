@@ -329,7 +329,7 @@ def process_gfs(run_path, weights, w_lats, w_lons):
             if temp_f_2d.size == 0:
                 print(f"  [WARN] Empty data array in {file.name}")
                 continue
-            temp_f_simple = float(temp_f_2d.mean())
+            temp_f_simple = float(np.nanmean(temp_f_2d))
 
             if w_interp is not None:
                 temp_f_gw = apply_gas_weights(temp_f_2d, w_interp)

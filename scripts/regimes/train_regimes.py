@@ -39,8 +39,12 @@ def train_regimes():
             if drop_vars:
                 ds = ds.drop_vars(drop_vars)
             
-            # Reduce to time, latitude, longitude
-            ds_list.append(ds['z'].squeeze())
+            # Explicitly select 500 hPa if pressure level dimension present,
+            # then squeeze any remaining size-1 dims.
+            z = ds['z']
+            if 'level' in z.dims:
+                z = z.sel(level=500, method='nearest')
+            ds_list.append(z.squeeze())
         except Exception as e:
             logging.error(f"Error reading {f}: {e}")
 
@@ -65,8 +69,11 @@ def train_regimes():
     anomalies_flat = anomalies_flat[valid_mask]
     times_valid = anomalies.time.values[valid_mask]
 
-    logging.info(f"Training PCA on shape {anomalies_flat.shape}...")
-    # Retain 90% variance
+    # Cast to float32: consistent with classify_today inference path,
+    # avoids C-backend dtype mismatch in KMeans.
+    anomalies_flat = anomalies_flat.astype(np.float32)
+    
+    logging.info(f"Training PCA on shape {anomalies_flat.shape} (float32)...")
     pca = PCA(n_components=0.90, random_state=42)
     pcs = pca.fit_transform(anomalies_flat)
     
@@ -88,6 +95,18 @@ def train_regimes():
     logging.info(f"Optimal clusters chosen: {best_k} (score: {best_score:.4f})")
     
     clusters = best_kmeans.predict(pcs)
+    
+    # Build first-order Markov transition matrix from cluster sequence
+    logging.info("Computing Markov transition matrix...")
+    transition_matrix = np.zeros((best_k, best_k), dtype=np.float32)
+    for t in range(len(clusters) - 1):
+        i, j = int(clusters[t]), int(clusters[t + 1])
+        transition_matrix[i, j] += 1
+    # Normalize rows to probabilities (guard zero rows)
+    row_sums = transition_matrix.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1
+    transition_matrix = transition_matrix / row_sums
+    logging.info(f"Transition matrix computed (shape {transition_matrix.shape})")
     
     # Dynamically assign meaningful semantic labels based on cluster centroids
     lat_arr = da.latitude.values if 'latitude' in da.coords else da.lat.values
@@ -142,7 +161,8 @@ def train_regimes():
             'climatology': climatology,
             'lat': da.latitude.values if 'latitude' in da.coords else da.lat.values,
             'lon': da.longitude.values if 'longitude' in da.coords else da.lon.values,
-            'labels': regime_labels
+            'labels': regime_labels,
+            'transition_matrix': transition_matrix,
         }, f)
         
     logging.info("Model saved successfully.")
