@@ -4,13 +4,9 @@ fetch_open_meteo.py
 Open-Meteo API fallback for 2m temperature data.
 Used when primary sources (NOMADS/GFS or ecmwf-opendata) fail.
 
-FIX (Issue #1): Replaced single CONUS centroid point with a weighted
-multi-city average covering the major Henry Hub gas demand regions.
-A single point at lat=39.5N, lon=-98.4W (Kansas) had no statistical
-relationship to Northeast/Midwest heating demand which drives HH prices.
-
-New approach: 17 representative cities with demand-proportional weights.
-Weights mirror the gas-consumption pattern used in the Phase 2 GW grid.
+City list expanded to 79 cities (see demand_constants.py).
+Uses om_batch_fetch for efficient batched API calls instead of
+one HTTP request per city.
 """
 
 import datetime
@@ -24,6 +20,9 @@ BASE_TEMP_F = 65.0
 FORECAST_DAYS = 16
 
 from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT
+from om_batch_fetch import fetch_all_cities_batch
+
+OM_FORECAST_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
 
 # Open-Meteo models to pull in fallback
 OM_MODELS = {
@@ -38,36 +37,8 @@ OM_MODELS = {
 def celsius_to_f(c):
     return c * 9 / 5 + 32
 
-
 def compute_tdd(temp_f):
     return max(BASE_TEMP_F - temp_f, 0)
-
-
-def fetch_city_temps(lat, lon, om_model_name, forecast_days=FORECAST_DAYS):
-    """
-    Fetch daily mean 2m temperature from Open-Meteo for one city.
-    Returns dict of {date_str: temp_celsius} or None on failure.
-    """
-    url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "daily": "temperature_2m_mean",
-        "temperature_unit": "celsius",
-        "forecast_days": forecast_days,
-        "models": om_model_name,
-        "timezone": "UTC",
-    }
-    try:
-        resp = requests.get(url, params=params, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        daily = data.get("daily", {})
-        dates = daily.get("time", [])
-        temps = daily.get("temperature_2m_mean", [])
-        return {d: t for d, t in zip(dates, temps) if t is not None}
-    except Exception as e:
-        return None
 
 
 def fetch_open_meteo(model_key, om_model_name, run_date_str):
@@ -76,18 +47,13 @@ def fetch_open_meteo(model_key, om_model_name, run_date_str):
     Returns a DataFrame with date, mean_temp, tdd, model, run_id.
     """
     print(f"  Fetching Open-Meteo [{model_key}] ({om_model_name}) "
-          f"across {len(DEMAND_CITIES)} demand cities...")
+          f"across {len(DEMAND_CITIES)} demand cities (batched)...")
 
-    # Collect per-city daily temperatures
-    city_data = {}
-    failed = 0
-    for name, lat, lon, weight in DEMAND_CITIES:
-        temps = fetch_city_temps(lat, lon, om_model_name)
-        if temps:
-            city_data[name] = (weight, temps)
-        else:
-            print(f"    [ERR] {name} failed - excluded from average")
-            failed += 1
+    city_data = fetch_all_cities_batch(
+        endpoint=OM_FORECAST_ENDPOINT,
+        model=om_model_name,
+        forecast_days=FORECAST_DAYS,
+    )
 
     if not city_data:
         print(f"  [ERR] [{model_key}]: all cities failed")
@@ -119,10 +85,10 @@ def fetch_open_meteo(model_key, om_model_name, run_date_str):
         print(f"  [ERR] [{model_key}]: no dates computed")
         return None
 
-    active = len(DEMAND_CITIES) - failed
+    active_w = sum(w for _, (w, _) in city_data.items())
     print(f"  [OK] [{model_key}]: {len(rows)} days | "
-          f"{active}/{len(DEMAND_CITIES)} cities | "
-          f"weighted avg ({TOTAL_WEIGHT - sum(DEMAND_CITIES[i][3] for i in range(failed))} of {TOTAL_WEIGHT} weight-pts)")
+          f"{len(city_data)}/{len(DEMAND_CITIES)} cities | "
+          f"{active_w:.1f}/{TOTAL_WEIGHT:.1f} weight-pts active")
     return pd.DataFrame(rows)
 
 

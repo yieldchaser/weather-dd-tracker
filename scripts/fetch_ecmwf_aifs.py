@@ -49,14 +49,18 @@ def find_available_runs(lookback_days=2):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
             try:
-                # Check for the presence of the model run metadata without full retrieval
+                # Check that the LAST step we need is available — not just step 0
+                # (step 0 is the initial field and is published almost immediately;
+                #  we need the full 15-day horizon before attempting a retrieval)
+                last_step = EXPECTED_STEPS[-1]
                 urls = client.urls(
                     model="aifs-single", stream="oper", type="fc", resol="0p25",
-                    date=date, time=cycle, step=0, param="2t"
+                    date=date, time=cycle, step=last_step, param="2t"
                 )
                 if urls:
                     available.append((date, cycle))
-            except: pass
+            except Exception as e:
+                print(f"  [DEBUG] AIFS availability check {date}_{cycle} skipped: {e}")
     return available
 
 def fetch_run(date, cycle):
@@ -68,6 +72,17 @@ def fetch_run(date, cycle):
     if os.path.exists(target) and os.path.exists(os.path.join(out_dir, "manifest.json")):
         print(f"  [SKIP] AIFS run {run_id} already fully fetched.")
         return True
+
+    # Partial download guard: GRIB exists but manifest is absent → previous run crashed
+    # after download but before manifest was written (or GRIB count validation failed).
+    # Remove the incomplete file so we can re-fetch cleanly.
+    if os.path.exists(target) and not os.path.exists(os.path.join(out_dir, "manifest.json")):
+        print(f"  [WARN] Partial GRIB detected for {run_id} (no manifest). Removing for re-fetch.")
+        try:
+            os.remove(target)
+        except OSError as rm_err:
+            print(f"  [ERR] Could not remove partial GRIB: {rm_err}")
+            return False
 
     os.makedirs(out_dir, exist_ok=True)
     print(f"Fetching ECMWF AIFS: {run_id} (CONUS area only)")

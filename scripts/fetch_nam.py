@@ -110,10 +110,19 @@ def fetch_run(run_date, cycle):
     run_dir = os.path.join(OUTPUT_DIR, run_id)
     manifest_path = os.path.join(run_dir, "manifest.json")
     
-    # Skip if manifest exists
+    # Skip only if manifest exists and has actual data (non-empty forecast_hours)
     if os.path.exists(manifest_path):
-        print(f"  [SKIP] NAM run {run_id}Z already fully fetched.")
-        return True
+        try:
+            with open(manifest_path, "r") as f:
+                m = json.load(f)
+            if len(m.get("forecast_hours", [])) > 0:
+                print(f"  [SKIP] NAM run {run_id}Z already fully fetched.")
+                return True
+            else:
+                print(f"  [WARN] NAM {run_id}Z manifest is empty — removing and retrying.")
+                os.remove(manifest_path)
+        except Exception:
+            os.remove(manifest_path)  # Corrupt manifest → remove and retry
 
     ensure_dir(run_dir)
     print(f"\nSyncing NAM run: {run_id}Z (t2m only via byte-range)")

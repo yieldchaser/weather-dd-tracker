@@ -2,8 +2,11 @@
 fetch_ecmwf_ens.py
 
 Fetches ECMWF ENS (Ensemble) 2m temperature using the Open-Meteo API.
-Uses `ecmwf_ifs04` (the 0.4-degree ensemble API).
-Uses the 17-city gas-demand weighted average strategy.
+Uses `ecmwf_ifs025` (the 0.25-degree ensemble mean).
+
+City list expanded to 79 cities (see demand_constants.py).
+Fetches all cities in a single batched API call via om_batch_fetch
+instead of N serial requests — reduces API calls by ~97%.
 """
 
 import os
@@ -18,64 +21,51 @@ BASE_TEMP_F = 65.0
 FORECAST_DAYS = 16
 
 from demand_constants import DEMAND_CITIES
+from om_batch_fetch import fetch_all_cities_batch
+
+OM_ENSEMBLE_ENDPOINT = "https://ensemble-api.open-meteo.com/v1/ensemble"
+
 
 def celsius_to_f(c):
     return c * 9 / 5 + 32
 
+
 def compute_tdd(temp_f):
     return max(BASE_TEMP_F - temp_f, 0)
 
-def fetch_city_temps(lat, lon, forecast_days=FORECAST_DAYS):
-    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "daily": "temperature_2m_mean",
-        "temperature_unit": "celsius",
-        "forecast_days": forecast_days,
-        "models": "ecmwf_ifs025",
-        "timezone": "UTC",
-    }
-    try:
-        resp = requests.get(url, params=params, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        daily = data.get("daily", {})
-        dates = daily.get("time", [])
-        
-        # Open-Meteo limits raw ECMWF member data due to licensing, but provides
-        # the pre-calculated statistical ensemble mean variable freely.
-        temps = daily.get("temperature_2m_mean", [])
-            
-        return {d: t for d, t in zip(dates, temps) if t is not None}
-    except Exception as e:
-        print(f"Failed to fetch {lat}, {lon}: {e}")
-        return None
 
 def fetch_run(date_str, cycle):
     run_id = f"{date_str}_{cycle}"
     out_path = BASE_DIR / f"{run_id}_tdd.csv"
-    
+
     if out_path.exists():
-        print(f"  [SKIP] ECMWF ENS run {run_id}Z already fetched.")
-        return True
+        # Validate the existing file isn't a partial write from a prior failed run
+        try:
+            existing = pd.read_csv(out_path)
+            if len(existing) >= 8:  # expect at least 8 forecast days
+                print(f"  [SKIP] ECMWF ENS run {run_id}Z already fetched ({len(existing)} days).")
+                return True
+            else:
+                print(f"  [WARN] ECMWF ENS {run_id}Z existing file has only {len(existing)} rows "
+                      f"— likely a partial write. Removing and re-fetching.")
+                out_path.unlink()
+        except Exception:
+            out_path.unlink()  # corrupted CSV → remove and retry
 
-    print(f"Syncing ECMWF ENS: {run_id} (Open-Meteo API ecmwf_ifs025)")
+    print(f"Syncing ECMWF ENS: {run_id} "
+          f"(Open-Meteo ecmwf_ifs025, {len(DEMAND_CITIES)}-city batch)")
 
-    city_data = {}
-    failed = 0
-    for name, lat, lon, weight in DEMAND_CITIES:
-        # We fetch the OM ensemble mean for this city.
-        # OM usually mirrors 00z and 12z cycles for ECMWF.
-        temps = fetch_city_temps(lat, lon)
-        if temps:
-            city_data[name] = (weight, temps)
-        else:
-            failed += 1
+    city_data = fetch_all_cities_batch(
+        endpoint=OM_ENSEMBLE_ENDPOINT,
+        model="ecmwf_ifs025",
+        forecast_days=FORECAST_DAYS,
+    )
 
     if not city_data:
+        print(f"  [ERR] No city data returned for {run_id}. Skipping.")
         return False
 
+    # Weighted daily average across all cities that returned data
     all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
     rows = []
     for dt_str in all_dates:
@@ -87,15 +77,30 @@ def fetch_run(date_str, cycle):
         if total_w > 0:
             avg_f = celsius_to_f(weighted_temp / total_w)
             rows.append({
-                "date": dt_str, "mean_temp": round(avg_f, 2), "tdd": round(compute_tdd(avg_f), 2),
-                "tdd_gw": round(compute_tdd(avg_f), 2), "model": "ECMWF_ENS", "run_id": run_id,
+                "date":     dt_str,
+                "mean_temp": round(avg_f, 2),
+                "tdd":      round(compute_tdd(avg_f), 2),
+                "tdd_gw":   round(compute_tdd(avg_f), 2),
+                "model":    "ECMWF_ENS",
+                "run_id":   run_id,
             })
 
     if rows:
+        # Guard: require at least 8 forecast days before treating as a valid fetch.
+        # A run with 1-2 days is a sign that the batch was severely degraded
+        # (only last few days of a prior run's data came back).
+        if len(rows) < 8:
+            print(f"  [WARN] ECMWF ENS {run_id}: only {len(rows)} day(s) computed — "
+                  f"too few to be a valid forecast. File NOT written.")
+            return False
         pd.DataFrame(rows).to_csv(out_path, index=False)
-        print(f"  [OK] Success: {run_id} ECMWF_ENS ({len(rows)} days)")
+        print(f"  [OK] {run_id} ECMWF_ENS: {len(rows)} days, "
+              f"{len(city_data)}/{len(DEMAND_CITIES)} cities active.")
         return True
+
+    print(f"  [ERR] No rows computed for {run_id}.")
     return False
+
 
 def sync_all_ecmwf_ens():
     print("\n--- ECMWF ENS SYNC SERVICE ---")
@@ -103,12 +108,14 @@ def sync_all_ecmwf_ens():
     for day_offset in range(-1, 1):
         date_str = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in ["00", "12"]:
-            # Logic: If it's today and before 08:30 UTC, 00z probably isn't ready on OM.
-            # If it's before 20:30 UTC, 12z isn't ready.
+            # Open-Meteo mirrors 00z at ~08:30 UTC and 12z at ~20:30 UTC.
             if day_offset == 0:
-                if cycle == "00" and now.hour < 8: continue
-                if cycle == "12" and now.hour < 20: continue
+                if cycle == "00" and now.hour < 8:
+                    continue
+                if cycle == "12" and now.hour < 20:
+                    continue
             fetch_run(date_str, cycle)
+
 
 if __name__ == "__main__":
     sync_all_ecmwf_ens()

@@ -36,12 +36,14 @@ NOAA / ECMWF / EIA APIs
 |---|---|---|---|
 | NOAA NOMADS | GFS GRIB2 (byte-range, t2m only) | 4× daily | None |
 | NOAA NOMADS | HRRR, NAM, NBM, GEFS | 4× daily | None |
-| ECMWF Open Data | ECMWF IFS, AIFS, ENS | 4× daily | None (10d lag) |
-| CMC Open | CMC Ensemble | Daily | None |
+| ECMWF Open Data | ECMWF IFS HRES | 2× daily (00z/12z) | None (10-day lag) |
+| ECMWF Open Data | ECMWF AIFS (AI model) | 4× daily (00/06/12/18z) | None (real-time, no lag) |
+| Open-Meteo Ensemble API | ECMWF ENS, CMC ENS | 2× daily | None |
+| AWS S3 (noaa-gefs-pds) | GEFS (16-day), GEFS 35D (sub-seasonal) | 4× daily / daily 00z | None |
 | PSL/CPC NOAA | AO, NAO, PNA, EPO teleconnections | Daily | None |
 | EIA v2 API | Live grid fuel mix (Big 4 ISOs) | Daily | `EIA_KEY` secret |
-| ERA5 (local) | Regime model training data | Quarterly retrain | Local file |
-| Kaggle | AI model inference (FourCastNet) | 2× daily (00z/12z) | `KAGGLE_*` secrets |
+| ERA5 (CDS) | Regime model training data | Quarterly retrain | Local file |
+| Kaggle (GPU kernel) | AI model inference (FourCastNetV2-Small) | 2× daily (00z/12z) | `KAGGLE_*` secrets |
 
 ---
 
@@ -55,9 +57,9 @@ NOAA / ECMWF / EIA APIs
 ### Medium-Range Physics (0–16 Days)
 - **GFS** — Global Forecast System (NOAA, 0.25°)
 - **ECMWF IFS** — European Centre Operational HRES
-- **ECMWF ENS** — 51-member European Ensemble
+- **ECMWF ENS** — European Ensemble (via Open-Meteo `ecmwf_ifs025` ensemble mean API)
 - **GEFS** — Global Ensemble Forecast System (NOAA)
-- **CMC_ENS** — Canadian Meteorological Centre Ensemble
+- **CMC_ENS** — Canadian Meteorological Centre Ensemble (via Open-Meteo `gem_global_ensemble`)
 - **ICON** — Icosahedral Nonhydrostatic (DWD Germany)
 
 ### Medium-Range AI (ML Forecasts)
@@ -153,6 +155,15 @@ Days with < 75% of their expected hourly/timestep data are excluded from daily a
 
 ### Apples-to-Apples Delta Calculation
 All model shift comparisons use the **gas-weighted daily average** (`hdd_gw`, `cdd_gw`) not simple grid means, ensuring fair comparison across models with different native resolutions.
+
+### AIFS Completeness Guard
+ECMWF AIFS data is checked for completeness at **step=360** (15-day horizon) before triggering a fetch. Checking step=0 only would give a false-positive trigger since the initial analysis field uploads almost immediately — the forecast data takes longer. Partial downloads (GRIB present but no `manifest.json`) are detected and automatically removed for a clean re-fetch.
+
+### Manifest Validation
+HRRR and NAM skip guards read and validate the `forecast_hours` list inside each `manifest.json`. An empty list (from a failed run that still wrote a manifest) triggers automatic manifest removal and retry on the next cycle rather than a permanent skip.
+
+### CI Commit Paths
+The `daily_run.yml` commit step explicitly adds `data/ecmwf_aifs/*_tdd.csv` and `data/ecmwf_ens/*_tdd.csv`. These paths are separate from the base `data/ecmwf/` path and must be listed individually or they are silently lost when the runner exits.
 
 ---
 
