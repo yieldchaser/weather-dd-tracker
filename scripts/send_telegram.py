@@ -248,35 +248,51 @@ def send():
         lines.extend(intel_lines)
         lines.append("─" * 30)
 
-    # Historical Magnitude Matrix Alert
     hist_file = Path("outputs/historical_degree_days.csv")
     if hist_file.exists():
         try:
+            import calendar
             hd = pd.read_csv(hist_file)
             current_month = date.today().month
-            hd["month"] = pd.to_datetime(hd["date"]).dt.month
-            hd["year"] = pd.to_datetime(hd["date"]).dt.year
-            hd_month = hd[hd["month"] == current_month]
-            yearly_sums = hd_month.groupby("year")["tdd_gw" if "tdd_gw" in hd.columns else "hdd"].sum().sort_index()
-            
-            if not yearly_sums.empty:
-                current_year = yearly_sums.index[-1]
-                sorted_vals = yearly_sums.sort_values(ascending=False)
-                rank = list(sorted_vals.index).index(current_year) + 1
-                total_years = len(yearly_sums)
-                month_name = date.today().strftime('%B')
-                extreme_label = "COLDEST" if season in ("HDD", "BOTH") else "HOTTEST"
-                mild_label = "WARMEST" if season in ("HDD", "BOTH") else "MILDEST"
-                metric_tag = season if season != "BOTH" else "TDD"
-                if rank <= 5:
-                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked #{rank} {extreme_label} {month_name} [{metric_tag}] in last {total_years}yrs! 🥶\n")
-                elif rank > total_years - 5:
-                    bottom_rank = total_years - rank + 1
-                    lines.append(f"🚨 HISTORICAL MAGNITUDE MATRIX: Ranked #{bottom_rank} {mild_label} {month_name} [{metric_tag}] in last {total_years}yrs! 🌡️\n")
+            current_day   = date.today().day
+            days_in_month = calendar.monthrange(date.today().year, current_month)[1]
+
+            # Only rank once we have >=85% of the month's data (day 26+ for a 31-day month).
+            # Before that, the current year's partial sum is incomparable to historical
+            # full-month sums and would always rank as the "warmest" month on record.
+            MIN_DAY_PCT = 0.85
+            if current_day / days_in_month >= MIN_DAY_PCT:
+                hd["month"] = pd.to_datetime(hd["date"]).dt.month
+                hd["year"]  = pd.to_datetime(hd["date"]).dt.year
+                hd_month    = hd[hd["month"] == current_month]
+                hdd_col_h   = "tdd_gw" if "tdd_gw" in hd.columns else "hdd"
+                yearly_sums = hd_month.groupby("year")[hdd_col_h].sum().sort_index()
+
+                # Require each historic year to also have >=85% of days (removes leap/partial years)
+                yearly_counts = hd_month.groupby("year")["date"].count()
+                valid_years   = yearly_counts[yearly_counts >= int(days_in_month * MIN_DAY_PCT)].index
+                yearly_sums   = yearly_sums[yearly_sums.index.isin(valid_years)]
+
+                if not yearly_sums.empty and date.today().year in yearly_sums.index:
+                    current_year  = date.today().year
+                    sorted_vals   = yearly_sums.sort_values(ascending=False)
+                    rank          = list(sorted_vals.index).index(current_year) + 1
+                    total_years   = len(yearly_sums)
+                    month_name    = date.today().strftime('%B')
+                    extreme_label = "COLDEST" if season in ("HDD", "BOTH") else "HOTTEST"
+                    mild_label    = "WARMEST" if season in ("HDD", "BOTH") else "MILDEST"
+                    metric_tag    = season if season != "BOTH" else "TDD"
+                    if rank <= 5:
+                        lines.append(f"\U0001f6a8 HISTORICAL MAGNITUDE MATRIX: Ranked #{rank} {extreme_label} {month_name} [{metric_tag}] in last {total_years}yrs! \U0001f976\n")
+                    elif rank > total_years - 5:
+                        bottom_rank = total_years - rank + 1
+                        lines.append(f"\U0001f6a8 HISTORICAL MAGNITUDE MATRIX: Ranked #{bottom_rank} {mild_label} {month_name} [{metric_tag}] in last {total_years}yrs! \U0001f321\ufe0f\n")
         except Exception as e:
             print(f"[WARN] Could not process historical matrix: {e}")
 
+
     # Fast revision alerts
+
     run_chg_file = Path("outputs/run_change.csv")
     if run_chg_file.exists():
         try:
