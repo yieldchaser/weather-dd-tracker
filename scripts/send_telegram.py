@@ -23,6 +23,9 @@ PHYSICS_ENSEMBLES = ["CMC_ENS", "GEFS_35D", "ECMWF_ENS", "GEFS"]
 
 
 def _signal(vs_normal):
+    # Bug fix: pd.isna check prevents NaN comparisons returning False silently
+    if pd.isna(vs_normal):
+        return "N/A ⚪"
     if vs_normal > 0.5:
         return "BULLISH 🟢"
     elif vs_normal < -0.5:
@@ -36,9 +39,14 @@ def _trend(model, sorted_summary):
         return "first run"
     deltas = [runs.loc[i, "fa_gw"] - runs.loc[i-1, "fa_gw"] for i in range(1, len(runs))]
     latest = deltas[-1]
+    # Bug fix: NaN delta (e.g. missing tdd_gw for a run) must not label as "bearish"
+    if pd.isna(latest):
+        return "insufficient data"
     direction = "bullish" if latest > 0 else "bearish"
     count = 1
     for d in reversed(deltas[:-1]):
+        if pd.isna(d):
+            break  # stop streak count at first NaN
         if (d > 0) == (latest > 0):
             count += 1
         else:
@@ -49,8 +57,18 @@ def _trend(model, sorted_summary):
 
 
 def _band(df, model, run_id, start_day, end_day, tdd_col, norm_col):
+    """Return (tdd_avg, norm_avg, n_days) for forecast days start_day..end_day.
+
+    Uses date-based future-only anchoring rather than positional iloc so that
+    week-old runs still in tdd_master don't include already-elapsed past dates
+    in the Near-term / Extended averages.
+    """
+    import datetime
+    today = pd.Timestamp(datetime.date.today())
     run_df = df[(df["model"] == model) & (df["run_id"] == run_id)].sort_values("date").reset_index(drop=True)
-    band = run_df.iloc[start_day - 1: end_day]
+    # Only keep future dates (today or later)
+    future_df = run_df[run_df["date"] >= today].reset_index(drop=True)
+    band = future_df.iloc[start_day - 1: end_day]
     if band.empty:
         return None, None, None
     return band[tdd_col].mean(), band[norm_col].mean(), len(band)
@@ -191,10 +209,13 @@ def send():
             intel_lines.append(f"🗺️ WEATHER REGIME: {clean_label} [{season_r}]")
             intel_lines.append(f"   Persistence: Day {persist} | Bias: {regime_bias}")
 
-            # Top-2 Markov transitions (exclude self)
+            # Top-2 Markov transitions (exclude current regime by exact key match)
             tp = regime_data.get("transition_probs", {})
             if tp:
-                others = {k: v for k, v in tp.items() if clean_label not in k}
+                # Bug fix: use exact key equality, not substring containment, so
+                # regimes whose labels share words (e.g. 'Zonal' / 'Zonal Extended')
+                # are not accidentally excluded from the transition list.
+                others = {k: v for k, v in tp.items() if k.strip() != raw_label.strip()}
                 top2 = sorted(others.items(), key=lambda x: x[1], reverse=True)[:2]
                 for label_k, prob in top2:
                     m2 = re.match(r"^Regime\s+\d+\s*\((.+)\)$", label_k.strip())
@@ -253,40 +274,45 @@ def send():
         try:
             import calendar
             hd = pd.read_csv(hist_file)
-            current_month = date.today().month
-            current_day   = date.today().day
-            days_in_month = calendar.monthrange(date.today().year, current_month)[1]
+            current_month  = date.today().month
+            current_day    = date.today().day
+            current_year   = date.today().year
 
-            # Only rank once we have >=85% of the month's data (day 26+ for a 31-day month).
-            # Before that, the current year's partial sum is incomparable to historical
-            # full-month sums and would always rank as the "warmest" month on record.
-            MIN_DAY_PCT = 0.85
-            if current_day / days_in_month >= MIN_DAY_PCT:
+            # Day-matched MTD ranking: compare current year's Days 1–N against
+            # every historical year's Days 1–N for the same month.
+            # Fires from day 7+ only (5-day sample too small/noisy to be meaningful).
+            # Label explicitly says "MTD" so readers know it is a pace ranking,
+            # not a full-month ranking.
+            MIN_DAYS = 7
+            if current_day >= MIN_DAYS:
                 hd["month"] = pd.to_datetime(hd["date"]).dt.month
                 hd["year"]  = pd.to_datetime(hd["date"]).dt.year
-                hd_month    = hd[hd["month"] == current_month]
+                hd["day"]   = pd.to_datetime(hd["date"]).dt.day
                 hdd_col_h   = "tdd_gw" if "tdd_gw" in hd.columns else "hdd"
-                yearly_sums = hd_month.groupby("year")[hdd_col_h].sum().sort_index()
 
-                # Require each historic year to also have >=85% of days (removes leap/partial years)
-                yearly_counts = hd_month.groupby("year")["date"].count()
-                valid_years   = yearly_counts[yearly_counts >= int(days_in_month * MIN_DAY_PCT)].index
-                yearly_sums   = yearly_sums[yearly_sums.index.isin(valid_years)]
+                # Filter: same month, days 1 through current_day only
+                hd_mtd = hd[(hd["month"] == current_month) & (hd["day"] <= current_day)]
 
-                if not yearly_sums.empty and date.today().year in yearly_sums.index:
-                    current_year  = date.today().year
+                # Require each year to have at least current_day - 1 days
+                # (allows 1 missing day without disqualifying a year)
+                yearly_counts = hd_mtd.groupby("year")["date"].count()
+                valid_years   = yearly_counts[yearly_counts >= max(current_day - 1, 1)].index
+                yearly_sums   = hd_mtd[hd_mtd["year"].isin(valid_years)].groupby("year")[hdd_col_h].sum()
+
+                if not yearly_sums.empty and current_year in yearly_sums.index:
                     sorted_vals   = yearly_sums.sort_values(ascending=False)
                     rank          = list(sorted_vals.index).index(current_year) + 1
                     total_years   = len(yearly_sums)
                     month_name    = date.today().strftime('%B')
+                    mtd_label     = f"MTD (Day 1\u2013{current_day})"
                     extreme_label = "COLDEST" if season in ("HDD", "BOTH") else "HOTTEST"
                     mild_label    = "WARMEST" if season in ("HDD", "BOTH") else "MILDEST"
                     metric_tag    = season if season != "BOTH" else "TDD"
                     if rank <= 5:
-                        lines.append(f"\U0001f6a8 HISTORICAL MAGNITUDE MATRIX: Ranked #{rank} {extreme_label} {month_name} [{metric_tag}] in last {total_years}yrs! \U0001f976\n")
+                        lines.append(f"\U0001f6a8 HISTORICAL MAGNITUDE MATRIX: Ranked #{rank} {extreme_label} {month_name} {mtd_label} [{metric_tag}] in last {total_years}yrs! \U0001f976\n")
                     elif rank > total_years - 5:
                         bottom_rank = total_years - rank + 1
-                        lines.append(f"\U0001f6a8 HISTORICAL MAGNITUDE MATRIX: Ranked #{bottom_rank} {mild_label} {month_name} [{metric_tag}] in last {total_years}yrs! \U0001f321\ufe0f\n")
+                        lines.append(f"\U0001f6a8 HISTORICAL MAGNITUDE MATRIX: Ranked #{bottom_rank} {mild_label} {month_name} {mtd_label} [{metric_tag}] in last {total_years}yrs! \U0001f321\ufe0f\n")
         except Exception as e:
             print(f"[WARN] Could not process historical matrix: {e}")
 
@@ -398,7 +424,8 @@ def send():
             if run_trend_dict is not None:
                 run_trend_dict[model] = row["fa_gw"]
 
-            display_run_id = run_id.split("_")[0] + "_AI" if "_AI" in run_id else run_id
+            # Bug fix: preserve cycle (00/12) for AI runs — old code dropped it
+            display_run_id = run_id.replace("_AI", "-AI") if "_AI" in run_id else run_id
 
             block = (
                 f"{model} | {display_run_id}\n"
