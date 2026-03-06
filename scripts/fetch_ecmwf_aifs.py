@@ -37,34 +37,50 @@ def count_grib_messages(path):
         print(f"  Could not validate GRIB step count: {e}")
         return None
 
+def _aifs_index_url(date, cycle, step):
+    """
+    Build the ECMWF Open Data index URL for a given AIFS run and step.
+    This is the canonical URL pattern used by ecmwf-opendata v0.3.x.
+    A 200 on this URL guarantees the step is published and retrievable.
+    """
+    import requests as _req
+    # date=20260306, cycle=06, step=360 ->
+    # https://data.ecmwf.int/forecasts/20260306/06z/aifs-single/0p25/oper/20260306060000-360h-oper-fc.index
+    dt_str = f"{date}{cycle.zfill(2)}0000"
+    url = (
+        f"https://data.ecmwf.int/forecasts/{date}/{cycle.zfill(2)}z/"
+        f"aifs-single/0p25/oper/{dt_str}-{step}h-oper-fc.index"
+    )
+    try:
+        r = _req.head(url, timeout=10)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
 def find_available_runs(lookback_days=2):
     """
     Scans ECMWF Open Data for all available AIFS runs in the lookback window.
-    Uses client.prepare_request() which is the correct API in ecmwf-opendata >= 0.3.x.
-    (client.urls() was removed in v0.3.26 — do not use it.)
+    Uses a direct HTTP HEAD check against the ECMWF index file URL — the only
+    reliable way to confirm a run is actually published on the server.
+
+    Note: client.urls() was removed in ecmwf-opendata v0.3.26.
+          client.prepare_request() only validates parameters, not server state.
     """
-    client = Client(source="ecmwf")
     now = datetime.datetime.now(datetime.UTC)
     available = []
 
     for day_offset in range(0, -lookback_days - 1, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
-            try:
-                # prepare_request() returns a non-empty list when the run/step
-                # combination exists on the server. It does NOT download any data.
-                # We check step=360 (last 15-day step) to confirm full availability.
-                last_step = EXPECTED_STEPS[-1]
-                req = client.prepare_request(
-                    model="aifs-single", stream="oper", type="fc", resol="0p25",
-                    date=date, time=cycle, step=last_step, param="2t"
-                )
-                if req:  # non-empty list = run is available
-                    available.append((date, cycle))
-                    print(f"  [PING] AIFS {date}_{cycle} step={last_step}: AVAILABLE")
-            except Exception as e:
-                print(f"  [DEBUG] AIFS availability check {date}_{cycle} skipped: {e}")
+            last_step = EXPECTED_STEPS[-1]  # 360
+            if _aifs_index_url(date, cycle, last_step):
+                available.append((date, cycle))
+                print(f"  [PING] AIFS {date}_{cycle} step={last_step}: AVAILABLE")
+            else:
+                print(f"  [PING] AIFS {date}_{cycle} step={last_step}: not yet published")
     return available
+
 
 def fetch_run(date, cycle):
     client = Client(source="ecmwf")

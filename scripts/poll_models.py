@@ -100,23 +100,27 @@ def check_nbm_complete(date_str, cycle):
 
 def check_aifs_complete(date_str, cycle):
     """
-    Checks if ECMWF AIFS run is fully available on Open Data.
-    We validate step=360 (the last 15-day step) rather than step=0,
-    because step=0 (the initial analysis field) is published almost
-    immediately and does NOT confirm that the full forecast is ready.
+    Checks if ECMWF AIFS run is fully available on Open Data by doing a direct
+    HTTP HEAD request against the ECMWF index file for step=360.
 
-    Uses client.prepare_request() — ecmwf-opendata v0.3.26+ removed
-    client.urls(). prepare_request() returns a non-empty list when the
-    requested step exists on the server without downloading any data.
+    Why HTTP HEAD and not the ecmwf-opendata Client:
+      - client.urls()         removed in v0.3.26
+      - client.prepare_request() only validates params, not server state —
+        returns non-empty even for future/unpublished runs (gives false positives)
+      - HEAD on the index file is authoritative: 200 = published, 404 = not yet
+
+    URL pattern: data.ecmwf.int/forecasts/{date}/{HH}z/aifs-single/0p25/oper/{date}{HH}0000-{step}h-oper-fc.index
     """
     try:
-        from ecmwf.opendata import Client
-        client = Client(source="ecmwf")
-        req = client.prepare_request(
-            model="aifs-single", stream="oper", type="fc", resol="0p25",
-            date=date_str, time=cycle, step=360, param="2t"
+        import requests as _req
+        hh = cycle.zfill(2)
+        dt_str = f"{date_str}{hh}0000"
+        url = (
+            f"https://data.ecmwf.int/forecasts/{date_str}/{hh}z/"
+            f"aifs-single/0p25/oper/{dt_str}-360h-oper-fc.index"
         )
-        return len(req) > 0
+        r = _req.head(url, timeout=10)
+        return r.status_code == 200
     except Exception as e:
         print(f"  [DEBUG] AIFS complete-check {date_str}_{cycle} failed: {e}")
         return False
