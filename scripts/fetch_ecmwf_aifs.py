@@ -40,25 +40,28 @@ def count_grib_messages(path):
 def find_available_runs(lookback_days=2):
     """
     Scans ECMWF Open Data for all available AIFS runs in the lookback window.
+    Uses client.prepare_request() which is the correct API in ecmwf-opendata >= 0.3.x.
+    (client.urls() was removed in v0.3.26 — do not use it.)
     """
     client = Client(source="ecmwf")
     now = datetime.datetime.now(datetime.UTC)
     available = []
-    
+
     for day_offset in range(0, -lookback_days - 1, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
             try:
-                # Check that the LAST step we need is available — not just step 0
-                # (step 0 is the initial field and is published almost immediately;
-                #  we need the full 15-day horizon before attempting a retrieval)
+                # prepare_request() returns a non-empty list when the run/step
+                # combination exists on the server. It does NOT download any data.
+                # We check step=360 (last 15-day step) to confirm full availability.
                 last_step = EXPECTED_STEPS[-1]
-                urls = client.urls(
+                req = client.prepare_request(
                     model="aifs-single", stream="oper", type="fc", resol="0p25",
                     date=date, time=cycle, step=last_step, param="2t"
                 )
-                if urls:
+                if req:  # non-empty list = run is available
                     available.append((date, cycle))
+                    print(f"  [PING] AIFS {date}_{cycle} step={last_step}: AVAILABLE")
             except Exception as e:
                 print(f"  [DEBUG] AIFS availability check {date}_{cycle} skipped: {e}")
     return available

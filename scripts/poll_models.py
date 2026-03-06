@@ -104,18 +104,23 @@ def check_aifs_complete(date_str, cycle):
     We validate step=360 (the last 15-day step) rather than step=0,
     because step=0 (the initial analysis field) is published almost
     immediately and does NOT confirm that the full forecast is ready.
+
+    Uses client.prepare_request() — ecmwf-opendata v0.3.26+ removed
+    client.urls(). prepare_request() returns a non-empty list when the
+    requested step exists on the server without downloading any data.
     """
     try:
         from ecmwf.opendata import Client
         client = Client(source="ecmwf")
-        urls = client.urls(
+        req = client.prepare_request(
             model="aifs-single", stream="oper", type="fc", resol="0p25",
             date=date_str, time=cycle, step=360, param="2t"
         )
-        return len(urls) > 0
+        return len(req) > 0
     except Exception as e:
         print(f"  [DEBUG] AIFS complete-check {date_str}_{cycle} failed: {e}")
         return False
+
 
 def check_cmc_ens_complete(date_str, cycle):
     """
