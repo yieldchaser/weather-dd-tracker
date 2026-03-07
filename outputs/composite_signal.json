@@ -1,15 +1,15 @@
 {
-  "timestamp": "2026-03-07T16:33:47.068Z",
-  "composite_score": -3.5,
+  "timestamp": "2026-03-07T22:38:31.068Z",
+  "composite_score": -3.0,
   "signal": "BEARISH",
   "confidence": 100.0,
   "components": [
-    "Teleconnections Warm/Neutral (+1.5 Bear)",
+    "Teleconnections Warm/Neutral (+1.0 Bear)",
     "Bearish/Mild Weather Regime (Regime 2 (Ridge East)) (+2.0 Bear)"
   ],
   "detail": {
     "bull_accumulator": 0,
-    "bear_accumulator": 3.5
+    "bear_accumulator": 3.0
   },
   "system_status": {
     "teleconnections_connected": true,
