@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import traceback
 from datetime import datetime, timedelta, UTC
 import pandas as pd
 import numpy as np
@@ -10,133 +11,164 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
-# Optional dependency just like in system3
 try:
     from herbie import Herbie
 except ImportError:
     logging.warning("Herbie not installed. run 'pip install herbie-data'")
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-MODEL_PATH = "data/weights/regime_model.pkl"
+MODEL_PATH  = "data/weights/regime_model.pkl"
 OUTPUT_PATH = "outputs/regimes/current_regime.json"
+
+# Months included in regime model training (Nov–Mar).
+# Classifications outside this window are flagged as extrapolated.
+TRAINING_MONTHS = {1, 2, 3, 11, 12}
+
 
 def get_today_z500(max_lookback_hours=24):
     """
     Cascade through available GFS runs, stepping back 6h at a time,
-    before giving up and returning None. Avoids NOAA upload-lag crashes.
+    before giving up and returning (None, None).
     """
     base = datetime.now(UTC)
     for hours_back in range(6, max_lookback_hours + 1, 6):
-        candidate = base - timedelta(hours=hours_back)
-        cycle = (candidate.hour // 6) * 6
-        run_date = candidate.replace(hour=cycle, minute=0, second=0, microsecond=0)
+        candidate  = base - timedelta(hours=hours_back)
+        cycle      = (candidate.hour // 6) * 6
+        run_date   = candidate.replace(hour=cycle, minute=0, second=0, microsecond=0)
         try:
-            H = Herbie(
-                run_date.strftime("%Y-%m-%d %H:%M"),
-                model='gfs', product='pgrb2.0p25', fxx=0,
-                verbose=False
-            )
+            H  = Herbie(run_date.strftime("%Y-%m-%d %H:%M"), model='gfs', product='pgrb2.0p25', fxx=0, verbose=False)
             ds = H.xarray("HGT:500 mb")
-            logging.info(f"[OK] GFS Z500 fetched from run: {run_date}")
+            logging.info(f"[Regime] GFS Z500 fetched from run: {run_date}")
             return ds, run_date
         except Exception as e:
-            logging.warning(f"GFS run {run_date} unavailable ({type(e).__name__}), stepping back 6h...")
-    logging.error("All GFS runs exhausted up to %dh lookback. Returning None.", max_lookback_hours)
+            logging.warning(f"[Regime] GFS run {run_date} unavailable ({type(e).__name__}: {e}), stepping back 6h...")
+    logging.error("[Regime] All GFS runs exhausted up to %dh lookback. Returning None.", max_lookback_hours)
     return None, None
 
-def classify_today():
-    if not os.path.exists(MODEL_PATH):
-        logging.error(f"Model file {MODEL_PATH} not found. Please run train_regimes.py first.")
-        return
-        
-    with open(MODEL_PATH, "rb") as f:
-        model_data = pickle.load(f)
-        
-    pca = model_data['pca']
-    kmeans = model_data['kmeans']
-    climatology = model_data['climatology']
-    train_lat = model_data['lat']
-    train_lon = model_data['lon']
-    labels = model_data['labels']
-    transition_matrix = model_data.get('transition_matrix')  # None if old pickle
-    
-    # 1. Fetch live data
-    ds, run_date = get_today_z500()
-    if ds is None:
-        # Re-emit last known coherent state rather than randomizing cluster
-        logging.warning("All GFS runs failed — re-emitting last known regime state.")
-        if os.path.exists(OUTPUT_PATH):
+
+def _emit_stale_json(reason="unknown"):
+    """
+    Re-emit last known regime JSON with incremented persistence.
+    Called on ANY failure to classify so that persistence always advances
+    and the GitHub Actions commit step always has something to push.
+    """
+    if os.path.exists(OUTPUT_PATH):
+        try:
             with open(OUTPUT_PATH, "r") as f:
                 prev = json.load(f)
             prev["persistence_days"] = prev.get("persistence_days", 1) + 1
-            prev["stale"] = True
+            prev["stale"]            = True
+            prev["stale_reason"]     = reason
+            prev["timestamp"]        = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
             os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
             with open(OUTPUT_PATH, "w") as f:
                 json.dump(prev, f, indent=2)
-            logging.warning("Re-emitted stale regime JSON with incremented persistence.")
-            return
-        # No prior JSON either — use regime 0 as safe default
-        run_date = datetime.now(UTC)
-        cluster_idx = 0
-        regime_lbl = labels.get(0, "Regime 0 (Unknown)")
+            logging.warning(f"[Regime] Re-emitted stale JSON (persistence +1). Reason: {reason}")
+        except Exception as inner_e:
+            logging.error(f"[Regime] Failed to re-emit stale JSON: {inner_e}")
     else:
-        # Convert GFS lons (0-360) to (-180 to 180) if train_lons are negative
+        logging.error("[Regime] No prior JSON exists to re-emit. Cannot create stale fallback.")
+
+
+def classify_today():
+    if not os.path.exists(MODEL_PATH):
+        logging.error(f"[Regime] Model file {MODEL_PATH} not found. Run train_regimes.py first.")
+        _emit_stale_json("model_file_missing")
+        sys.exit(1)
+
+    # Load trained model artifacts
+    try:
+        with open(MODEL_PATH, "rb") as f:
+            model_data = pickle.load(f)
+    except Exception as e:
+        logging.error(f"[Regime] Failed to load model pickle: {e}")
+        _emit_stale_json("model_load_failed")
+        sys.exit(1)
+
+    pca               = model_data['pca']
+    kmeans            = model_data['kmeans']
+    climatology       = model_data['climatology']
+    train_lat         = model_data['lat']
+    train_lon         = model_data['lon']
+    labels            = model_data['labels']
+    transition_matrix = model_data.get('transition_matrix')
+
+    # ── Core classification block ─────────────────────────────────────────────
+    cluster_idx = None
+    run_date    = None
+
+    try:
+        ds, run_date = get_today_z500()
+
+        if ds is None:
+            _emit_stale_json("gfs_all_runs_failed")
+            return
+
+        # Convert GFS lons (0–360) to (–180 to 180) if training lons are negative
         if train_lon.min() < 0 and ds.longitude.max() > 180:
             ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))
             ds = ds.sortby('longitude')
-            
-        # ERA5 Geopotential Z = HGT * 9.80665
+
+        # ERA5 geopotential: Z [J kg-1] = gh [m] * 9.80665
         z_gfs = ds['gh'] * 9.80665
-        
-        # Interpolate to train coords
+
+        # Interpolate to training grid
         z_interp = z_gfs.interp(latitude=train_lat, longitude=train_lon, method='linear')
-        # Squeeze any size-1 time/step dims safely
         for dim in ['time', 'valid_time', 'step']:
             if dim in z_interp.dims and z_interp.sizes[dim] == 1:
                 z_interp = z_interp.squeeze(dim)
         z_interp = z_interp.squeeze()
-        
-        # Guard: check NaN coverage from interpolation edge effects
+
         nan_frac = float(np.isnan(z_interp.values).mean())
         if nan_frac > 0.10:
-            logging.warning(f"GFS→ERA5 interp: {nan_frac:.1%} NaN — regime classification may be unreliable.")
-        
-        # Calculate anomaly from climatology
-        doy = run_date.timetuple().tm_yday
+            logging.warning(f"[Regime] GFS→ERA5 interp: {nan_frac:.1%} NaN — classification may be unreliable.")
+
+        # Anomaly from climatology
+        doy        = run_date.timetuple().tm_yday
         avail_doys = climatology.dayofyear.values
         closest_doy = avail_doys[np.argmin(np.abs(avail_doys - doy))]
         clim_today = climatology.sel(dayofyear=closest_doy)
-        anomaly = z_interp - clim_today
-        
-        # Flatten and cast to float32 (consistent with training)
+        anomaly    = z_interp - clim_today
+
+        # Flatten + cast to float32 (must match training dtype)
         anomaly_flat = np.nan_to_num(anomaly.values.flatten().reshape(1, -1), nan=0.0).astype(np.float32)
-        
-        # PCA + KMeans — both in float32, no mid-pipeline cast dance
-        pcs = pca.transform(anomaly_flat)
+
+        pcs         = pca.transform(anomaly_flat)
         cluster_idx = int(kmeans.predict(pcs)[0])
-        regime_lbl = labels.get(cluster_idx, f"Regime {cluster_idx}")
-    
-    # Output to JSON
-    # For now, persistence is manually approximated as 1, or we could load yesterday's json to update it
+        regime_lbl  = labels.get(cluster_idx, f"Regime {cluster_idx}")
+
+    except Exception as e:
+        logging.error(f"[Regime] Classification pipeline failed:\n{traceback.format_exc()}")
+        _emit_stale_json(f"classification_exception_{type(e).__name__}")
+        return  # Do NOT sys.exit(1) here — stale JSON was written, commit step should succeed
+
+    # ── Persistence tracking ──────────────────────────────────────────────────
     persistence = 1
     if os.path.exists(OUTPUT_PATH):
         try:
             with open(OUTPUT_PATH, "r") as f:
                 last_run = json.load(f)
-                if last_run.get('current_regime') == cluster_idx:
-                    persistence = last_run.get('persistence_days', 0) + 1
+            if last_run.get('current_regime') == cluster_idx:
+                persistence = last_run.get('persistence_days', 0) + 1
         except Exception:
-            pass
+            pass  # If last JSON is corrupt, reset persistence to 1
 
-    # Determine Season
+    # ── Season and domain flag ────────────────────────────────────────────────
     m = run_date.month
-    if m in [12, 1, 2]: season = "Winter"
-    elif m in [3, 4, 5]: season = "Spring"
-    elif m in [6, 7, 8]: season = "Summer"
-    else: season = "Fall"
+    if   m in [12, 1, 2]:  season = "Winter"
+    elif m in [3, 4, 5]:   season = "Spring"
+    elif m in [6, 7, 8]:   season = "Summer"
+    else:                   season = "Fall"
 
-    # Transition probabilities from trained Markov matrix (or zeros if old pickle)
+    in_training_domain = (m in TRAINING_MONTHS)
+    if not in_training_domain:
+        logging.warning(
+            f"[Regime] Month {m} ({season}) is outside the Nov–Mar training domain. "
+            "Classification is an extrapolation from winter patterns."
+        )
+
+    # ── Markov transition probabilities ──────────────────────────────────────
     if transition_matrix is not None:
         transition_probs = {
             labels.get(j, f"Regime {j}"): round(float(transition_matrix[cluster_idx, j]), 3)
@@ -146,18 +178,25 @@ def classify_today():
         transition_probs = {labels.get(i, f"Regime {i}"): 0.0 for i in labels.keys()}
 
     out_data = {
-        "current_regime": cluster_idx,
-        "regime_label": regime_lbl,
-        "persistence_days": persistence,
-        "season": season,
-        "transition_probs": transition_probs
+        "current_regime":      cluster_idx,
+        "regime_label":        regime_lbl,
+        "persistence_days":    persistence,
+        "season":              season,
+        "in_training_domain":  in_training_domain,
+        "stale":               False,
+        "timestamp":           datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "transition_probs":    transition_probs,
     }
-    
+
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "w") as f:
         json.dump(out_data, f, indent=2)
-        
-    logging.info(f"Classified today as {regime_lbl} with persistence {persistence}")
+
+    logging.info(
+        f"[Regime] Classified as {regime_lbl} | Persistence: Day {persistence} | "
+        f"Season: {season} | In Training Domain: {in_training_domain}"
+    )
+
 
 if __name__ == "__main__":
     classify_today()

@@ -157,13 +157,17 @@ def send():
             elif "BEAR" in val: market_bias_str = "BEARISH 🔴"
             
             score = comp_data.get("composite_score", 0.0)
-            bias_detail_str = f" | Net Score: {score:+.2f}"
+            confidence = comp_data.get("confidence", 100.0)
+            bias_detail_str = f" | Score: {score:+.2f} | Confidence: {confidence:.0f}%"
             
             components = comp_data.get("components", [])
+            stale_systems = comp_data.get("stale_systems", [])
             if components:
                 component_lines.append("🌡️ MASTER WEATHER COMPOSITE CATALYSTS:")
                 for c in components:
                      component_lines.append(f"  • {c}")
+                if stale_systems:
+                    component_lines.append(f"  ⚠️ Excluded (stale/unavailable): {', '.join(stale_systems)}")
                 component_lines.append("")
         except Exception as e:
             print(f"[WARN] Could not parse composite_signal.json: {e}")
@@ -207,7 +211,11 @@ def send():
                 regime_bias = "⚪ Neutral"
 
             intel_lines.append(f"🗺️ WEATHER REGIME: {clean_label} [{season_r}]")
-            intel_lines.append(f"   Persistence: Day {persist} | Bias: {regime_bias}")
+            stale_flag = regime_data.get("stale", False)
+            in_domain  = regime_data.get("in_training_domain", True)
+            persist_note = " ⚠️ (stale)" if stale_flag else ""
+            domain_note  = " ⚠️ (outside training domain — extrapolated)" if not in_domain else ""
+            intel_lines.append(f"   Persistence: Day {persist}{persist_note} | Bias: {regime_bias}{domain_note}")
 
             # Top-2 Markov transitions (exclude current regime by exact key match)
             tp = regime_data.get("transition_probs", {})
