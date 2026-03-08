@@ -1,21 +1,25 @@
 {
-  "timestamp": "2026-03-08T10:31:32.984Z",
-  "composite_score": -3.0,
-  "signal": "BEARISH",
-  "confidence": 100.0,
+  "timestamp": "2026-03-08T13:31:45.817Z",
+  "composite_score": -1.0,
+  "signal": "NEUTRAL",
+  "confidence": 40.0,
   "components": [
-    "Teleconnections Warm/Neutral (+1.0 Bear)",
-    "Bearish/Mild Weather Regime (Regime 2 (Ridge East)) (+2.0 Bear)"
+    "Teleconnections Warm/Neutral (+1.0 Bear)"
+  ],
+  "stale_systems": [
+    "freeze (stale)",
+    "wind (stale)",
+    "regimes (stale)"
   ],
   "detail": {
-    "bull_accumulator": 0,
-    "bear_accumulator": 3.0
+    "bull_accumulator": 0.0,
+    "bear_accumulator": 1.0
   },
   "system_status": {
     "teleconnections_connected": true,
-    "freeze_connected": true,
+    "freeze_connected": false,
     "sensitivity_connected": true,
-    "wind_connected": true,
-    "regimes_connected": true
+    "wind_connected": false,
+    "regimes_connected": false
   }
 }
