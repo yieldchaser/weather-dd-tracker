@@ -141,10 +141,12 @@ def fetch_live_grid():
             out_rows.append(_create_nan_row(today_str, iso_labels[iso_code]))
             continue
 
-        historical = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") != today_str]
+        latest_date_str = daily_pivot["date"].max().strftime("%Y-%m-%d")
+        
+        historical = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") != latest_date_str]
         hist_wind = historical["Wind"].mean() if not historical.empty else float('nan')
         
-        today_data = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") == today_str]
+        today_data = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") == latest_date_str]
         
         if not today_data.empty:
             row = today_data.iloc[-1].to_dict()
