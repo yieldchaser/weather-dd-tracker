@@ -1,14 +1,9 @@
 {
-  "national_cf_anomaly": -0.083,
-  "drought_isos": [
-    "MISO"
-  ],
+  "national_cf_anomaly": null,
+  "drought_isos": [],
   "in_drought": false,
-  "power_burn_impact_signal": "MODERATE BCF BURN",
-  "per_iso": {
-    "ERCOT": 0.038,
-    "PJM": -0.129,
-    "MISO": -0.176,
-    "SPP": -0.067
-  }
+  "power_burn_impact_signal": "UNAVAILABLE",
+  "per_iso": {},
+  "data_source": "real_eia_all_isos_failed",
+  "connected": false
 }
