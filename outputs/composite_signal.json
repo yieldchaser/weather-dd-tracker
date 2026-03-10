@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-03-10T17:08:18.996Z",
-  "composite_score": 0.5,
+  "timestamp": "2026-03-10T22:38:59.138Z",
+  "composite_score": 0.0,
   "signal": "NEUTRAL",
   "confidence": 60.0,
   "components": [
-    "Teleconnections Warm/Neutral (+1.0 Bear)",
+    "Teleconnections Warm/Neutral (+1.5 Bear)",
     "Low Weather Sensitivity (+1.0 Bear)",
     "Bullish Weather Regime (Regime 0 (Polar Vortex / Ridge East / Trough West)) (+2.5 Bull)"
   ],
@@ -14,7 +14,7 @@
   ],
   "detail": {
     "bull_accumulator": 2.5,
-    "bear_accumulator": 2.0
+    "bear_accumulator": 2.5
   },
   "system_status": {
     "teleconnections_connected": true,
