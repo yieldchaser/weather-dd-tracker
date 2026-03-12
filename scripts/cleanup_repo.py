@@ -58,18 +58,36 @@ def cleanup_maps():
     if not base_dir.exists():
         return
 
-    # Categorize GIFs by model (starts_with gfs_, ecmwf_, aifs_, icon_, cmc_)
-    models = ["gfs", "ecmwf", "aifs", "icon", "cmc", "nbm", "hrrr"]
+    # Categorize GIFs by model (case-insensitive checks)
+    # We use patterns that cover common prefixes like 'ecmwf_aifs', 'gfs_', etc.
+    models = ["gfs", "ecmwf", "aifs", "icon", "cmc", "nbm", "hrrr", "nam"]
     
     all_gifs = list(base_dir.glob("*.gif"))
+    processed_files = set()
     
     for model in models:
-        model_gifs = sorted([f for f in all_gifs if f.name.startswith(f"{model}_")], key=lambda x: x.stat().st_mtime, reverse=True)
+        # Match files that contains the model name at the start (ignoring case)
+        model_gifs = sorted(
+            [f for f in all_gifs if f.name.lower().startswith(model.lower())],
+            key=lambda x: x.stat().st_mtime, 
+            reverse=True
+        )
+        
         if len(model_gifs) > MAPS_GIF_LIMIT_PER_MODEL:
             to_delete = model_gifs[MAPS_GIF_LIMIT_PER_MODEL:]
             print(f"Cleaning {model} map GIFs (keeping {MAPS_GIF_LIMIT_PER_MODEL})...")
             for gif in to_delete:
-                git_rm(gif)
+                if gif not in processed_files:
+                    git_rm(gif)
+                    processed_files.add(gif)
+
+    # Secondary sweep for anything missed or outliers
+    # If it's a GIF and hasn't been handled, and we have too many total, prune oldest
+    remaining = [f for f in all_gifs if f not in processed_files]
+    if len(remaining) > 50: # Arbitrary "fallback" limit for non-model GIFs
+        remaining.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        for gif in remaining[50:]:
+            git_rm(gif)
 
 def cleanup_other_data():
     """Prunes other data directories like data/ecmwf, data/gefs, etc."""
