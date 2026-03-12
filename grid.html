@@ -389,6 +389,20 @@
         <div id="loading" class="loader">Loading grid data...</div>
 
         <div id="app" style="display:none;">
+            <!-- FORWARD WIND FORECAST -->
+            <div id="wind-forecast-section" style="display:none; margin-bottom: 30px;">
+                <h2 class="section-title" style="margin-top: 25px;">Forward Wind Generation Forecast (Multi-Model)</h2>
+                <div id="wind-badge" style="margin-bottom: 15px; font-weight: bold; padding: 10px; border: 2px solid var(--neutral); border-radius: 4px; display: inline-block;">
+                    --
+                </div>
+                <div class="chart-section" style="height: 340px; position: relative;">
+                    <canvas id="windChart"></canvas>
+                </div>
+                <div style="color: #888; font-size: 0.75rem; text-align: center; margin-top: -15px;">
+                    Model horizons: ECMWF 10d | GFS 16d | GEFS 16d | ICON 7d
+                </div>
+            </div>
+
             <!-- NATIONAL POWER GRID -->
             <h2 class="section-title" style="margin-top: 25px;">National Power Grid (Big 4 ISOs)</h2>
             <div class="summary-row">
@@ -467,8 +481,183 @@
             }
         }
 
+        async function loadWindForecast() {
+            const windSec = document.getElementById("wind-forecast-section");
+            try {
+                let ts = "?t=" + Date.now();
+                let windRes = await fetch(basePath + "wind/wind_power_forecast.csv" + ts);
+                if (!windRes.ok) return;
+                let windText = await windRes.text();
+                if (!windText.trim()) return;
+                
+                let windData = Papa.parse(windText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                if (!windData || windData.length === 0) return;
+                
+                let badgeEl = document.getElementById("wind-badge");
+                let droughtDaysList = [];
+                try {
+                    let droughtRes = await fetch(basePath + "wind/drought.json" + ts);
+                    if (droughtRes.ok) {
+                        let wd = await droughtRes.json();
+                        let p16 = wd.drought_prob_16d || 0;
+                        
+                        let badgeColor = "var(--neutral)";
+                        let biasLbl = "NEUTRAL ⚪";
+                        if (p16 >= 0.5) { badgeColor = "var(--bearish)"; biasLbl = "STRONG BULL 🔴"; }
+                        else if (p16 >= 0.3) { badgeColor = "#ff9800"; biasLbl = "MODERATE BULL 🟡"; }
+                        else if ((wd.anomaly_today || 0) < -0.05) { badgeColor = "#ffeb3b"; biasLbl = "MILD BULL 🟡"; }
+                        
+                        badgeEl.style.borderColor = badgeColor;
+                        let cf = (wd.worst_cf_pct || 0).toFixed(1);
+                        badgeEl.innerHTML = `⚡ WIND DROUGHT RISK (16d): ${Math.round(p16*100)}%  |  Drought days: ${wd.drought_days_16d||0}/16  |  Worst: ${wd.worst_day} (${cf}% CF, ${wd.worst_model})  |  Bias: ${biasLbl}`;
+                    }
+                } catch(e) { console.warn("drought.json load failed", e); }
+                
+                let datesSet = new Set();
+                let byModel = {};
+                windData.forEach(r => {
+                    let d = String(r.date).trim();
+                    if(!d) return;
+                    datesSet.add(d);
+                    if (!byModel[r.model]) byModel[r.model] = {};
+                    byModel[r.model][d] = r;
+                });
+                let dates = Array.from(datesSet).sort();
+                
+                dates.forEach(d => {
+                    let sum = 0;
+                    ['GFS', 'GEFS', 'ICON'].forEach(m => {
+                        if (byModel[m] && byModel[m][d]) {
+                            sum += byModel[m][d].drought_flag ? 1 : 0;
+                        }
+                    });
+                    if (sum >= 2) droughtDaysList.push(d);
+                });
+                
+                let hddMap = {};
+                try {
+                    let vsRes = await fetch(basePath + "vs_normal.csv" + ts);
+                    if (vsRes.ok) {
+                        let vsText = await vsRes.text();
+                        let vsData = Papa.parse(vsText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                        
+                        let runsECMWF = vsData.filter(r => r.model === 'ECMWF').map(r => r.run_id);
+                        let targetModel = 'ECMWF';
+                        let targetRun = null;
+                        if (runsECMWF.length > 0) {
+                            targetRun = runsECMWF.sort().reverse()[0];
+                        } else {
+                            let runsGFS = vsData.filter(r => r.model === 'GFS').map(r => r.run_id);
+                            if (runsGFS.length > 0) {
+                                targetModel = 'GFS';
+                                targetRun = runsGFS.sort().reverse()[0];
+                            }
+                        }
+                        if (targetRun) {
+                            vsData.filter(r => r.model === targetModel && r.run_id === targetRun).forEach(r => {
+                                if (r.date) {
+                                    let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date.split(' ')[0]);
+                                    let hdd_gw = r.hdd_gw !== undefined ? r.hdd_gw : (r.hdd || null);
+                                    let norm_gw = r.hdd_normal_gw !== undefined ? r.hdd_normal_gw : (r.hdd_normal || null);
+                                    hddMap[dstr] = [hdd_gw, (hdd_gw !== null && norm_gw !== null) ? hdd_gw - norm_gw : null];
+                                }
+                            });
+                        }
+                    }
+                } catch(e) { console.warn("vs_normal load failed", e); }
+                
+                let dataECMWF = [], dataGFS = [], dataGEFS = [], dataICON = [], dataClimo = [], dataHDD = [];
+                dates.forEach(d => {
+                    dataECMWF.push(byModel['ECMWF']&&byModel['ECMWF'][d] ? byModel['ECMWF'][d].total_wind_gw : null);
+                    dataGFS.push(byModel['GFS']&&byModel['GFS'][d] ? byModel['GFS'][d].total_wind_gw : null);
+                    dataGEFS.push(byModel['GEFS']&&byModel['GEFS'][d] ? byModel['GEFS'][d].total_wind_gw : null);
+                    dataICON.push(byModel['ICON']&&byModel['ICON'][d] ? byModel['ICON'][d].total_wind_gw : null);
+                    
+                    let climo = null;
+                    let mRow = (byModel['GFS']&&byModel['GFS'][d]) || (byModel['ECMWF']&&byModel['ECMWF'][d]) || (byModel['GEFS']&&byModel['GEFS'][d]);
+                    if (mRow) {
+                        climo = mRow.climo_cf_pct ? (mRow.climo_cf_pct / 100 * (mRow.total_wind_gw / (mRow.national_cf_pct/100))) : null;
+                    }
+                    dataClimo.push(climo);
+                    dataHDD.push(hddMap[d] ? hddMap[d][0] : null);
+                });
+                
+                document.getElementById('wind-forecast-section').style.display = 'block';
+                let ctx = document.getElementById('windChart').getContext('2d');
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [
+                            { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, pointRadius: 2, fill: false, yAxisID: 'y' },
+                            { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y' },
+                            { label: 'GEFS', data: dataGEFS, borderColor: '#ff9800', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y' },
+                            { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y' },
+                            { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y' },
+                            { label: 'GW HDD', data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    title: function(ctx) { return ctx[0].label; },
+                                    label: function(ctx) {
+                                        let dsLabel = ctx.dataset.label;
+                                        let d = ctx.label;
+                                        if (dsLabel === 'GW HDD') {
+                                            if (ctx.raw === null) return 'HDD: — (beyond horizon)';
+                                            let diff = hddMap[d] ? hddMap[d][1] : null;
+                                            let s = diff > 0 ? '+'+diff.toFixed(1) : (diff||0).toFixed(1);
+                                            return `HDD: ${ctx.raw.toFixed(1)} (${s} vs norm)`;
+                                        }
+                                        if (dsLabel === 'Climatology') {
+                                            if (ctx.raw === null) return 'Climo: —';
+                                            let cPct = (byModel['GFS']&&byModel['GFS'][d]) ? byModel['GFS'][d].climo_cf_pct : ((byModel['ECMWF']&&byModel['ECMWF'][d]) ? byModel['ECMWF'][d].climo_cf_pct : 0);
+                                            return `Climo: ${cPct||'--'}% CF → ${ctx.raw.toFixed(1)} GW`;
+                                        }
+                                        let r = byModel[dsLabel] ? byModel[dsLabel][d] : null;
+                                        if (!r || ctx.raw === null) return `${dsLabel}: — (beyond horizon)`;
+                                        let icon = r.drought_flag ? ' 🔴' : '';
+                                        return `${dsLabel}: ${r.national_cf_pct}% CF → ${ctx.raw.toFixed(1)} GW${icon}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+                            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Wind Gen (GW)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'GW HDD (Gas demand)', color: '#f44336' }, grid: { drawOnChartArea: false } }
+                        }
+                    },
+                    plugins: [{
+                        id: 'droughtShading',
+                        afterDraw(chart) {
+                            const ctx = chart.ctx;
+                            droughtDaysList.forEach(date => {
+                                const xVal = chart.scales.x.getPixelForValue(date);
+                                const barW = chart.scales.x.getPixelForValue(1) - chart.scales.x.getPixelForValue(0);
+                                const w = isNaN(barW) || barW <= 0 ? 40 : barW;
+                                ctx.save();
+                                ctx.fillStyle = 'rgba(244, 67, 54, 0.07)';
+                                ctx.fillRect(xVal - w/2, chart.chartArea.top, w, chart.chartArea.bottom - chart.chartArea.top);
+                                ctx.restore();
+                            });
+                        }
+                    }]
+                });
+            } catch (e) {
+                console.warn(e);
+            }
+        }
+
         async function loadDashboard() {
             try {
+                loadWindForecast();
                 const liveGrid = await fetchCSV("live_grid_generation.csv");
 
                 if (liveGrid && liveGrid.length > 0) {

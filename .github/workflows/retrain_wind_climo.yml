@@ -1,15 +1,15 @@
-name: System 5 - Wind Drought Tracker
+name: System 5 - Retrain Wind Climatology
 
 on:
   schedule:
-    - cron: '30 7 * * *'
+    - cron: '0 6 1 * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  run-wind-drought:
+  run-wind-climo-retrain:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,20 +21,18 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install pandas numpy requests
+          pip install pandas requests
           
-      - name: Run System 5
-        env:
-          EIA_KEY: ${{ secrets.EIA_KEY }}
-        run: python scripts/wind/forecast_wind_power.py
+      - name: Retrain Climatology
+        run: |
+          rm -f outputs/wind/wind_climo_30d.json
+          python scripts/wind/forecast_wind_power.py
         
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add outputs/wind/wind_power_forecast.csv
-          git add outputs/wind/drought.json
           git add outputs/wind/wind_climo_30d.json
-          git diff --staged --quiet || (git commit -m "Auto-update: Wind Forecast $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+          git diff --staged --quiet || (git commit -m "Auto-update: Wind Climatology $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

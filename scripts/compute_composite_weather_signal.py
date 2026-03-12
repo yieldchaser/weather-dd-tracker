@@ -139,17 +139,23 @@ def compute_composite_weather_signal():
 
     # ── 4. Wind Drought ───────────────────────────────────────────────────────
     if wind_connected:
-        in_drought  = wind.get("in_drought", False)
-        cf_anomaly  = wind.get("national_cf_anomaly", 0.0)
-        if cf_anomaly is None:
+        p = wind.get("drought_prob_16d")
+        anomaly_today = wind.get("anomaly_today", 0.0)
+        
+        if p is None:
             wind_connected = False
-            stale_systems.append("wind (null cf_anomaly)")
-        elif in_drought or cf_anomaly < -0.10:
-            bull_score += 2.0
-            components.append(f"Wind Drought Active ({cf_anomaly:.1%} CF anomaly) (+2.0 Bull)")
-        elif cf_anomaly > 0.10:
+            stale_systems.append("wind (null drought_prob_16d)")
+        elif p >= 0.60:
+            bull_score += 2.5
+            components.append("Wind Drought (Persistent) (+2.5 Bull)")
+        elif p >= 0.35:
+            bull_score += 1.5
+            components.append("Wind Drought (Moderate) (+1.5 Bull)")
+        elif p < 0.15 and anomaly_today > 0.05:
             bear_score += 1.5
-            components.append(f"High Wind Generation ({cf_anomaly:.1%} CF anomaly) (+1.5 Bear)")
+            components.append("Strong Wind Surplus (+1.5 Bear)")
+        else:
+            components.append("Wind Neutral (Neutral)")
     else:
         stale_systems.append(f"wind ({wind_reason})")
 
