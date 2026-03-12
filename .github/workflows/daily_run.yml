@@ -107,8 +107,14 @@ jobs:
           echo "Downloaded files:"
           ls -la data/ai_models/ || true
 
-      - name: Commit pipeline state and AI model results
+      - name: Run Repo Cleanup
         if: env.NEW_DATA_FOUND == 'true'
+        run: |
+          python scripts/cleanup_repo.py
+          echo "Final storage check:"
+          du -sh outputs/maps/ data/gefs_subseasonal/ log/ || true
+
+      - name: Commit pipeline state and AI model results
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
