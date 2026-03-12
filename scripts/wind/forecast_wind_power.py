@@ -29,10 +29,10 @@ WIND_NODES = [
 TOTAL_INSTALLED_GW = sum(n[4] for n in WIND_NODES)  # ~110 GW represented
 
 MODELS = {
-    "GFS":   {"om_name": "gfs_seamless",      "horizon_days": 16, "api": "forecast"},
-    "GEFS":  {"om_name": "gfs_seamless",      "horizon_days": 16, "api": "ensemble"},
-    "ECMWF": {"om_name": "ecmwf_ifs025",      "horizon_days": 10, "api": "forecast"},
-    "ICON":  {"om_name": "icon_seamless",     "horizon_days": 7,  "api": "forecast"},
+    "GFS":   {"om_name": "gfs_seamless",      "horizon_days": 16},
+    "GEFS":  {"om_name": "gfs_ensemble_mean", "horizon_days": 16},
+    "ECMWF": {"om_name": "ecmwf_ifs025",      "horizon_days": 10},
+    "ICON":  {"om_name": "icon_seamless",     "horizon_days": 7},
 }
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
@@ -145,103 +145,59 @@ def fetch_forecasts():
     for model, config in MODELS.items():
         logging.info(f"Fetching {model}...")
         
-        api_base = "https://ensemble-api.open-meteo.com/v1/ensemble" if config.get("api") == "ensemble" else BASE_URL
         target_var = "wind_speed_80m" if model == "ICON" else "wind_speed_100m"
-        
         node_dfs = []
         
-        if model == "GEFS":
-            # User specifically requested sequential single-location fetching for GEFS
-            # due to multi-location batching issues/limits
-            import time
-            for i, node in enumerate(WIND_NODES):
-                params = {
-                    "latitude":        node[2],
-                    "longitude":       node[3],
-                    "hourly":          target_var,
-                    "wind_speed_unit": "ms",
-                    "forecast_days":   16,
-                    "models":          config["om_name"],
-                    "timezone":        "UTC"
-                }
-                try:
-                    resp = requests.get(api_base, params=params)
-                    resp.raise_for_status()
-                    node_data = resp.json()
-                    
-                    if "hourly" not in node_data:
-                        continue
-                        
-                    hourly_data = node_data["hourly"]
-                    ws = hourly_data.get(target_var, [])
-                    if not ws or all(v is None for v in ws):
-                        continue
-                        
-                    times = pd.to_datetime(hourly_data["time"])
-                    df = pd.DataFrame({"time": times, "ws": ws})
-                    df = df.dropna()
-                    if df.empty: continue
-                        
-                    df["cf"] = df["ws"].apply(wind_power_curve)
-                    df["gw"] = df["cf"] * node[4]
-                    df["date"] = df["time"].dt.date
-                    daily = df.groupby("date")["gw"].mean().reset_index()
-                    node_dfs.append(daily)
-                    time.sleep(0.5)  # Small delay between calls
-                except Exception as e:
-                    logging.info(f"GEFS sequential fetch failed for node {node[0]}: {e}")
-                    
-        else:
-            # Batch fetch for all other models
-            params = {
-                "latitude":        ",".join(str(n[2]) for n in WIND_NODES),
-                "longitude":       ",".join(str(n[3]) for n in WIND_NODES),
-                "hourly":          target_var,
-                "wind_speed_unit": "ms",
-                "forecast_days":   16,
-                "models":          config["om_name"],
-                "timezone":        "UTC"
-            }
+        # Batch fetch for all models
+        params = {
+            "latitude":        ",".join(str(n[2]) for n in WIND_NODES),
+            "longitude":       ",".join(str(n[3]) for n in WIND_NODES),
+            "hourly":          target_var,
+            "wind_speed_unit": "ms",
+            "forecast_days":   16,
+            "models":          config["om_name"],
+            "timezone":        "UTC"
+        }
+        
+        try:
+            resp = requests.get(BASE_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            if resp and resp.status_code == 400:
+                logging.info(f"Model {model} dropped gracefully or encountered provider limit. {e}")
+            else:
+                logging.error(f"Error fetching {model}: {e}")
+            continue
             
-            try:
-                resp = requests.get(api_base, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-            except Exception as e:
-                if resp and resp.status_code == 400:
-                    logging.info(f"Model {model} dropped gracefully or encountered provider limit. {e}")
-                else:
-                    logging.error(f"Error fetching {model}: {e}")
+        if isinstance(data, dict):
+            if "hourly" in data:
+                data = [data]
+                
+        for i, node in enumerate(WIND_NODES):
+            if i >= len(data): break
+            node_data = data[i]
+            if "hourly" not in node_data:
                 continue
                 
-            if isinstance(data, dict):
-                if "hourly" in data:
-                    data = [data]
-                    
-            for i, node in enumerate(WIND_NODES):
-                if i >= len(data): break
-                node_data = data[i]
-                if "hourly" not in node_data:
-                    continue
-                    
-                hourly_data = node_data["hourly"]
-                ws = hourly_data.get(target_var, [])
-                if not ws or all(v is None for v in ws):
-                    continue
+            hourly_data = node_data["hourly"]
+            ws = hourly_data.get(target_var, [])
+            if not ws or all(v is None for v in ws):
+                continue
+            
+            times = pd.to_datetime(hourly_data["time"])
+            df = pd.DataFrame({"time": times, "ws": ws})
+            df = df.dropna()
+            
+            if df.empty:
+                continue
                 
-                times = pd.to_datetime(hourly_data["time"])
-                df = pd.DataFrame({"time": times, "ws": ws})
-                df = df.dropna()
-                
-                if df.empty:
-                    continue
-                    
-                df["cf"] = df["ws"].apply(wind_power_curve)
-                df["gw"] = df["cf"] * node[4]
-                df["date"] = df["time"].dt.date
-                
-                daily = df.groupby("date")["gw"].mean().reset_index()
-                node_dfs.append(daily)
+            df["cf"] = df["ws"].apply(wind_power_curve)
+            df["gw"] = df["cf"] * node[4]
+            df["date"] = df["time"].dt.date
+            
+            daily = df.groupby("date")["gw"].mean().reset_index()
+            node_dfs.append(daily)
             
         if not node_dfs:
             logging.info(f"No valid forecast data for {model}.")
