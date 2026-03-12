@@ -36,7 +36,7 @@ MODELS = {
 }
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
-ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+HISTORICAL_FORECAST_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 CLIMO_PATH = "outputs/wind/wind_climo_30d.json"
 OUTPUT_CSV = "outputs/wind/wind_power_forecast.csv"
 OUTPUT_JSON = "outputs/wind/drought.json"
@@ -57,7 +57,7 @@ def wind_power_curve(ws_ms):
     return ((ws_ms - CUT_IN) / (RATED - CUT_IN)) ** 3
 
 def build_wind_climatology():
-    logging.info("Climatology not found or outdated — starting ERA5 bootstrap (one-time, ~2 min)")
+    logging.info("Climatology not found or outdated — starting GFS Historical bootstrap (one-time, ~2 min)")
     end_date = date.today() - timedelta(days=5)
     start_date = end_date - timedelta(days=365 * 5)
     
@@ -67,16 +67,17 @@ def build_wind_climatology():
         "start_date":      start_date.strftime("%Y-%m-%d"),
         "end_date":        end_date.strftime("%Y-%m-%d"),
         "hourly":          "wind_speed_100m",
+        "models":          "gfs_seamless",
         "wind_speed_unit": "ms",
         "timezone":        "UTC"
     }
 
     try:
-        resp = requests.get(ARCHIVE_URL, params=params)
+        resp = requests.get(HISTORICAL_FORECAST_URL, params=params)
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
-        logging.error(f"Failed to fetch ERA5 data: {e}")
+        logging.error(f"Failed to fetch historical GFS data: {e}")
         return {}
 
     if isinstance(data, dict):
