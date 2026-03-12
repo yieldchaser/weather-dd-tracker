@@ -1608,8 +1608,17 @@
                 // Clear dropdown
                 mapSelect.innerHTML = '';
 
-                // Populate dropdown
-                manifest[selectedModel].forEach(mapObj => {
+                // Populate dropdown (deduplicated by previous run ID, limit to 3)
+                const seen = new Set();
+                const uniqueMaps = [];
+                for (const mapObj of manifest[selectedModel]) {
+                    if (!seen.has(mapObj.previous)) {
+                        seen.add(mapObj.previous);
+                        uniqueMaps.push(mapObj);
+                    }
+                    if (uniqueMaps.length === 3) break;
+                }
+                uniqueMaps.forEach(mapObj => {
                     let opt = document.createElement('option');
                     opt.value = mapObj.file;
                     opt.innerText = `Latest vs ${mapObj.previous}`;

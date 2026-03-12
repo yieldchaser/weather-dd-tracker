@@ -44,6 +44,7 @@ NOAA / ECMWF / EIA APIs
 | EIA v2 API | Live grid fuel mix (Big 4 ISOs) | Daily | `EIA_KEY` secret |
 | ERA5 (CDS) | Regime model training data | Quarterly retrain | Local file |
 | Kaggle (GPU kernel) | AI model inference (FourCastNetV2-Small) | 2× daily (00z/12z) | `KAGGLE_*` secrets |
+| **Open-Meteo API** | 79-city demand-weighted TDD | Real-time | None |
 
 ---
 
@@ -114,6 +115,18 @@ Integrates all 6 systems into a single `BULLISH / BEARISH / NEUTRAL` signal.
 - Confidence = 20% × number of connected upstream systems (0–100%)
 - Output: `outputs/composite_signal.json`
 
+### System 8 — Physics vs AI Disagreement Index
+**Script:** `scripts/market_logic/physics_vs_ai_disagreement.py`
+Compares consensus of physics models (ECMWF, GFS) against AI models (AIFS, GraphCast, Pangu). Divergence signals forecast uncertainty.
+- **Volatility Risk Score:** 0–100 based on TDD spread.
+- Output: `outputs/physics_vs_ai_disagreement.csv`
+
+### System 9 — Market Bias Composite
+**Script:** `scripts/market_logic/composite_score.py`
+Combines model agreement, power burn proxies, and wind anomalies into a directional market bias score (-1.0 to +1.0).
+- **15d Pct Deviation:** Forecasted TDD vs 10-year normal for the next 15 days.
+- Output: `outputs/composite_bull_bear_signal.csv`
+
 ---
 
 ## 📊 Dashboard Features
@@ -139,6 +152,13 @@ Integrates all 6 systems into a single `BULLISH / BEARISH / NEUTRAL` signal.
 | ERCOT Real-Time | `live_grid_generation.csv` (ERCOT row) |
 | Grid Impact Signal | BULLISH (Wind Drought) / BEARISH (Strong Wind) / NEUTRAL |
 
+### Trend Analysis (New)
+| Element | Source |
+|---|---|
+| Historical Monthly Outliers | `build_historical_monthly_charts.py` |
+| Season Cumulative (Spaghetti) | `track_cumulative_season.py` |
+| Crossover Matrix | `build_crossover_matrix.py` |
+
 ---
 
 ## ⚙️ Key Engineering Decisions
@@ -149,6 +169,7 @@ All temperature grids are converted to a **population × gas-consumption weighte
 - **Standard models (GFS, ECMWF, GEFS):** bilinear interpolation of weight grid to native model resolution
 - **NBM:** nearest-neighbour weight lookup on projected 2D lat/lon grid (Lambert Conformal)
 - **AI models:** same weight grid fetched at runtime from GitHub
+- **79-City Grid:** Expanded from 17 cities in `demand_constants.py` to improve spatial coverage of the Ohio Valley and Mid-Atlantic.
 
 ### 75% Day Coverage Filter
 Days with < 75% of their expected hourly/timestep data are excluded from daily averages. Prevents partial-run bias on the first and last days of a forecast.
@@ -237,6 +258,8 @@ outputs/
 ├── vs_normal.csv                  # Forecast vs 30y & 10y normals
 ├── run_delta.csv                  # Run-to-run model deltas
 ├── model_shift_table.csv          # Day-by-day consensus shift matrix
+├── physics_vs_ai_disagreement.csv # System 8 Volatility Proxy
+├── historical_monthly_charts/     # Monthly anomaly trend PNGs
 └── maps/                          # Spatial run-to-run delta GIFs
 
 data/weights/
