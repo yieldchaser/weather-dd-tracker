@@ -399,7 +399,7 @@
                     <canvas id="windChart"></canvas>
                 </div>
                 <div style="color: #888; font-size: 0.75rem; text-align: center; margin-top: -15px;">
-                    Model horizons: ECMWF 10d | GFS 16d | GEFS 16d | ICON 7d
+                    Model horizons: ECMWF 10d | GFS 16d | ICON 7d
                 </div>
             </div>
 
@@ -526,7 +526,7 @@
                 
                 dates.forEach(d => {
                     let sum = 0;
-                    ['GFS', 'GEFS', 'ICON'].forEach(m => {
+                    ['GFS', 'ICON', 'ECMWF'].forEach(m => {
                         if (byModel[m] && byModel[m][d]) {
                             sum += byModel[m][d].drought_flag ? 1 : 0;
                         }
@@ -566,15 +566,14 @@
                     }
                 } catch(e) { console.warn("vs_normal load failed", e); }
                 
-                let dataECMWF = [], dataGFS = [], dataGEFS = [], dataICON = [], dataClimo = [], dataHDD = [];
+                let dataECMWF = [], dataGFS = [], dataICON = [], dataClimo = [], dataHDD = [];
                 dates.forEach(d => {
                     dataECMWF.push(byModel['ECMWF']&&byModel['ECMWF'][d] ? byModel['ECMWF'][d].total_wind_gw : null);
                     dataGFS.push(byModel['GFS']&&byModel['GFS'][d] ? byModel['GFS'][d].total_wind_gw : null);
-                    dataGEFS.push(byModel['GEFS']&&byModel['GEFS'][d] ? byModel['GEFS'][d].total_wind_gw : null);
                     dataICON.push(byModel['ICON']&&byModel['ICON'][d] ? byModel['ICON'][d].total_wind_gw : null);
                     
                     let climo = null;
-                    let mRow = (byModel['GFS']&&byModel['GFS'][d]) || (byModel['ECMWF']&&byModel['ECMWF'][d]) || (byModel['GEFS']&&byModel['GEFS'][d]);
+                    let mRow = (byModel['GFS']&&byModel['GFS'][d]) || (byModel['ECMWF']&&byModel['ECMWF'][d]) || (byModel['ICON']&&byModel['ICON'][d]);
                     if (mRow) {
                         climo = mRow.climo_cf_pct ? (mRow.climo_cf_pct / 100 * (mRow.total_wind_gw / (mRow.national_cf_pct/100))) : null;
                     }
@@ -592,7 +591,6 @@
                         datasets: [
                             { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, pointRadius: 2, fill: false, yAxisID: 'y' },
                             { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y' },
-                            { label: 'GEFS', data: dataGEFS, borderColor: '#ff9800', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y' },
                             { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y' },
                             { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y' },
                             { label: 'GW HDD', data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1' }

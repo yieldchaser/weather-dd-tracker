@@ -15,11 +15,11 @@ GW_NORMALS = Path("data/normals/us_gas_weighted_normals.csv")
 STD_NORMALS = Path("data/normals/us_daily_normals.csv")
 
 # Classifications for grouped Telegram output
-PRIMARY_MODELS = ["ECMWF", "GFS", "ECMWF_ENS", "GEFS", "CMC_ENS", "GEFS_35D"]
+PRIMARY_MODELS = ["ECMWF", "GFS", "ECMWF_ENS", "CMC_ENS"]
 SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
 AI_MODELS = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "FOURCASTNETV2", "AURORA", "ECMWF_AIFS"]
 # Categories that should NOT be in AI Consensus groups
-PHYSICS_ENSEMBLES = ["CMC_ENS", "GEFS_35D", "ECMWF_ENS", "GEFS"]
+PHYSICS_ENSEMBLES = ["CMC_ENS", "ECMWF_ENS"]
 
 
 def _signal(vs_normal):

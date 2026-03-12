@@ -30,10 +30,9 @@ WIND_NODES = [
 TOTAL_INSTALLED_GW = sum(n[4] for n in WIND_NODES)  # ~110 GW represented
 
 MODELS = {
-    "GFS":   {"om_name": "gfs_seamless",                "horizon_days": 16},
-    "GEFS":  {"om_name": "ncep_hgefs025_ensemble_mean", "horizon_days": 10},
-    "ECMWF": {"om_name": "ecmwf_ifs025",                "horizon_days": 10},
-    "ICON":  {"om_name": "icon_seamless",               "horizon_days": 7},
+    "GFS":   {"om_name": "gfs_seamless",  "horizon_days": 16, "wind_var": "wind_speed_100m"},
+    "ECMWF": {"om_name": "ecmwf_ifs025",  "horizon_days": 10, "wind_var": "wind_speed_100m"},
+    "ICON":  {"om_name": "icon_seamless", "horizon_days": 7,  "wind_var": "wind_speed_80m"},
 }
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
@@ -142,124 +141,73 @@ def fetch_forecasts():
         return
 
     all_rows = []
-    
+    gfs_daily_node_gw = {} # {date: [gw1, gw2, ...]} for GFS spread calculation
+
     for model, config in MODELS.items():
         logging.info(f"Fetching {model}...")
         
         node_dfs = []
         model_id = config["om_name"]
-        
-        # Select target variable and set height scaling if needed
-        # Open-Meteo GFS Ensemble Mean only provides 10m at v1/forecast
-        if model == "GEFS":
-            target_var = "wind_speed_10m"
-            scale_factor = 1.4  # Approx power law from 10m to 100m
-        elif model == "ICON":
-            target_var = "wind_speed_80m"
-            scale_factor = 1.0  # Already close to hub height
-        else:
-            target_var = "wind_speed_100m"
-            scale_factor = 1.0
+        target_var = config["wind_var"]
 
-        if model == "GEFS":
-            # GEFS (HGEFS) does not support multi-location batching on api.open-meteo.com/v1/forecast
-            for node in WIND_NODES:
-                params = {
-                    "latitude":        node[2],
-                    "longitude":       node[3],
-                    "hourly":          target_var,
-                    "wind_speed_unit": "ms",
-                    "forecast_days":   config["horizon_days"],
-                    "models":          model_id,
-                    "timezone":        "UTC"
-                }
-                try:
-                    resp = requests.get(BASE_URL, params=params, timeout=30)
-                    resp.raise_for_status()
-                    node_data = resp.json()
-                    
-                    if "hourly" not in node_data:
-                        logging.warning(f"GEFS response for {node[0]} missing 'hourly' key. Result: {node_data}")
-                        continue
-                        
-                    hourly_data = node_data["hourly"]
-                    ws_orig = hourly_data.get(target_var, [])
-                    if not ws_orig or all(v is None for v in ws_orig):
-                        logging.warning(f"GEFS variable '{target_var}' empty/null for {node[0]}.")
-                        continue
-                        
-                    # Apply scaling to hub height
-                    ws = [v * scale_factor if v is not None else None for v in ws_orig]
-                    
-                    times = pd.to_datetime(hourly_data["time"])
-                    df = pd.DataFrame({"time": times, "ws": ws})
-                    df = df.dropna()
-                    if df.empty: continue
-                        
-                    df["cf"] = df["ws"].apply(wind_power_curve)
-                    df["gw"] = df["cf"] * node[4]
-                    df["date"] = df["time"].dt.date
-                    daily = df.groupby("date")["gw"].mean().reset_index()
-                    node_dfs.append(daily)
-                    time.sleep(0.3)  # Respect community limit and avoid concurrency issues
-                except Exception as e:
-                    logging.warning(f"GEFS sequential fetch failed for node {node[0]}: {e}")
-        else:
-            # Batch fetch for all other models
-            params = {
-                "latitude":        ",".join(str(n[2]) for n in WIND_NODES),
-                "longitude":       ",".join(str(n[3]) for n in WIND_NODES),
-                "hourly":          target_var,
-                "wind_speed_unit": "ms",
-                "forecast_days":   config["horizon_days"],
-                "models":          model_id,
-                "timezone":        "UTC"
-            }
+        # Batch fetch for all models
+        params = {
+            "latitude":        ",".join(str(n[2]) for n in WIND_NODES),
+            "longitude":       ",".join(str(n[3]) for n in WIND_NODES),
+            "hourly":          target_var,
+            "wind_speed_unit": "ms",
+            "forecast_days":   config["horizon_days"],
+            "models":          model_id,
+            "timezone":        "UTC"
+        }
+        
+        try:
+            resp = requests.get(BASE_URL, params=params, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            if 'resp' in locals() and resp is not None and resp.status_code == 400:
+                logging.warning(f"Model {model} fetch failed (400): {resp.text}")
+            else:
+                logging.error(f"Error fetching {model} ({model_id}): {e}")
+            continue
             
-            try:
-                resp = requests.get(BASE_URL, params=params, timeout=30)
-                resp.raise_for_status()
-                data = resp.json()
-            except Exception as e:
-                # Be graceful about 400s if a model or variable is dropped by provider
-                if 'resp' in locals() and resp is not None and resp.status_code == 400:
-                    logging.warning(f"Model {model} fetch failed (400): {resp.text}")
-                else:
-                    logging.error(f"Error fetching {model} ({model_id}): {e}")
+        if isinstance(data, dict):
+            data = [data]
+                
+        for i, node in enumerate(WIND_NODES):
+            if i >= len(data): break
+            node_data = data[i]
+            if "hourly" not in node_data:
+                if i == 0: logging.warning(f"{model} node {node[0]} missing 'hourly'. {node_data}")
                 continue
                 
-            if isinstance(data, dict):
-                data = [data]
-                    
-            for i, node in enumerate(WIND_NODES):
-                if i >= len(data): break
-                node_data = data[i]
-                if "hourly" not in node_data:
-                    if i == 0: logging.warning(f"{model} node {node[0]} missing 'hourly'. {node_data}")
-                    continue
-                    
-                hourly_data = node_data["hourly"]
-                ws_orig = hourly_data.get(target_var, [])
-                if not ws_orig or all(v is None for v in ws_orig):
-                    if i == 0: logging.warning(f"{model} node {node[0]} variable {target_var} empty/null.")
-                    continue
+            hourly_data = node_data["hourly"]
+            ws = hourly_data.get(target_var, [])
+            if not ws or all(v is None for v in ws):
+                if i == 0: logging.warning(f"{model} node {node[0]} variable {target_var} empty/null. Available: {list(hourly_data.keys())}")
+                continue
+            
+            times = pd.to_datetime(hourly_data["time"])
+            df = pd.DataFrame({"time": times, "ws": ws})
+            df = df.dropna()
+            
+            if df.empty:
+                continue
                 
-                # Apply scaling (for ICON 80m or others if needed)
-                ws = [v * scale_factor if v is not None else None for v in ws_orig]
-                
-                times = pd.to_datetime(hourly_data["time"])
-                df = pd.DataFrame({"time": times, "ws": ws})
-                df = df.dropna()
-                
-                if df.empty:
-                    continue
-                    
-                df["cf"] = df["ws"].apply(wind_power_curve)
-                df["gw"] = df["cf"] * node[4]
-                df["date"] = df["time"].dt.date
-                
-                daily = df.groupby("date")["gw"].mean().reset_index()
-                node_dfs.append(daily)
+            df["cf"] = df["ws"].apply(wind_power_curve)
+            df["gw"] = df["cf"] * node[4]
+            df["date"] = df["time"].dt.date
+            
+            daily = df.groupby("date")["gw"].mean().reset_index()
+            node_dfs.append(daily)
+
+            # Store GFS node data for spatial spread proxy
+            if model == "GFS":
+                for _, row in daily.iterrows():
+                    d = row["date"]
+                    if d not in gfs_daily_node_gw: gfs_daily_node_gw[d] = []
+                    gfs_daily_node_gw[d].append(row["gw"])
             
         if not node_dfs:
             logging.info(f"No valid forecast data for {model} after filtering.")
@@ -306,8 +254,15 @@ def fetch_forecasts():
         logging.warning("No future days found for drought logic.")
         return
     
-    daily_flags = df_future.groupby("date")["drought_flag"].mean()
-    drought_days_all = daily_flags[daily_flags >= 0.5].index.tolist()
+    # Drought logic: require >= 2 models consensus for daily flag
+    # Calculate GFS spatial spread (uncertainty proxy)
+    gfs_spread = {}
+    for d, gws in gfs_daily_node_gw.items():
+        if len(gws) > 1:
+            gfs_spread[d.strftime("%Y-%m-%d")] = round(pd.Series(gws).std(), 2)
+
+    daily_model_counts = df_future.groupby("date")["drought_flag"].sum()
+    drought_days_all = daily_model_counts[daily_model_counts >= 2].index.tolist()
     
     end_16d = (datetime.now(UTC).date() + timedelta(days=15)).strftime("%Y-%m-%d")
     end_7d  = (datetime.now(UTC).date() + timedelta(days=6)).strftime("%Y-%m-%d")
@@ -343,6 +298,7 @@ def fetch_forecasts():
         "anomaly_today":    float(anomaly_today),
         "models_in_drought_today": models_in_drought_today,
         "model_horizons":   model_horizons,
+        "gfs_spatial_spread": gfs_spread,
         "timestamp":        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     }
     
