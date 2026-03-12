@@ -5,9 +5,9 @@
   "drought_days_7d": 4,
   "worst_day": "2026-03-18",
   "worst_cf_pct": 10.9,
-  "worst_anomaly_cf_pct": -23.3,
+  "worst_anomaly_cf_pct": -26.3,
   "worst_model": "ICON",
-  "anomaly_today": 10.2,
+  "anomaly_today": 4.5,
   "models_in_drought_today": [
     "ECMWF",
     "ICON"
@@ -35,5 +35,5 @@
     "2026-03-26": 2.73,
     "2026-03-27": 1.83
   },
-  "timestamp": "2026-03-12T14:10:36Z"
+  "timestamp": "2026-03-12T14:15:56Z"
 }
