@@ -1,20 +1,20 @@
 {
-  "timestamp": "2026-03-12T05:28:20.905Z",
-  "composite_score": 0.0,
-  "signal": "NEUTRAL",
+  "timestamp": "2026-03-12T09:10:16.371Z",
+  "composite_score": -4.5,
+  "signal": "BEARISH",
   "confidence": 60.0,
   "components": [
     "Teleconnections Warm/Neutral (+1.5 Bear)",
     "Low Weather Sensitivity (+1.0 Bear)",
-    "Bullish Weather Regime (Regime 0 (Polar Vortex / Ridge East / Trough West)) (+2.5 Bull)"
+    "Bearish/Mild Weather Regime (Regime 2 (Ridge East)) (+2.0 Bear)"
   ],
   "stale_systems": [
     "freeze (stale)",
     "wind (real_eia_all_isos_failed)"
   ],
   "detail": {
-    "bull_accumulator": 2.5,
-    "bear_accumulator": 2.5
+    "bull_accumulator": 0.0,
+    "bear_accumulator": 4.5
   },
   "system_status": {
     "teleconnections_connected": true,
