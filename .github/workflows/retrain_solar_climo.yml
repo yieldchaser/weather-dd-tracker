@@ -1,0 +1,39 @@
+name: Retrain Solar Climatology
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'  # 6 AM UTC on 1st of month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  retrain-solar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          pip install pandas requests
+          
+      - name: Delete old climo
+        run: rm -f outputs/wind/solar_climo_30d.json
+        
+      - name: Rebuild Climatology
+        run: python scripts/wind/forecast_solar_power.py
+        
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add outputs/wind/solar_climo_30d.json
+          git diff --staged --quiet || (git commit -m "Auto-retrain: Solar Climatology $(date '+%Y-%m-%d')" && git push origin main)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

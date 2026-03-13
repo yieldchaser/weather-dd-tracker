@@ -308,6 +308,26 @@ def send():
         except Exception as e:
             print(f"[WARN] Wind block failed: {e}")
 
+    # 4. Combined Solar/Wind block
+    comb_file = Path("outputs/wind/combined_drought.json")
+    if comb_file.exists():
+        try:
+            cd = json.load(open(comb_file, "r"))
+            if cd.get("combined_drought_today"):
+                intel_lines.append(f"\n☀️💨 COMBINED RENEWABLE DROUGHT ALERT:")
+                # We need to fetch actuals/climo from the json if possible, 
+                # but the user defined a specific format involving gas displacement.
+                loss = cd.get("gas_displacement_loss_gw", 0.0)
+                prob = int(cd.get("combined_drought_prob_7d", 0) * 100)
+                days = cd.get("combined_drought_days_7d", 0)
+                sig  = cd.get("signal", "NEUTRAL")
+                
+                intel_lines.append(f"   Gas Displacement Loss: {loss:+.1f} GW vs normal")
+                intel_lines.append(f"   7d Combined Risk: {prob}% ({days}/7 days)")
+                intel_lines.append(f"   Signal: {sig} {'🔴' if 'BULL' in sig else ('🟢' if 'BEAR' in sig else '⚪')}")
+        except Exception as e:
+            print(f"[WARN] Combined drought block failed: {e}")
+
     if intel_lines:
         lines.append("\n" + "─" * 30)
         lines.extend(intel_lines)

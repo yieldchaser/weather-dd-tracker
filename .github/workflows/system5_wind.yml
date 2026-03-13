@@ -28,6 +28,11 @@ jobs:
           EIA_KEY: ${{ secrets.EIA_KEY }}
         run: python scripts/wind/forecast_wind_power.py
         
+      - name: Run Solar Power Forecast
+        env:
+          EIA_KEY: ${{ secrets.EIA_KEY }}
+        run: python scripts/wind/forecast_solar_power.py
+        
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
@@ -35,6 +40,9 @@ jobs:
           git add outputs/wind/wind_power_forecast.csv
           git add outputs/wind/drought.json
           git add outputs/wind/wind_climo_30d.json
+          git add outputs/wind/solar_power_forecast.csv
+          git add outputs/wind/solar_climo_30d.json
+          git add outputs/wind/combined_drought.json
           git diff --staged --quiet || (git commit -m "Auto-update: Wind Forecast $(date '+%Y-%m-%dT%H:%M:%SZ')" && git pull --rebase origin main && git push origin main)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

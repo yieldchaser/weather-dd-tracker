@@ -18,6 +18,9 @@ PROTECTED_PATHS = [
     "outputs/run_delta.csv",
     "outputs/model_shift_table.csv",
     "outputs/wind/wind_actuals_history.csv",
+    "outputs/wind/solar_power_forecast.csv",
+    "outputs/wind/solar_climo_30d.json",
+    "outputs/wind/combined_drought.json",
 ]
 
 # Retention Limits
