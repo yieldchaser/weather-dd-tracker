@@ -13,6 +13,7 @@ EXTENDED_DAYS  = 14
 
 GW_NORMALS = Path("data/normals/us_gas_weighted_normals.csv")
 STD_NORMALS = Path("data/normals/us_daily_normals.csv")
+COMBINED_DROUGHT_PATH = Path("outputs/wind/combined_drought.json")
 
 # Classifications for grouped Telegram output
 PRIMARY_MODELS = ["ECMWF", "GFS", "ECMWF_ENS", "CMC_ENS"]
@@ -69,8 +70,11 @@ def _band(df, model, run_id, start_day, end_day, tdd_col, norm_col):
     # Only keep future dates (today or later)
     future_df = run_df[run_df["date"] >= today].reset_index(drop=True)
     band = future_df.iloc[start_day - 1: end_day]
-    if band.empty:
-        return None, None, None
+    
+    # FIX 2: Check for sufficient data coverage (min 3 days)
+    if len(band) < 3:
+        return None, None, len(band)
+    
     return band[tdd_col].mean(), band[norm_col].mean(), len(band)
 
 
@@ -162,12 +166,26 @@ def send():
             
             components = comp_data.get("components", [])
             stale_systems = comp_data.get("stale_systems", [])
+            
+            # FIX 6: Detailed Bulls/Bears breakdown
+            bull_items = [(c["name"], c["score"]) for c in components if c.get("score", 0) > 0]
+            bear_items = [(c["name"], c["score"]) for c in components if c.get("score", 0) < 0]
+            
+            total_bull = sum(s for _, s in bull_items)
+            total_bear = sum(s for _, s in bear_items)
+
             if components:
-                component_lines.append("🌡️ MASTER WEATHER COMPOSITE CATALYSTS:")
+                component_lines.append(f"  Bulls: +{total_bull:.1f} \u2192 " + " | ".join(f"{n} (+{s:.1f})" for n, s in sorted(bull_items, key=lambda x: -x[1])))
+                component_lines.append(f"  Bears: {total_bear:.1f} \u2192 " + " | ".join(f"{n} ({s:.1f})" for n, s in sorted(bear_items, key=lambda x: x[1])))
+                component_lines.append("")
+                
+                component_lines.append("\U0001f321\ufe0f MASTER WEATHER COMPOSITE CATALYSTS:")
                 for c in components:
-                     component_lines.append(f"  • {c}")
+                     name = c.get("name")
+                     score_val = c.get("score")
+                     component_lines.append(f"  \u2022 {name} ({score_val:+.1f})")
                 if stale_systems:
-                    component_lines.append(f"  ⚠️ Excluded (stale/unavailable): {', '.join(stale_systems)}")
+                    component_lines.append(f"  \u26a0\ufe0f Excluded (stale/unavailable): {', '.join(stale_systems)}")
                 component_lines.append("")
         except Exception as e:
             print(f"[WARN] Could not parse composite_signal.json: {e}")
@@ -268,7 +286,15 @@ def send():
             risk_emoji = "🥶" if cold_risk > 60 else ("🌡️" if cold_risk < 30 else "⚖️")
             intel_lines.append(f"   Cold Risk Score: {cold_risk}/100 {risk_emoji}")
             if analogs:
-                intel_lines.append(f"   Historical Analogs: {', '.join(str(y) for y in analogs[:3])}")
+                intel_lines.append(f"   Historical Analogs:")
+                for a in analogs[:3]:
+                    if isinstance(a, dict):
+                        year = a.get("year")
+                        anom = a.get("mar_hdd_anomaly", 0.0)
+                        outcome = a.get("outcome", "N/A")
+                        intel_lines.append(f"     {year}: Mar HDD {anom:+.1f} anomaly \u2192 {outcome}")
+                    else:
+                        intel_lines.append(f"     {a}")
         except Exception as e:
             print(f"[WARN] Teleconnection block failed: {e}")
 
@@ -299,6 +325,12 @@ def send():
                 
                 in_d = wd.get('models_in_drought_today', [])
                 intel_lines.append(f"   In drought today: {', '.join(in_d) if in_d else 'None'}")
+                
+                # FIX 3: Model agreement
+                agreement = wd.get("model_agreement_today_pct")
+                if agreement is not None:
+                    intel_lines.append(f"   Model Agreement: {agreement}% | Agreeing: {', '.join(wd.get('models_agreeing_today', []))}")
+                
                 intel_lines.append(f"   Grid impact: {impact}")
                 
                 if "GFS_CFS" in wd.get("model_horizons", {}):
@@ -308,23 +340,28 @@ def send():
         except Exception as e:
             print(f"[WARN] Wind block failed: {e}")
 
-    # 4. Combined Solar/Wind block
-    comb_file = Path("outputs/wind/combined_drought.json")
+    # FIX 3: Expanded Combined Solar/Wind block
+    comb_file = COMBINED_DROUGHT_PATH
     if comb_file.exists():
         try:
             cd = json.load(open(comb_file, "r"))
-            if cd.get("combined_drought_today"):
-                intel_lines.append(f"\n☀️💨 COMBINED RENEWABLE DROUGHT ALERT:")
-                # We need to fetch actuals/climo from the json if possible, 
-                # but the user defined a specific format involving gas displacement.
-                loss = cd.get("gas_displacement_loss_gw", 0.0)
-                prob = int(cd.get("combined_drought_prob_7d", 0) * 100)
-                days = cd.get("combined_drought_days_7d", 0)
-                sig  = cd.get("signal", "NEUTRAL")
-                
-                intel_lines.append(f"   Gas Displacement Loss: {loss:+.1f} GW vs normal")
-                intel_lines.append(f"   7d Combined Risk: {prob}% ({days}/7 days)")
-                intel_lines.append(f"   Signal: {sig} {'🔴' if 'BULL' in sig else ('🟢' if 'BEAR' in sig else '⚪')}")
+            solar_risk = cd.get("solar_drought_prob_10d")
+            combined_today = cd.get("combined_drought_today", False)
+            gas_loss = cd.get("gas_displacement_loss_gw")
+            signal = cd.get("signal", "NEUTRAL")
+            
+            intel_lines.append(f"\n\u2600\ufe0f SOLAR DROUGHT FORECAST:")
+            if solar_risk is not None:
+                intel_lines.append(f"   10d Risk: {int(solar_risk*100)}%")
+            
+            if combined_today:
+                intel_lines.append(f"   \U0001f6a8 COMBINED RENEWABLE DROUGHT ACTIVE")
+            
+            if gas_loss is not None:
+                direction = "bullish\u2191" if gas_loss > 0 else "bearish\u2193"
+                intel_lines.append(f"   Gas Displacement: {gas_loss:+.1f} GW vs climo ({direction})")
+            
+            intel_lines.append(f"   Combined Signal: {signal}")
         except Exception as e:
             print(f"[WARN] Combined drought block failed: {e}")
 
@@ -447,8 +484,15 @@ def send():
 
             nt_avg, nt_nm, nt_d = _band(df, model, run_id, 1, NEAR_TERM_DAYS, tdd_col, hdd_col)
             ex_avg, ex_nm, ex_d = _band(df, model, run_id, NEAR_TERM_DAYS+1, EXTENDED_DAYS, tdd_col, hdd_col)
-            nt_vs = (nt_avg - nt_nm) if nt_avg is not None else None
-            ex_vs = (ex_avg - ex_nm) if ex_avg is not None else None
+            
+            # FIX 2: Pending display
+            nt_str = f"{nt_avg:.1f}" if pd.notna(nt_avg) else "pending"
+            nt_diff = f"{nt_avg - nt_nm:+.1f}" if pd.notna(nt_avg) and pd.notna(nt_nm) else "pending"
+            nt_sig = _signal(nt_avg - nt_nm) if pd.notna(nt_avg) and pd.notna(nt_nm) else "⚪"
+            
+            ex_str = f"{ex_avg:.1f}" if pd.notna(ex_avg) else "pending"
+            ex_diff = f"{ex_avg - ex_nm:+.1f}" if pd.notna(ex_avg) and pd.notna(ex_nm) else "pending"
+            ex_sig = _signal(ex_avg - ex_nm) if pd.notna(ex_avg) and pd.notna(ex_nm) else "⚪"
 
             prev_rows = prev[prev["model"] == model]
             common = set() # Initialize common to an empty set
@@ -493,12 +537,10 @@ def send():
 
             block = (
                 f"{model} | {display_run_id}\n"
-                f"Window: {w_start} – {w_end} ({int(row['days'])}d)\n"
+                f"Window: {w_start} \u2013 {w_end} ({int(row['days'])}d)\n"
             )
-            if nt_avg is not None:
-                block += f"Near-term: {nt_avg:.1f} | Norm: {nt_nm:.1f} | {nt_vs:+.1f} {_signal(nt_vs)}\n"
-            if ex_avg is not None:
-                block += f"Extended:  {ex_avg:.1f} | Norm: {ex_nm:.1f} | {ex_vs:+.1f} {_signal(ex_vs)}\n"
+            block += f"Near-term: {nt_str} | Norm: {nt_nm:.1f} | {nt_diff} {nt_sig}\n"
+            block += f"Extended:  {ex_str} | Norm: {ex_nm:.1f} | {ex_diff} {ex_sig}\n"
             
             block += (
                 f"Full Avg:  {row['fa_gw']:.1f} | Norm: {row['na_avg']:.1f} | {row['vs_normal']:+.1f} {_signal(row['vs_normal'])}\n"

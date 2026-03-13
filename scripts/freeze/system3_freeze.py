@@ -141,83 +141,94 @@ def determine_alert_tier(lead_hours):
 def run_system3():
     logging.info("Starting System 3 - Freeze-Off Trigger")
     
-    gfs_run, gfs_data = get_gfs_forecasts()
-    ecmwf_run, ecmwf_data = get_ecmwf_forecasts()
-    
-    alerts = []
-    
-    for basin in BASINS:
-        gfs_basin = gfs_data.get(basin, [])
-        ecmwf_basin = ecmwf_data.get(basin, [])
-        
-        # Find freeze events in GFS
-        freeze_events_gfs = [f for f in gfs_basin if f['temp_c'] <= FREEZE_THRESHOLD_C]
-        if not freeze_events_gfs:
-            continue
-            
-        for g_event in freeze_events_gfs:
-            tier = determine_alert_tier(g_event['lead_hours'])
-            valid_time = g_event['valid_time']
-            
-            # Cross-validate with ECMWF if we need to escalate
-            # We check if ECMWF predicts freeze +/- 12 hours around the GFS event
-            cross_validated = False
-            if ecmwf_basin:
-                for e_event in ecmwf_basin:
-                    time_diff = abs((e_event['valid_time'] - valid_time).total_seconds() / 3600)
-                    if time_diff <= 12 and e_event['temp_c'] <= FREEZE_THRESHOLD_C:
-                        cross_validated = True
-                        break
-            
-            # Only escalate to WARNING/EMERGENCY if both models agree
-            if tier in ['WARNING', 'EMERGENCY'] and not cross_validated:
-                tier = 'WATCH' # Downgrade if no consensus
-                
-            alerts.append({
-                'basin': basin,
-                'tier': tier,
-                'gfs_temp_c': round(g_event['temp_c'], 1),
-                'valid_time': valid_time.isoformat() + 'Z',
-                'lead_hours': g_event['lead_hours'],
-                'cross_validated': cross_validated
-            })
-            
-    # De-duplicate alerts by basin (keep highest severity, then earliest time)
-    # Severity rank: EMERGENCY > WARNING > WATCH
-    severity_rank = {'EMERGENCY': 3, 'WARNING': 2, 'WATCH': 1}
-    
-    final_alerts = {}
-    for a in alerts:
-        b = a['basin']
-        if b not in final_alerts:
-            final_alerts[b] = a
-        else:
-            if severity_rank[a['tier']] > severity_rank[final_alerts[b]['tier']]:
-                final_alerts[b] = a
-            elif severity_rank[a['tier']] == severity_rank[final_alerts[b]['tier']]:
-                if a['lead_hours'] < final_alerts[b]['lead_hours']:
-                    final_alerts[b] = a
-                    
-    alert_level = {basin: 'NONE' for basin in BASINS}
-    for a in final_alerts.values():
-        alert_level[a['basin']] = a['tier']
-        
-    output = {
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
-        'gfs_run': gfs_run.isoformat() + 'Z',
-        'ecmwf_run': ecmwf_run.isoformat() + 'Z',
-        'alert_level': alert_level,
-        'active_alerts': list(final_alerts.values()),
-        'status': 'success' if gfs_data else 'error'
-    }
-    
     out_file = os.path.join(os.path.dirname(__file__), '..', '..', 'outputs', 'freeze', 'alerts.json')
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
+
+    try:
+        gfs_run, gfs_data = get_gfs_forecasts()
+        ecmwf_run, ecmwf_data = get_ecmwf_forecasts()
+        
+        alerts = []
+        
+        for basin in BASINS:
+            gfs_basin = gfs_data.get(basin, [])
+            ecmwf_basin = ecmwf_data.get(basin, [])
+            
+            # Find freeze events in GFS
+            freeze_events_gfs = [f for f in gfs_basin if f['temp_c'] <= FREEZE_THRESHOLD_C]
+            if not freeze_events_gfs:
+                continue
+                
+            for g_event in freeze_events_gfs:
+                tier = determine_alert_tier(g_event['lead_hours'])
+                valid_time = g_event['valid_time']
+                
+                # Cross-validate with ECMWF if we need to escalate
+                # We check if ECMWF predicts freeze +/- 12 hours around the GFS event
+                cross_validated = False
+                if ecmwf_basin:
+                    for e_event in ecmwf_basin:
+                        time_diff = abs((e_event['valid_time'] - valid_time).total_seconds() / 3600)
+                        if time_diff <= 12 and e_event['temp_c'] <= FREEZE_THRESHOLD_C:
+                            cross_validated = True
+                            break
+                
+                # Only escalate to WARNING/EMERGENCY if both models agree
+                if tier in ['WARNING', 'EMERGENCY'] and not cross_validated:
+                    tier = 'WATCH' # Downgrade if no consensus
+                    
+                alerts.append({
+                    'basin': basin,
+                    'tier': tier,
+                    'gfs_temp_c': round(g_event['temp_c'], 1),
+                    'valid_time': valid_time.isoformat() + 'Z',
+                    'lead_hours': g_event['lead_hours'],
+                    'cross_validated': cross_validated
+                })
+                
+        # De-duplicate alerts by basin (keep highest severity, then earliest time)
+        # Severity rank: EMERGENCY > WARNING > WATCH
+        severity_rank = {'EMERGENCY': 3, 'WARNING': 2, 'WATCH': 1}
+        
+        final_alerts = {}
+        for a in alerts:
+            b = a['basin']
+            if b not in final_alerts:
+                final_alerts[b] = a
+            else:
+                if severity_rank[a['tier']] > severity_rank[final_alerts[b]['tier']]:
+                    final_alerts[b] = a
+                elif severity_rank[a['tier']] == severity_rank[final_alerts[b]['tier']]:
+                    if a['lead_hours'] < final_alerts[b]['lead_hours']:
+                        final_alerts[b] = a
+                        
+        alert_level = {basin: 'NONE' for basin in BASINS}
+        for a in final_alerts.values():
+            alert_level[a['basin']] = a['tier']
+            
+        output = {
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'gfs_run': gfs_run.isoformat() + 'Z',
+            'ecmwf_run': ecmwf_run.isoformat() + 'Z',
+            'alert_level': alert_level,
+            'active_alerts': list(final_alerts.values()),
+            'status': 'success' if gfs_data else 'error'
+        }
+    except Exception as e:
+        logging.error(f"System 3 failure: {e}")
+        # Emit stale status to indicate failure in pipeline
+        output = {
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'status': 'stale',
+            'error_reason': str(e),
+            'alert_level': {basin: 'UNKNOWN' for basin in BASINS},
+            'active_alerts': []
+        }
     
     with open(out_file, 'w') as f:
         json.dump(output, f, indent=2)
         
-    logging.info(f"System 3 completed. Generated {len(final_alerts)} alerts.")
+    logging.info(f"System 3 completed.")
 
 if __name__ == "__main__":
     run_system3()

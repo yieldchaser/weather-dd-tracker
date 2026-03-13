@@ -102,11 +102,11 @@ def compute_composite_weather_signal():
         if cold_risk > 50:
             val = (float(cold_risk) - 50) / 10.0
             bull_score += val
-            components.append(f"Teleconnections Cold Risk High (+{val:.1f} Bull)")
+            components.append({"name": "Teleconnections Cold Risk High", "score": val})
         elif cold_risk < 20:
             val = (20 - cold_risk) / 10.0
             bear_score += val
-            components.append(f"Teleconnections Warm/Neutral (+{val:.1f} Bear)")
+            components.append({"name": "Teleconnections Warm/Neutral", "score": -val})
     else:
         stale_systems.append(f"teleconnections ({tele_reason})")
 
@@ -121,7 +121,7 @@ def compute_composite_weather_signal():
                 elif t == 'WARNING':   freeze_impact += 1.5
                 else:                  freeze_impact += 0.5
             bull_score += freeze_impact
-            components.append(f"Freeze-Off Watch/Warning/Emergency (+{freeze_impact:.1f} Bull)")
+            components.append({"name": "Freeze-Off Alert System", "score": freeze_impact})
     else:
         stale_systems.append(f"freeze ({freeze_reason})")
 
@@ -130,10 +130,10 @@ def compute_composite_weather_signal():
         rolling_coeff = sensitivity.get('sensitivity_bcf_per_hdd', 2.0)
         if rolling_coeff > 2.5:
             bull_score += 1.5
-            components.append("High Weather Sensitivity (+1.5 Bull)")
+            components.append({"name": "High Weather Sensitivity", "score": 1.5})
         elif rolling_coeff < 1.8:
             bear_score += 1.0
-            components.append("Low Weather Sensitivity (+1.0 Bear)")
+            components.append({"name": "Low Weather Sensitivity", "score": -1.0})
     else:
         stale_systems.append(f"sensitivity ({sens_reason})")
 
@@ -158,32 +158,46 @@ def compute_composite_weather_signal():
         elif p >= 0.60:
             val = 2.5 * wind_weight_multiplier
             bull_score += val
-            components.append(f"Wind Drought (Persistent) (+{val:.1f} Bull)")
+            components.append({"name": "Wind Drought (Persistent)", "score": val})
         elif p >= 0.35:
             val = 1.5 * wind_weight_multiplier
             bull_score += val
-            components.append(f"Wind Drought (Moderate) (+{val:.1f} Bull)")
+            components.append({"name": "Wind Drought (Moderate)", "score": val})
         elif p < 0.15 and anomaly_today > 0.05:
             val = 1.5 * wind_weight_multiplier
             bear_score += val
-            components.append(f"Strong Wind Surplus (+{val:.1f} Bear)")
+            components.append({"name": "Strong Wind Surplus", "score": -val})
         else:
-            components.append("Wind Neutral (Neutral)")
+            components.append({"name": "Wind Generation", "score": 0.0})
     else:
         stale_systems.append(f"wind ({wind_reason})")
 
     # ── 5. Weather Regimes ────────────────────────────────────────────────────
     if regime_connected:
-        regime_lbl  = regimes.get('regime_label', '').lower()
+        regime_lbl  = regimes.get('regime_label', '')
+        regime_lbl_lower = regime_lbl.lower()
         regime_stale = regimes.get('stale', False)
         if regime_stale:
             logging.warning("[Composite] Regime JSON is flagged as stale — using label but noting caveat.")
-        if any(word in regime_lbl for word in ["trough", "arctic", "block", "polar", "vortex"]):
+        
+        # Polar Vortex phase detection
+        pv_strengthening = any(w in regime_lbl_lower for w in ["strengthening", "disruption", "split", "displacement"])
+        pv_established   = any(w in regime_lbl_lower for w in ["polar vortex", "vortex"]) and not pv_strengthening
+
+        if pv_strengthening:
+            # PV breaking down → cold air descending into CONUS → bullish
             bull_score += 2.5
-            components.append(f"Bullish Weather Regime ({regimes.get('regime_label','')}) (+2.5 Bull)")
-        elif any(word in regime_lbl for word in ["ridge", "zonal"]):
+            components.append({"name": "PV Disruption (Bullish)", "score": 2.5})
+        elif pv_established:
+            # Strong PV → cold air locked in Arctic → warm CONUS → bearish
             bear_score += 2.0
-            components.append(f"Bearish/Mild Weather Regime ({regimes.get('regime_label','')}) (+2.0 Bear)")
+            components.append({"name": "Strong PV (Bearish)", "score": -2.0})
+        elif any(w in regime_lbl_lower for w in ["trough", "arctic", "block"]):
+            bull_score += 2.5
+            components.append({"name": f"Blocking/Trough ({regimes.get('regime_label','')})", "score": 2.5})
+        elif any(w in regime_lbl_lower for w in ["ridge", "zonal"]):
+            bear_score += 2.0
+            components.append({"name": f"Bearish/Mild Regime ({regimes.get('regime_label','')})", "score": -2.0})
     else:
         stale_systems.append(f"regimes ({regime_reason})")
 

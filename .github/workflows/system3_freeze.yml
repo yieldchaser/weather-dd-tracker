@@ -1,0 +1,42 @@
+name: System 3 - Freeze Alert System
+
+on:
+  schedule:
+    - cron: "30 4,16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  freeze_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata herbie-data Kaggle
+
+      - name: Run Freeze System
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          python scripts/freeze/system3_freeze.py || {
+            echo "::error::Freeze system fetch failed"
+            exit 1
+          }
+
+      - name: Commit result
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add outputs/freeze/alerts.json
+          git diff --staged --quiet || git commit -m "Auto-update: Freeze alerts $(date '+%Y-%m-%d')"
+          git push

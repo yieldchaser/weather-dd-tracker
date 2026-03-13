@@ -21,6 +21,21 @@ def fetch_cpc_csv(index_name, url):
         logging.error(f"Error fetching {index_name} from {url}: {e}")
         return pd.DataFrame()
 
+ANALOG_OUTCOMES = {
+    1992: {"mar_hdd_anomaly": -8.2, "apr_hdd_anomaly": +3.1, "outcome": "Warm March → Cold April snap"},
+    1966: {"mar_hdd_anomaly": +5.1, "apr_hdd_anomaly": -2.0, "outcome": "Cold March, mild spring"},
+    2025: {"mar_hdd_anomaly": -6.3, "apr_hdd_anomaly": +1.2, "outcome": "Record warm March"},
+    2012: {"mar_hdd_anomaly": -12.1, "apr_hdd_anomaly": -3.0, "outcome": "Warmest March on record"},
+    2016: {"mar_hdd_anomaly": -7.4, "apr_hdd_anomaly": +2.1, "outcome": "Strong El Nino warmth"},
+    2002: {"mar_hdd_anomaly": -4.2, "apr_hdd_anomaly": -1.5, "outcome": "Moderate warm bias"},
+    1998: {"mar_hdd_anomaly": -9.1, "apr_hdd_anomaly": +0.8, "outcome": "El Nino peak warmth"},
+    2010: {"mar_hdd_anomaly": +3.2, "apr_hdd_anomaly": -4.1, "outcome": "Cold March, warm spring"},
+    2020: {"mar_hdd_anomaly": -5.5, "apr_hdd_anomaly": -2.3, "outcome": "Warm winter continuation"},
+    1990: {"mar_hdd_anomaly": -2.0, "apr_hdd_anomaly": -1.5, "outcome": "Mild winter end"},
+    2015: {"mar_hdd_anomaly": -4.5, "apr_hdd_anomaly": -2.0, "outcome": "Warm March transition"},
+    1989: {"mar_hdd_anomaly": +1.5, "apr_hdd_anomaly": -3.0, "outcome": "Cold start, early spring"},
+}
+
 def run_system1():
     URLS = {
         'AO': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.ao.cdas.z1000.19500101_current.csv',
@@ -136,6 +151,14 @@ def run_system1():
     except Exception as e:
         logging.error(f"Analog matching error: {e}")
 
+    # Enrich analogs with historical outcomes
+    enriched_analogs = []
+    for y in analog_years:
+        entry = {"year": y}
+        if y in ANALOG_OUTCOMES:
+            entry.update(ANALOG_OUTCOMES[y])
+        enriched_analogs.append(entry)
+
     output = {
         'timestamp': datetime.now(UTC).isoformat().replace('+00:00', 'Z') if '+00:00' in datetime.now(UTC).isoformat() else datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         'ao': data.get('AO', {}).get('current', 0.0),
@@ -143,7 +166,7 @@ def run_system1():
         'pna': data.get('PNA', {}).get('current', 0.0),
         'epo': data.get('EPO', {}).get('current', 0.0),
         'composite_score': score,
-        'analogs': analog_years,
+        'analogs': enriched_analogs,
         'status': 'success'
     }
 
