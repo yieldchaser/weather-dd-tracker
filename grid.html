@@ -898,6 +898,7 @@
 
             const cfCol = selectedPeriod === 'all' ? 'national_cf_pct' : `national_cf_${selectedPeriod}_pct`;
             let dataECMWF = [], dataGFS = [], dataICON = [], dataGFS_CFS = [], dataClimo = [], dataHDD = [];
+            let dataGFSP10 = [], dataGFSP90 = [];
             
             dates.forEach(d => {
                 const getGW = (m) => (byModel[m]&&byModel[m][d]) ? (byModel[m][d][cfCol]/100 * TOTAL_INSTALLED_GW) : null;
@@ -923,22 +924,31 @@
                 dataHDD.push(hddMap[d] ? hddMap[d][0] : null);
             });
 
+            const hasSpreadData = dataGFSP10.some(v => v !== null && v !== undefined);
+            const datasets = [
+                { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true }
+            ];
+
+            if (hasSpreadData) {
+                datasets.push({ label: 'GFS P10', data: dataGFSP10, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: '+1', pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true });
+                datasets.push({ label: 'GFS P90', data: dataGFSP90, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: false, pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true });
+            }
+
+            datasets.push(
+                { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                { label: 'GFS/CFS (35d)', data: dataGFS_CFS, borderColor: '#03a9f4', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: true }
+            );
+
             let ctx = document.getElementById('windChart').getContext('2d');
             if (windChart) windChart.destroy();
             windChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: dates,
-                    datasets: [
-                        { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: 'GFS P10', data: dataGFSP10, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: '+1', pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true },
-                        { label: 'GFS P90', data: dataGFSP90, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: false, pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true },
-                        { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: 'GFS/CFS (35d)', data: dataGFS_CFS, borderColor: '#03a9f4', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: true }
-                    ]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true,
@@ -1013,6 +1023,7 @@
 
             const cfCol = selectedSolarPeriod === 'all' ? 'national_cf_pct' : `national_cf_${selectedSolarPeriod}_pct`;
             let dataGFS = [], dataECMWF = [], dataClimo = [], dataHDD = [];
+            let dataECMWFAIFS = [];
 
             dates.forEach(d => {
                 const getGW = (m) => (byModel[m]&&byModel[m][d]) ? (byModel[m][d][cfCol]/100 * TOTAL_SOLAR_GW) : null;
