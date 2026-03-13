@@ -2,7 +2,8 @@ name: System 3 - Freeze Alert System
 
 on:
   schedule:
-    - cron: "30 4,16 * * *"
+    - cron: "30 6 * * *"
+    - cron: "30 18 * * *"
   workflow_dispatch:
 
 permissions:

@@ -340,6 +340,39 @@ def send():
         except Exception as e:
             print(f"[WARN] Wind block failed: {e}")
 
+    # 4. Freeze Alert System block
+    freeze_file = Path("outputs/freeze/alerts.json")
+    if freeze_file.exists():
+        try:
+            freeze = json.load(open(freeze_file, "r"))
+            status = freeze.get("status", "stale")
+            
+            if status == "stale":
+                freeze_note = "⚠️ Freeze data stale — fetch failed"
+            elif status == "partial":
+                sources = freeze.get("sources", {})
+                working = [k for k, v in sources.items() if v == "ok"]
+                freeze_note = f"⚠️ Freeze partial ({', '.join(working)} only)"
+            else:
+                freeze_note = None
+
+            active_alerts = freeze.get("active_alerts", [])
+            if active_alerts or freeze_note:
+                intel_lines.append(f"\n🧊 FREEZE ALERT SYSTEM:")
+                if freeze_note:
+                    intel_lines.append(f"   {freeze_note}")
+                
+                if active_alerts:
+                    for a in active_alerts:
+                        # Escalation indicator
+                        esc = "🔥" if a['tier'] == 'EMERGENCY' else ("⚠️" if a['tier'] == 'WARNING' else "⚖️")
+                        xv = " (Cross-validated)" if a.get('cross_validated') else ""
+                        intel_lines.append(f"   {esc} {a['basin']} {a['tier']}: {a['gfs_temp_c']}C on {a['valid_time'][:10]}{xv}")
+                elif not freeze_note:
+                    intel_lines.append(f"   No freeze threats detected in next 16 days.")
+        except Exception as e:
+            print(f"[WARN] Freeze block failed: {e}")
+
     # FIX 3: Expanded Combined Solar/Wind block
     comb_file = COMBINED_DROUGHT_PATH
     if comb_file.exists():

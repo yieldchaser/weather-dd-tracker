@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import sys
+from time import sleep
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
@@ -35,6 +36,24 @@ BASINS = {
 
 FREEZE_THRESHOLD_C = 0.0  # 32F
 
+def fetch_herbie_with_retry(date, fxx, max_retries=3, wait_minutes=10):
+    """
+    GFS fetch helper that retries if index files aren't ready.
+    """
+    for attempt in range(max_retries):
+        try:
+            H = Herbie(date, model="gfs", product="pgrb2.0p25", fxx=fxx)
+            ds = H.xarray("TMP:2 m")
+            return ds
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logging.info(f"[RETRY {attempt+1}/{max_retries}] Herbie fxx={fxx} failed: {e}. Waiting {wait_minutes}min...")
+                sleep(wait_minutes * 60)
+            else:
+                logging.error(f"[FAIL] Herbie fxx={fxx} exhausted retries: {e}")
+                return None
+    return None
+
 def get_gfs_forecasts():
     """
     Fetch GFS temperature forecasts for the next 16 days at 6-hour resolution using Herbie.
@@ -60,10 +79,10 @@ def get_gfs_forecasts():
     for fxx in lead_times:
         valid_time = run_date + timedelta(hours=fxx)
         try:
-            H = Herbie(run_date.strftime("%Y-%m-%d %H:%M"), model='gfs', product='pgrb2.0p25', fxx=fxx)
-            # Only download 2m temperature
-            ds = H.xarray("TMP:2 m above ground")
-            
+            ds = fetch_herbie_with_retry(run_date.strftime("%Y-%m-%d %H:%M"), fxx)
+            if ds is None:
+                continue
+                
             for name, coords in BASINS.items():
                 # Extract nearest point
                 val = ds.t2m.sel(longitude=360 + coords['lon'] if coords['lon'] < 0 else coords['lon'], 
@@ -146,14 +165,30 @@ def run_system3():
 
     try:
         gfs_run, gfs_data = get_gfs_forecasts()
+    except Exception as e:
+        logging.error(f"GFS fetch failed: {e}")
+        gfs_run, gfs_data = datetime.utcnow(), None
+
+    try:
         ecmwf_run, ecmwf_data = get_ecmwf_forecasts()
+    except Exception as e:
+        logging.error(f"ECMWF fetch failed: {e}")
+        ecmwf_run, ecmwf_data = datetime.utcnow(), None
         
+    try:
+        if gfs_data is None and ecmwf_data is None:
+            raise Exception("All data sources failed")
+
         alerts = []
         
         for basin in BASINS:
-            gfs_basin = gfs_data.get(basin, [])
-            ecmwf_basin = ecmwf_data.get(basin, [])
+            gfs_basin = gfs_data.get(basin, []) if gfs_data else []
+            ecmwf_basin = ecmwf_data.get(basin, []) if ecmwf_data else []
             
+            # We need at least GFS for baseline
+            if not gfs_basin:
+                continue
+                
             # Find freeze events in GFS
             freeze_events_gfs = [f for f in gfs_basin if f['temp_c'] <= FREEZE_THRESHOLD_C]
             if not freeze_events_gfs:
@@ -163,8 +198,6 @@ def run_system3():
                 tier = determine_alert_tier(g_event['lead_hours'])
                 valid_time = g_event['valid_time']
                 
-                # Cross-validate with ECMWF if we need to escalate
-                # We check if ECMWF predicts freeze +/- 12 hours around the GFS event
                 cross_validated = False
                 if ecmwf_basin:
                     for e_event in ecmwf_basin:
@@ -173,9 +206,8 @@ def run_system3():
                             cross_validated = True
                             break
                 
-                # Only escalate to WARNING/EMERGENCY if both models agree
-                if tier in ['WARNING', 'EMERGENCY'] and not cross_validated:
-                    tier = 'WATCH' # Downgrade if no consensus
+                if tier in ['WARNING', 'EMERGENCY'] and not cross_validated and ecmwf_data:
+                    tier = 'WATCH' # Downgrade if no consensus but ECMWF was available
                     
                 alerts.append({
                     'basin': basin,
@@ -186,8 +218,7 @@ def run_system3():
                     'cross_validated': cross_validated
                 })
                 
-        # De-duplicate alerts by basin (keep highest severity, then earliest time)
-        # Severity rank: EMERGENCY > WARNING > WATCH
+        # De-duplicate alerts by basin
         severity_rank = {'EMERGENCY': 3, 'WARNING': 2, 'WATCH': 1}
         
         final_alerts = {}
@@ -208,11 +239,16 @@ def run_system3():
             
         output = {
             'timestamp': datetime.utcnow().isoformat() + 'Z',
-            'gfs_run': gfs_run.isoformat() + 'Z',
-            'ecmwf_run': ecmwf_run.isoformat() + 'Z',
+            'status': 'ok' if gfs_data and ecmwf_data else 'partial',
+            'sources': {
+                'GFS': 'ok' if gfs_data else 'failed',
+                'ECMWF': 'ok' if ecmwf_data else 'failed'
+            },
+            'gfs_run': gfs_run.isoformat() + 'Z' if gfs_run else None,
+            'ecmwf_run': ecmwf_run.isoformat() + 'Z' if ecmwf_run else None,
             'alert_level': alert_level,
             'active_alerts': list(final_alerts.values()),
-            'status': 'success' if gfs_data else 'error'
+            'error_reason': None
         }
     except Exception as e:
         logging.error(f"System 3 failure: {e}")
