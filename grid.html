@@ -1356,7 +1356,11 @@
         }
 
         function updateLoadGasChart() {
-            if (!rawThermalData || rawThermalData.length < 7) return;
+            if (!rawThermalData || rawThermalData.length < 7) {
+                document.getElementById("load-gas-msg").textContent = "Awaiting load data — check back after next pipeline run.";
+                document.getElementById("load-gas-msg").style.display = 'block';
+                return;
+            }
             
             const validRows = rawThermalData.filter(r => r.load_mw != null && r.load_mw > 0);
             if (validRows.length === 0) {
@@ -1395,7 +1399,8 @@
 
         function updateOutageChart() {
             if (!rawOutageData || rawOutageData.length < 7) {
-                document.getElementById("outage-msg").innerText = "Accumulating outage data (7+ days required)...";
+                document.getElementById("outage-msg").textContent = "Accumulating outage data (7+ days required)...";
+                document.getElementById("outage-msg").style.display = 'block';
                 return;
             }
             document.getElementById("outage-msg").style.display = 'none';
@@ -1422,7 +1427,8 @@
 
         function updatePeakerChart() {
             if (!rawPeakerData || rawPeakerData.length < 7) {
-                document.getElementById("peaker-msg").innerText = "Accumulating peaker metrics (7+ days required)...";
+                document.getElementById("peaker-msg").textContent = "Accumulating peaker metrics (7+ days required)...";
+                document.getElementById("peaker-msg").style.display = 'block';
                 return;
             }
             document.getElementById("peaker-msg").style.display = 'none';
