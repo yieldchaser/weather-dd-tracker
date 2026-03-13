@@ -532,14 +532,14 @@
             <!-- THERMAL GENERATION CHARTS -->
             <div id="thermal-section" style="margin-bottom: 30px;">
                 <h2 class="section-title" style="margin-top: 25px;">Gas as % of Thermal Generation</h2>
-                <div id="thermal-pct-container" style="min-height: 300px; position: relative;">
-                    <div id="thermal-pct-msg" class="loader" style="display: none;">Accumulating data — check back in 7 days</div>
+                <div id="thermal-pct-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="thermal-pct-msg" class="loader" style="display: block;">Checking for thermal data...</div>
                     <canvas id="thermalPctChart"></canvas>
                 </div>
 
                 <h2 class="section-title" style="margin-top: 35px;">Gas vs Coal Generation (Switching Relationship)</h2>
-                <div id="thermal-switch-container" style="min-height: 400px; position: relative;">
-                    <div id="thermal-switch-msg" class="loader" style="display: none;">Accumulating data — check back in 7 days</div>
+                <div id="thermal-switch-container" style="min-height: 400px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="thermal-switch-msg" class="loader" style="display: block;">Checking for thermal data...</div>
                     <canvas id="thermalSwitchChart"></canvas>
                 </div>
             </div>
@@ -1046,7 +1046,7 @@
             });
         }
 
-        async function updateThermalCharts() {
+        function updateThermalCharts() {
             if (!rawThermalData || rawThermalData.length < 1) return;
             
             const minPoints = 7;
@@ -1060,10 +1060,16 @@
                 msgPct.innerText = `Accumulating data — check back in ${minPoints - rawThermalData.length} days`;
                 msgSwitch.style.display = 'block';
                 msgSwitch.innerText = `Accumulating data — check back in ${minPoints - rawThermalData.length} days`;
+                
+                // Hide canvases to prevent overlapping empty boxes
+                document.getElementById('thermalPctChart').style.display = 'none';
+                document.getElementById('thermalSwitchChart').style.display = 'none';
                 return;
             } else {
                 msgPct.style.display = 'none';
                 msgSwitch.style.display = 'none';
+                document.getElementById('thermalPctChart').style.display = 'block';
+                document.getElementById('thermalSwitchChart').style.display = 'block';
             }
 
             // --- Chart A: Gas % of Thermal ---
@@ -1221,23 +1227,35 @@
                 loadSolarForecast();
                 loadCombinedDrought();
                 
+                
                 // Load Thermal History
-                let thermalRes = await fetch(basePath + "thermal_history.csv?t=" + Date.now());
-                if (thermalRes.ok) {
-                    let text = await thermalRes.text();
-                    rawThermalData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
-                    updateThermalCharts();
+                try {
+                    let thermalRes = await fetch(basePath + "thermal_history.csv?t=" + Date.now());
+                    if (thermalRes.ok) {
+                        let text = await thermalRes.text();
+                        rawThermalData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                        updateThermalCharts();
+                    } else {
+                        document.getElementById("thermal-pct-msg").innerText = "No thermal history found. Waiting for first pipeline run.";
+                        document.getElementById("thermal-switch-msg").innerText = "No thermal history found. Waiting for first pipeline run.";
+                    }
+                } catch (err) {
+                    console.warn("Thermal charts loading failed", err);
                 }
 
                 // Load Gas Burn History
-                let scatterRes = await fetch(basePath + "gas_burn_history.csv?t=" + Date.now());
-                if (scatterRes.ok) {
-                    let text = await scatterRes.text();
-                    rawScatterData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
-                    // Default season toggle based on current month
-                    let currentMonth = new Date().getMonth() + 1;
-                    if (currentMonth >= 10 || currentMonth <= 3) setScatterSeason('heating');
-                    else setScatterSeason('cooling');
+                try {
+                    let scatterRes = await fetch(basePath + "gas_burn_history.csv?t=" + Date.now());
+                    if (scatterRes.ok) {
+                        let text = await scatterRes.text();
+                        rawScatterData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                        // Default season toggle based on current month
+                        let currentMonth = new Date().getMonth() + 1;
+                        if (currentMonth >= 10 || currentMonth <= 3) setScatterSeason('heating');
+                        else setScatterSeason('cooling');
+                    }
+                } catch (err) {
+                    console.warn("Gas burn history loading failed", err);
                 }
 
                 const liveGrid = await fetchCSV("live_grid_generation.csv");
