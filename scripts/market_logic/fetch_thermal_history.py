@@ -27,8 +27,8 @@ def fetch_thermal_history():
     required = ["natural_gas_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal"]
     for col in required:
         if col not in national_grid.columns:
-            print(f"  [ERR] Column {col} missing from grid file.")
-            return
+            print(f"  [WARN] Column {col} missing — backfilling with None")
+            national_grid[col] = None
 
     # Prepare Data
     out_row = {

@@ -23,14 +23,14 @@ HISTORY_FILE = Path("outputs/wind/wind_actuals_history.csv")
 TOTAL_INSTALLED_GW = 110.0
 EIA_API_KEY = os.environ.get("EIA_KEY")
 
-ISO_LIST = ["ERCO", "PJM", "MISO", "SWPP", "CAL", "ISNE", "NYIS"]
+ISO_LIST = ["ERCO", "PJM", "MISO", "SWPP", "CISO", "ISNE", "NYIS"]
 
 ISO_DISPLAY = {
     "ERCO": "ERCOT",
     "PJM":  "PJM",
     "MISO": "MISO",
     "SWPP": "SPP",
-    "CAL":  "CAISO",
+    "CISO": "CAISO",
     "ISNE": "ISONE",
     "NYIS": "NYISO",
 }
