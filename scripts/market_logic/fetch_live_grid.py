@@ -235,12 +235,15 @@ def fetch_live_grid():
     out_df = pd.DataFrame(out_rows)
     cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
     out_df = out_df[[c for c in cols if c in out_df.columns]]
-    out_df.to_csv(OUTPUT_FILE, index=False)
+    # Guard: Only overwrite if we have non-null national generation data
+    if pd.notna(nat_row.get("natural_gas_mw")) and pd.notna(nat_row.get("wind_mw")):
+        out_df.to_csv(OUTPUT_FILE, index=False)
+        print(f"\n  [OK] Saved Live Grid Generation -> {OUTPUT_FILE}")
+    else:
+        print("\n  [WARN] Fetched data contains nulls for core metrics. Skipping overwrite of live_grid_generation.csv to preserve last good state.")
     
     # Update historical record
     update_wind_history(nat_row, out_rows)
-    
-    print(f"\n  [OK] Saved Live Grid Generation -> {OUTPUT_FILE}")
     print(out_df.to_string(index=False))
 
 def _create_nan_row(today_str, iso_label):
