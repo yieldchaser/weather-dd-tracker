@@ -867,7 +867,12 @@
             if (risk > 30) badgeColor = "var(--solar-accent)";
             
             badgeEl.style.borderColor = badgeColor;
-            badgeEl.innerHTML = `☀️ SOLAR DROUGHT RISK (16d): ${risk}% | Model: GFS Consensus`;
+            let badgeText = `☀️ SOLAR DROUGHT RISK (16d): ${risk}% | Model: GFS Consensus`;
+            const agreement = droughtData.model_agreement_today_pct;
+            if (agreement != null) {
+                badgeText += ` | Model Agreement: ${agreement}%`;
+            }
+            badgeEl.innerHTML = badgeText;
         }
 
         function updateWindChart() {
@@ -900,6 +905,16 @@
                 dataGFS.push(getGW('GFS'));
                 dataICON.push(getGW('ICON'));
                 dataGFS_CFS.push(getGW('GFS_CFS'));
+
+                const row = (byModel['GFS'] && byModel['GFS'][d]) ? byModel['GFS'][d] : 
+                            (byModel['GFS_CFS'] && byModel['GFS_CFS'][d]) ? byModel['GFS_CFS'][d] : null;
+                if (row && row.gfs_p10_gw != null && row.gfs_p90_gw != null) {
+                    dataGFSP10.push(row.gfs_p10_gw);
+                    dataGFSP90.push(row.gfs_p90_gw);
+                } else {
+                    dataGFSP10.push(null);
+                    dataGFSP90.push(null);
+                }
                 
                 let mm_dd = d.substring(5, 10);
                 let climoEntry = climoJSON[mm_dd] || climoJSON["02-28"] || {all: 0.4};
@@ -917,6 +932,8 @@
                     datasets: [
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                        { label: 'GFS P10', data: dataGFSP10, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: '+1', pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true },
+                        { label: 'GFS P90', data: dataGFSP90, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: false, pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true },
                         { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'GFS/CFS (35d)', data: dataGFS_CFS, borderColor: '#03a9f4', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
@@ -1001,6 +1018,7 @@
                 const getGW = (m) => (byModel[m]&&byModel[m][d]) ? (byModel[m][d][cfCol]/100 * TOTAL_SOLAR_GW) : null;
                 dataGFS.push(getGW('GFS'));
                 dataECMWF.push(getGW('ECMWF'));
+                dataECMWFAIFS.push(getGW('ECMWF_AIFS'));
                 
                 let mm_dd = d.substring(5, 10);
                 let c = solarClimoJSON[mm_dd] || solarClimoJSON["02-28"] || {all: 0.18, peak: 0.3};
@@ -1017,6 +1035,7 @@
                     datasets: [
                         { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                        { label: 'ECMWF AIFS', data: dataECMWFAIFS, borderColor: '#ab47bc', borderDash: [2,2], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: true }
                     ]

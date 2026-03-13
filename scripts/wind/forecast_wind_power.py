@@ -37,7 +37,8 @@ MODELS = {
         "om_name":      "gfs_seamless",
         "endpoint":     "https://ensemble-api.open-meteo.com/v1/ensemble",
         "horizon_days": 35,
-        "wind_var":     "wind_speed_100m"
+        "wind_var":     "wind_speed_100m",
+        "ensemble":     True
     },
 }
 
@@ -216,6 +217,11 @@ def fetch_forecasts():
             "timezone":        "UTC"
         }
         
+        if config.get("ensemble"):
+            params["models"] = "gfs_seamless" # Use seamless for mean
+            # Request ensemble members for spread calculation
+            params["ensemble"] = "true"
+        
         try:
             resp = requests.get(endpoint, params=params, timeout=30)
             resp.raise_for_status()
@@ -252,6 +258,28 @@ def fetch_forecasts():
                 
             df["cf"] = df["ws"].apply(wind_power_curve)
             df["gw"] = df["cf"] * node[4]
+            
+            # PART 1: GFS Ensemble Spread Calculation
+            if model == "GFS_CFS":
+                member_cols = [c for c in hourly_data.keys() if c.startswith(f"{target_var}_member")]
+                if member_cols:
+                    # Create a temporary DF for members to compute quantiles
+                    member_data = {}
+                    for col in member_cols:
+                        member_data[col] = hourly_data[col]
+                    m_df = pd.DataFrame(member_data)
+                    
+                    # Ensure alignment with mean times
+                    m_p10_ws = m_p10_ws = m_df.quantile(0.10, axis=1)
+                    m_p90_ws = m_df.quantile(0.90, axis=1)
+                    
+                    df["ws_p10"] = m_p10_ws
+                    df["ws_p90"] = m_p90_ws
+                    df["cf_p10"] = df["ws_p10"].apply(wind_power_curve)
+                    df["cf_p90"] = df["ws_p90"].apply(wind_power_curve)
+                    df["gw_p10"] = df["cf_p10"] * node[4]
+                    df["gw_p90"] = df["cf_p90"] * node[4]
+
             node_dfs.append(df)
 
             # Store GFS node data for spatial spread proxy (daily mean)
@@ -278,10 +306,12 @@ def fetch_forecasts():
         )
 
         # Aggregate metrics
-        daily_sum = national_hourly.groupby("date").agg({
-            "gw": "mean",
-            "cf": "mean"
-        }).reset_index()
+        agg_dict = {"gw": "mean", "cf": "mean"}
+        if "gw_p10" in national_hourly.columns:
+            agg_dict["gw_p10"] = "mean"
+            agg_dict["gw_p90"] = "mean"
+
+        daily_sum = national_hourly.groupby("date").agg(agg_dict).reset_index()
 
         period_metrics = national_hourly.groupby(["date", "period"])["cf"].mean().unstack(fill_value=0)
         
@@ -315,7 +345,9 @@ def fetch_forecasts():
                 "national_cf_shoulder_pct": round(cf_shoulder * 100, 1),
                 "climo_cf_pct": round(climo_cf * 100, 1),
                 "anomaly_cf_pct": round(anomaly_cf * 100, 1),
-                "drought_flag": drought_flag
+                "drought_flag": drought_flag,
+                "gfs_p10_gw": round(row.get("gw_p10", 0), 2) if row.get("gw_p10") is not None else None,
+                "gfs_p90_gw": round(row.get("gw_p90", 0), 2) if row.get("gw_p90") is not None else None
             })
             
     if not all_rows:
@@ -339,8 +371,31 @@ def fetch_forecasts():
         if len(gws) > 1:
             gfs_spread[d.strftime("%Y-%m-%d")] = round(pd.Series(gws).std(), 2)
 
-    # Drought logic: require >= 2 models consensus for daily flag (exclude GFS_CFS from 2-model consensus for stability if desired, but here we include it)
-    daily_model_counts = df_future[df_future["model"] != "GFS_CFS"].groupby("date")["drought_flag"].sum()
+    # PART 2: Model agreement score
+    models_checked = ["GFS", "ECMWF", "ICON"]
+    daily_cf = df_future.pivot(index="date", columns="model", values="national_cf_pct")
+    
+    # Drought threshold for current month
+    d_thresh_pct = get_wind_drought_threshold(current_month) * 100
+    
+    # Agreement today
+    def get_models_in_drought(d_str):
+        if d_str not in daily_cf.index: return []
+        row = daily_cf.loc[d_str]
+        return [m for m in models_checked if m in row and row[m] < d_thresh_pct]
+
+    models_in_drought_today_list = get_models_in_drought(today_str)
+    agreement_score = round(len(models_in_drought_today_list) / len(models_checked) * 100) if len(models_checked) > 0 else 0
+
+    # Agreement score for 7d window (days with 2+ models in drought)
+    next_7_days = [(datetime.now(UTC).date() + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    agreement_7d_count = 0
+    for d in next_7_days:
+        if len(get_models_in_drought(d)) >= 2:
+            agreement_7d_count += 1
+    agreement_7d_pct = round(agreement_7d_count / 7 * 100)
+
+    daily_model_counts = df_future[df_future["model"].isin(models_checked)].groupby("date")["drought_flag"].sum()
     drought_days_all = daily_model_counts[daily_model_counts >= 2].index.tolist()
     
     end_16d = (datetime.now(UTC).date() + timedelta(days=15)).strftime("%Y-%m-%d")
@@ -369,7 +424,7 @@ def fetch_forecasts():
         anomaly_today_peak = round(df_today["national_cf_peak_pct"].mean() - peak_climo_pct, 1)
         anomaly_today_offpeak = round(df_today["national_cf_offpeak_pct"].mean() - offpeak_climo_pct, 1)
         
-        models_in_drought_today = df_today[df_today["drought_flag"] == 1]["model"].tolist()
+        models_in_drought_today = models_in_drought_today_list
         peak_cf_avg = df_today["national_cf_peak_pct"].mean()
         peak_threshold = get_peak_wind_drought_threshold(current_month)
         peak_drought_today = bool(peak_cf_avg < peak_threshold * 100)
@@ -378,6 +433,8 @@ def fetch_forecasts():
         anomaly_today_peak = 0.0
         anomaly_today_offpeak = 0.0
         models_in_drought_today = []
+        agreement_score = 0
+        agreement_7d_pct = 0
         peak_drought_today = False
         
     model_horizons = {k: v["horizon_days"] for k, v in MODELS.items()}
@@ -400,6 +457,12 @@ def fetch_forecasts():
         "drought_threshold_cf_pct": round(get_wind_drought_threshold(current_month) * 100, 1),
         "peak_drought_threshold_cf_pct": round(get_peak_wind_drought_threshold(current_month) * 100, 1),
         "gfs_spatial_spread": gfs_spread,
+        "model_agreement_today_pct": agreement_score,
+        "model_agreement_7d_pct": agreement_7d_pct,
+        "models_agreeing_today": models_in_drought_today,
+        "gfs_ensemble_spread_today": round(df_out[(df_out["date"] == today_str) & (df_out["model"] == "GFS_CFS")]["gfs_p90_gw"].mean() - df_out[(df_out["date"] == today_str) & (df_out["model"] == "GFS_CFS")]["gfs_p10_gw"].mean(), 2) if not df_out[(df_out["date"] == today_str) & (df_out["model"] == "GFS_CFS")].empty else None,
+        "gfs_p10_today": round(df_out[(df_out["date"] == today_str) & (df_out["model"] == "GFS_CFS")]["gfs_p10_gw"].mean(), 1) if not df_out[(df_out["date"] == today_str) & (df_out["model"] == "GFS_CFS")].empty else None,
+        "gfs_p90_today": round(df_out[(df_out["date"] == today_str) & (df_out["model"] == "GFS_CFS")]["gfs_p90_gw"].mean(), 1) if not df_out[(df_out["date"] == today_str) & (df_out["model"] == "GFS_CFS")].empty else None,
         "timestamp":        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     }
     

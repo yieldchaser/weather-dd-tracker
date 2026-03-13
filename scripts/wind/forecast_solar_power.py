@@ -37,8 +37,9 @@ SOLAR_NODES = [
 TOTAL_SOLAR_GW = sum(n[4] for n in SOLAR_NODES)  # ~48 GW
 
 SOLAR_MODELS = {
-    "GFS":   {"om_name": "gfs_seamless",  "horizon_days": 16},
-    "ECMWF": {"om_name": "ecmwf_ifs025",  "horizon_days": 10},
+    "GFS":        {"om_name": "gfs_seamless",  "horizon_days": 16},
+    "ECMWF":      {"om_name": "ecmwf_ifs025",  "horizon_days": 10},
+    "ECMWF_AIFS": {"om_name": "ecmwf_aifs025", "horizon_days": 10},
 }
 
 PERFORMANCE_RATIO = 0.75     # system losses (inverter, wiring, temp)
@@ -253,7 +254,16 @@ def generate_combined_drought(solar_df):
         merged = pd.merge(wind_csv, solar_gfs, on="date", suffixes=('_w', '_s'))
         merged["combined_cf"] = (merged["total_wind_gw"] + merged["total_solar_gw"]) / (110.0 + TOTAL_SOLAR_GW)
         
-        merged["both_drought"] = (merged["national_cf_pct_w"] < 35.0) & (merged["national_cf_peak_pct_s"] < 25.0)
+        # Drought check: Wind < 35% AND Solar consensus < 25% (2 of 3 models)
+        # First, pivot solar to get all models for consensus
+        solar_pivoted = solar_df.pivot(index="date", columns="model", values="national_cf_peak_pct")
+        def check_solar_consensus(d):
+            if d not in solar_pivoted.index: return False
+            row = solar_pivoted.loc[d]
+            return sum(1 for m in ["GFS", "ECMWF", "ECMWF_AIFS"] if m in row and row[m] < 25.0) >= 2
+
+        merged["solar_consensus"] = merged["date"].apply(check_solar_consensus)
+        merged["both_drought"] = (merged["national_cf_pct_w"] < 35.0) & (merged["solar_consensus"])
         
         near_term = merged[merged["date"] <= (utc_now.date() + timedelta(days=6)).strftime("%Y-%m-%d")]
         prob_7d = near_term["both_drought"].mean() if not near_term.empty else 0.0
