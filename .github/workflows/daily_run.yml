@@ -57,6 +57,8 @@ jobs:
           python scripts/generate_maps.py || echo "[WARN] Map generation failed."
           python scripts/market_logic/fetch_gas_burn_history.py
           python scripts/market_logic/fetch_thermal_history.py
+          python scripts/market_logic/fetch_outages.py
+          python scripts/market_logic/fetch_peaker_proxy.py
 
       - name: Trigger Kaggle AI Inference Kernel (00z/12z Major Cycles Only)
         if: env.NEW_DATA_FOUND == 'true'

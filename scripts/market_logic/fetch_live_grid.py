@@ -1,12 +1,8 @@
 """
 fetch_live_grid.py
 
-Uses official EIA v2 API to query live fuel mix grid generation for Big 4 ISOs.
-Calculates 30-day historical averages strictly to compute anomaly metrics
-for Wind vs Natural Gas.
-
-Synthesizes a 5th 'NATIONAL' row containing the aggregate sums across ISOs, 
-propaganea NaNs, and logs historical wind actuals to a persistent CSV.
+Uses official EIA v2 API to query live fuel mix grid generation for 7 ISOs.
+Now includes LOAD (demand) data and ISO-level row persistence in outputs.
 """
 
 import os
@@ -26,17 +22,25 @@ HISTORY_FILE = Path("outputs/wind/wind_actuals_history.csv")
 # Constants
 TOTAL_INSTALLED_GW = 110.0
 EIA_API_KEY = os.environ.get("EIA_KEY")
-ISO_LIST = ["ERCO", "PJM", "MISO", "SWPP"]
 
-def get_eia_fuel_mix(iso_code, start_dt, today):
+ISO_LIST = ["ERCO", "PJM", "MISO", "SWPP", "CAL", "ISNE", "NYIS"]
+
+ISO_DISPLAY = {
+    "ERCO": "ERCOT",
+    "PJM":  "PJM",
+    "MISO": "MISO",
+    "SWPP": "SPP",
+    "CAL":  "CAISO",
+    "ISNE": "ISONE",
+    "NYIS": "NYISO",
+}
+
+def get_eia_data(endpoint, iso_code, start_dt, today, data_type=None):
     """
-    Queries EIA v2 API for the last 30 days of hourly electricity generation
-    by fuel type within a specific ISO / Balancing Authority.
+    Generic EIA v2 API caller.
     """
     start_str = start_dt.strftime("%Y-%m-%dT%H")
     end_str = today.strftime("%Y-%m-%dT%H")
-    
-    url = "https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/"
     
     params = {
         "api_key": EIA_API_KEY,
@@ -51,255 +55,161 @@ def get_eia_fuel_mix(iso_code, start_dt, today):
         "length": 5000
     }
     
-    if not EIA_API_KEY:
-        print("  [ERR] EIA_KEY env var not set. Skipping EIA fetch.")
-        return pd.DataFrame()
-
-    print(f"--- Fetching Live Grid Generation ({iso_code} via EIA) ---")
-    
+    if data_type:
+        params["facets[type][]"] = data_type
+        
     for attempt in range(3):
         try:
-            r = requests.get(url, params=params, timeout=30)
+            r = requests.get(endpoint, params=params, timeout=30)
             r.raise_for_status()
             data = r.json()
-            
             if "response" in data and "data" in data["response"]:
-                records = data["response"]["data"]
-                if records:
-                    return pd.DataFrame(records)
-            
-            print(f"  [WARN] Unexpected EIA json framework: {data.keys()}")
-            
-        except requests.exceptions.HTTPError as e:
-            print(f"  [ERR] EIA API Fetch failed HTTP (Attempt {attempt+1}/3): {e}")
-            if r.status_code == 403:
-                print("  [ERR] EIA API Key rejected. Ensure EIA_KEY secret is set correctly.")
-                break
+                return pd.DataFrame(data["response"]["data"])
         except Exception as e:
-            print(f"  [ERR] EIA API Fetch failed (Attempt {attempt+1}/3): {e}")
-            
+            print(f"  [ERR] EIA Fetch failed ({iso_code}, {data_type}): {e}")
         time.sleep(2)
-        
     return pd.DataFrame()
 
 def fetch_live_grid():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    
+    if not EIA_API_KEY:
+        print("[ERR] EIA_KEY not set.")
+        return
+
     tz = pytz.timezone("US/Central")
     today = datetime.datetime.now(tz)
-    today_date = today.date()
-    today_str = pd.to_datetime(today_date).strftime("%Y-%m-%d")
     start_dt = today - datetime.timedelta(days=35)
     
-    out_rows = []
+    fuel_map = {"NG": "natural_gas_mw", "COL": "coal_mw", "NUC": "nuclear_mw", "WND": "wind_mw", "SUN": "solar_mw"}
     
-    fuel_map = {
-        "NG": "natural_gas_mw",
-        "COL": "coal_mw",
-        "NUC": "nuclear_mw",
-        "WND": "wind_mw",
-        "SUN": "solar_mw"
-    }
-
-    # ISO labels for output
-    iso_labels = {
-        "ERCO": "ERCOT",
-        "PJM": "PJM",
-        "MISO": "MISO",
-        "SWPP": "SWPP"
-    }
+    gen_url = "https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/"
+    load_url = "https://api.eia.gov/v2/electricity/rto/region-data/data/"
+    
+    all_iso_output_rows = []
+    hourly_records = []
     
     for iso_code in ISO_LIST:
-        df = get_eia_fuel_mix(iso_code, start_dt, today)
+        print(f"Processing {ISO_DISPLAY[iso_code]}...")
+        # 1. Fetch Generation
+        gen_df = get_eia_data(gen_url, iso_code, start_dt, today)
+        # 2. Fetch Load
+        load_df = get_eia_data(load_url, iso_code, start_dt, today, data_type="D")
         
-        if df.empty:
-            print(f"  [WARN] No data for {iso_code}. Appending NaN row.")
-            out_rows.append(_create_nan_row(today_str, iso_labels[iso_code]))
+        if gen_df.empty or load_df.empty:
             continue
             
-        print(f"  [DEBUG] Raw EIA Fuel Types for {iso_code}:")
-        if "fueltype" in df.columns:
-            print(df["fueltype"].unique().tolist())
-        else:
-            print(df["type-name"].unique().tolist())
-            
-        if "fueltype" in df.columns:
-            df["fuel-mapped"] = df["fueltype"].map(fuel_map)
-        else:
-            df["fuel-mapped"] = df["type-name"].str.upper().map(fuel_map)
+        # Process Gen
+        if "fueltype" in gen_df.columns: gen_df["fuel-mapped"] = gen_df["fueltype"].map(fuel_map)
+        else: gen_df["fuel-mapped"] = gen_df["type-name"].str.upper().map(fuel_map)
+        gen_df = gen_df.dropna(subset=["fuel-mapped", "value"])
+        gen_df["value"] = pd.to_numeric(gen_df["value"], errors='coerce')
+        
+        # Hourly Pivot for ISO
+        gen_hourly = gen_df.pivot_table(index="period", columns="fuel-mapped", values="value", aggfunc="mean").reset_index()
+        
+        # Process Load
+        load_df["load_mw"] = pd.to_numeric(load_df["value"], errors='coerce')
+        load_hourly = load_df[["period", "load_mw"]]
+        
+        # Merge Hourly
+        merged_hourly = pd.merge(gen_hourly, load_hourly, on="period", how="left")
+        merged_hourly["iso"] = ISO_DISPLAY[iso_code]
+        hourly_records.append(merged_hourly)
+        
+        # Daily Aggregation
+        merged_hourly["date_only"] = pd.to_datetime(merged_hourly["period"]).dt.strftime("%Y-%m-%d")
+        daily = merged_hourly.groupby("date_only").mean(numeric_only=True).reset_index()
+        
+        # Get Latest Date (Anomaly Logic)
+        latest_date = daily["date_only"].max()
+        today_row = daily[daily["date_only"] == latest_date].iloc[0].to_dict()
+        
+        # Anomaly logic (30d trailing)
+        hist_wind = daily[daily["date_only"] != latest_date]["wind_mw"].mean()
+        
+        # Per-ISO impact logic
+        anomaly = today_row.get("wind_mw", 0) - hist_wind if pd.notna(hist_wind) else 0
+        if anomaly < -1000: impact = "BULLISH (Wind Drought)"
+        elif anomaly > 1500: impact = "BEARISH (Strong Wind)"
+        else: impact = "NEUTRAL"
 
-        df = df.dropna(subset=["fuel-mapped", "value"])
-        
-        df["value"] = pd.to_numeric(df["value"], errors='coerce')
-        df = df.dropna(subset=["value"])
-        
-        daily_avg = df.groupby(["date", "fuel-mapped"])["value"].mean().reset_index()
-        daily_pivot = daily_avg.pivot(index="date", columns="fuel-mapped", values="value").reset_index()
-        daily_pivot["date"] = pd.to_datetime(daily_pivot["date"])
-        
-        for col in fuel_map.values():
-            if col not in daily_pivot.columns:
-                daily_pivot[col] = float('nan')
+        out_row = {
+            "date": latest_date,
+            "iso": ISO_DISPLAY[iso_code],
+            "natural_gas_mw": round(today_row.get("natural_gas_mw", 0)) if pd.notna(today_row.get("natural_gas_mw")) else None,
+            "wind_mw": round(today_row.get("wind_mw", 0)) if pd.notna(today_row.get("wind_mw")) else None,
+            "solar_mw": round(today_row.get("solar_mw", 0)) if pd.notna(today_row.get("solar_mw")) else None,
+            "coal_mw": round(today_row.get("coal_mw", 0)) if pd.notna(today_row.get("coal_mw")) else None,
+            "nuclear_mw": round(today_row.get("nuclear_mw", 0)) if pd.notna(today_row.get("nuclear_mw")) else None,
+            "load_mw": round(today_row.get("load_mw", 0)) if pd.notna(today_row.get("load_mw")) else None,
+            "wind_30d_avg_mw": round(hist_wind) if pd.notna(hist_wind) else None,
+            "wind_anomaly_mw": round(anomaly) if pd.notna(hist_wind) else None,
+            "gas_burn_impact": impact
+        }
+        all_iso_output_rows.append(out_row)
 
-        daily_pivot.sort_values("date", inplace=True)
-        
-        start_date_filter = pd.to_datetime(today_date - datetime.timedelta(days=30))
-        daily_pivot = daily_pivot[daily_pivot["date"] >= start_date_filter]
-        
-        if daily_pivot.empty:
-            print(f"  [WARN] {iso_code} pivot is empty. Appending NaN row.")
-            out_rows.append(_create_nan_row(today_str, iso_labels[iso_code]))
-            continue
+    if not all_iso_output_rows:
+        return
 
-        latest_date_str = daily_pivot["date"].max().strftime("%Y-%m-%d")
-        
-        historical = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") != latest_date_str]
-        hist_wind = historical["wind_mw"].mean() if not historical.empty else float('nan')
-        
-        today_data = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") == latest_date_str]
-        
-        if not today_data.empty:
-            row = today_data.iloc[-1].to_dict()
-            live_wind = row["wind_mw"]
-            
-            out_row = {
-                "date": row["date"].strftime("%Y-%m-%d"),
-                "iso": iso_labels[iso_code],
-                "natural_gas_mw": round(row["natural_gas_mw"]) if pd.notna(row["natural_gas_mw"]) else float('nan'),
-                "wind_mw": round(live_wind) if pd.notna(live_wind) else float('nan'),
-                "solar_mw": round(row["solar_mw"]) if pd.notna(row["solar_mw"]) else float('nan'),
-                "coal_mw": round(row["coal_mw"]) if pd.notna(row["coal_mw"]) else float('nan'),
-                "nuclear_mw": round(row["nuclear_mw"]) if pd.notna(row["nuclear_mw"]) else float('nan')
-            }
-            
-            if pd.notna(hist_wind) and pd.notna(live_wind):
-                anomaly = live_wind - hist_wind
-                out_row["wind_30d_avg_mw"] = round(hist_wind)
-                out_row["wind_anomaly_mw"] = round(anomaly)
-                
-                if anomaly < -1000:
-                    impact = "BULLISH (Wind Drought)"
-                elif anomaly > 1500:
-                    impact = "BEARISH (Strong Wind)"
-                else:
-                    impact = "NEUTRAL"
-            else:
-                out_row["wind_30d_avg_mw"] = float('nan')
-                out_row["wind_anomaly_mw"] = float('nan')
-                impact = "CALCULATING BASELINE"
-                
-            out_row["gas_burn_impact"] = impact
-            out_rows.append(out_row)
-        else:
-            print(f"  [WARN] No today_data for {iso_code}. Appending NaN row.")
-            out_rows.append(_create_nan_row(today_str, iso_labels[iso_code]))
-            
     # --- NATIONAL AGGREGATION ---
-    nat_gas_mw_sum = 0.0
-    wind_mw_sum = 0.0
-    wind_anomaly_sum = 0.0
-    solar_mw_sum = 0.0
-    coal_mw_sum = 0.0
-    nuclear_mw_sum = 0.0
-    wind_30d_sum = 0.0
-    gas_isos = 0
-    wind_isos = 0
-    anomaly_isos = 0
-
-    for r in out_rows:
-        if pd.notna(r["natural_gas_mw"]): nat_gas_mw_sum += r["natural_gas_mw"]; gas_isos += 1
-        if pd.notna(r["wind_mw"]): wind_mw_sum += r["wind_mw"]; wind_isos += 1
-        if pd.notna(r["wind_anomaly_mw"]): wind_anomaly_sum += r["wind_anomaly_mw"]; anomaly_isos += 1
-        if pd.notna(r["solar_mw"]): solar_mw_sum += r["solar_mw"]
-        if pd.notna(r["coal_mw"]): coal_mw_sum += r["coal_mw"]
-        if pd.notna(r.get("nuclear_mw")): 
-            val = r["nuclear_mw"]
-            if pd.notna(val): nuclear_mw_sum += val
-        if pd.notna(r["wind_30d_avg_mw"]): wind_30d_sum += r["wind_30d_avg_mw"]
-
-    total_isos = len(out_rows)
-    partial = gas_isos < total_isos
-
+    hourly_all = pd.concat(hourly_records)
+    # Filter to periods where we have majority coverage
+    national_hourly = hourly_all.groupby("period").sum(numeric_only=True).reset_index()
+    national_hourly["date_only"] = pd.to_datetime(national_hourly["period"]).dt.strftime("%Y-%m-%d")
+    
+    # Save hourly data for peaker script
+    hourly_all.to_csv("outputs/hourly_grid_data.csv", index=False)
+    
+    nat_daily = national_hourly.groupby("date_only").mean(numeric_only=True).reset_index()
+    latest_date_nat = nat_daily["date_only"].max()
+    nat_today = nat_daily[nat_daily["date_only"] == latest_date_nat].iloc[0].to_dict()
+    
+    # Trailing 30d for NATIONAL anomaly
+    hist_wind_nat = nat_daily[nat_daily["date_only"] != latest_date_nat]["wind_mw"].mean()
+    
     nat_row = {
-        "date": today_str,
+        "date": latest_date_nat,
         "iso": "NATIONAL",
-        "natural_gas_mw": int(round(nat_gas_mw_sum)) if gas_isos > 0 else float('nan'),
-        "wind_mw": int(round(wind_mw_sum)) if wind_isos > 0 else float('nan'),
-        "solar_mw": int(round(solar_mw_sum)),
-        "coal_mw": int(round(coal_mw_sum)),
-        "nuclear_mw": int(round(nuclear_mw_sum)),
-        "wind_30d_avg_mw": int(round(wind_30d_sum)) if anomaly_isos > 0 else float('nan'),
-        "wind_anomaly_mw": int(round(wind_anomaly_sum)) if anomaly_isos > 0 else float('nan'),
+        "natural_gas_mw": round(nat_today["natural_gas_mw"]),
+        "wind_mw": round(nat_today["wind_mw"]),
+        "solar_mw": round(nat_today["solar_mw"]),
+        "coal_mw": round(nat_today["coal_mw"]),
+        "nuclear_mw": round(nat_today["nuclear_mw"]),
+        "load_mw": round(nat_today["load_mw"]),
+        "wind_30d_avg_mw": round(hist_wind_nat) if pd.notna(hist_wind_nat) else None,
+        "wind_anomaly_mw": round(nat_today["wind_mw"] - hist_wind_nat) if pd.notna(hist_wind_nat) else None
     }
+    
+    # Impact logic
+    anom = nat_row["wind_anomaly_mw"] or 0
+    if anom < -3000: impact_nat = "BULLISH (Wind Drought)"
+    elif anom > 4000: impact_nat = "BEARISH (Strong Wind)"
+    else: impact_nat = "NEUTRAL"
+    nat_row["gas_burn_impact"] = impact_nat
 
-    # Total Thermal Metrics
-    nat_row["total_thermal_mw"] = (
-        (nat_row["natural_gas_mw"] or 0) + 
-        (nat_row["coal_mw"] or 0) + 
-        (nat_row["nuclear_mw"] or 0)
-    )
-    if nat_row["total_thermal_mw"] > 0 and pd.notna(nat_row["natural_gas_mw"]):
-        nat_row["gas_pct_thermal"] = round(nat_row["natural_gas_mw"] / nat_row["total_thermal_mw"] * 100, 1)
-    else:
-        nat_row["gas_pct_thermal"] = None
+    # Thermal & Load Metrics
+    nat_row["total_thermal_mw"] = (nat_row["natural_gas_mw"] or 0) + (nat_row["coal_mw"] or 0) + (nat_row["nuclear_mw"] or 0)
+    nat_row["gas_pct_thermal"] = round(nat_row["natural_gas_mw"] / nat_row["total_thermal_mw"] * 100, 1) if nat_row["total_thermal_mw"] > 0 else None
+    nat_row["gas_pct_load"] = round(nat_row["natural_gas_mw"] / nat_row["load_mw"] * 100, 1) if nat_row["load_mw"] > 0 else None
     
-    if pd.notna(nat_row["wind_anomaly_mw"]):
-        if nat_row["wind_anomaly_mw"] < -3000:
-            impact = "BULLISH (Wind Drought)"
-        elif nat_row["wind_anomaly_mw"] > 4000:
-            impact = "BEARISH (Strong Wind)"
-        else:
-            impact = "NEUTRAL"
-        if partial:
-            impact += f" ({gas_isos}/{total_isos} ISOs)"
-    else:
-        impact = "CALCULATING BASELINE"
-        
-    nat_row["gas_burn_impact"] = impact
-    out_rows.append(nat_row)
+    # Add National to top
+    all_iso_output_rows.insert(0, nat_row)
     
-    out_df = pd.DataFrame(out_rows)
-    cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
+    # Final CSV Write
+    out_df = pd.DataFrame(all_iso_output_rows)
+    cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "nuclear_mw", "load_mw", "total_thermal_mw", "gas_pct_thermal", "gas_pct_load", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
     out_df = out_df[[c for c in cols if c in out_df.columns]]
-    # Guard: Only overwrite if we have non-null national generation data
-    if pd.notna(nat_row.get("natural_gas_mw")) and pd.notna(nat_row.get("wind_mw")):
-        out_df.to_csv(OUTPUT_FILE, index=False)
-        print(f"\n  [OK] Saved Live Grid Generation -> {OUTPUT_FILE}")
-    else:
-        print("\n  [WARN] Fetched data contains nulls for core metrics. Skipping overwrite of live_grid_generation.csv to preserve last good state.")
-    
-    # Update historical record
-    update_wind_history(nat_row, out_rows)
-    print(out_df.to_string(index=False))
+    out_df.to_csv(OUTPUT_FILE, index=False)
+    print(f"[OK] Saved {len(all_iso_output_rows)} rows (ISOs + NATIONAL) to {OUTPUT_FILE}")
 
-def _create_nan_row(today_str, iso_label):
-    return {
-        "date": today_str,
-        "iso": iso_label,
-        "natural_gas_mw": float('nan'),
-        "wind_mw": float('nan'),
-        "solar_mw": float('nan'),
-        "coal_mw": float('nan'),
-        "nuclear_mw": float('nan'),
-        "wind_30d_avg_mw": float('nan'),
-        "wind_anomaly_mw": float('nan'),
-        "gas_burn_impact": "NEUTRAL"
-    }
+    # Update history CSV
+    update_wind_history(nat_row, all_iso_output_rows)
 
 def update_wind_history(nat_row, out_rows):
-    """
-    Appends today's national and ISO-level wind MW to the history CSV if not already present.
-    Ensures long-term data depth even if the snapshot file is overwritten.
-    """
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Calculate CF %: (MW / (GW * 1000)) * 100
     national_mw = nat_row.get("wind_mw", 0)
     nat_cf_pct = (national_mw / (TOTAL_INSTALLED_GW * 1000) * 100) if national_mw else 0.0
-    
-    # Map ISOs for cleaner column extraction
     iso_map = {r["iso"]: r["wind_mw"] for r in out_rows}
-    
     new_data = {
         "date": nat_row["date"],
         "national_wind_mw": int(round(national_mw)) if pd.notna(national_mw) else 0,
@@ -307,27 +217,17 @@ def update_wind_history(nat_row, out_rows):
         "ercot_wind_mw": int(round(iso_map.get("ERCOT", 0))) if pd.notna(iso_map.get("ERCOT")) else 0,
         "pjm_wind_mw": int(round(iso_map.get("PJM", 0))) if pd.notna(iso_map.get("PJM")) else 0,
         "miso_wind_mw": int(round(iso_map.get("MISO", 0))) if pd.notna(iso_map.get("MISO")) else 0,
-        "spp_wind_mw": int(round(iso_map.get("SWPP", 0))) if pd.notna(iso_map.get("SWPP")) else 0
+        "spp_wind_mw": int(round(iso_map.get("SPP", 0))) if pd.notna(iso_map.get("SPP")) else 0
     }
-    
     new_df = pd.DataFrame([new_data])
-    
     if HISTORY_FILE.exists():
         try:
             old_df = pd.read_csv(HISTORY_FILE)
-            # Deduplicate by date
-            if new_data["date"] in old_df["date"].astype(str).values:
-                print(f"  [INFO] Data for {new_data['date']} already exists in history. Skipping append.")
-                return
-            
+            if new_data["date"] in old_df["date"].astype(str).values: return
             combined = pd.concat([old_df, new_df], ignore_index=True)
             combined.to_csv(HISTORY_FILE, index=False)
-            print(f"  [OK] Appended {new_data['date']} to {HISTORY_FILE}")
-        except Exception as e:
-            print(f"  [ERR] Failed to update history: {e}")
-    else:
-        new_df.to_csv(HISTORY_FILE, index=False)
-        print(f"  [OK] Created new history file: {HISTORY_FILE}")
+        except Exception as e: print(f"[ERR] History update failed: {e}")
+    else: new_df.to_csv(HISTORY_FILE, index=False)
 
 if __name__ == "__main__":
     fetch_live_grid()

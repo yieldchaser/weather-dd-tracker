@@ -485,6 +485,10 @@
                     <h3>National Wind Anomaly</h3>
                     <div class="val" id="national-wind-anomaly">--</div>
                 </div>
+                <div class="summary-card">
+                    <h3>National Load (MW)</h3>
+                    <div class="val" id="national-load">--</div>
+                </div>
             </div>
 
             <!-- REAL-TIME GRID MONITOR -->
@@ -505,6 +509,30 @@
                 <div class="summary-card">
                     <h3>Grid Impact</h3>
                     <div class="val" id="live-grid-impact" style="font-size: 1.2rem;">--</div>
+                </div>
+                <div class="summary-card">
+                    <h3>National Load (MW)</h3>
+                    <div class="val" id="national-load">--</div>
+                </div>
+            </div>
+
+            <!-- NATIONAL LOAD & ISO BREAKDOWN -->
+            <div id="grid-load-section" style="margin-bottom: 30px;">
+                <h2 class="section-title">National Grid Load vs Gas Generation</h2>
+                <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
+                    Load & Gas Burn (GW) | Secondary axis shows Gas % of Load
+                </div>
+                <div id="load-gas-container" style="min-height: 400px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="load-gas-msg" class="loader">Loading load data...</div>
+                    <canvas id="loadGasChart"></canvas>
+                </div>
+            </div>
+
+            <div id="iso-breakdown-section" style="margin-bottom: 30px;">
+                <h2 class="section-title">Gas Burn by ISO (Today)</h2>
+                <div id="iso-bar-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="iso-bar-msg" class="loader">Loading regional data...</div>
+                    <canvas id="isoBarChart"></canvas>
                 </div>
             </div>
 
@@ -537,14 +565,26 @@
                     <canvas id="thermalPctChart"></canvas>
                 </div>
 
-                <h2 class="section-title" style="margin-top: 35px;">Gas vs Coal Generation (Switching Relationship)</h2>
-                <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
-                    Gas/Coal Switching Ratio | Diagonal lines = GW gas added per GW coal displaced
-                </div>
                 <div id="thermal-switch-container" style="min-height: 400px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="thermal-switch-msg" class="loader" style="display: block;">Checking for thermal data...</div>
                     <canvas id="thermalSwitchChart"></canvas>
                 </div>
+
+                <h2 class="section-title" style="margin-top: 35px;">Nuclear Fleet Availability (%)</h2>
+                <div id="outage-container" style="min-height: 350px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="outage-msg" class="loader">Loading outage data...</div>
+                    <canvas id="outageChart"></canvas>
+                </div>
+
+                <h2 class="section-title" style="margin-top: 35px;">Gas Peaker Utilization Proxy</h2>
+                <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 15px;">
+                    Ratio of peak gas vs off-peak gas generation | >1.4 indicates heavy peaker dispatch
+                </div>
+                <div id="peaker-container" style="min-height: 350px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="peaker-msg" class="loader">Loading peaker metrics...</div>
+                    <canvas id="peakerChart"></canvas>
+                </div>
+            </div>
             </div>
         </div>
     </div>
@@ -616,6 +656,15 @@
         let rawThermalData = [];
         let thermalPctChart = null;
         let thermalSwitchChart = null;
+
+        let rawOutageData = [];
+        let outageChart = null;
+        
+        let rawPeakerData = [];
+        let peakerChart = null;
+
+        let loadGasChart = null;
+        let isoBarChart = null;
 
         const isoLines = [
             { ratio: 0.5,  label: '0.5×' },
@@ -1306,27 +1355,166 @@
             });
         }
 
+        function updateLoadGasChart() {
+            if (!rawThermalData || rawThermalData.length < 7) return;
+            const labels = rawThermalData.map(r => r.date);
+            const load = rawThermalData.map(r => r.load_mw / 1000);
+            const gas = rawThermalData.map(r => r.natural_gas_mw / 1000);
+            const pct = rawThermalData.map(r => r.gas_pct_load);
+
+            document.getElementById("load-gas-msg").style.display = 'none';
+            let ctx = document.getElementById('loadGasChart').getContext('2d');
+            if (loadGasChart) loadGasChart.destroy();
+            loadGasChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Load (GW)', data: load, borderColor: '#888', borderWidth: 2, pointRadius: 2, tension: 0.2 },
+                        { label: 'Gas (GW)', data: gas, borderColor: '#ff9800', borderWidth: 3, pointRadius: 3, tension: 0.2 },
+                        { label: 'Gas % of Load', data: pct, borderColor: '#00bcd4', borderWidth: 2, pointRadius: 0, borderDash: [5,5], yAxisID: 'y1', tension: 0.2 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { title: { display: true, text: 'GW Generation / Load' } },
+                        y1: { position: 'right', title: { display: true, text: '% of Load' }, min: 0, max: 100, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+
+        function updateOutageChart() {
+            if (!rawOutageData || rawOutageData.length < 7) {
+                document.getElementById("outage-msg").innerText = "Accumulating outage data (7+ days required)...";
+                return;
+            }
+            document.getElementById("outage-msg").style.display = 'none';
+            let ctx = document.getElementById('outageChart').getContext('2d');
+            if (outageChart) outageChart.destroy();
+            outageChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: rawOutageData.map(r => r.date),
+                    datasets: [{
+                        label: 'Nuclear Availability %',
+                        data: rawOutageData.map(r => r.nuclear_availability_pct),
+                        borderColor: '#4caf50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        fill: true, tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { min: 70, max: 100, title: { display: true, text: 'Availability (%)' } } }
+                }
+            });
+        }
+
+        function updatePeakerChart() {
+            if (!rawPeakerData || rawPeakerData.length < 7) {
+                document.getElementById("peaker-msg").innerText = "Accumulating peaker metrics (7+ days required)...";
+                return;
+            }
+            document.getElementById("peaker-msg").style.display = 'none';
+            let ctx = document.getElementById('peakerChart').getContext('2d');
+            if (peakerChart) peakerChart.destroy();
+            peakerChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: rawPeakerData.map(r => r.date),
+                    datasets: [
+                        { label: 'Peak/Off-Peak Ratio', data: rawPeakerData.map(r => r.peak_offpeak_ratio), borderColor: '#ffeb3b', borderWidth: 3, tension: 0.2 },
+                        { label: '30d Avg', data: rawPeakerData.map((_,i,a) => {
+                            if (i < 29) return null;
+                            const slice = a.slice(i-29, i+1);
+                            return slice.reduce((s,v) => s + v.peak_offpeak_ratio, 0) / 30;
+                        }), borderColor: 'white', borderDash: [5,5], borderWidth: 1, pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { suggestedMin: 1.0, suggestedMax: 2.0, title: { display: true, text: 'Ratio' } } }
+                }
+            });
+        }
+
         async function loadDashboard() {
             try {
                 loadWindForecast();
                 loadSolarForecast();
                 loadCombinedDrought();
                 
-                
+                // Load Live Grid (for ISO Bar and summary)
+                try {
+                    let gridRes = await fetch(basePath + "live_grid_generation.csv?t=" + Date.now());
+                    if (gridRes.ok) {
+                        let text = await gridRes.text();
+                        let gridData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                        
+                        let nat = gridData.find(r => r.iso === 'NATIONAL');
+                        if (nat) {
+                            document.getElementById('national-gas-burn').innerText = formatNum(nat.natural_gas_mw, 0);
+                            document.getElementById('national-wind-gen').innerText = formatNum(nat.wind_mw, 0);
+                            document.getElementById('national-load').innerText = formatNum(nat.load_mw, 0);
+                            let anomEl = document.getElementById('national-wind-anomaly');
+                            anomEl.innerText = formatNum(nat.wind_anomaly_mw, 0, true);
+                            if (nat.wind_anomaly_mw < 0) anomEl.classList.add('bullish-text');
+                            else if (nat.wind_anomaly_mw > 0) anomEl.classList.add('bearish-text');
+                        }
+
+                        // ISO Bar
+                        const latestDate = gridData[0].date;
+                        const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL');
+                        if (isos.length > 0) {
+                            document.getElementById("iso-bar-msg").style.display = 'none';
+                            let ctx = document.getElementById('isoBarChart').getContext('2d');
+                            if (isoBarChart) isoBarChart.destroy();
+                            isoBarChart = new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: isos.map(r => r.iso),
+                                    datasets: [{ label: 'Gas MW', data: isos.map(r => r.natural_gas_mw), backgroundColor: ['#ff9800', '#2196f3', '#4caf50', '#9c27b0', '#f44336', '#ffeb3b', '#00bcd4'] }]
+                                },
+                                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+                            });
+                        }
+                    }
+                } catch(e) { console.warn("Live grid load failed", e); }
+
                 // Load Thermal History
                 try {
-                    let thermalRes = await fetch(basePath + "thermal_history.csv?t=" + Date.now());
+                    let thermalRes = await fetch(basePath + "live_grid_generation.csv?t=" + Date.now()); 
+                    // Use live_grid_generation for national history too if aggregate
                     if (thermalRes.ok) {
                         let text = await thermalRes.text();
-                        rawThermalData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                        let allData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                        rawThermalData = allData.filter(r => r.iso === 'NATIONAL').sort((a,b) => a.date.localeCompare(b.date));
                         updateThermalCharts();
-                    } else {
-                        document.getElementById("thermal-pct-msg").innerText = "No thermal history found. Waiting for first pipeline run.";
-                        document.getElementById("thermal-switch-msg").innerText = "No thermal history found. Waiting for first pipeline run.";
+                        updateLoadGasChart();
                     }
-                } catch (err) {
-                    console.warn("Thermal charts loading failed", err);
-                }
+                } catch (err) { console.warn("Thermal charts loading failed", err); }
+
+                // Load Outages
+                try {
+                    let res = await fetch(basePath + "grid_outages.csv?t=" + Date.now());
+                    if (res.ok) {
+                        let text = await res.text();
+                        rawOutageData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
+                        updateOutageChart();
+                    }
+                } catch(e) {}
+
+                // Load Peakers
+                try {
+                    let res = await fetch(basePath + "peaker_history.csv?t=" + Date.now());
+                    if (res.ok) {
+                        let text = await res.text();
+                        rawPeakerData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
+                        updatePeakerChart();
+                    }
+                } catch(e) {}
 
                 // Load Gas Burn History
                 try {

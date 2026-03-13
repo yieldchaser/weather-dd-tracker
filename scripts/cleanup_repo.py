@@ -23,6 +23,9 @@ PROTECTED_PATHS = [
     "outputs/wind/combined_drought.json",
     "outputs/gas_burn_history.csv",
     "outputs/thermal_history.csv",
+    "outputs/grid_outages.csv",
+    "outputs/peaker_history.csv",
+    "outputs/hourly_grid_data.csv",
 ]
 
 # Retention Limits
