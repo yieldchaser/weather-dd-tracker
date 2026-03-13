@@ -85,9 +85,9 @@ Provides a high-resolution outlook for US renewable generation and potential gas
 - **Data Source:** [Open-Meteo Forecast & Ensemble APIs](https://api.open-meteo.com/v1/).
 
 ### 6. Live Grid Monitor
-Tracks real-time fuel mix and incremental natural gas burn across the "Big 4" ISOs.
-- **How it works:** Queries the EIA v2 API for hourly generation data in ERCOT, PJM, MISO, and SPP. It maintains a 30-day rolling baseline for each fuel type to compute real-time anomalies. A "NATIONAL" aggregate is synthesized to show the total gas-displacement impact of wind/solar surges or dropouts.
-- **Data Source:** [EIA v2 Electricity Data](https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/).
+Tracks real-time fuel mix, load, and incremental natural gas burn across 7 major ISOs.
+- **How it works:** Queries the EIA v2 API for hourly generation and demand (load) data in ERCOT, PJM, MISO, SPP, CAISO, ISONE, and NYISO. It maintains a 30-day rolling baseline for each fuel type and load profile to compute real-time anomalies. A "NATIONAL" aggregate is synthesized to show the total gas-displacement impact of renewable surges and peaker utilization.
+- **Data Source:** [EIA v2 Electricity Data](https://api.eia.gov/v2/electricity/rto/).
 
 ### 7. Composite Weather Signal
 Integrates multi-system outputs into a single directional market bias banner.
@@ -158,8 +158,11 @@ Automated self-pruning via `scripts/cleanup_repo.py`:
 ## 📊 Power Grid Charts
 The Power Grid Monitor dashboard consumes several rolling history files to visualize market relationships:
 - **Gas Burn vs Temperature**: Plots national gas burn (Bcf/d) against temperature to identify the U-shape demand curve. Consumes `outputs/gas_burn_history.csv`.
-- **Gas % of Thermal**: Tracks the share of natural gas within the total thermal stack (Gas + Coal + Nuclear). Consumes `outputs/thermal_history.csv`.
-- **Gas vs Coal Switching**: A scatter plot with linear regression trend lines showing the switching relationship between gas and coal generation. Consumes `outputs/thermal_history.csv`.
+- **Gas vs Coal Switching**: A scatter plot with **Heat Rate Iso-Lines** showing the switching relationship and implied heat rate between gas and coal generation. Consumes `outputs/thermal_history.csv`.
+- **National Load vs Gas Generation**: Dual-axis line chart tracking total grid demand against natural gas dispatch.
+- **Nuclear Fleet Availability**: Monitors national generator outages to identify potential secondary gas demand from reliability gaps.
+- **ISO Regional Breakdown**: Stacked horizontal breakdown of today's natural gas burn across all 7 tracked ISOs.
+- **Gas Peaker Utilization**: Tracks the peak-to-offpeak gas generation ratio identifying marginal peaker dispatch.
 
 ---
 
@@ -176,7 +179,10 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 | `outputs/wind/combined_drought.json` | Unified renewable drought risk, probability, and gas displacement metrics. |
 | `outputs/wind/wind_actuals_history.csv` | Persistent log of historical national and ISO-level wind generation actuals. |
 | `outputs/tdd_master.csv` | Master HDD/CDD timeseries across all models and horizons. |
-| `outputs/live_grid_generation.csv` | EIA ISO fuel mix and natural gas burn data. |
+| `outputs/live_grid_generation.csv` | EIA ISO fuel mix, hourly load data, and natural gas burn for 7 ISOs. |
+| `outputs/grid_outages.csv` | Daily national generator outages for Nuclear and Coal (MW) and fleet availability %. |
+| `outputs/peaker_history.csv` | Rolling log of Peak vs Off-Peak gas generation ratios and peaker utilization proxy. |
+| `outputs/hourly_grid_data.csv` | Intermediate hourly aggregate data for peaker and load analysis. |
 | `outputs/vs_normal.csv` | Comparative data for forecasts vs. 10y and 30y normals. |
 
 ---
