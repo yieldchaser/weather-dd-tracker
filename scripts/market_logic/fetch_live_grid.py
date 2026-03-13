@@ -6,7 +6,7 @@ Calculates 30-day historical averages strictly to compute anomaly metrics
 for Wind vs Natural Gas.
 
 Synthesizes a 5th 'NATIONAL' row containing the aggregate sums across ISOs, 
-propagating NaN values to ensure no partial data is displayed.
+propaganea NaNs, and logs historical wind actuals to a persistent CSV.
 """
 
 import os
@@ -21,10 +21,11 @@ from pathlib import Path
 # Outputs
 OUTPUT_DIR = Path("outputs")
 OUTPUT_FILE = OUTPUT_DIR / "live_grid_generation.csv"
+HISTORY_FILE = Path("outputs/wind/wind_actuals_history.csv")
 
-# Configuration
+# Constants
+TOTAL_INSTALLED_GW = 110.0
 EIA_API_KEY = os.environ.get("EIA_KEY")
-
 ISO_LIST = ["ERCO", "PJM", "MISO", "SWPP"]
 
 def get_eia_fuel_mix(iso_code, start_dt, today):
@@ -235,6 +236,10 @@ def fetch_live_grid():
     cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
     out_df = out_df[[c for c in cols if c in out_df.columns]]
     out_df.to_csv(OUTPUT_FILE, index=False)
+    
+    # Update historical record
+    update_wind_history(nat_row, out_rows)
+    
     print(f"\n  [OK] Saved Live Grid Generation -> {OUTPUT_FILE}")
     print(out_df.to_string(index=False))
 
@@ -250,6 +255,49 @@ def _create_nan_row(today_str, iso_label):
         "wind_anomaly_mw": float('nan'),
         "gas_burn_impact": "NEUTRAL"
     }
+
+def update_wind_history(nat_row, out_rows):
+    """
+    Appends today's national and ISO-level wind MW to the history CSV if not already present.
+    Ensures long-term data depth even if the snapshot file is overwritten.
+    """
+    HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Calculate CF %: (MW / (GW * 1000)) * 100
+    national_mw = nat_row.get("wind_mw", 0)
+    nat_cf_pct = (national_mw / (TOTAL_INSTALLED_GW * 1000) * 100) if national_mw else 0.0
+    
+    # Map ISOs for cleaner column extraction
+    iso_map = {r["iso"]: r["wind_mw"] for r in out_rows}
+    
+    new_data = {
+        "date": nat_row["date"],
+        "national_wind_mw": int(round(national_mw)) if pd.notna(national_mw) else 0,
+        "national_wind_cf_pct": round(nat_cf_pct, 1),
+        "ercot_wind_mw": int(round(iso_map.get("ERCOT", 0))) if pd.notna(iso_map.get("ERCOT")) else 0,
+        "pjm_wind_mw": int(round(iso_map.get("PJM", 0))) if pd.notna(iso_map.get("PJM")) else 0,
+        "miso_wind_mw": int(round(iso_map.get("MISO", 0))) if pd.notna(iso_map.get("MISO")) else 0,
+        "spp_wind_mw": int(round(iso_map.get("SWPP", 0))) if pd.notna(iso_map.get("SWPP")) else 0
+    }
+    
+    new_df = pd.DataFrame([new_data])
+    
+    if HISTORY_FILE.exists():
+        try:
+            old_df = pd.read_csv(HISTORY_FILE)
+            # Deduplicate by date
+            if new_data["date"] in old_df["date"].astype(str).values:
+                print(f"  [INFO] Data for {new_data['date']} already exists in history. Skipping append.")
+                return
+            
+            combined = pd.concat([old_df, new_df], ignore_index=True)
+            combined.to_csv(HISTORY_FILE, index=False)
+            print(f"  [OK] Appended {new_data['date']} to {HISTORY_FILE}")
+        except Exception as e:
+            print(f"  [ERR] Failed to update history: {e}")
+    else:
+        new_df.to_csv(HISTORY_FILE, index=False)
+        print(f"  [OK] Created new history file: {HISTORY_FILE}")
 
 if __name__ == "__main__":
     fetch_live_grid()

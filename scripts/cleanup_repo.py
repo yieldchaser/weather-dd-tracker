@@ -17,6 +17,7 @@ PROTECTED_PATHS = [
     "outputs/vs_normal.csv",
     "outputs/run_delta.csv",
     "outputs/model_shift_table.csv",
+    "outputs/wind/wind_actuals_history.csv",
 ]
 
 # Retention Limits
