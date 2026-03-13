@@ -94,11 +94,11 @@ def fetch_live_grid():
     out_rows = []
     
     fuel_map = {
-        "natural gas": "Natural Gas",
-        "wind": "Wind",
-        "solar": "Solar",
-        "coal": "Coal",
-        "nuclear": "Nuclear"
+        "NG": "natural_gas_mw",
+        "COL": "coal_mw",
+        "NUC": "nuclear_mw",
+        "WND": "wind_mw",
+        "SUN": "solar_mw"
     }
 
     # ISO labels for output
@@ -117,15 +117,24 @@ def fetch_live_grid():
             out_rows.append(_create_nan_row(today_str, iso_labels[iso_code]))
             continue
             
-        df["date"] = pd.to_datetime(df["period"]).dt.date
-        df["type-name"] = df["type-name"].str.lower().str.strip().map(fuel_map)
-        df = df.dropna(subset=["type-name", "value"])
+        print(f"  [DEBUG] Raw EIA Fuel Types for {iso_code}:")
+        if "fueltype" in df.columns:
+            print(df["fueltype"].unique().tolist())
+        else:
+            print(df["type-name"].unique().tolist())
+            
+        if "fueltype" in df.columns:
+            df["fuel-mapped"] = df["fueltype"].map(fuel_map)
+        else:
+            df["fuel-mapped"] = df["type-name"].str.upper().map(fuel_map)
+
+        df = df.dropna(subset=["fuel-mapped", "value"])
         
         df["value"] = pd.to_numeric(df["value"], errors='coerce')
         df = df.dropna(subset=["value"])
         
-        daily_avg = df.groupby(["date", "type-name"])["value"].mean().reset_index()
-        daily_pivot = daily_avg.pivot(index="date", columns="type-name", values="value").reset_index()
+        daily_avg = df.groupby(["date", "fuel-mapped"])["value"].mean().reset_index()
+        daily_pivot = daily_avg.pivot(index="date", columns="fuel-mapped", values="value").reset_index()
         daily_pivot["date"] = pd.to_datetime(daily_pivot["date"])
         
         for col in fuel_map.values():
@@ -145,21 +154,22 @@ def fetch_live_grid():
         latest_date_str = daily_pivot["date"].max().strftime("%Y-%m-%d")
         
         historical = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") != latest_date_str]
-        hist_wind = historical["Wind"].mean() if not historical.empty else float('nan')
+        hist_wind = historical["wind_mw"].mean() if not historical.empty else float('nan')
         
         today_data = daily_pivot[daily_pivot["date"].dt.strftime("%Y-%m-%d") == latest_date_str]
         
         if not today_data.empty:
             row = today_data.iloc[-1].to_dict()
-            live_wind = row["Wind"]
+            live_wind = row["wind_mw"]
             
             out_row = {
                 "date": row["date"].strftime("%Y-%m-%d"),
                 "iso": iso_labels[iso_code],
-                "natural_gas_mw": round(row["Natural Gas"]) if pd.notna(row["Natural Gas"]) else float('nan'),
+                "natural_gas_mw": round(row["natural_gas_mw"]) if pd.notna(row["natural_gas_mw"]) else float('nan'),
                 "wind_mw": round(live_wind) if pd.notna(live_wind) else float('nan'),
-                "solar_mw": round(row["Solar"]) if pd.notna(row["Solar"]) else float('nan'),
-                "coal_mw": round(row["Coal"]) if pd.notna(row["Coal"]) else float('nan')
+                "solar_mw": round(row["solar_mw"]) if pd.notna(row["solar_mw"]) else float('nan'),
+                "coal_mw": round(row["coal_mw"]) if pd.notna(row["coal_mw"]) else float('nan'),
+                "nuclear_mw": round(row["nuclear_mw"]) if pd.notna(row["nuclear_mw"]) else float('nan')
             }
             
             if pd.notna(hist_wind) and pd.notna(live_wind):
@@ -190,6 +200,7 @@ def fetch_live_grid():
     wind_anomaly_sum = 0.0
     solar_mw_sum = 0.0
     coal_mw_sum = 0.0
+    nuclear_mw_sum = 0.0
     wind_30d_sum = 0.0
     gas_isos = 0
     wind_isos = 0
@@ -201,6 +212,9 @@ def fetch_live_grid():
         if pd.notna(r["wind_anomaly_mw"]): wind_anomaly_sum += r["wind_anomaly_mw"]; anomaly_isos += 1
         if pd.notna(r["solar_mw"]): solar_mw_sum += r["solar_mw"]
         if pd.notna(r["coal_mw"]): coal_mw_sum += r["coal_mw"]
+        if pd.notna(r.get("nuclear_mw")): 
+            val = r["nuclear_mw"]
+            if pd.notna(val): nuclear_mw_sum += val
         if pd.notna(r["wind_30d_avg_mw"]): wind_30d_sum += r["wind_30d_avg_mw"]
 
     total_isos = len(out_rows)
@@ -213,9 +227,21 @@ def fetch_live_grid():
         "wind_mw": int(round(wind_mw_sum)) if wind_isos > 0 else float('nan'),
         "solar_mw": int(round(solar_mw_sum)),
         "coal_mw": int(round(coal_mw_sum)),
+        "nuclear_mw": int(round(nuclear_mw_sum)),
         "wind_30d_avg_mw": int(round(wind_30d_sum)) if anomaly_isos > 0 else float('nan'),
         "wind_anomaly_mw": int(round(wind_anomaly_sum)) if anomaly_isos > 0 else float('nan'),
     }
+
+    # Total Thermal Metrics
+    nat_row["total_thermal_mw"] = (
+        (nat_row["natural_gas_mw"] or 0) + 
+        (nat_row["coal_mw"] or 0) + 
+        (nat_row["nuclear_mw"] or 0)
+    )
+    if nat_row["total_thermal_mw"] > 0 and pd.notna(nat_row["natural_gas_mw"]):
+        nat_row["gas_pct_thermal"] = round(nat_row["natural_gas_mw"] / nat_row["total_thermal_mw"] * 100, 1)
+    else:
+        nat_row["gas_pct_thermal"] = None
     
     if pd.notna(nat_row["wind_anomaly_mw"]):
         if nat_row["wind_anomaly_mw"] < -3000:
@@ -233,7 +259,7 @@ def fetch_live_grid():
     out_rows.append(nat_row)
     
     out_df = pd.DataFrame(out_rows)
-    cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
+    cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
     out_df = out_df[[c for c in cols if c in out_df.columns]]
     # Guard: Only overwrite if we have non-null national generation data
     if pd.notna(nat_row.get("natural_gas_mw")) and pd.notna(nat_row.get("wind_mw")):
@@ -254,6 +280,7 @@ def _create_nan_row(today_str, iso_label):
         "wind_mw": float('nan'),
         "solar_mw": float('nan'),
         "coal_mw": float('nan'),
+        "nuclear_mw": float('nan'),
         "wind_30d_avg_mw": float('nan'),
         "wind_anomaly_mw": float('nan'),
         "gas_burn_impact": "NEUTRAL"

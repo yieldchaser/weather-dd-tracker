@@ -528,6 +528,21 @@
                     U-shape: High burn in Cold (Heating) & Hot (Cooling) | Minimum at ~55°F
                 </div>
             </div>
+
+            <!-- THERMAL GENERATION CHARTS -->
+            <div id="thermal-section" style="margin-bottom: 30px;">
+                <h2 class="section-title" style="margin-top: 25px;">Gas as % of Thermal Generation</h2>
+                <div id="thermal-pct-container" style="min-height: 300px; position: relative;">
+                    <div id="thermal-pct-msg" class="loader" style="display: none;">Accumulating data — check back in 7 days</div>
+                    <canvas id="thermalPctChart"></canvas>
+                </div>
+
+                <h2 class="section-title" style="margin-top: 35px;">Gas vs Coal Generation (Switching Relationship)</h2>
+                <div id="thermal-switch-container" style="min-height: 400px; position: relative;">
+                    <div id="thermal-switch-msg" class="loader" style="display: none;">Accumulating data — check back in 7 days</div>
+                    <canvas id="thermalSwitchChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -588,6 +603,25 @@
         let selectedScatterSeason = 'all';
         let rawScatterData = [];
         let gasBurnScatterChart = null;
+
+        let rawThermalData = [];
+        let thermalPctChart = null;
+        let thermalSwitchChart = null;
+
+        function linearRegression(xArr, yArr) {
+            const n = xArr.length;
+            if (n === 0) return { slope: 0, intercept: 0 };
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += xArr[i];
+                sumY += yArr[i];
+                sumXY += xArr[i] * yArr[i];
+                sumXX += xArr[i] * xArr[i];
+            }
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            return { slope, intercept };
+        }
 
         function setScatterSeason(s) {
             selectedScatterSeason = s;
@@ -1012,12 +1046,189 @@
             });
         }
 
+        async function updateThermalCharts() {
+            if (!rawThermalData || rawThermalData.length < 1) return;
+            
+            const minPoints = 7;
+            const containerPct = document.getElementById("thermal-pct-container");
+            const msgPct = document.getElementById("thermal-pct-msg");
+            const containerSwitch = document.getElementById("thermal-switch-container");
+            const msgSwitch = document.getElementById("thermal-switch-msg");
+
+            if (rawThermalData.length < minPoints) {
+                msgPct.style.display = 'block';
+                msgPct.innerText = `Accumulating data — check back in ${minPoints - rawThermalData.length} days`;
+                msgSwitch.style.display = 'block';
+                msgSwitch.innerText = `Accumulating data — check back in ${minPoints - rawThermalData.length} days`;
+                return;
+            } else {
+                msgPct.style.display = 'none';
+                msgSwitch.style.display = 'none';
+            }
+
+            // --- Chart A: Gas % of Thermal ---
+            let labels = rawThermalData.map(r => r.date);
+            let pctData = rawThermalData.map(r => r.gas_pct_thermal);
+            let todayPct = pctData[pctData.length - 1];
+
+            let ctxPct = document.getElementById('thermalPctChart').getContext('2d');
+            if (thermalPctChart) thermalPctChart.destroy();
+            thermalPctChart = new Chart(ctxPct, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Gas % of Thermal',
+                        data: pctData,
+                        borderColor: '#ff9800',
+                        backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            title: { display: true, text: '% of Thermal Generation', color: '#c5c6c7' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        annotation: { /* Note: requires annotation plugin, but we can use baseline logic */ },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    let r = rawThermalData[ctx.dataIndex];
+                                    return [
+                                        `Gas: ${ctx.raw.toFixed(1)}% of Thermal`,
+                                        `Gas: ${(r.natural_gas_mw/1000).toFixed(1)} GW`,
+                                        `Coal: ${(r.coal_mw/1000).toFixed(1)} GW`,
+                                        `Nuclear: ${(r.nuclear_mw/1000).toFixed(1)} GW`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'todayLine',
+                    afterDraw: (chart) => {
+                        if (!todayPct) return;
+                        const {ctx, chartArea: {left, right, top, bottom}, scales: {y}} = chart;
+                        const yVal = y.getPixelForValue(todayPct);
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(255, 152, 0, 0.5)';
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(left, yVal);
+                        ctx.lineTo(right, yVal);
+                        ctx.stroke();
+                        ctx.fillStyle = '#ff9800';
+                        ctx.fillText(`Today: ${todayPct.toFixed(1)}%`, right - 70, yVal - 5);
+                        ctx.restore();
+                    }
+                }]
+            });
+
+            // --- Chart B: Gas vs Coal Switch Scatter ---
+            // Group by year
+            let byYear = {};
+            rawThermalData.forEach(r => {
+                let y = new Date(r.date).getFullYear();
+                if (!byYear[y]) byYear[y] = [];
+                byYear[y].push({ x: r.coal_mw / 1000, y: r.natural_gas_mw / 1000, date: r.date });
+            });
+
+            const currentYear = new Date().getFullYear();
+            const yearColors = {
+                [currentYear]: '#ff9800',
+                [currentYear - 1]: '#b71c1c',
+                [currentYear - 2]: '#4caf50'
+            };
+
+            let datasets = [];
+            Object.keys(byYear).sort().reverse().forEach(year => {
+                let dots = byYear[year];
+                let color = yearColors[year] || '#9e9e9e';
+                
+                // Main series
+                datasets.push({
+                    label: year,
+                    data: dots,
+                    backgroundColor: color,
+                    pointRadius: 4,
+                    showLine: false
+                });
+
+                // Trend line
+                if (dots.length >= 2) {
+                    let { slope, intercept } = linearRegression(dots.map(d => d.x), dots.map(d => d.y));
+                    let minX = Math.min(...dots.map(d => d.x));
+                    let maxX = Math.max(...dots.map(d => d.x));
+                    datasets.push({
+                        label: `${year} Trend`,
+                        data: [{ x: minX, y: slope * minX + intercept }, { x: maxX, y: slope * maxX + intercept }],
+                        borderColor: color,
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        showLine: true,
+                        fill: false
+                    });
+                }
+            });
+
+            let ctxSwitch = document.getElementById('thermalSwitchChart').getContext('2d');
+            if (thermalSwitchChart) thermalSwitchChart.destroy();
+            thermalSwitchChart = new Chart(ctxSwitch, {
+                type: 'scatter',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Coal Generation (GW)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { title: { display: true, text: 'Gas Generation (GW)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    if (ctx.dataset.label.includes('Trend')) return null;
+                                    return [
+                                        `Date: ${ctx.raw.date}`,
+                                        `Gas: ${ctx.raw.y.toFixed(1)} GW`,
+                                        `Coal: ${ctx.raw.x.toFixed(1)} GW`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         async function loadDashboard() {
             try {
                 loadWindForecast();
                 loadSolarForecast();
                 loadCombinedDrought();
                 
+                // Load Thermal History
+                let thermalRes = await fetch(basePath + "thermal_history.csv?t=" + Date.now());
+                if (thermalRes.ok) {
+                    let text = await thermalRes.text();
+                    rawThermalData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                    updateThermalCharts();
+                }
+
                 // Load Gas Burn History
                 let scatterRes = await fetch(basePath + "gas_burn_history.csv?t=" + Date.now());
                 if (scatterRes.ok) {
