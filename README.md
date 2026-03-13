@@ -190,7 +190,6 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 ## 🔮 Planned Improvements
 
 ### Power Grid Monitor (`grid.html`)
-- **Heat Rate Iso-Lines on Gas vs Coal Scatter** — overlay diagonal GW/Bcf switching lines on the gas vs coal chart to show implied heat rate of switching at any point. Transforms descriptive chart into actionable trading signal.
 - **Historical Wind Actuals Overlay** — overlay observed wind generation actuals on the forward wind forecast chart. Activates automatically once `wind_actuals_history.csv` accumulates 14+ days (~March 27).
 - **Model Skill Scoring** — track how each model's 5-day wind/HDD forecast verified against observed actuals. Rolling 30-day MAE per model displayed on dashboard.
 - **LNG Export Tracker** — track LNG feedgas demand (~15+ Bcf/d) as a competing demand signal alongside power burn.
