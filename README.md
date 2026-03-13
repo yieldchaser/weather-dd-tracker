@@ -52,7 +52,7 @@ python scripts/wind/forecast_wind_power.py  # run wind forecast
 
 ### 1. Teleconnections & Analogs
 Identifies historical cold risk by monitoring standard climate indices and matching them to past winter analogs.
-- **How it works:** Fetches and Z-score normalizes AO, NAO, PNA, and EPO indices against their full 1950+ historical distributions. It calculates a composite cold risk score based on specific threshold rules (e.g., Negative AO + Positive PNA = High Bullish Risk) and identifies the top 3 analog years using Euclidean distance between current and historical state vectors.
+- **How it works:** Fetches and Z-score normalizes AO, NAO, PNA, and EPO indices against their full 1950+ historical distributions. It calculates a composite cold risk score based on specific threshold rules (e.g., Negative AO + Positive PNA = High Bullish Risk) and identifies the top 3 analog years with **enriched historical context**, including specific HDD anomalies and realized winter outcomes (e.g., "Record warm March", "Late season freeze").
 - **Data Source:** [NOAA CPC CPC Daily Indices](https://ftp.cpc.ncep.noaa.gov/cwlinks/) and [NOAA PSL EPO Monitoring](https://downloads.psl.noaa.gov/Public/map/teleconnections/).
 
 ### 2. Weather Regime Classifier
@@ -60,9 +60,12 @@ Classifies the current atmospheric configuration into distinct weather patterns 
 - **How it works:** Uses the `Herbie` library to ingest GFS 0.25° Z500 geopotential height fields. The fields are projected onto a pre-trained PCA space and classified via KMeans clustering. A Markov transition matrix is then applied to forecast the probability of regime shifts over the next 24-72 hours.
 - **Data Source:** NOAA GFS 0.25° (via NOMADS/AWS).
 
-### 3. Freeze-Off Trigger
-Monitors natural gas wellhead freeze risk across 6 major US producing basins.
-- **How it works:** Tracks 2m temperature forecasts for the Permian, Haynesville, Barnett, Eagle Ford, Fayetteville, and SW Marcellus. Alerts are tiered into `EMERGENCY / WARNING / WATCH` based on lead time and required consensus between GFS and ECMWF models. If lead hours are <24 and both models agree on <0°C, an Emergency alert is triggered.
+### 3. Freeze-Off Trigger (Hardened)
+Monitors natural gas wellhead freeze risk across 6 major US producing basins with high-reliability fetching logic.
+- **How it works:** Tracks 2m temperature forecasts for the Permian, Haynesville, Barnett, Eagle Ford, Fayetteville, and SW Marcellus.
+    - **Reliability Engine**: Features a **Herbie retry-with-backoff** mechanism (3 attempts, 10min wait) to handle delayed model index files.
+    - **Staggered Fetch**: Schedule is timed (`06:30/18:30 UTC`) specifically to allow for NCEP index file generation.
+    - **Partial Success Reporting**: Gracefully handles individual source failures (GFS or ECMWF), allowing the system to provide "Partial" alerts instead of failing entirely.
 - **Data Source:** GFS (via Herbie) and ECMWF (via `ecmwf-opendata`).
 
 ### 4. Dynamic Sensitivity Coefficient
@@ -77,7 +80,7 @@ Provides a high-resolution outlook for US renewable generation and potential gas
     - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting GHI from **GFS, ECMWF, and ECMWF AIFS** to Capacity Factor using a **75% Performance Ratio**.
     - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Consensus < 25% (requires 2 of 3 solar models below threshold).
     - **Model Agreement Score**: Quantifies confidence based on agreement between GFS, ECMWF, and ICON; higher scores indicate lower regime-shift risk.
-    - **Combined Signal**: Synthesizes a unified directional bias based on aggregate gas displacement loss (GW) vs. 2-year climatology.
+    - **Combined Signal**: Synthesizes a unified directional bias based on aggregate **gas displacement loss (GW)** vs. 2-year climatology and **Model Agreement** scoring across GFS, ECMWF, and ICON to quantify forecast confidence.
     - **Seasonal Drought Adjustment**: Thresholds vary by season to reflect structural generation patterns:
         - **Wind drought**: 35% CF winter → 30% shoulder → 25% summer.
         - **Solar drought**: 15% CF winter → 25% shoulder → 35% summer.
@@ -91,8 +94,10 @@ Tracks real-time fuel mix, load, and incremental natural gas burn across 7 major
 - **Data Source:** [EIA v2 Electricity Data](https://api.eia.gov/v2/electricity/rto/).
 
 ### 7. Composite Weather Signal
-Integrates multi-system outputs into a single directional market bias banner.
-- **How it works:** Uses a heuristic "accumulator" that weights contributions from Teleconnections, Freeze-Off alerts, Wind droughts, and Regime labels. A "Confidence Score" is calculated based on the percentage of upstream systems reporting real-time (non-stale) data.
+Integrates multi-system outputs into a single directional market bias banner with detailed catalyst attribution.
+- **How it works:** Uses a heuristic "accumulator" that weights contributions from Teleconnections, Freeze-Off alerts, Wind droughts, and Regimes.
+    - **Nuanced Polar Vortex Logic**: Distinguishes between "PV Disruption/Strengthening" (Bullish, cold air descending) and "Strong/Established PV" (Bearish, cold locked in Arctic).
+    - **Bulls/Bears Breakdown**: Telegram alerts include a full component-level breakdown of individual catalysts and their contributing scores (e.g., "PV Disruption (+2.5)", "WND Drought (+1.2)").
 - **Data Source:** Aggregated outputs of Systems 1–6.
 
 ### 8. Physics vs. AI Disagreement Index
@@ -139,6 +144,7 @@ The system is fully season-aware, dynamically adjusting thresholds and logic bas
 | Workflow | Schedule (UTC) | Action |
 |---|---|---|
 | `daily_run.yml` | 04/10/16/22:00 | **Primary Pipeline**: TDDs, plus Grid metrics (`fetch_live_grid`, `fetch_outages`, `fetch_peaker_proxy`). |
+| `system3_freeze.yml` | 06:30, 18:30 | **Hardened Freeze Check**: 16-day basin-level freeze monitoring with retry logic. |
 | `system5_wind.yml` | 07:30 | Wind & Solar generation forecast and sub-daily drought tracking. |
 | `system2_regimes.yml` | 07:00 | Daily weather regime classification and Markov pathing. |
 | `system_composite.yml` | 08:30 | Updates translated integrated signal banner. |
@@ -199,8 +205,8 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 - **Production vs Demand Balance** — daily supply/demand balance showing surplus/deficit, tying all signals together.
 
 ### Weather Desk (`index.html`)
-- **Polar Vortex Regime Scoring Fix** — strong polar vortex is bearish for gas demand (locks cold air in Arctic) but currently scores as bullish. Fix regime label → signal mapping.
-- **Weather Desk Full Review** — comprehensive audit and improvement of all 9 intelligence systems once Power Grid work is complete.
+- **Analog Enrichment** — include HDD magnitude and outcome descriptions for top analogs.
+- **Composite Catalyst Transparency** — add full Bulls/Bears breakdown to the dashboard UI (currently in Telegram only).
 
 ### Storage & Production Dashboard (Planned Separate Page)
 - **EIA Storage Actuals vs Model-Implied Withdrawal** — ground truth feedback loop validating whether HDD signals moved the market correctly.
