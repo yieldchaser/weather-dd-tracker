@@ -125,6 +125,6 @@ jobs:
           git add data/ecmwf/*_tdd.csv data/gfs/*_tdd.csv data/ecmwf_aifs/*_tdd.csv data/ecmwf_ens/*_tdd.csv || true
           git add data/ai_models/ || true
           git add data/weights/ data/normals/ || true
-          git diff --staged --quiet || (git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ')" && git push)
+          git diff --staged --quiet || (git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ')" && git pull --rebase origin main && git push)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
