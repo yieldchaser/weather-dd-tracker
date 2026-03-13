@@ -116,6 +116,7 @@ subprocess.run(f"{PY} scripts/build_historical_monthly_charts.py", shell=True)
 print("\n5f. Generating Market Proxies & Composite Score...")
 subprocess.run(f"{PY} scripts/market_logic/physics_vs_ai_disagreement.py", shell=True)
 subprocess.run(f"{PY} scripts/market_logic/fetch_live_grid.py", shell=True)
+subprocess.run(f"{PY} scripts/market_logic/fetch_gas_burn_history.py", shell=True)
 subprocess.run(f"{PY} scripts/market_logic/composite_score.py", shell=True)
 subprocess.run(f"{PY} scripts/compute_composite_weather_signal.py", shell=True)  # 7-system intelligence signal
 

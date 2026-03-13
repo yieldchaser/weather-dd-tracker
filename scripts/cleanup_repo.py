@@ -21,6 +21,7 @@ PROTECTED_PATHS = [
     "outputs/wind/solar_power_forecast.csv",
     "outputs/wind/solar_climo_30d.json",
     "outputs/wind/combined_drought.json",
+    "outputs/gas_burn_history.csv",
 ]
 
 # Retention Limits
