@@ -77,6 +77,7 @@ Provides a high-resolution outlook for US renewable generation and potential gas
     - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting Global Horizontal Irradiance (GHI) to Capacity Factor using a **75% Performance Ratio**.
     - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Peak-Hour CF < 25% simultaneously.
     - **Combined Signal**: Synthesizes a unified directional bias based on aggregate gas displacement loss (GW) vs. 2-year climatology.
+    - **35-Day Outlook**: Extends the horizon via GFS/CFS Ensemble API multi-node batching.
 - **Data Source:** [Open-Meteo Forecast & Ensemble APIs](https://api.open-meteo.com/v1/).
 
 ### 6. Live Grid Monitor
@@ -108,7 +109,7 @@ Calculates a final quantitative score for the next 15 days.
 | **Open-Meteo Forecast** | `api.open-meteo.com/v1/forecast` | t2m, ws_100m, cloudcover, **direct_radiation, diffuse_radiation** | 4x daily |
 | **Open-Meteo Historical**| `historical-forecast-api.open-meteo.com/v1/forecast` | t2m, ws_100m | Monthly (climo) |
 | **Open-Meteo Ensemble** | `ensemble-api.open-meteo.com/v1/ensemble` | GFS_CFS (35d), ens_mean | 2x daily |
-| **EIA v2 API** | `api.eia.gov/v2/` | Storage, Fuel-mix, Withdrawals | Hourly/Weekly |
+| **EIA v2 API** | `api.eia.gov/v2/` | Storage, Fuel-mix (NG, COL, NUC, WND, SUN), Withdrawals | Hourly/Weekly |
 | **NOAA CPC** | `ftp.cpc.ncep.noaa.gov/cwlinks/` | AO, NAO, PNA indices | Daily |
 | **NOAA PSL** | `downloads.psl.noaa.gov/Public/map/...` | EPO index (dam anomalies) | Daily |
 | **Kaggle** | `kaggle.com` | FourCastNetV2 GPU Inference | 2x daily |
@@ -139,17 +140,26 @@ Automated self-pruning via `scripts/cleanup_repo.py`:
 
 ---
 
+## 📊 Power Grid Charts
+The Power Grid Monitor dashboard consumes several rolling history files to visualize market relationships:
+- **Gas Burn vs Temperature**: Plots national gas burn (Bcf/d) against temperature to identify the U-shape demand curve. Consumes `outputs/gas_burn_history.csv`.
+- **Gas % of Thermal**: Tracks the share of natural gas within the total thermal stack (Gas + Coal + Nuclear). Consumes `outputs/thermal_history.csv`.
+- **Gas vs Coal Switching**: A scatter plot with linear regression trend lines showing the switching relationship between gas and coal generation. Consumes `outputs/thermal_history.csv`.
+
+---
+
 ## 🗂️ Key Output Reference
 
 | Path | Description |
 |---|---|
 | `outputs/composite_signal.json` | Final integrated intelligence signal and confidence. |
 | `outputs/wind/drought.json` | Wind drought probabilities and peak-period risk alerts. |
+| `outputs/gas_burn_history.csv` | Rolling 3-year history of national gas burn (Bcf/d) vs temperature for scatter analysis. |
+| `outputs/thermal_history.csv` | Historical record of national gas, coal, and nuclear generation MW and gas % metrics. |
 | `outputs/wind/solar_power_forecast.csv` | Daily solar generation forecasts across GFS and ECMWF models. |
-| `outputs/wind/solar_climo_30d.json` | Peak-hour and all-day solar capacity factor climatology. |
+| `outputs/wind/solar_climo_30d.json` | 2-year solar capacity factor climatology (Peak-hour and All-day). |
 | `outputs/wind/combined_drought.json` | Unified renewable drought risk, probability, and gas displacement metrics. |
-| `outputs/regimes/current_regime.json` | Current regime, persistence, and transition forecasts. |
-| `outputs/teleconnections/latest.json` | Z-scored indices and historical cold risk. |
+| `outputs/wind/wind_actuals_history.csv` | Persistent log of historical national and ISO-level wind generation actuals. |
 | `outputs/tdd_master.csv` | Master HDD/CDD timeseries across all models and horizons. |
 | `outputs/live_grid_generation.csv` | EIA ISO fuel mix and natural gas burn data. |
 | `outputs/vs_normal.csv` | Comparative data for forecasts vs. 10y and 30y normals. |
