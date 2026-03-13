@@ -30,10 +30,19 @@ WIND_NODES = [
 TOTAL_INSTALLED_GW = sum(n[4] for n in WIND_NODES)  # ~110 GW represented
 
 MODELS = {
-    "GFS":   {"om_name": "gfs_seamless",  "horizon_days": 16, "wind_var": "wind_speed_100m"},
-    "ECMWF": {"om_name": "ecmwf_ifs025",  "horizon_days": 10, "wind_var": "wind_speed_100m"},
-    "ICON":  {"om_name": "icon_seamless", "horizon_days": 7,  "wind_var": "wind_speed_80m"},
+    "GFS":   {"om_name": "gfs_seamless",        "horizon_days": 16, "wind_var": "wind_speed_100m"},
+    "ECMWF": {"om_name": "ecmwf_ifs025",        "horizon_days": 10, "wind_var": "wind_speed_100m"},
+    "ICON":  {"om_name": "icon_seamless",        "horizon_days": 7,  "wind_var": "wind_speed_80m"},
+    "GFS_CFS": {
+        "om_name":      "gfs_seamless",
+        "endpoint":     "https://ensemble-api.open-meteo.com/v1/ensemble",
+        "horizon_days": 35,
+        "wind_var":     "wind_speed_100m"
+    },
 }
+
+PEAK_HOURS    = list(range(13, 21))   # 13:00–20:00 UTC = 8am–3pm Central (demand peak)
+OFFPEAK_HOURS = list(range(21, 24)) + list(range(0, 6))  # overnight
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
 HISTORICAL_FORECAST_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
@@ -103,19 +112,32 @@ def build_wind_climatology():
         df["gw"] = df["cf"] * node[4]
         df["date"] = df["time"].dt.date
         
-        daily = df.groupby("date")["gw"].mean().reset_index()
-        dfs.append(daily)
+        dfs.append(df[["time", "gw"]])
         
     if not dfs:
         logging.error("No valid ERA5 data parsed.")
         return {}
         
     all_daily = pd.concat(dfs, ignore_index=True)
-    national_gw = all_daily.groupby("date")["gw"].sum().reset_index()
-    national_gw["cf"] = national_gw["gw"] / TOTAL_INSTALLED_GW
+    national = all_daily.groupby("time")["gw"].sum().reset_index()
+    national["cf"] = national["gw"] / TOTAL_INSTALLED_GW
     
-    national_gw["mm_dd"] = pd.to_datetime(national_gw["date"]).dt.strftime("%m-%d")
-    doy_climo = national_gw.groupby("mm_dd")["cf"].mean().to_dict()
+    national["date"] = national["time"].dt.date
+    national["hour"] = national["time"].dt.hour
+    national["mm_dd"] = national["time"].dt.strftime("%m-%d")
+    national["period"] = national["hour"].apply(
+        lambda h: "peak" if h in PEAK_HOURS else ("offpeak" if h in OFFPEAK_HOURS else "shoulder")
+    )
+
+    # Compute climatology for each period
+    doy_climo = {}
+    for mm_dd, group in national.groupby("mm_dd"):
+        doy_climo[mm_dd] = {
+            "all":      float(group["cf"].mean()),
+            "peak":     float(group[group["period"] == "peak"]["cf"].mean()),
+            "offpeak":  float(group[group["period"] == "offpeak"]["cf"].mean()),
+            "shoulder": float(group[group["period"] == "shoulder"]["cf"].mean())
+        }
     
     os.makedirs(os.path.dirname(CLIMO_PATH), exist_ok=True)
     try:
@@ -128,14 +150,19 @@ def build_wind_climatology():
     return doy_climo
 
 def fetch_forecasts():
-    if not os.path.exists(CLIMO_PATH):
-        climo_data = build_wind_climatology()
-    else:
+    if os.path.exists(CLIMO_PATH):
         try:
             with open(CLIMO_PATH, "r") as f:
                 climo_data = json.load(f)
+            # Migration check: if old flat schema (MM-DD: float), rebuild
+            if climo_data and isinstance(list(climo_data.values())[0], (float, int)):
+                logging.info("Old flat climatology detected — rebuilding with peak/offpeak schema")
+                os.remove(CLIMO_PATH)
+                climo_data = build_wind_climatology()
         except Exception:
             climo_data = build_wind_climatology()
+    else:
+        climo_data = build_wind_climatology()
             
     if not climo_data:
         logging.error("No climatology data. Exiting.")
@@ -150,6 +177,7 @@ def fetch_forecasts():
         node_dfs = []
         model_id = config["om_name"]
         target_var = config["wind_var"]
+        endpoint = config.get("endpoint", BASE_URL)
 
         # Batch fetch for all models
         params = {
@@ -163,7 +191,7 @@ def fetch_forecasts():
         }
         
         try:
-            resp = requests.get(BASE_URL, params=params, timeout=30)
+            resp = requests.get(endpoint, params=params, timeout=30)
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:
@@ -198,17 +226,15 @@ def fetch_forecasts():
                 
             df["cf"] = df["ws"].apply(wind_power_curve)
             df["gw"] = df["cf"] * node[4]
-            df["date"] = df["time"].dt.date
-            
-            daily = df.groupby("date")["gw"].mean().reset_index()
-            node_dfs.append(daily)
+            node_dfs.append(df)
 
-            # Store GFS node data for spatial spread proxy
+            # Store GFS node data for spatial spread proxy (daily mean)
             if model == "GFS":
-                for _, row in daily.iterrows():
-                    d = row["date"]
+                df["date"] = df["time"].dt.date
+                daily = df.groupby("date")["gw"].mean()
+                for d, gw in daily.items():
                     if d not in gfs_daily_node_gw: gfs_daily_node_gw[d] = []
-                    gfs_daily_node_gw[d].append(row["gw"])
+                    gfs_daily_node_gw[d].append(gw)
             
         if not node_dfs:
             logging.info(f"No valid forecast data for {model} after filtering.")
@@ -216,16 +242,38 @@ def fetch_forecasts():
         
         logging.info(f"Model {model} successfully parsed for {len(node_dfs)} nodes.")
             
-        all_daily = pd.concat(node_dfs, ignore_index=True)
-        national = all_daily.groupby("date")["gw"].sum().reset_index()
+        all_model_data = pd.concat(node_dfs, ignore_index=True)
+        national_hourly = all_model_data.groupby("time")["gw"].sum().reset_index()
+        national_hourly["cf"] = national_hourly["gw"] / TOTAL_INSTALLED_GW
+        national_hourly["date"] = national_hourly["time"].dt.date
+        national_hourly["hour"] = national_hourly["time"].dt.hour
+        national_hourly["period"] = national_hourly["hour"].apply(
+            lambda h: "peak" if h in PEAK_HOURS else ("offpeak" if h in OFFPEAK_HOURS else "shoulder")
+        )
+
+        # Aggregate metrics
+        daily_sum = national_hourly.groupby("date").agg({
+            "gw": "mean",
+            "cf": "mean"
+        }).reset_index()
+
+        period_metrics = national_hourly.groupby(["date", "period"])["cf"].mean().unstack(fill_value=0)
         
-        for _, row in national.iterrows():
-            d_str = row["date"].strftime("%Y-%m-%d")
-            total_wind_gw = row["gw"]
-            national_cf_pct = total_wind_gw / TOTAL_INSTALLED_GW
-            mm_dd = row["date"].strftime("%m-%d")
+        for _, row in daily_sum.iterrows():
+            d = row["date"]
+            d_str = d.strftime("%Y-%m-%d")
+            mm_dd = d.strftime("%m-%d")
             
-            climo_cf = climo_data.get(mm_dd, climo_data.get("02-28", 0.40))
+            climo_entry = climo_data.get(mm_dd, climo_data.get("02-28", {"all": 0.40}))
+            climo_cf = climo_entry.get("all", 0.40)
+            
+            total_wind_gw = row["gw"]
+            national_cf_pct = row["cf"]
+            
+            # Period-specific CFs
+            cf_peak     = period_metrics.loc[d, "peak"] if "peak" in period_metrics.columns else 0
+            cf_offpeak  = period_metrics.loc[d, "offpeak"] if "offpeak" in period_metrics.columns else 0
+            cf_shoulder = period_metrics.loc[d, "shoulder"] if "shoulder" in period_metrics.columns else 0
             
             anomaly_cf = national_cf_pct - climo_cf
             drought_flag = 1 if national_cf_pct < 0.35 else 0
@@ -235,6 +283,9 @@ def fetch_forecasts():
                 "model": model,
                 "total_wind_gw": round(total_wind_gw, 2),
                 "national_cf_pct": round(national_cf_pct * 100, 1),
+                "national_cf_peak_pct": round(cf_peak * 100, 1),
+                "national_cf_offpeak_pct": round(cf_offpeak * 100, 1),
+                "national_cf_shoulder_pct": round(cf_shoulder * 100, 1),
                 "climo_cf_pct": round(climo_cf * 100, 1),
                 "anomaly_cf_pct": round(anomaly_cf * 100, 1),
                 "drought_flag": drought_flag
@@ -255,14 +306,14 @@ def fetch_forecasts():
         logging.warning("No future days found for drought logic.")
         return
     
-    # Drought logic: require >= 2 models consensus for daily flag
-    # Calculate GFS spatial spread (uncertainty proxy)
+    # Calculate GFS spatial spread
     gfs_spread = {}
     for d, gws in gfs_daily_node_gw.items():
         if len(gws) > 1:
             gfs_spread[d.strftime("%Y-%m-%d")] = round(pd.Series(gws).std(), 2)
 
-    daily_model_counts = df_future.groupby("date")["drought_flag"].sum()
+    # Drought logic: require >= 2 models consensus for daily flag (exclude GFS_CFS from 2-model consensus for stability if desired, but here we include it)
+    daily_model_counts = df_future[df_future["model"] != "GFS_CFS"].groupby("date")["drought_flag"].sum()
     drought_days_all = daily_model_counts[daily_model_counts >= 2].index.tolist()
     
     end_16d = (datetime.now(UTC).date() + timedelta(days=15)).strftime("%Y-%m-%d")
@@ -280,10 +331,26 @@ def fetch_forecasts():
     df_today = df_future[df_future["date"] == today_str]
     if not df_today.empty:
         anomaly_today = round(df_today["anomaly_cf_pct"].mean(), 1)
+        anomaly_today_peak = round(df_today["national_cf_peak_pct"].mean() - (df_today["climo_cf_pct"].mean()), 1) # Simple proxy
+        # Better anomaly today peak:
+        # We need peak climo.
+        mm_dd_today = datetime.now(UTC).date().strftime("%m-%d")
+        climo_today = climo_data.get(mm_dd_today, climo_data.get("02-28", {"all": 0.4, "peak": 0.4}))
+        peak_climo_pct = climo_today.get("peak", 0.4) * 100
+        offpeak_climo_pct = climo_today.get("offpeak", 0.4) * 100
+        
+        anomaly_today_peak = round(df_today["national_cf_peak_pct"].mean() - peak_climo_pct, 1)
+        anomaly_today_offpeak = round(df_today["national_cf_offpeak_pct"].mean() - offpeak_climo_pct, 1)
+        
         models_in_drought_today = df_today[df_today["drought_flag"] == 1]["model"].tolist()
+        peak_cf_avg = df_today["national_cf_peak_pct"].mean()
+        peak_drought_today = bool(peak_cf_avg < 30.0)
     else:
         anomaly_today = 0.0
+        anomaly_today_peak = 0.0
+        anomaly_today_offpeak = 0.0
         models_in_drought_today = []
+        peak_drought_today = False
         
     model_horizons = {k: v["horizon_days"] for k, v in MODELS.items()}
     
@@ -297,6 +364,9 @@ def fetch_forecasts():
         "worst_anomaly_cf_pct": float(worst_row["anomaly_cf_pct"]),
         "worst_model":      worst_row["model"],
         "anomaly_today":    float(anomaly_today),
+        "anomaly_today_peak": float(anomaly_today_peak),
+        "anomaly_today_offpeak": float(anomaly_today_offpeak),
+        "peak_drought_today": peak_drought_today,
         "models_in_drought_today": models_in_drought_today,
         "model_horizons":   model_horizons,
         "gfs_spatial_spread": gfs_spread,

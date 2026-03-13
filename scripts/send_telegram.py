@@ -287,14 +287,22 @@ def send():
                 
                 intel_lines.append(f"\n⚡ WIND DROUGHT FORECAST:")
                 intel_lines.append(f"   7d Risk:  {int(wd.get('drought_prob_7d',0)*100)}% ({wd.get('drought_days_7d',0)}/7 days)  |  16d Risk: {int(d16*100)}% ({wd.get('drought_days_16d',0)}/16 days)")
+                
+                if wd.get("peak_drought_today"):
+                    intel_lines.append(f"   🚨 PEAK-HOUR DROUGHT ALERT: Low daytime generation expected today!")
+
                 worst = wd.get('worst_day', 'N/A')
                 w_cf = wd.get('worst_cf_pct', 0.0)
                 w_mod = wd.get('worst_model', 'N/A')
                 w_anom = wd.get('worst_anomaly_cf_pct', 0.0)
                 intel_lines.append(f"   Worst day: {worst} — {w_cf:.1f}% CF ({w_mod}), {w_anom:+.1f}pp vs climo")
+                
                 in_d = wd.get('models_in_drought_today', [])
                 intel_lines.append(f"   In drought today: {', '.join(in_d) if in_d else 'None'}")
                 intel_lines.append(f"   Grid impact: {impact}")
+                
+                if "GFS_CFS" in wd.get("model_horizons", {}):
+                    intel_lines.append(f"    Outlook: Extended 35d monitoring enabled (GFS/CFS)")
             else:
                 intel_lines.append(f"\n💨 Wind: Normal/Above-Normal generation expected (16d risk: {int(d16*100)}%)")
         except Exception as e:
