@@ -73,9 +73,10 @@ Calculates the real-time relationship between heating degree days (HDD) and gas 
 ### 5. Wind & Solar Renewable Power Forecast (Upgraded)
 Provides a high-resolution outlook for US renewable generation and potential gas-burn displacement.
 - **How it works:** 
-    - **Wind**: Aggregates 15 wind nodes (110 GW) using an IEC Class II power curve.
-    - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting Global Horizontal Irradiance (GHI) to Capacity Factor using a **75% Performance Ratio**.
-    - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Peak-Hour CF < 25% simultaneously.
+    - **Wind**: Aggregates 15 wind nodes (110 GW) using an IEC Class II power curve. Incorporates **GFS Ensemble Spread** (P10/P90 bands) to quantify forecast uncertainty.
+    - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting GHI from **GFS, ECMWF, and ECMWF AIFS** to Capacity Factor using a **75% Performance Ratio**.
+    - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Consensus < 25% (requires 2 of 3 solar models below threshold).
+    - **Model Agreement Score**: Quantifies confidence based on agreement between GFS, ECMWF, and ICON; higher scores indicate lower regime-shift risk.
     - **Combined Signal**: Synthesizes a unified directional bias based on aggregate gas displacement loss (GW) vs. 2-year climatology.
     - **Seasonal Drought Adjustment**: Thresholds vary by season to reflect structural generation patterns:
         - **Wind drought**: 35% CF winter → 30% shoulder → 25% summer.
@@ -159,8 +160,7 @@ Automated self-pruning via `scripts/cleanup_repo.py`:
 
 ## 📊 Power Grid Charts
 The Power Grid Monitor dashboard consumes several rolling history files to visualize market relationships:
-- **Gas Burn vs Temperature**: Plots national gas burn (Bcf/d) against temperature to identify the U-shape demand curve. Consumes `outputs/gas_burn_history.csv`.
-- **Gas vs Coal Switching**: A scatter plot with **Heat Rate Iso-Lines** showing the switching relationship and implied heat rate between gas and coal generation. Consumes `outputs/thermal_history.csv`.
+- **Wind Generation Forecast**: Multi-model outlook for the next 16 days, including **GFS Ensemble Spread Bands** (P10/P90) and active drought alert markers.
 - **National Load vs Gas Generation**: Dual-axis line chart tracking total grid demand against natural gas dispatch.
 - **Nuclear Fleet Availability**: Monitors national generator outages to identify potential secondary gas demand from reliability gaps.
 - **ISO Regional Breakdown**: Stacked horizontal breakdown of today's natural gas burn across all 7 tracked ISOs.
@@ -173,12 +173,13 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 | Path | Description |
 |---|---|
 | `outputs/composite_signal.json` | Final integrated intelligence signal and confidence. |
-| `outputs/wind/drought.json` | Wind drought probabilities and peak-period risk alerts. |
+| `outputs/wind/drought.json` | Wind drought probabilities, GFS ensemble spread, and Model Agreement scores. |
 | `outputs/gas_burn_history.csv` | Rolling 3-year history of national gas burn (Bcf/d) vs temperature for scatter analysis. |
 | `outputs/thermal_history.csv` | Historical record of national gas, coal, and nuclear generation MW and gas % metrics. |
-| `outputs/wind/solar_power_forecast.csv` | Daily solar generation forecasts across GFS and ECMWF models. |
+| `outputs/wind/solar_power_forecast.csv` | Daily solar generation forecasts across GFS, ECMWF, and ECMWF AIFS models. |
 | `outputs/wind/solar_climo_30d.json` | 2-year solar capacity factor climatology (Peak-hour and All-day). |
-| `outputs/wind/combined_drought.json` | Unified renewable drought risk, probability, and gas displacement metrics. |
+| `outputs/wind/combined_drought.json` | Unified renewable drought risk, consensus indicators, and gas displacement metrics. |
+| `outputs/wind/wind_power_forecast.csv` | Wind generation forecasts including GFS members (P10/P90) and climo anomalies. |
 | `outputs/wind/wind_actuals_history.csv` | Persistent log of historical national and ISO-level wind generation actuals. |
 | `outputs/tdd_master.csv` | Master HDD/CDD timeseries across all models and horizons. |
 | `outputs/live_grid_generation.csv` | EIA ISO fuel mix (7 ISOs + NATIONAL), load_mw, gas_pct_load, and nuclear_mw. |
