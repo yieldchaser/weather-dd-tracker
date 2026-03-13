@@ -77,6 +77,10 @@ Provides a high-resolution outlook for US renewable generation and potential gas
     - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting Global Horizontal Irradiance (GHI) to Capacity Factor using a **75% Performance Ratio**.
     - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Peak-Hour CF < 25% simultaneously.
     - **Combined Signal**: Synthesizes a unified directional bias based on aggregate gas displacement loss (GW) vs. 2-year climatology.
+    - **Seasonal Drought Adjustment**: Thresholds vary by season to reflect structural generation patterns:
+        - **Wind drought**: 35% CF winter → 30% shoulder → 25% summer.
+        - **Solar drought**: 15% CF winter → 25% shoulder → 35% summer.
+        - **Wind drought signal weight**: 1.0x heating → 0.8x shoulder → 0.6x cooling.
     - **35-Day Outlook**: Extends the horizon via GFS/CFS Ensemble API multi-node batching.
 - **Data Source:** [Open-Meteo Forecast & Ensemble APIs](https://api.open-meteo.com/v1/).
 
@@ -99,6 +103,17 @@ Measures forecast uncertainty and market volatility risk through model divergenc
 Calculates a final quantitative score for the next 15 days.
 - **How it works:** Applies the Dynamic Sensitivity Coefficient to degree-day anomalies to calculate expected Bcf deviations. The score is further modified by wind premiums (bullish for droughts) and power burn multipliers, then capped between -1.0 (Strong Bear) and +1.0 (Strong Bull).
 - **Data Source:** Integrated market logic pipeline.
+
+---
+
+## ❄️ Seasonal Adaptation
+
+The system is fully season-aware, dynamically adjusting thresholds and logic based on the current month:
+
+- **Dashboard Intelligence**: Automatically switches between **HDD/CDD/TDD** logic and labels (Nov-Mar = HDD, May-Sep = CDD, Apr+Oct = TDD).
+- **Threshold Dynamics**: All wind and solar drought thresholds adjust by season to maintain relevance against structural climo shifts.
+- **Gas Burn Sensitivity**: MW to Bcf/d conversion adapts for summer peaker dispatch efficiency shifts (7,000 → 8,200 BTU/kWh).
+- **Composite Signal weighting**: Adjusts the importance of specific signals (like wind) based on their seasonal correlation to total gas demand.
 
 ---
 
