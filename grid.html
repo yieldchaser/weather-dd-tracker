@@ -1480,8 +1480,15 @@
                                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
                             });
                         }
+                    } else {
+                        document.getElementById("iso-bar-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("iso-bar-msg").style.display = 'block';
                     }
-                } catch(e) { console.warn("Live grid load failed", e); }
+                } catch(e) { 
+                    console.warn("Live grid load failed", e); 
+                    document.getElementById("iso-bar-msg").textContent = "Data unavailable.";
+                    document.getElementById("iso-bar-msg").style.display = 'block';
+                }
 
                 // Load Thermal History
                 try {
@@ -1493,8 +1500,15 @@
                         rawThermalData = allData.filter(r => r.iso === 'NATIONAL').sort((a,b) => a.date.localeCompare(b.date));
                         updateThermalCharts();
                         updateLoadGasChart();
+                    } else {
+                        document.getElementById("load-gas-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("load-gas-msg").style.display = 'block';
                     }
-                } catch (err) { console.warn("Thermal charts loading failed", err); }
+                } catch (err) { 
+                    console.warn("Thermal charts loading failed", err); 
+                    document.getElementById("load-gas-msg").textContent = "Data unavailable.";
+                    document.getElementById("load-gas-msg").style.display = 'block';
+                }
 
                 // Load Outages
                 try {
@@ -1503,8 +1517,14 @@
                         let text = await res.text();
                         rawOutageData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
                         updateOutageChart();
+                    } else {
+                        document.getElementById("outage-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("outage-msg").style.display = 'block';
                     }
-                } catch(e) {}
+                } catch(e) {
+                    document.getElementById("outage-msg").textContent = "Data unavailable.";
+                    document.getElementById("outage-msg").style.display = 'block';
+                }
 
                 // Load Peakers
                 try {
@@ -1513,8 +1533,14 @@
                         let text = await res.text();
                         rawPeakerData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
                         updatePeakerChart();
+                    } else {
+                        document.getElementById("peaker-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("peaker-msg").style.display = 'block';
                     }
-                } catch(e) {}
+                } catch(e) {
+                    document.getElementById("peaker-msg").textContent = "Data unavailable.";
+                    document.getElementById("peaker-msg").style.display = 'block';
+                }
 
                 // Load Gas Burn History
                 try {
