@@ -37,14 +37,20 @@ def git_rm(filepath):
     except Exception as e:
         print(f"  [ERROR] Failed to remove {filepath}: {e}")
 
+import re
+
 def cleanup_subseasonal():
     """Prunes data/gefs_subseasonal/ folders, keeping only the most recent N."""
     base_dir = Path("data/gefs_subseasonal")
     if not base_dir.exists():
         return
 
-    # Filter for directories (YYYYMMDD_HH pattern)
-    folders = sorted([d for d in base_dir.iterdir() if d.is_dir()], key=lambda x: x.name, reverse=True)
+    # Filter for directories matching YYYYMMDD_HH pattern
+    folders = sorted(
+        [d for d in base_dir.iterdir() if d.is_dir() and re.match(r'^\d{8}_\d{2}$', d.name)], 
+        key=lambda x: x.name, 
+        reverse=True
+    )
     
     if len(folders) > GEFS_SUBSEASONAL_FOLDERS_LIMIT:
         to_delete = folders[GEFS_SUBSEASONAL_FOLDERS_LIMIT:]
