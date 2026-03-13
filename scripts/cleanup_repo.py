@@ -68,24 +68,34 @@ def cleanup_maps():
     if not base_dir.exists():
         return
 
-    # Categorize GIFs by model (case-insensitive checks)
-    # We use patterns that cover common prefixes like 'ecmwf_aifs', 'gfs_', etc.
-    models = ["gfs", "ecmwf", "aifs", "icon", "cmc", "nbm", "hrrr", "nam"]
+    # Explicit prefixes to avoid collisions (e.g., ECMWF vs ECMWF_AIFS)
+    MAP_MODEL_PREFIXES = [
+        "GFS_shift",
+        "GEFS_shift", 
+        "GEFS_35D_shift",
+        "ECMWF_shift",
+        "ECMWF_AIFS_shift",
+        "ICON_shift",
+        "CMC_shift",
+        "NBM_shift",
+        "HRRR_shift",
+        "NAM_shift",
+    ]
     
     all_gifs = list(base_dir.glob("*.gif"))
     processed_files = set()
     
-    for model in models:
-        # Match files that contains the model name at the start (ignoring case)
+    for prefix in MAP_MODEL_PREFIXES:
+        # Match files using exact prefix (filenames are date-ordered, so sort descending)
         model_gifs = sorted(
-            [f for f in all_gifs if f.name.lower().startswith(model.lower())],
-            key=lambda x: x.stat().st_mtime, 
+            [f for f in all_gifs if f.name.startswith(prefix)],
+            key=lambda x: x.name, 
             reverse=True
         )
         
         if len(model_gifs) > MAPS_GIF_LIMIT_PER_MODEL:
             to_delete = model_gifs[MAPS_GIF_LIMIT_PER_MODEL:]
-            print(f"Cleaning {model} map GIFs (keeping {MAPS_GIF_LIMIT_PER_MODEL})...")
+            print(f"Cleaning {prefix} map GIFs (keeping {MAPS_GIF_LIMIT_PER_MODEL})...")
             for gif in to_delete:
                 if gif not in processed_files:
                     git_rm(gif)

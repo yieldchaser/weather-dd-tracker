@@ -272,10 +272,57 @@ def _generate_worker(args):
     return local_manifest
 
 
+def rebuild_manifest():
+    """
+    Scans outputs/maps/ for existing GIFs and rebuilds the manifest.
+    Ensures all models are represented even if not generated in the current run.
+    """
+    print(f"Rebuilding manifest from {MAPS_DIR}...")
+    manifest = {}
+    
+    prefixes = {
+        "GFS": "GFS_shift_",
+        "GEFS": "GEFS_shift_",
+        "GEFS_35D": "GEFS_35D_shift_",
+        "ECMWF": "ECMWF_shift_",
+        "ECMWF_AIFS": "ECMWF_AIFS_shift_",
+        "ICON": "ICON_shift_",
+        "CMC": "CMC_shift_",
+        "NBM": "NBM_shift_",
+        "HRRR": "HRRR_shift_",
+        "NAM": "NAM_shift_",
+    }
+    
+    if not os.path.exists(MAPS_DIR):
+        return {}
+
+    all_files = sorted(os.listdir(MAPS_DIR), reverse=True)
+    
+    for model_key, prefix in prefixes.items():
+        model_gifs = [f for f in all_files if f.startswith(prefix) and f.endswith(".gif")]
+        if not model_gifs:
+            continue
+            
+        manifest[model_key] = []
+        for f in model_gifs:
+            try:
+                # Pattern: {model}_shift_{latest}_vs_{prev}.gif
+                parts = f.replace(prefix, "").replace(".gif", "").split("_vs_")
+                if len(parts) == 2:
+                    manifest[model_key].append({
+                        "latest": parts[0],
+                        "previous": parts[1],
+                        "file": f
+                    })
+            except Exception:
+                continue
+    
+    return manifest
+
+
 def main():
     print("=== Generating Dynamic Shift Maps (parallel) ===")
-    manifest = {}
-
+    
     # Only models that store GRIB data locally
     MODELS_TO_GENERATE = [
         {"name": "ECMWF",      "path": "data/ecmwf"},
@@ -286,18 +333,22 @@ def main():
         {"name": "ECMWF_AIFS", "path": "data/ecmwf_aifs"},
     ]
 
-    # Parallel: one worker per model, up to 4 simultaneous
+    # Parallel generation (results are stored via manifest updates in workers)
+    # But since workers run in separate processes, we just let them run.
+    # The robust rebuilder will catch all files (new and existing) at the end.
     with ProcessPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_generate_worker, (m, {})): m["name"] for m in MODELS_TO_GENERATE}
         for fut in as_completed(futures):
             model_name = futures[fut]
             try:
-                result = fut.result()
-                manifest.update(result)
+                fut.result()
                 print(f"  [DONE] {model_name}")
             except Exception as e:
                 print(f"  [ERR]  {model_name}: {e}")
 
+    # Rebuild manifest strictly from disk to ensure all models are captured
+    manifest = rebuild_manifest()
+    
     # Save manifest for frontend
     manifest_path = "outputs/maps_manifest.json"
     with open(manifest_path, "w") as f:
