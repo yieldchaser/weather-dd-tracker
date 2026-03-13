@@ -65,6 +65,31 @@ def wind_power_curve(ws_ms):
         return 1.0
     return ((ws_ms - CUT_IN) / (RATED - CUT_IN)) ** 3
 
+def get_wind_drought_threshold(month: int) -> float:
+    """
+    Wind CF drought threshold varies by season.
+    Winter: high wind season, 35% is meaningful low
+    Summer: structurally lower wind, 25% is meaningful low
+    Shoulder: interpolate
+    """
+    # Heating season (Nov-Mar): 35%
+    if month >= 11 or month <= 3:
+        return 0.35
+    # Cooling season (Jun-Aug): 25%
+    elif 6 <= month <= 8:
+        return 0.25
+    # Shoulder (Apr-May, Sep-Oct): 30%
+    else:
+        return 0.30
+
+def get_peak_wind_drought_threshold(month: int) -> float:
+    if month >= 11 or month <= 3:
+        return 0.30
+    elif 6 <= month <= 8:
+        return 0.20
+    else:
+        return 0.25
+
 def build_wind_climatology():
     logging.info("Climatology not found or outdated — starting GFS Historical bootstrap (one-time, ~2 min)")
     end_date = date.today() - timedelta(days=5)
@@ -170,6 +195,7 @@ def fetch_forecasts():
 
     all_rows = []
     gfs_daily_node_gw = {} # {date: [gw1, gw2, ...]} for GFS spread calculation
+    current_month = datetime.now().month
 
     for model, config in MODELS.items():
         logging.info(f"Fetching {model}...")
@@ -276,7 +302,8 @@ def fetch_forecasts():
             cf_shoulder = period_metrics.loc[d, "shoulder"] if "shoulder" in period_metrics.columns else 0
             
             anomaly_cf = national_cf_pct - climo_cf
-            drought_flag = 1 if national_cf_pct < 0.35 else 0
+            drought_threshold = get_wind_drought_threshold(current_month)
+            drought_flag = 1 if national_cf_pct < drought_threshold else 0
             
             all_rows.append({
                 "date": d_str,
@@ -344,7 +371,8 @@ def fetch_forecasts():
         
         models_in_drought_today = df_today[df_today["drought_flag"] == 1]["model"].tolist()
         peak_cf_avg = df_today["national_cf_peak_pct"].mean()
-        peak_drought_today = bool(peak_cf_avg < 30.0)
+        peak_threshold = get_peak_wind_drought_threshold(current_month)
+        peak_drought_today = bool(peak_cf_avg < peak_threshold * 100)
     else:
         anomaly_today = 0.0
         anomaly_today_peak = 0.0
@@ -369,6 +397,8 @@ def fetch_forecasts():
         "peak_drought_today": peak_drought_today,
         "models_in_drought_today": models_in_drought_today,
         "model_horizons":   model_horizons,
+        "drought_threshold_cf_pct": round(get_wind_drought_threshold(current_month) * 100, 1),
+        "peak_drought_threshold_cf_pct": round(get_peak_wind_drought_threshold(current_month) * 100, 1),
         "gfs_spatial_spread": gfs_spread,
         "timestamp":        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     }

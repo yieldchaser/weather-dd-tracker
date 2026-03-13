@@ -59,6 +59,20 @@ def irradiance_to_cf(ghi_wm2: float) -> float:
     """
     return min((ghi_wm2 / 1000.0) * PERFORMANCE_RATIO, 1.0)
 
+def get_solar_drought_threshold(month: int) -> float:
+    """
+    Solar peak-hour CF drought threshold varies by season.
+    Summer (Jun-Aug): solar potential is high, drought = below 35%
+    Winter (Nov-Feb): solar potential is low, drought = below 15%
+    Spring/Fall: 25%
+    """
+    if 6 <= month <= 8:
+        return 0.35
+    elif month >= 11 or month <= 2:
+        return 0.15
+    else:
+        return 0.25
+
 def build_solar_climatology():
     logging.info("Solar Climatology not found — bootstrapping via GFS Historical API...")
     end_date = date.today() - timedelta(days=5)
@@ -130,6 +144,7 @@ def run_forecast():
         
     all_rows = []
     utc_now = datetime.now(UTC)
+    current_month = utc_now.month
     
     for model, config in SOLAR_MODELS.items():
         logging.info(f"Fetching {model} solar...")
@@ -195,7 +210,7 @@ def run_forecast():
                 "national_cf_peak_pct": round(peak_cf * 100, 1),
                 "climo_cf_pct": round(c_entry["peak"] * 100, 1), 
                 "anomaly_cf_pct": round((peak_cf - c_entry["peak"]) * 100, 1), 
-                "drought_flag": 1 if (peak_cf < 0.25) else 0 
+                "drought_flag": 1 if (peak_cf < get_solar_drought_threshold(current_month)) else 0 
             })
             
     if not all_rows: return
@@ -223,6 +238,7 @@ def generate_combined_drought(solar_df):
         "worst_combined_renewable_cf_pct": 0.0,
         "gas_displacement_loss_gw": 0.0,
         "signal": "NEUTRAL",
+        "solar_drought_threshold_cf_pct": round(get_solar_drought_threshold(datetime.now(UTC).month) * 100, 1),
         "timestamp": utc_now.strftime("%Y-%m-%dT%H:%M:%SZ")
     }
 

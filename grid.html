@@ -548,6 +548,12 @@
 
     <script>
         const basePath = "outputs/";
+        const _MONTH = new Date().getMonth() + 1;
+        const SEASON = (_MONTH >= 11 || _MONTH <= 3) ? 'HEATING'
+                     : (_MONTH === 4 || _MONTH === 10) ? 'TDD' : 'COOLING';
+        const DD_LABEL = SEASON === 'COOLING' ? 'CDD' : (SEASON === 'TDD' ? 'TDD' : 'HDD');
+        const DD_FIELD = SEASON === 'COOLING' ? 'cdd_gw' : (SEASON === 'TDD' ? 'tdd_gw' : 'hdd_gw');
+        const DD_NORMAL_FIELD = SEASON === 'COOLING' ? 'cdd_normal_gw' : (SEASON === 'TDD' ? 'tdd_normal_gw' : 'hdd_normal_gw');
 
         function fetchCSV(filename) {
             return new Promise((resolve, reject) => {
@@ -697,8 +703,8 @@
                             vsData.filter(r => r.model === targetModel && r.run_id === targetRun).forEach(r => {
                                 if (r.date) {
                                     let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date.split(' ')[0]);
-                                    let hdd_gw = r.hdd_gw !== undefined ? r.hdd_gw : (r.hdd || null);
-                                    let norm_gw = r.hdd_normal_gw !== undefined ? r.hdd_normal_gw : (r.hdd_normal || null);
+                                    let hdd_gw = r[DD_FIELD] !== undefined ? r[DD_FIELD] : (r.hdd || null);
+                                    let norm_gw = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : (r.hdd_normal || null);
                                     hddMap[dstr] = [hdd_gw, (hdd_gw !== null && norm_gw !== null) ? hdd_gw - norm_gw : null];
                                 }
                             });
@@ -832,7 +838,7 @@
                         { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'GFS/CFS (35d)', data: dataGFS_CFS, borderColor: '#03a9f4', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: 'GW HDD', data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: true }
+                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: true }
                     ]
                 },
                 options: {
@@ -845,11 +851,11 @@
                                 label: function(ctx) {
                                     let dsLabel = ctx.dataset.label;
                                     let d = ctx.label;
-                                    if (dsLabel === 'GW HDD') {
-                                        if (ctx.raw === null) return 'HDD: —';
+                                    if (dsLabel === `GW ${DD_LABEL}`) {
+                                        if (ctx.raw === null) return `${DD_LABEL}: —`;
                                         let diff = hddMap[d] ? hddMap[d][1] : null;
                                         let s = diff > 0 ? '+'+diff.toFixed(1) : (diff||0).toFixed(1);
-                                        return `HDD: ${ctx.raw.toFixed(1)} (${s} vs norm)`;
+                                        return `${DD_LABEL}: ${ctx.raw.toFixed(1)} (${s} vs norm)`;
                                     }
                                     if (dsLabel === 'Climatology') {
                                         let mm_dd = d.substring(5, 10);
@@ -869,7 +875,7 @@
                     scales: {
                         x: { grid: { color: 'rgba(255,255,255,0.05)' } },
                         y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Wind Gen (GW)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'GW HDD (Gas demand)', color: '#f44336' }, grid: { drawOnChartArea: false } }
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: `GW ${DD_LABEL} (Gas demand)`, color: '#f44336' }, grid: { drawOnChartArea: false } }
                     }
                 },
                 plugins: [{
@@ -930,7 +936,7 @@
                         { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: 'GW HDD', data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: true }
+                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: true }
                     ]
                 },
                 options: {
@@ -938,7 +944,7 @@
                     maintainAspectRatio: false,
                     scales: {
                         y: { title: { display: true, text: 'Solar Gen (GW)' } },
-                        y1: { position: 'right', title: { display: true, text: 'GW HDD' }, grid: { drawOnChartArea: false } }
+                        y1: { position: 'right', title: { display: true, text: `GW ${DD_LABEL}` }, grid: { drawOnChartArea: false } }
                     }
                 },
                 plugins: [{

@@ -141,19 +141,32 @@ def compute_composite_weather_signal():
     if wind_connected:
         p = wind.get("drought_prob_16d")
         anomaly_today = wind.get("anomaly_today", 0.0)
-        
+
+        # Seasonal weight multiplier for wind drought signal
+        # Wind drought matters more in winter (high demand) than summer (lower demand)
+        _month = datetime.now(UTC).month
+        if _month >= 11 or _month <= 3:
+            wind_weight_multiplier = 1.0   # Full weight in heating season
+        elif 6 <= _month <= 8:
+            wind_weight_multiplier = 0.6   # Reduced weight in cooling season
+        else:
+            wind_weight_multiplier = 0.8   # Shoulder
+
         if p is None:
             wind_connected = False
             stale_systems.append("wind (null drought_prob_16d)")
         elif p >= 0.60:
-            bull_score += 2.5
-            components.append("Wind Drought (Persistent) (+2.5 Bull)")
+            val = 2.5 * wind_weight_multiplier
+            bull_score += val
+            components.append(f"Wind Drought (Persistent) (+{val:.1f} Bull)")
         elif p >= 0.35:
-            bull_score += 1.5
-            components.append("Wind Drought (Moderate) (+1.5 Bull)")
+            val = 1.5 * wind_weight_multiplier
+            bull_score += val
+            components.append(f"Wind Drought (Moderate) (+{val:.1f} Bull)")
         elif p < 0.15 and anomaly_today > 0.05:
-            bear_score += 1.5
-            components.append("Strong Wind Surplus (+1.5 Bear)")
+            val = 1.5 * wind_weight_multiplier
+            bear_score += val
+            components.append(f"Strong Wind Surplus (+{val:.1f} Bear)")
         else:
             components.append("Wind Neutral (Neutral)")
     else:

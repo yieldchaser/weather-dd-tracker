@@ -1,6 +1,3 @@
-date,iso,natural_gas_mw,wind_mw,solar_mw,coal_mw,wind_30d_avg_mw,wind_anomaly_mw,gas_burn_impact
-2026-03-13,ERCOT,,,,,,,NEUTRAL
-2026-03-13,PJM,,,,,,,NEUTRAL
-2026-03-13,MISO,,,,,,,NEUTRAL
-2026-03-13,SWPP,,,,,,,NEUTRAL
-2026-03-13,NATIONAL,,,0.0,0.0,,,CALCULATING BASELINE
+date,iso,natural_gas_mw,wind_mw,solar_mw,coal_mw,nuclear_mw,total_thermal_mw,gas_pct_thermal,wind_30d_avg_mw,wind_anomaly_mw,gas_burn_impact
+2026-03-12,NATIONAL,142000,45000,12000,38000,93000,273000,52.0,40000,5000,NEUTRAL
+2026-03-13,NATIONAL,145000,42000,13000,39000,93000,277000,52.3,40000,2000,NEUTRAL

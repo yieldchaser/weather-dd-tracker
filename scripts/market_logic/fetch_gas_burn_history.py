@@ -8,16 +8,29 @@ OUTPUT_FILE = Path("outputs/gas_burn_history.csv")
 GRID_FILE = Path("outputs/live_grid_generation.csv")
 TDD_FILE = Path("outputs/tdd_master.csv")
 
-HEAT_RATE_BTU_PER_KWH = 7000
-
-def mw_to_bcfd(mw: float) -> float:
+def get_heat_rate(month: int) -> float:
     """
-    1 MMBtu = 293.07 Wh, gas turbine heat rate ~7,000 BTU/kWh
-    MW * 24h * 7000 BTU/kWh / 1e9 = Bcf/d
+    Summer months have more peaker dispatch at higher heat rates.
+    Winter baseload gas runs at ~7,000 BTU/kWh
+    Summer peak includes peakers at ~9,000 BTU/kWh
+    Weighted average varies ~7,000-8,200 across seasons
+    """
+    if 6 <= month <= 8:
+        return 8200   # Summer peaker heavy
+    elif month >= 11 or month <= 3:
+        return 7000   # Winter baseload heavy
+    else:
+        return 7500   # Shoulder
+
+def mw_to_bcfd(mw: float, month: int) -> float:
+    """
+    1 MMBtu = 293.07 Wh, gas turbine heat rate ~7,000-8,200 BTU/kWh
+    MW * 24h * heat_rate BTU/kWh / 1e9 = Bcf/d
     """
     if pd.isna(mw):
         return None
-    return mw * 24 * HEAT_RATE_BTU_PER_KWH / 1e9
+    heat_rate = get_heat_rate(month)
+    return mw * 24 * heat_rate / 1e9
 
 def fetch_gas_burn_history():
     print("--- Fetching Gas Burn vs Temperature History ---")
@@ -61,7 +74,8 @@ def fetch_gas_burn_history():
         return
 
     # Convert MW to Bcf/d
-    combined['gas_burn_bcfd'] = combined['natural_gas_mw'].apply(mw_to_bcfd)
+    current_month = datetime.datetime.now().month
+    combined['gas_burn_bcfd'] = combined['natural_gas_mw'].apply(lambda x: mw_to_bcfd(x, current_month))
     
     # Add Year and DayOfYear
     combined['date_dt'] = pd.to_datetime(combined['date'])

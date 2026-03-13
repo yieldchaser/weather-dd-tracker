@@ -3,21 +3,25 @@
   "drought_prob_7d": 0.57,
   "drought_days_16d": 6,
   "drought_days_7d": 4,
-  "worst_day": "2026-03-20",
-  "worst_cf_pct": 4.5,
-  "worst_anomaly_cf_pct": -32.8,
+  "worst_day": "2026-03-19",
+  "worst_cf_pct": 5.8,
+  "worst_anomaly_cf_pct": -29.2,
   "worst_model": "ECMWF",
-  "anomaly_today": 10.3,
-  "anomaly_today_peak": 0.7,
-  "anomaly_today_offpeak": 11.3,
+  "anomaly_today": 9.7,
+  "anomaly_today_peak": 1.0,
+  "anomaly_today_offpeak": 10.1,
   "peak_drought_today": true,
-  "models_in_drought_today": [],
+  "models_in_drought_today": [
+    "ECMWF"
+  ],
   "model_horizons": {
     "GFS": 16,
     "ECMWF": 10,
     "ICON": 7,
     "GFS_CFS": 35
   },
+  "drought_threshold_cf_pct": 35.0,
+  "peak_drought_threshold_cf_pct": 30.0,
   "gfs_spatial_spread": {
     "2026-03-13": 2.47,
     "2026-03-14": 1.13,
@@ -36,5 +40,5 @@
     "2026-03-27": 2.88,
     "2026-03-28": 2.65
   },
-  "timestamp": "2026-03-13T08:01:41Z"
+  "timestamp": "2026-03-13T11:02:42Z"
 }
