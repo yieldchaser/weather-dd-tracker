@@ -1,24 +1,34 @@
 {
-  "timestamp": "2026-03-13T13:41:11.868Z",
-  "composite_score": 1.0,
-  "signal": "NEUTRAL",
-  "confidence": 80.0,
+  "timestamp": "2026-03-13T22:38:11.361Z",
+  "composite_score": -3.5,
+  "signal": "BEARISH",
+  "confidence": 100.0,
   "components": [
-    "Teleconnections Warm/Neutral (+2.0 Bear)",
-    "Low Weather Sensitivity (+1.0 Bear)",
-    "Wind Drought (Moderate) (+1.5 Bull)",
-    "Bullish Weather Regime (Regime 3 (Polar Vortex / Trough East / Ridge West)) (+2.5 Bull)"
+    {
+      "name": "Teleconnections Warm/Neutral",
+      "score": -2.0
+    },
+    {
+      "name": "Low Weather Sensitivity",
+      "score": -1.0
+    },
+    {
+      "name": "Wind Drought (Moderate)",
+      "score": 1.5
+    },
+    {
+      "name": "Strong PV (Bearish)",
+      "score": -2.0
+    }
   ],
-  "stale_systems": [
-    "freeze (stale)"
-  ],
+  "stale_systems": [],
   "detail": {
-    "bull_accumulator": 4.0,
-    "bear_accumulator": 3.0
+    "bull_accumulator": 1.5,
+    "bear_accumulator": 5.0
   },
   "system_status": {
     "teleconnections_connected": true,
-    "freeze_connected": false,
+    "freeze_connected": true,
     "sensitivity_connected": true,
     "wind_connected": true,
     "regimes_connected": true
