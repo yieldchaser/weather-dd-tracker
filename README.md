@@ -85,7 +85,7 @@ Provides a high-resolution outlook for US renewable generation and potential gas
 - **Data Source:** [Open-Meteo Forecast & Ensemble APIs](https://api.open-meteo.com/v1/).
 
 ### 6. Live Grid Monitor
-Tracks real-time fuel mix, load, and incremental natural gas burn across 7 major ISOs.
+Tracks real-time fuel mix, load, and incremental natural gas burn across 7 major ISOs: **ERCOT, PJM, MISO, SPP, CAISO, ISONE, and NYISO**.
 - **How it works:** Queries the EIA v2 API for hourly generation and demand (load) data in ERCOT, PJM, MISO, SPP, CAISO, ISONE, and NYISO. It maintains a 30-day rolling baseline for each fuel type and load profile to compute real-time anomalies. A "NATIONAL" aggregate is synthesized to show the total gas-displacement impact of renewable surges and peaker utilization.
 - **Data Source:** [EIA v2 Electricity Data](https://api.eia.gov/v2/electricity/rto/).
 
@@ -125,6 +125,8 @@ The system is fully season-aware, dynamically adjusting thresholds and logic bas
 | **Open-Meteo Historical**| `historical-forecast-api.open-meteo.com/v1/forecast` | t2m, ws_100m | Monthly (climo) |
 | **Open-Meteo Ensemble** | `ensemble-api.open-meteo.com/v1/ensemble` | GFS_CFS (35d), ens_mean | 2x daily |
 | **EIA v2 API** | `api.eia.gov/v2/` | Storage, Fuel-mix (NG, COL, NUC, WND, SUN), Withdrawals | Hourly/Weekly |
+| **EIA v2 Region Data** | `api.eia.gov/v2/electricity/rto/region-data/data/` | Total load demand (D type) by ISO | Hourly |
+| **EIA v2 Outages** | `api.eia.gov/v2/electricity/outages/generators/data/` | Nuclear and coal generator outages | Daily |
 | **NOAA CPC** | `ftp.cpc.ncep.noaa.gov/cwlinks/` | AO, NAO, PNA indices | Daily |
 | **NOAA PSL** | `downloads.psl.noaa.gov/Public/map/...` | EPO index (dam anomalies) | Daily |
 | **Kaggle** | `kaggle.com` | FourCastNetV2 GPU Inference | 2x daily |
@@ -135,7 +137,7 @@ The system is fully season-aware, dynamically adjusting thresholds and logic bas
 
 | Workflow | Schedule (UTC) | Action |
 |---|---|---|
-| `daily_run.yml` | 04/10/16/22:00 | **Primary Pipeline**: Polls models, calculates TDDs, and triggers AI inference. |
+| `daily_run.yml` | 04/10/16/22:00 | **Primary Pipeline**: TDDs, plus Grid metrics (`fetch_live_grid`, `fetch_outages`, `fetch_peaker_proxy`). |
 | `system5_wind.yml` | 07:30 | Wind & Solar generation forecast and sub-daily drought tracking. |
 | `system2_regimes.yml` | 07:00 | Daily weather regime classification and Markov pathing. |
 | `system_composite.yml` | 08:30 | Updates translated integrated signal banner. |
@@ -179,10 +181,10 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 | `outputs/wind/combined_drought.json` | Unified renewable drought risk, probability, and gas displacement metrics. |
 | `outputs/wind/wind_actuals_history.csv` | Persistent log of historical national and ISO-level wind generation actuals. |
 | `outputs/tdd_master.csv` | Master HDD/CDD timeseries across all models and horizons. |
-| `outputs/live_grid_generation.csv` | EIA ISO fuel mix, hourly load data, and natural gas burn for 7 ISOs. |
-| `outputs/grid_outages.csv` | Daily national generator outages for Nuclear and Coal (MW) and fleet availability %. |
-| `outputs/peaker_history.csv` | Rolling log of Peak vs Off-Peak gas generation ratios and peaker utilization proxy. |
-| `outputs/hourly_grid_data.csv` | Intermediate hourly aggregate data for peaker and load analysis. |
+| `outputs/live_grid_generation.csv` | EIA ISO fuel mix (7 ISOs + NATIONAL), load_mw, gas_pct_load, and nuclear_mw. |
+| `outputs/grid_outages.csv` | Daily nuclear and coal outage tracking, fleet availability %. |
+| `outputs/peaker_history.csv` | Daily peak vs off-peak gas generation ratio, peaker utilization proxy. |
+| `outputs/hourly_grid_data.csv` | Intraday hourly national gas generation, passed to peaker proxy script. |
 | `outputs/vs_normal.csv` | Comparative data for forecasts vs. 10y and 30y normals. |
 
 ---
