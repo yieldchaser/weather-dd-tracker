@@ -70,9 +70,13 @@ Calculates the real-time relationship between heating degree days (HDD) and gas 
 - **How it works:** Performs a 30-day rolling OLS (Ordinary Least Squares) regression of weekly EIA net storage withdrawals against population-weighted HDDs. This produces a `Bcf/HDD` coefficient that the system uses to weight the market impact of forecast changes.
 - **Data Source:** [EIA v2 Storage API](https://api.eia.gov/v2/natural-gas/stor/wkly/data/).
 
-### 5. Wind Power Forecast (Upgraded)
-Provides a high-resolution outlook for US wind generation and potential gas-burn displacement.
-- **How it works:** Aggregates 15 geographically diverse wind nodes weighted by installed GW capacity. Wind speeds are converted to Capacity Factor (CF) via an IEC Class II power curve. Results are bucketed into sub-daily periods (**Peak / Off-Peak / Shoulder**) to identify specific daytime generation drought risks.
+### 5. Wind & Solar Renewable Power Forecast (Upgraded)
+Provides a high-resolution outlook for US renewable generation and potential gas-burn displacement.
+- **How it works:** 
+    - **Wind**: Aggregates 15 wind nodes (110 GW) using an IEC Class II power curve.
+    - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting Global Horizontal Irradiance (GHI) to Capacity Factor using a **75% Performance Ratio**.
+    - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Peak-Hour CF < 25% simultaneously.
+    - **Combined Signal**: Synthesizes a unified directional bias based on aggregate gas displacement loss (GW) vs. 2-year climatology.
 - **Data Source:** [Open-Meteo Forecast & Ensemble APIs](https://api.open-meteo.com/v1/).
 
 ### 6. Live Grid Monitor
@@ -101,7 +105,7 @@ Calculates a final quantitative score for the next 15 days.
 
 | Source | Endpoint | Variables Used | Frequency |
 |---|---|---|---|
-| **Open-Meteo Forecast** | `api.open-meteo.com/v1/forecast` | t2m, ws_100m, cloudcover | 4x daily |
+| **Open-Meteo Forecast** | `api.open-meteo.com/v1/forecast` | t2m, ws_100m, cloudcover, **direct_radiation, diffuse_radiation** | 4x daily |
 | **Open-Meteo Historical**| `historical-forecast-api.open-meteo.com/v1/forecast` | t2m, ws_100m | Monthly (climo) |
 | **Open-Meteo Ensemble** | `ensemble-api.open-meteo.com/v1/ensemble` | GFS_CFS (35d), ens_mean | 2x daily |
 | **EIA v2 API** | `api.eia.gov/v2/` | Storage, Fuel-mix, Withdrawals | Hourly/Weekly |
@@ -116,11 +120,12 @@ Calculates a final quantitative score for the next 15 days.
 | Workflow | Schedule (UTC) | Action |
 |---|---|---|
 | `daily_run.yml` | 04/10/16/22:00 | **Primary Pipeline**: Polls models, calculates TDDs, and triggers AI inference. |
-| `system5_wind.yml` | 07:30 | Wind generation forecast and sub-daily drought tracking. |
+| `system5_wind.yml` | 07:30 | Wind & Solar generation forecast and sub-daily drought tracking. |
 | `system2_regimes.yml` | 07:00 | Daily weather regime classification and Markov pathing. |
 | `system_composite.yml` | 08:30 | Updates translated integrated signal banner. |
 | `system4_sensitivity.yml` | 08:00 | Rolling HDD→demand coefficient regression. |
 | `teleconnections.yml` | 06:00, 18:00 | Fetches updated NOAA teleconnection indices & analogs. |
+| `retrain_solar_climo.yml` | 06:00 (1st of month) | Monthly rebuild of solar peak-hour climatology from GFS history. |
 | `retrain_regimes.yml` | 01-01 / 04-01 / 07-01 / 10-01 02:00 | Re-trains KMeans model on latest ERA5 history. |
 
 ---
@@ -140,6 +145,9 @@ Automated self-pruning via `scripts/cleanup_repo.py`:
 |---|---|
 | `outputs/composite_signal.json` | Final integrated intelligence signal and confidence. |
 | `outputs/wind/drought.json` | Wind drought probabilities and peak-period risk alerts. |
+| `outputs/wind/solar_power_forecast.csv` | Daily solar generation forecasts across GFS and ECMWF models. |
+| `outputs/wind/solar_climo_30d.json` | Peak-hour and all-day solar capacity factor climatology. |
+| `outputs/wind/combined_drought.json` | Unified renewable drought risk, probability, and gas displacement metrics. |
 | `outputs/regimes/current_regime.json` | Current regime, persistence, and transition forecasts. |
 | `outputs/teleconnections/latest.json` | Z-scored indices and historical cold risk. |
 | `outputs/tdd_master.csv` | Master HDD/CDD timeseries across all models and horizons. |
