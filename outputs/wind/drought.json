@@ -7,9 +7,9 @@
   "worst_cf_pct": 4.5,
   "worst_anomaly_cf_pct": -32.8,
   "worst_model": "ECMWF",
-  "anomaly_today": 11.4,
-  "anomaly_today_peak": 1.1,
-  "anomaly_today_offpeak": 12.8,
+  "anomaly_today": 10.3,
+  "anomaly_today_peak": 0.7,
+  "anomaly_today_offpeak": 11.3,
   "peak_drought_today": true,
   "models_in_drought_today": [],
   "model_horizons": {
@@ -36,5 +36,5 @@
     "2026-03-27": 2.88,
     "2026-03-28": 2.65
   },
-  "timestamp": "2026-03-13T06:55:15Z"
+  "timestamp": "2026-03-13T08:01:41Z"
 }
