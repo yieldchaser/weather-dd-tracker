@@ -93,7 +93,8 @@ def cleanup_other_data():
     """Prunes other data directories like data/ecmwf, data/gefs, etc."""
     data_dirs = [
         "data/ecmwf", "data/ecmwf_ens", "data/ecmwf_aifs",
-        "data/gefs", "data/hrrr", "data/nam", "data/nbm", "data/cmc_ens"
+        "data/gefs", "data/hrrr", "data/nam", "data/nbm", "data/cmc_ens",
+        "data/gefs_subseasonal"
     ]
     
     for dname in data_dirs:

@@ -112,7 +112,7 @@ jobs:
         run: |
           python scripts/cleanup_repo.py
           echo "Final storage check:"
-          du -sh outputs/maps/ data/gefs_subseasonal/ log/ || true
+          du -sh outputs/maps/ data/gefs_subseasonal/
 
       - name: Commit pipeline state and AI model results
         run: |
