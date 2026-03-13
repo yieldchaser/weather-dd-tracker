@@ -181,4 +181,27 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 
 ---
 
+## 🔮 Planned Improvements
+
+### Power Grid Monitor (`grid.html`)
+- **Heat Rate Iso-Lines on Gas vs Coal Scatter** — overlay diagonal GW/Bcf switching lines on the gas vs coal chart to show implied heat rate of switching at any point. Transforms descriptive chart into actionable trading signal.
+- **Historical Wind Actuals Overlay** — overlay observed wind generation actuals on the forward wind forecast chart. Activates automatically once `wind_actuals_history.csv` accumulates 14+ days (~March 27).
+- **Model Skill Scoring** — track how each model's 5-day wind/HDD forecast verified against observed actuals. Rolling 30-day MAE per model displayed on dashboard.
+- **LNG Export Tracker** — track LNG feedgas demand (~15+ Bcf/d) as a competing demand signal alongside power burn.
+- **Production vs Demand Balance** — daily supply/demand balance showing surplus/deficit, tying all signals together.
+
+### Weather Desk (`index.html`)
+- **Polar Vortex Regime Scoring Fix** — strong polar vortex is bearish for gas demand (locks cold air in Arctic) but currently scores as bullish. Fix regime label → signal mapping.
+- **Weather Desk Full Review** — comprehensive audit and improvement of all 9 intelligence systems once Power Grid work is complete.
+
+### Storage & Production Dashboard (Planned Separate Page)
+- **EIA Storage Actuals vs Model-Implied Withdrawal** — ground truth feedback loop validating whether HDD signals moved the market correctly.
+- **Production tracker** — Appalachian, Permian, Haynesville basin-level production vs prior year.
+- **Supply/demand balance sheet** — integrated daily Bcf/d supply vs demand with surplus/deficit signal.
+
+### Infrastructure
+- **Git history size reduction** — implement `git filter-repo` to squash old large GRIB files from git history, reducing clone size.
+
+---
+
 *Built with Python, xarray, scikit-learn, PapaParse, Chart.js, GitHub Actions, and GitHub Pages.*
