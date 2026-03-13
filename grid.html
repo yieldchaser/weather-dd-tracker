@@ -1357,6 +1357,14 @@
 
         function updateLoadGasChart() {
             if (!rawThermalData || rawThermalData.length < 7) return;
+            
+            const validRows = rawThermalData.filter(r => r.load_mw != null && r.load_mw > 0);
+            if (validRows.length === 0) {
+                document.getElementById("load-gas-msg").textContent = "Awaiting load data — check back after next pipeline run.";
+                document.getElementById("load-gas-msg").style.display = 'block';
+                return;
+            }
+
             const labels = rawThermalData.map(r => r.date);
             const load = rawThermalData.map(r => r.load_mw / 1000);
             const gas = rawThermalData.map(r => r.natural_gas_mw / 1000);
@@ -1466,7 +1474,8 @@
 
                         // ISO Bar
                         const latestDate = gridData[0].date;
-                        const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL');
+                        const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL' && r.natural_gas_mw != null);
+                        
                         if (isos.length > 0) {
                             document.getElementById("iso-bar-msg").style.display = 'none';
                             let ctx = document.getElementById('isoBarChart').getContext('2d');
@@ -1479,6 +1488,9 @@
                                 },
                                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
                             });
+                        } else {
+                            document.getElementById("iso-bar-msg").textContent = "Awaiting regional ISO data — check back after next pipeline run.";
+                            document.getElementById("iso-bar-msg").style.display = 'block';
                         }
                     } else {
                         document.getElementById("iso-bar-msg").textContent = "Awaiting first pipeline run — check back soon.";
