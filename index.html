@@ -1834,7 +1834,10 @@
                     sig.includes('BEAR') ? 'bearish-text' :
                         sig.includes('BULL') ? 'bullish-text' : ''
                 );
-                document.getElementById('ib-components').innerHTML = components.map(c => '&#8226; ' + c).join('<br>');
+                document.getElementById('ib-components').innerHTML = components.map(c => {
+                    const label = typeof c === 'object' ? c.name : c;
+                    return '&#8226; ' + label;
+                }).join('<br>');
                 document.getElementById('intel-banner').classList.add('visible');
             }
 
