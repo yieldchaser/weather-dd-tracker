@@ -109,6 +109,12 @@ def fetch_live_grid():
         
         # Process Load
         load_df["load_mw"] = pd.to_numeric(load_df["value"], errors='coerce')
+        # Log the latest available non-null load for this ISO
+        latest_load = load_df.dropna(subset=["load_mw"]).sort_values("period", ascending=False)
+        if not latest_load.empty:
+            print(f"  [LOAD] {ISO_DISPLAY[iso_code]}: {round(latest_load.iloc[0]['load_mw'])} MW")
+        else:
+            print(f"  [LOAD] {ISO_DISPLAY[iso_code]}: NO DATA RECEIVED")
         load_hourly = load_df[["period", "load_mw"]]
         
         # Merge Hourly
@@ -195,12 +201,33 @@ def fetch_live_grid():
     # Add National to top
     all_iso_output_rows.insert(0, nat_row)
     
-    # Final CSV Write
-    out_df = pd.DataFrame(all_iso_output_rows)
+    # --- APPEND AND ROLL ---
+    new_df = pd.DataFrame(all_iso_output_rows)
     cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "nuclear_mw", "load_mw", "total_thermal_mw", "gas_pct_thermal", "gas_pct_load", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
-    out_df = out_df[[c for c in cols if c in out_df.columns]]
-    out_df.to_csv(OUTPUT_FILE, index=False)
-    print(f"[OK] Saved {len(all_iso_output_rows)} rows (ISOs + NATIONAL) to {OUTPUT_FILE}")
+    new_df = new_df[[c for c in cols if c in new_df.columns]]
+    
+    if OUTPUT_FILE.exists():
+        try:
+            old_df = pd.read_csv(OUTPUT_FILE)
+            # Merge and Deduplicate by date + iso
+            combined = pd.concat([old_df, new_df], ignore_index=True)
+            combined = combined.drop_duplicates(subset=["date", "iso"], keep="last")
+            
+            # Rolling 35-day window per ISO (National included)
+            # Convert to datetime for sorting and filtering
+            combined["date_dt"] = pd.to_datetime(combined["date"])
+            cutoff = combined["date_dt"].max() - datetime.timedelta(days=35)
+            combined = combined[combined["date_dt"] > cutoff].sort_values(["date_dt", "iso"])
+            
+            # Drop helper column and save
+            combined.drop(columns=["date_dt"]).to_csv(OUTPUT_FILE, index=False)
+            print(f"[OK] Appended/Cleaned {OUTPUT_FILE} (35-day rolling window)")
+        except Exception as e:
+            print(f"[ERR] Grid append failed: {e}")
+            new_df.to_csv(OUTPUT_FILE, index=False)
+    else:
+        new_df.to_csv(OUTPUT_FILE, index=False)
+        print(f"[OK] Created initial {OUTPUT_FILE}")
 
     # Update history CSV
     update_wind_history(nat_row, all_iso_output_rows)

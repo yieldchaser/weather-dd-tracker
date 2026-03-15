@@ -261,24 +261,32 @@ def fetch_forecasts():
             
             # PART 1: GFS Ensemble Spread Calculation
             if model == "GFS_CFS":
-                member_cols = [c for c in hourly_data.keys() if c.startswith(f"{target_var}_member")]
-                if member_cols:
-                    # Create a temporary DF for members to compute quantiles
-                    member_data = {}
-                    for col in member_cols:
-                        member_data[col] = hourly_data[col]
-                    m_df = pd.DataFrame(member_data)
-                    
-                    # Ensure alignment with mean times
-                    m_p10_ws = m_p10_ws = m_df.quantile(0.10, axis=1)
-                    m_p90_ws = m_df.quantile(0.90, axis=1)
-                    
-                    df["ws_p10"] = m_p10_ws
-                    df["ws_p90"] = m_p90_ws
-                    df["cf_p10"] = df["ws_p10"].apply(wind_power_curve)
-                    df["cf_p90"] = df["ws_p90"].apply(wind_power_curve)
-                    df["gw_p10"] = df["cf_p10"] * node[4]
-                    df["gw_p90"] = df["cf_p90"] * node[4]
+                try:
+                    member_cols = [c for c in hourly_data.keys() if c.startswith(f"{target_var}_member")]
+                    if member_cols:
+                        # Create a temporary DF for members to compute quantiles
+                        member_data = {}
+                        for col in member_cols:
+                            member_data[col] = hourly_data[col]
+                        m_df = pd.DataFrame(member_data)
+                        
+                        # Ensure alignment with mean times
+                        m_p10_ws = m_df.quantile(0.10, axis=1)
+                        m_p90_ws = m_df.quantile(0.90, axis=1)
+                        
+                        df["ws_p10"] = m_p10_ws
+                        df["ws_p90"] = m_p90_ws
+                        df["cf_p10"] = df["ws_p10"].apply(wind_power_curve)
+                        df["cf_p90"] = df["ws_p90"].apply(wind_power_curve)
+                        df["gw_p10"] = df["cf_p10"] * node[4]
+                        df["gw_p90"] = df["cf_p90"] * node[4]
+                    else:
+                        df["gw_p10"] = None
+                        df["gw_p90"] = None
+                except Exception as e:
+                    logging.warning(f"Ensemble member fetch/process failed for {node[0]}: {e}")
+                    df["gw_p10"] = None
+                    df["gw_p90"] = None
 
             node_dfs.append(df)
 

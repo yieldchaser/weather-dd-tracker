@@ -88,23 +88,19 @@ def fetch_gas_burn_history():
     # Deduplication and Append logic
     if OUTPUT_FILE.exists():
         existing_df = pd.read_csv(OUTPUT_FILE)
-        # Ensure date column is string for comparison
-        existing_df['date'] = existing_df['date'].astype(str)
-        out_df['date'] = out_df['date'].astype(str)
+        existing_dates = set(existing_df['date'].astype(str))
         
-        new_data = out_df[~out_df['date'].isin(existing_df['date'])]
+        new_data = out_df[~out_df['date'].astype(str).isin(existing_dates)]
         if not new_data.empty:
             final_df = pd.concat([existing_df, new_data], ignore_index=True)
             final_df.to_csv(OUTPUT_FILE, index=False)
-            print(f"  [OK] Appended {len(new_data)} new rows to {OUTPUT_FILE}")
+            print(f"  [OK] Appended {len(new_data)} new rows (backfill) to {OUTPUT_FILE}")
         else:
             print(f"  [INFO] No new dates to append to {OUTPUT_FILE}")
     else:
-        # Bootstrap: Create new file
-        # Note: Historical backfill can be done manually if needed.
         Path("outputs").mkdir(parents=True, exist_ok=True)
         out_df.to_csv(OUTPUT_FILE, index=False)
-        print(f"  [OK] Created {OUTPUT_FILE} with {len(out_df)} initial rows.")
+        print(f"  [OK] Created {OUTPUT_FILE} with {len(out_df)} rows.")
 
 if __name__ == "__main__":
     fetch_gas_burn_history()

@@ -765,35 +765,30 @@
                 }
 
                 try {
-                    let vsRes = await fetch(basePath + "vs_normal.csv" + ts);
-                    if (vsRes.ok) {
-                        let vsText = await vsRes.text();
-                        let vsData = Papa.parse(vsText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                    let tddRes = await fetch(basePath + "tdd_master.csv" + ts);
+                    if (tddRes.ok) {
+                        let tddText = await tddRes.text();
+                        let tddData = Papa.parse(tddText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
                         
-                        let runsECMWF = vsData.filter(r => r.model === 'ECMWF').map(r => r.run_id);
-                        let targetModel = 'ECMWF';
+                        // Filter for latest GFS (Operational) run
+                        let runsGFS = tddData.filter(r => r.model === 'GFS').map(r => r.run_id);
                         let targetRun = null;
-                        if (runsECMWF.length > 0) {
-                            targetRun = runsECMWF.sort().reverse()[0];
-                        } else {
-                            let runsGFS = vsData.filter(r => r.model === 'GFS').map(r => r.run_id);
-                            if (runsGFS.length > 0) {
-                                targetModel = 'GFS';
-                                targetRun = runsGFS.sort().reverse()[0];
-                            }
+                        if (runsGFS.length > 0) {
+                            targetRun = runsGFS.sort().reverse()[0];
                         }
+                        
                         if (targetRun) {
-                            vsData.filter(r => r.model === targetModel && r.run_id === targetRun).forEach(r => {
+                            tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
                                 if (r.date) {
-                                    let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date.split(' ')[0]);
-                                    let hdd_gw = r[DD_FIELD] !== undefined ? r[DD_FIELD] : (r.hdd || null);
-                                    let norm_gw = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : (r.hdd_normal || null);
-                                    hddMap[dstr] = [hdd_gw, (hdd_gw !== null && norm_gw !== null) ? hdd_gw - norm_gw : null];
+                                    let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
+                                    let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
+                                    let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null; // Note: tdd_master might not have normals, using null fallback
+                                    hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
                                 }
                             });
                         }
                     }
-                } catch(e) { console.warn("vs_normal load failed", e); }
+                } catch(e) { console.warn("tdd_master load failed", e); }
 
                 if (rawWindData && rawWindData.length > 0) {
                     windSec.style.display = 'block';

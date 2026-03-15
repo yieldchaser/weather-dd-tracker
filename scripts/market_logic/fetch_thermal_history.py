@@ -20,46 +20,42 @@ def fetch_thermal_history():
         print("  [ERR] No NATIONAL row found in grid generation file.")
         return
 
-    # Extract Latest Row
-    latest = national_grid.iloc[-1]
-    
-    # Required Columns
+    # Process all available NATIONAL rows
+    all_rows = []
     required = ["natural_gas_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal"]
-    for col in required:
-        if col not in national_grid.columns:
-            print(f"  [WARN] Column {col} missing — backfilling with None")
-            national_grid[col] = None
+    
+    # Read existing history if any
+    existing_dates = set()
+    if OUTPUT_FILE.exists():
+        existing_dates = set(pd.read_csv(OUTPUT_FILE)['date'].astype(str))
 
-    # Prepare Data
-    out_row = {
-        "date": latest["date"],
-        "natural_gas_mw": latest["natural_gas_mw"],
-        "coal_mw": latest["coal_mw"],
-        "nuclear_mw": latest["nuclear_mw"],
-        "total_thermal_mw": latest["total_thermal_mw"],
-        "gas_pct_thermal": latest["gas_pct_thermal"]
-    }
+    for _, row in national_grid.iterrows():
+        d_str = str(row["date"])
+        if d_str in existing_dates:
+            continue
+            
+        # Ensure columns exist in this row
+        row_dict = {"date": d_str}
+        for col in required:
+            row_dict[col] = row.get(col)
+            
+        all_rows.append(row_dict)
     
-    out_df = pd.DataFrame([out_row])
+    if not all_rows:
+        print(f"  [INFO] No new dates to append to {OUTPUT_FILE}")
+        return
+
+    new_df = pd.DataFrame(all_rows)
     
-    # Deduplication and Append logic
     if OUTPUT_FILE.exists():
         existing_df = pd.read_csv(OUTPUT_FILE)
-        # Ensure date column is string for comparison
-        existing_df['date'] = existing_df['date'].astype(str)
-        out_row_date = str(latest["date"])
-        
-        if out_row_date in existing_df['date'].values:
-            print(f"  [INFO] Data for {out_row_date} already exists in {OUTPUT_FILE}")
-        else:
-            final_df = pd.concat([existing_df, out_df], ignore_index=True)
-            final_df.to_csv(OUTPUT_FILE, index=False)
-            print(f"  [OK] Appended {out_row_date} to {OUTPUT_FILE}")
+        final_df = pd.concat([existing_df, new_df], ignore_index=True)
+        final_df.to_csv(OUTPUT_FILE, index=False)
+        print(f"  [OK] Appended {len(all_rows)} new rows to {OUTPUT_FILE}")
     else:
-        # Create new file
         Path("outputs").mkdir(parents=True, exist_ok=True)
-        out_df.to_csv(OUTPUT_FILE, index=False)
-        print(f"  [OK] Created {OUTPUT_FILE} with initial data.")
+        new_df.to_csv(OUTPUT_FILE, index=False)
+        print(f"  [OK] Created {OUTPUT_FILE} with {len(all_rows)} rows.")
 
 if __name__ == "__main__":
     fetch_thermal_history()
