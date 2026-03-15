@@ -390,7 +390,7 @@ def main_logic():
             
     if not all_rows:
         logging.warning("No forecast data generated.")
-        return
+        return 0
         
     df_out = pd.DataFrame(all_rows)
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
@@ -401,7 +401,7 @@ def main_logic():
     
     if df_future.empty:
         logging.warning("No future days found for drought logic.")
-        return
+        return len(all_rows)
     
     # Calculate GFS spatial spread
     gfs_spread = {}
@@ -505,18 +505,24 @@ def main_logic():
     }
     
     safe_write_json(out_json, OUTPUT_JSON, required_keys=["drought_prob_16d", "worst_day"])
+    return len(all_rows)
 
 if __name__ == "__main__":
     import sys
     import pathlib
     script_name = pathlib.Path(__file__).stem
     try:
-        main_logic()
-        # On success, write health ok
-        health = {"script": __file__, "status": "ok", "timestamp": datetime.now(UTC).isoformat() + "Z"}
+        rows = main_logic()
+        status = "ok" if (rows and rows > 0) else "warning"
+        health = {
+            "script": __file__,
+            "status": status,
+            "rows": rows,
+            "timestamp": datetime.now(UTC).isoformat() + "Z"
+        }
         pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:
-            json.dump(health, f)
+            json.dump(health, f, indent=2)
     except Exception as e:
         print(f"[CRITICAL] {__file__} failed: {e}")
         import traceback

@@ -184,7 +184,7 @@ def fetch_live_grid():
         all_iso_output_rows.append(out_row)
 
     if not all_iso_output_rows:
-        return
+        return 0
 
     # --- NATIONAL AGGREGATION ---
     hourly_all = pd.concat(hourly_records)
@@ -200,7 +200,7 @@ def fetch_live_grid():
     matching_nat = nat_daily[nat_daily["date_only"] == latest_date_nat]
     if matching_nat.empty:
         print(f"  [WARN] No national aggregate available for {latest_date_nat}")
-        return
+        return len(all_iso_output_rows)
     nat_today = matching_nat.iloc[0].to_dict()
     
     # Trailing 30d for NATIONAL anomaly
@@ -264,6 +264,7 @@ def fetch_live_grid():
 
     # Update history CSV
     update_wind_history(nat_row, all_iso_output_rows)
+    return len(all_iso_output_rows)
 
 def update_wind_history(nat_row, out_rows):
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -293,8 +294,14 @@ if __name__ == "__main__":
     import pathlib
     script_name = pathlib.Path(__file__).stem
     try:
-        fetch_live_grid()
-        health = {"script": __file__, "status": "ok", "timestamp": datetime.datetime.now(pytz.UTC).isoformat() + "Z"}
+        rows = fetch_live_grid()
+        status = "ok" if (rows and rows > 0) else "warning"
+        health = {
+            "script": __file__,
+            "status": status,
+            "rows": rows,
+            "timestamp": datetime.datetime.now(pytz.UTC).isoformat() + "Z"
+        }
         pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:
             json.dump(health, f)
