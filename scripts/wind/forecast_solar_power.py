@@ -76,9 +76,9 @@ SOLAR_NODES = [
 TOTAL_SOLAR_GW = sum(n[4] for n in SOLAR_NODES)  # ~48 GW
 
 SOLAR_MODELS = {
-    "GFS":        {"om_name": "gfs_seamless",  "horizon_days": 16},
-    "ECMWF":      {"om_name": "ecmwf_ifs025",  "horizon_days": 10},
-    "ECMWF_AIFS": {"om_name": "ecmwf_aifs025", "horizon_days": 10},
+    "GFS":   {"om_name": "gfs_seamless", "horizon_days": 16},
+    "ECMWF": {"om_name": "ecmwf_ifs025", "horizon_days": 10},
+    # ECMWF AIFS omitted: AI model does not publish solar radiation variables
 }
 
 PERFORMANCE_RATIO = 0.75     # system losses (inverter, wiring, temp)

@@ -31,7 +31,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata matplotlib openpyxl kaggle cartopy imageio pytz
+          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata matplotlib openpyxl kaggle cartopy imageio pytz scipy
 
       - name: Create required directories
         run: |
