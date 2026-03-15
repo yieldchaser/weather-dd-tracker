@@ -2,7 +2,7 @@
 
 > **Live dashboard:** [yieldchaser.github.io/weather-dd-tracker](https://yieldchaser.github.io/weather-dd-tracker)
 
-An automated, production-hardened weather analytics platform purpose-built for **natural gas market trading**. The system tracks gas-weighted Degree Days (HDD/CDD/TDD), multi-model consensus, weather regime classifications, and wind generation anomalies — updated automatically 4× per day via GitHub Actions and hosted on GitHub Pages.
+An automated, production-hardened weather analytics platform purpose-built for **natural gas market analysis**. The system tracks gas-weighted Degree Days (HDD/CDD/TDD), multi-model consensus, weather regime classifications, and wind generation anomalies — updated automatically 4× per day via GitHub Actions and hosted on GitHub Pages.
 
 ---
 
