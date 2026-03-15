@@ -1024,13 +1024,11 @@
 
             const cfCol = selectedSolarPeriod === 'all' ? 'national_cf_pct' : `national_cf_${selectedSolarPeriod}_pct`;
             let dataGFS = [], dataECMWF = [], dataClimo = [], dataHDD = [];
-            let dataECMWFAIFS = [];
 
             dates.forEach(d => {
                 const getGW = (m) => (byModel[m]&&byModel[m][d]) ? (byModel[m][d][cfCol]/100 * TOTAL_SOLAR_GW) : null;
                 dataGFS.push(getGW('GFS'));
                 dataECMWF.push(getGW('ECMWF'));
-                dataECMWFAIFS.push(getGW('ECMWF_AIFS'));
                 
                 let mm_dd = d.substring(5, 10);
                 let c = solarClimoJSON[mm_dd] || solarClimoJSON["02-28"] || {all: 0.18, peak: 0.3};
@@ -1047,7 +1045,6 @@
                     datasets: [
                         { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: 'ECMWF AIFS', data: dataECMWFAIFS, borderColor: '#ab47bc', borderDash: [2,2], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: false }
                     ]
