@@ -1639,6 +1639,9 @@
                 document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('app').style.display = 'block';
+                // Charts rendered while #app was display:none have zero-size canvases — resize to fix.
+                if (windChart) windChart.resize();
+                if (solarChart) solarChart.resize();
 
             } catch (e) {
                 console.error(e);
