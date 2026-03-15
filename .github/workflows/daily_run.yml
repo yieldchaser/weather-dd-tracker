@@ -27,10 +27,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
-          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata matplotlib openpyxl kaggle cartopy imageio
+          pip install cfgrib xarray pandas eccodes requests numpy ecmwf-opendata matplotlib openpyxl kaggle cartopy imageio pytz
 
       - name: Create required directories
         run: |
@@ -53,6 +54,7 @@ jobs:
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           EIA_KEY: ${{ secrets.EIA_KEY }}
         run: |
+          python scripts/market_logic/fetch_live_grid.py
           python scripts/poll_models.py
           python scripts/generate_maps.py || echo "[WARN] Map generation failed."
           python scripts/market_logic/fetch_gas_burn_history.py
