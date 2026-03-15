@@ -83,9 +83,12 @@ def fetch_gas_burn_history():
         print("  [ERR] No GFS data found in tdd_master.csv.")
         return
 
-    # Get the latest run_id for each date in GFS TDD
+    # For each date, pick the latest GFS run that has valid GW temperature data.
+    # Recent runs may have empty mean_temp_gw (gas-weight grid not applied), so
+    # fall back to the last run where the value is present.
     gfs_tdd = gfs_tdd.sort_values(['date', 'run_id'], ascending=[True, False])
-    gfs_tdd = gfs_tdd.drop_duplicates(subset=['date'], keep='first')
+    gfs_tdd_valid = gfs_tdd.dropna(subset=['mean_temp_gw'])
+    gfs_tdd = gfs_tdd_valid.drop_duplicates(subset=['date'], keep='first')
 
     # Join on Date
     combined = pd.merge(
@@ -111,18 +114,15 @@ def fetch_gas_burn_history():
     # Final Selection
     out_df = combined[['date', 'gas_burn_bcfd', 'mean_temp_gw', 'hdd_gw', 'cdd_gw', 'year', 'day_of_year']]
 
-    # Deduplication and Append logic
+    # Upsert logic: new rows override existing rows for the same date
+    # (fixes cases where old rows had null gas_burn_bcfd or null temperature).
     if OUTPUT_FILE.exists():
         existing_df = pd.read_csv(OUTPUT_FILE)
-        existing_dates = set(existing_df['date'].astype(str))
-        
-        new_data = out_df[~out_df['date'].astype(str).isin(existing_dates)]
-        if not new_data.empty:
-            final_df = pd.concat([existing_df, new_data], ignore_index=True)
-            safe_write_csv(final_df, OUTPUT_FILE)
-            print(f"  [OK] Appended {len(new_data)} new rows (backfill) to {OUTPUT_FILE}")
-        else:
-            print(f"  [INFO] No new dates to append to {OUTPUT_FILE}")
+        # Drop existing rows for dates we're about to write (prefer fresh data)
+        existing_df = existing_df[~existing_df['date'].astype(str).isin(out_df['date'].astype(str))]
+        final_df = pd.concat([existing_df, out_df], ignore_index=True).sort_values('date')
+        safe_write_csv(final_df, OUTPUT_FILE)
+        print(f"  [OK] Upserted {len(out_df)} rows into {OUTPUT_FILE} ({len(final_df)} total)")
     else:
         Path("outputs").mkdir(parents=True, exist_ok=True)
         safe_write_csv(out_df, OUTPUT_FILE)

@@ -492,7 +492,7 @@
                 </div>
             </div>
 
-            <!-- REAL-TIME GRID MONITOR -->
+            <!-- REAL-TIME GRID MONITOR (ERCOT) -->
             <h2 class="section-title" style="margin-top: 25px;">Real-Time Grid Monitor (ERCOT)</h2>
             <div class="summary-row">
                 <div class="summary-card">
@@ -513,7 +513,7 @@
                 </div>
                 <div class="summary-card">
                     <h3>National Load (MW)</h3>
-                    <div class="val" id="national-load">--</div>
+                    <div class="val" id="national-load-ercot">--</div>
                 </div>
             </div>
 
@@ -1430,7 +1430,7 @@
 
         function updateOutageChart() {
             if (!rawOutageData || rawOutageData.length < 2) {
-                document.getElementById("outage-msg").textContent = "Accumulating outage data (7+ days required)...";
+                document.getElementById("outage-msg").textContent = "Accumulating outage data — check back after next pipeline run.";
                 document.getElementById("outage-msg").style.display = 'block';
                 return;
             }
@@ -1608,6 +1608,7 @@
                         let natGrid = nationalGrid[nationalGrid.length - 1];
                         document.getElementById('national-gas-burn').innerText = formatNum(natGrid.natural_gas_mw, 0);
                         document.getElementById('national-wind-gen').innerText = formatNum(natGrid.wind_mw, 0);
+                        document.getElementById('national-load-ercot').innerText = formatNum(natGrid.load_mw, 0);
 
                         let natAnomalyEl = document.getElementById('national-wind-anomaly');
                         natAnomalyEl.innerText = formatNum(natGrid.wind_anomaly_mw, 0, true);
