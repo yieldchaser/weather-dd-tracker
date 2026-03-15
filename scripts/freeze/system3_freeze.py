@@ -6,8 +6,34 @@ import pandas as pd
 import numpy as np
 import sys
 from time import sleep
+from pathlib import Path # Added for health reporting
+
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
+
+def safe_write_csv(df, path, min_rows=1):
+    """Only write if dataframe has meaningful data."""
+    if df is None or len(df) < min_rows:
+        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        return False
+    df.to_csv(path, index=False)
+    print(f"[OK] Written {path} ({len(df)} rows)")
+    return True
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        print(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"[OK] Written {path}")
+    return True
 
 # Try to import required libraries. If missing during execution, they will surface errors.
 try:
@@ -261,10 +287,29 @@ def run_system3():
             'active_alerts': []
         }
     
-    with open(out_file, 'w') as f:
-        json.dump(output, f, indent=2)
+    safe_write_json(output, out_file)
         
     logging.info(f"System 3 completed.")
 
 if __name__ == "__main__":
-    run_system3()
+    script_name = Path(__file__).stem
+    try:
+        run_system3()
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.utcnow().isoformat() + "Z"}
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+    except Exception as e:
+        print(f"[CRITICAL] {__file__} failed: {e}")
+        import traceback
+        traceback.print_exc()
+        health = {
+            "script": __file__,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+        sys.exit(1)

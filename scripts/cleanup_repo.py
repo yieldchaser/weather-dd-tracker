@@ -8,6 +8,7 @@ PROTECTED_PATHS = [
     "outputs/composite_signal.json",
     "outputs/composite_bull_bear_signal.csv",
     "outputs/teleconnections/",
+    "outputs/health",
     "outputs/regimes/",
     "outputs/wind/",
     "outputs/freeze/",

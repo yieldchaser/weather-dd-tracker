@@ -1,7 +1,34 @@
+from pathlib import Path
 import os
 import json
 import logging
+import sys
 from datetime import datetime, timedelta, UTC
+
+def safe_write_csv(df, path, min_rows=1):
+    """Only write if dataframe has meaningful data."""
+    if df is None or len(df) < min_rows:
+        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        return False
+    df.to_csv(path, index=False)
+    print(f"[OK] Written {path} ({len(df)} rows)")
+    return True
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        print(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    Path(path).parent.mkdir(parents=True, exist_ok=True) # Ensure directory exists
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"[OK] Written {path}")
+    return True
 
 logging.basicConfig(level=logging.INFO)
 
@@ -238,9 +265,8 @@ def compute_composite_weather_signal():
         },
     }
 
-    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
-    with open(OUTPUT_FILE, "w") as f:
-        json.dump(output, f, indent=2)
+    # Save a JSON manifest for the UI
+    safe_write_json(output, OUTPUT_FILE, required_keys=["composite_score", "signal", "confidence"])
 
     logging.info(
         f"[Composite] Signal: {signal} ({net_score:+.2f}) | "

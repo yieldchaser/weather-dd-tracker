@@ -8,6 +8,30 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+def safe_write_csv(df, path, min_rows=1):
+    """Only write if dataframe has meaningful data."""
+    if df is None or len(df) < min_rows:
+        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        return False
+    df.to_csv(path, index=False)
+    print(f"[OK] Written {path} ({len(df)} rows)")
+    return True
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        print(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"[OK] Written {path}")
+    return True
+
 def fetch_cpc_csv(index_name, url):
     try:
         if url.endswith('.txt'):
@@ -57,8 +81,11 @@ def run_system1():
             recent = df.tail(30).reset_index(drop=True)
             
             if len(recent) > 0:
-                current_val = recent['value'].iloc[-1]
-                prev_val = recent['value'].iloc[-7] if len(recent) >= 7 else current_val
+                current_val = recent['value'].iloc[-1] if not recent.empty else None
+                prev_val = recent['value'].iloc[-7] if len(recent) >= 7 else recent['value'].iloc[0] if not recent.empty else None
+                
+                if current_val is None:
+                    continue
                 
                 # Z-score normalize against full history so all indices are on the same scale.
                 # AO/NAO/PNA from CPC are already ~normalized, but EPO from PSL is raw
@@ -172,10 +199,33 @@ def run_system1():
 
     out_file = os.path.join(os.path.dirname(__file__), '..', '..', 'outputs', 'teleconnections', 'latest.json')
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
-    with open(out_file, 'w') as f:
-        json.dump(output, f, indent=2)
+    safe_write_json(output, out_file, required_keys=['ao', 'nao', 'composite_score'])
     
     logging.info(f"System 1 completed. Cold Risk: {score}, Analogs: {analog_years}")
 
 if __name__ == "__main__":
-    run_system1()
+    import sys
+    import pathlib
+    script_name = pathlib.Path(__file__).stem
+    try:
+        run_system1()
+        # On success, write health ok
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.now(UTC).isoformat() + "Z"}
+        pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+    except Exception as e:
+        print(f"[CRITICAL] {__file__} failed: {e}")
+        import traceback
+        traceback.print_exc()
+        # Preserve last good state
+        health = {
+            "script": __file__,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.now(UTC).isoformat() + "Z"
+        }
+        pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+        sys.exit(1)

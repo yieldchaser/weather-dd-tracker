@@ -1,3 +1,4 @@
+```python
 import os
 import sys
 import json
@@ -5,6 +6,24 @@ import requests
 import pandas as pd
 from pathlib import Path
 from datetime import date
+import datetime # New import
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        print(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"[OK] Written {path}")
+    return True
+
 sys.path.insert(0, str(Path(__file__).parent))
 from season_utils import active_metric, metric_label
 
@@ -89,7 +108,7 @@ def _get_classification(model):
     return "AI"
 
 
-def send():
+def main(): # Renamed send() to main()
     token   = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -641,6 +660,25 @@ def send():
 
     msg = "\n".join(lines).strip()
     
+    # Pattern D: Health Check
+    health_alerts = []
+    health_dir = Path("outputs/health")
+    if health_dir.exists():
+        for health_file in health_dir.glob("*.json"):
+            try:
+                with open(health_file, "r") as f:
+                    health_status = json.load(f)
+                    if health_status.get("status") == "failed":
+                        script_name = health_status.get("script", health_file.stem)
+                        error = health_status.get("error", "Unknown error")
+                        health_alerts.append(f"⚠️ {Path(script_name).name} FAILED: {error}")
+            except Exception:
+                pass
+    
+    if health_alerts:
+        alert_text = "🚨 *SYSTEM HEALTH ALERTS* 🚨\n" + "\n".join(health_alerts) + "\n\n"
+        msg = alert_text + msg # Changed 'message' to 'msg' to match variable name
+
     if token and chat_id:
         try:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -653,4 +691,25 @@ def send():
 
 
 if __name__ == "__main__":
-    send()
+    script_name = Path(__file__).stem
+    try:
+        main() # Changed send() to main()
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.datetime.utcnow().isoformat() + "Z"}
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+    except Exception as e:
+        print(f"[CRITICAL] {__file__} failed: {e}")
+        import traceback
+        traceback.print_exc()
+        health = {
+            "script": __file__,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+        }
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+        sys.exit(1)
+```

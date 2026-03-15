@@ -5,6 +5,33 @@ Calculates gas peaker utilization proxy based on peak vs off-peak hourly ratios.
 """
 import pandas as pd
 from pathlib import Path
+import json
+import sys
+import datetime
+
+def safe_write_csv(df, path, min_rows=1):
+    """Only write if dataframe has meaningful data."""
+    if df is None or len(df) < min_rows:
+        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        return False
+    df.to_csv(path, index=False)
+    print(f"[OK] Written {path} ({len(df)} rows)")
+    return True
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        print(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"[OK] Written {path}")
+    return True
 
 INPUT_FILE = Path("outputs/hourly_grid_data.csv")
 OUTPUT_FILE = Path("outputs/peaker_history.csv")
@@ -61,9 +88,9 @@ def calculate_peaker_proxy():
             old_df = pd.read_csv(OUTPUT_FILE)
             combined = pd.concat([old_df, new_df]).drop_duplicates(subset=["date"], keep="first")
             combined.sort_values("date", inplace=True)
-            combined.to_csv(OUTPUT_FILE, index=False)
+            safe_write_csv(combined, OUTPUT_FILE)
         else:
-            new_df.to_csv(OUTPUT_FILE, index=False)
+            safe_write_csv(new_df, OUTPUT_FILE)
             
         print(f"[OK] Saved peaker history -> {OUTPUT_FILE}")
         
@@ -71,4 +98,24 @@ def calculate_peaker_proxy():
         print(f"[ERR] peaker_proxy calculation failed: {e}")
 
 if __name__ == "__main__":
-    calculate_peaker_proxy()
+    script_name = Path(__file__).stem
+    try:
+        calculate_peaker_proxy()
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.datetime.utcnow().isoformat() + "Z"}
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+    except Exception as e:
+        print(f"[CRITICAL] {__file__} failed: {e}")
+        import traceback
+        traceback.print_exc()
+        health = {
+            "script": __file__,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+        }
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+        sys.exit(1)

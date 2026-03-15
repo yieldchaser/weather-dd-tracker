@@ -164,6 +164,17 @@ Automated self-pruning via `scripts/cleanup_repo.py`:
 
 ---
 
+## 🛠️ Reliability & Health Monitoring
+
+The system implements a multi-layered hardening strategy to ensure high availability and data integrity:
+
+- **State-Preserving Guards**: Every pipeline script is wrapped in a top-level exception handler. If a script fails (e.g., API timeout), it captures the error, alerts the user, and **halts before overwriting data**, ensuring the dashboard always displays the "last known good" state.
+- **Centralized Health Status**: Scripts report their status to `outputs/health/{script_name}.json`. These logs track success/failure, timestamps, and specific error messages.
+- **Telegram Health Alerts**: The messaging system (`send_telegram.py`) scans all health status files before dispatching alerts. Any system failures are prepended to the top of the message: `🚨 SYSTEM HEALTH ALERTS 🚨`.
+- **Safe-Write Wrappers**: Replaced standard file-writing with custom logic that validates dataframes (e.g., minimum row counts) before committing to disk, preventing "empty file" corruption.
+
+---
+
 ## 📊 Power Grid Charts
 The Power Grid Monitor dashboard consumes several rolling history files to visualize market relationships:
 - **Wind Generation Forecast**: Multi-model outlook for the next 16 days, including **GFS Ensemble Spread Bands** (P10/P90) and active drought alert markers.
@@ -193,6 +204,7 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 | `outputs/peaker_history.csv` | Daily peak vs off-peak gas generation ratio, peaker utilization proxy. |
 | `outputs/hourly_grid_data.csv` | Intraday hourly national gas generation, passed to peaker proxy script. |
 | `outputs/vs_normal.csv` | Comparative data for forecasts vs. 10y and 30y normals. |
+| `outputs/health/` | JSON status files for every pipeline script, used for health monitoring and Telegram alerts. |
 
 ---
 

@@ -12,6 +12,31 @@ import requests
 import pandas as pd
 import datetime
 import pytz
+import json
+
+def safe_write_csv(df, path, min_rows=1):
+    """Only write if dataframe has meaningful data."""
+    if df is None or len(df) < min_rows:
+        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        return False
+    df.to_csv(path, index=False)
+    print(f"[OK] Written {path} ({len(df)} rows)")
+    return True
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        print(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"[OK] Written {path}")
+    return True
 from pathlib import Path
 
 # Outputs
@@ -110,9 +135,8 @@ def fetch_live_grid():
         # Process Load
         load_df["load_mw"] = pd.to_numeric(load_df["value"], errors='coerce')
         # Log the latest available non-null load for this ISO
-        latest_load = load_df.dropna(subset=["load_mw"]).sort_values("period", ascending=False)
         if not latest_load.empty:
-            print(f"  [LOAD] {ISO_DISPLAY[iso_code]}: {round(latest_load.iloc[0]['load_mw'])} MW")
+            print(f"  [LOAD] {ISO_DISPLAY[iso_code]}: {round(latest_load['load_mw'].iloc[0])} MW")
         else:
             print(f"  [LOAD] {ISO_DISPLAY[iso_code]}: NO DATA RECEIVED")
         load_hourly = load_df[["period", "load_mw"]]
@@ -128,7 +152,11 @@ def fetch_live_grid():
         
         # Get Latest Date (Anomaly Logic)
         latest_date = daily["date_only"].max()
-        today_row = daily[daily["date_only"] == latest_date].iloc[0].to_dict()
+        matching_rows = daily[daily["date_only"] == latest_date]
+        if matching_rows.empty:
+            print(f"  [WARN] No data for {latest_date} in {iso_code} — skipping")
+            continue
+        today_row = matching_rows.iloc[0].to_dict()
         
         # Anomaly logic (30d trailing)
         hist_wind = daily[daily["date_only"] != latest_date]["wind_mw"].mean()
@@ -164,11 +192,15 @@ def fetch_live_grid():
     national_hourly["date_only"] = pd.to_datetime(national_hourly["period"]).dt.strftime("%Y-%m-%d")
     
     # Save hourly data for peaker script
-    hourly_all.to_csv("outputs/hourly_grid_data.csv", index=False)
+    safe_write_csv(hourly_all, "outputs/hourly_grid_data.csv")
     
     nat_daily = national_hourly.groupby("date_only").mean(numeric_only=True).reset_index()
     latest_date_nat = nat_daily["date_only"].max()
-    nat_today = nat_daily[nat_daily["date_only"] == latest_date_nat].iloc[0].to_dict()
+    matching_nat = nat_daily[nat_daily["date_only"] == latest_date_nat]
+    if matching_nat.empty:
+        print(f"  [WARN] No national aggregate available for {latest_date_nat}")
+        return
+    nat_today = matching_nat.iloc[0].to_dict()
     
     # Trailing 30d for NATIONAL anomaly
     hist_wind_nat = nat_daily[nat_daily["date_only"] != latest_date_nat]["wind_mw"].mean()
@@ -220,13 +252,13 @@ def fetch_live_grid():
             combined = combined[combined["date_dt"] > cutoff].sort_values(["date_dt", "iso"])
             
             # Drop helper column and save
-            combined.drop(columns=["date_dt"]).to_csv(OUTPUT_FILE, index=False)
+            safe_write_csv(combined.drop(columns=["date_dt"]), OUTPUT_FILE)
             print(f"[OK] Appended/Cleaned {OUTPUT_FILE} (35-day rolling window)")
         except Exception as e:
             print(f"[ERR] Grid append failed: {e}")
             new_df.to_csv(OUTPUT_FILE, index=False)
     else:
-        new_df.to_csv(OUTPUT_FILE, index=False)
+        safe_write_csv(new_df, OUTPUT_FILE)
         print(f"[OK] Created initial {OUTPUT_FILE}")
 
     # Update history CSV
@@ -252,9 +284,30 @@ def update_wind_history(nat_row, out_rows):
             old_df = pd.read_csv(HISTORY_FILE)
             if new_data["date"] in old_df["date"].astype(str).values: return
             combined = pd.concat([old_df, new_df], ignore_index=True)
-            combined.to_csv(HISTORY_FILE, index=False)
+            safe_write_csv(combined, HISTORY_FILE)
         except Exception as e: print(f"[ERR] History update failed: {e}")
-    else: new_df.to_csv(HISTORY_FILE, index=False)
+    else: safe_write_csv(new_df, HISTORY_FILE)
 
 if __name__ == "__main__":
-    fetch_live_grid()
+    import pathlib
+    script_name = pathlib.Path(__file__).stem
+    try:
+        fetch_live_grid()
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.datetime.now(pytz.UTC).isoformat() + "Z"}
+        pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+    except Exception as e:
+        print(f"[CRITICAL] {__file__} failed: {e}")
+        import traceback
+        traceback.print_exc()
+        health = {
+            "script": __file__,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.datetime.now(pytz.UTC).isoformat() + "Z"
+        }
+        pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+        sys.exit(1)

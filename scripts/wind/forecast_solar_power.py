@@ -18,6 +18,30 @@ from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+def safe_write_csv(df, path, min_rows=1):
+    """Only write if dataframe has meaningful data."""
+    if df is None or len(df) < min_rows:
+        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        return False
+    df.to_csv(path, index=False)
+    print(f"[OK] Written {path} ({len(df)} rows)")
+    return True
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        print(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"[OK] Written {path}")
+    return True
+
 SOLAR_NODES = [
     # (name, lat, lon, region, installed_gw)
     ("S_TX_PERMIAN",    31.5, -102.5, "ERCOT",  4.0),
@@ -129,12 +153,15 @@ def build_solar_climatology():
         }
         
     os.makedirs(os.path.dirname(CLIMO_PATH), exist_ok=True)
-    with open(CLIMO_PATH, "w") as f:
-        json.dump(climo, f, indent=2)
+    safe_write_json(climo, CLIMO_PATH)
     logging.info(f"Rebuilt climo with {len(climo)} days.")
     return climo
 
 def run_forecast():
+    # Placeholder to keep existing function signature
+    return main_logic()
+
+def main_logic():
     # Load climo
     if os.path.exists(CLIMO_PATH):
         try:
@@ -218,7 +245,7 @@ def run_forecast():
     
     df_out = pd.DataFrame(all_rows)
     df_out = df_out[df_out["date"] >= utc_now.date().strftime("%Y-%m-%d")]
-    df_out.to_csv(OUTPUT_CSV, index=False)
+    safe_write_csv(df_out, OUTPUT_CSV)
     
     generate_combined_drought(df_out)
 
@@ -316,8 +343,31 @@ def generate_combined_drought(solar_df):
                 combined["solar_drought_prob_10d"] = None
         except: pass
 
-    with open(OUTPUT_JSON, "w") as f:
-        json.dump(combined, f, indent=2)
+    safe_write_json(combined, OUTPUT_JSON, required_keys=["wind_drought_prob_16d", "solar_drought_prob_10d"])
 
 if __name__ == "__main__":
-    run_forecast()
+    import sys
+    import pathlib
+    script_name = pathlib.Path(__file__).stem
+    try:
+        main_logic()
+        # On success, write health ok
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.now(UTC).isoformat() + "Z"}
+        pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+    except Exception as e:
+        print(f"[CRITICAL] {__file__} failed: {e}")
+        import traceback
+        traceback.print_exc()
+        # Preserve last good state
+        health = {
+            "script": __file__,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.now(UTC).isoformat() + "Z"
+        }
+        pathlib.Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+        sys.exit(1)

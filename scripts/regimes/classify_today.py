@@ -8,8 +8,35 @@ import numpy as np
 import xarray as xr
 import pickle
 import sys
+from pathlib import Path # Added for health reporting
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
+
+# Define safe_write_csv/json functions
+def safe_write_csv(df, path, min_rows=1):
+    """Only write if dataframe has meaningful data."""
+    if df is None or len(df) < min_rows:
+        logging.info(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        return False
+    df.to_csv(path, index=False)
+    logging.info(f"[OK] Written {path} ({len(df)} rows)")
+    return True
+
+def safe_write_json(data, path, required_keys=None):
+    """Only write if data has required keys and is non-empty."""
+    if not data:
+        logging.info(f"[SKIP] {path} — empty data, preserving last state")
+        return False
+    if required_keys:
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            logging.info(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            return False
+    os.makedirs(os.path.dirname(path), exist_ok=True) # Ensure directory exists before writing
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    logging.info(f"[OK] Written {path}")
+    return True
 
 try:
     from herbie import Herbie
@@ -19,7 +46,7 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 MODEL_PATH  = "data/weights/regime_model.pkl"
-OUTPUT_PATH = "outputs/regimes/current_regime.json"
+OUTPUT_PATH = "outputs/regimes/current_regime.json" # Renamed to OUTPUT_PATH for consistency with existing code
 
 # Months included in regime model training (Nov–Mar).
 # Classifications outside this window are flagged as extrapolated.
@@ -61,9 +88,8 @@ def _emit_stale_json(reason="unknown"):
             prev["stale"]            = True
             prev["stale_reason"]     = reason
             prev["timestamp"]        = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-            os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-            with open(OUTPUT_PATH, "w") as f:
-                json.dump(prev, f, indent=2)
+            # Use safe_write_json
+            safe_write_json(prev, OUTPUT_PATH, required_keys=["current_regime", "regime_label"])
             logging.warning(f"[Regime] Re-emitted stale JSON (persistence +1). Reason: {reason}")
         except Exception as inner_e:
             logging.error(f"[Regime] Failed to re-emit stale JSON: {inner_e}")
@@ -71,7 +97,7 @@ def _emit_stale_json(reason="unknown"):
         logging.error("[Regime] No prior JSON exists to re-emit. Cannot create stale fallback.")
 
 
-def classify_today():
+def run_classification(): # Renamed from classify_today
     if not os.path.exists(MODEL_PATH):
         logging.error(f"[Regime] Model file {MODEL_PATH} not found. Run train_regimes.py first.")
         _emit_stale_json("model_file_missing")
@@ -188,15 +214,35 @@ def classify_today():
         "transition_probs":    transition_probs,
     }
 
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
-        json.dump(out_data, f, indent=2)
+    # Use safe_write_json
+    safe_write_json(out_data, OUTPUT_PATH, required_keys=["current_regime", "regime_label"])
 
     logging.info(
         f"[Regime] Classified as {regime_lbl} | Persistence: Day {persistence} | "
         f"Season: {season} | In Training Domain: {in_training_domain}"
     )
+    print(f"Done. Current regime: {out_data['regime_label']} (Day {out_data['persistence_days']})")
 
 
 if __name__ == "__main__":
-    classify_today()
+    script_name = Path(__file__).stem
+    try:
+        run_classification()
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.utcnow().isoformat() + "Z"}
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+    except Exception as e:
+        print(f"[CRITICAL] {__file__} failed: {e}")
+        import traceback
+        traceback.print_exc()
+        health = {
+            "script": __file__,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        Path("outputs/health").mkdir(exist_ok=True, parents=True)
+        with open(f"outputs/health/{script_name}.json", "w") as f:
+            json.dump(health, f)
+        sys.exit(1)
