@@ -772,11 +772,14 @@
                         let tddText = await tddRes.text();
                         let tddData = Papa.parse(tddText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
                         
-                        // Filter for latest GFS (Operational) run
-                        let runsGFS = tddData.filter(r => r.model === 'GFS').map(r => r.run_id);
+                        // Use latest GFS run that has valid gas-weighted DD values (hdd_gw/tdd_gw/cdd_gw
+                        // may be empty on recent runs if the weight grid wasn't applied — fall back).
+                        let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
                         let targetRun = null;
-                        if (runsGFS.length > 0) {
-                            targetRun = runsGFS.sort().reverse()[0];
+                        for (const run of runsGFS) {
+                            if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
+                                targetRun = run; break;
+                            }
                         }
                         
                         if (targetRun) {
@@ -1165,7 +1168,7 @@
         function updateThermalCharts() {
             if (!rawThermalData || rawThermalData.length < 1) return;
             
-            const minPoints = 7;
+            const minPoints = 2;
             const containerPct = document.getElementById("thermal-pct-container");
             const msgPct = document.getElementById("thermal-pct-msg");
             const containerSwitch = document.getElementById("thermal-switch-container");
@@ -1384,7 +1387,7 @@
         }
 
         function updateLoadGasChart() {
-            if (!rawThermalData || rawThermalData.length < 7) {
+            if (!rawThermalData || rawThermalData.length < 2) {
                 document.getElementById("load-gas-msg").textContent = "Awaiting load data — check back after next pipeline run.";
                 document.getElementById("load-gas-msg").style.display = 'block';
                 return;
@@ -1426,7 +1429,7 @@
         }
 
         function updateOutageChart() {
-            if (!rawOutageData || rawOutageData.length < 7) {
+            if (!rawOutageData || rawOutageData.length < 2) {
                 document.getElementById("outage-msg").textContent = "Accumulating outage data (7+ days required)...";
                 document.getElementById("outage-msg").style.display = 'block';
                 return;
@@ -1454,7 +1457,7 @@
         }
 
         function updatePeakerChart() {
-            if (!rawPeakerData || rawPeakerData.length < 7) {
+            if (!rawPeakerData || rawPeakerData.length < 2) {
                 document.getElementById("peaker-msg").textContent = "Accumulating peaker metrics (7+ days required)...";
                 document.getElementById("peaker-msg").style.display = 'block';
                 return;
@@ -1532,22 +1535,20 @@
                     document.getElementById("iso-bar-msg").style.display = 'block';
                 }
 
-                // Load Thermal History
+                // Load Thermal History (persistent rolling file, grows daily)
                 try {
-                    let thermalRes = await fetch(basePath + "live_grid_generation.csv?t=" + Date.now()); 
-                    // Use live_grid_generation for national history too if aggregate
+                    let thermalRes = await fetch(basePath + "thermal_history.csv?t=" + Date.now());
                     if (thermalRes.ok) {
                         let text = await thermalRes.text();
-                        let allData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
-                        rawThermalData = allData.filter(r => r.iso === 'NATIONAL').sort((a,b) => a.date.localeCompare(b.date));
+                        rawThermalData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
                         updateThermalCharts();
                         updateLoadGasChart();
                     } else {
                         document.getElementById("load-gas-msg").textContent = "Awaiting first pipeline run — check back soon.";
                         document.getElementById("load-gas-msg").style.display = 'block';
                     }
-                } catch (err) { 
-                    console.warn("Thermal charts loading failed", err); 
+                } catch (err) {
+                    console.warn("Thermal charts loading failed", err);
                     document.getElementById("load-gas-msg").textContent = "Data unavailable.";
                     document.getElementById("load-gas-msg").style.display = 'block';
                 }
