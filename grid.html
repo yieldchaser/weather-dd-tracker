@@ -1482,10 +1482,6 @@
 
         async function loadDashboard() {
             try {
-                loadWindForecast();
-                loadSolarForecast();
-                loadCombinedDrought();
-                
                 // Load Live Grid (for ISO Bar and summary)
                 try {
                     let gridRes = await fetch(basePath + "live_grid_generation.csv?t=" + Date.now());
@@ -1639,9 +1635,11 @@
                 document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('app').style.display = 'block';
-                // Charts rendered while #app was display:none have zero-size canvases — resize to fix.
-                if (windChart) windChart.resize();
-                if (solarChart) solarChart.resize();
+                // Fire wind/solar/drought loaders AFTER #app is visible so charts
+                // are always created in a fully-rendered, properly-sized container.
+                loadWindForecast();
+                loadSolarForecast();
+                loadCombinedDrought();
 
             } catch (e) {
                 console.error(e);
