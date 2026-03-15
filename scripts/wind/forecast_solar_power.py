@@ -42,6 +42,21 @@ def safe_write_json(data, path, required_keys=None):
     print(f"[OK] Written {path}")
     return True
 
+def is_valid_model_data(df, value_col, min_valid_pct=0.5):
+    """
+    Check if a model returns enough positive/non-null data points.
+    Prevents blank forecast lines and false drought signals.
+    """
+    if df is None or df.empty:
+        return False
+    # Count rows that are non-null and greater than 0
+    valid = df[value_col].notna() & (df[value_col] > 0)
+    valid_pct = valid.sum() / len(df)
+    if valid_pct < min_valid_pct:
+        print(f"[WARN] Model data only {valid_pct:.0%} valid — skipping")
+        return False
+    return True
+
 SOLAR_NODES = [
     # (name, lat, lon, region, installed_gw)
     ("S_TX_PERMIAN",    31.5, -102.5, "ERCOT",  4.0),
@@ -214,6 +229,12 @@ def main_logic():
         all_model = pd.concat(node_dfs, ignore_index=True)
         national = all_model.groupby("time")["gw"].sum().reset_index()
         national["cf"] = national["gw"] / TOTAL_SOLAR_GW
+
+        # Validation: Check if national generation is mostly zero (e.g. AIFS outage)
+        if not is_valid_model_data(national, "gw"):
+            logging.warning(f"Skipping {model} due to insufficient valid generation data.")
+            continue
+
         national["date"] = national["time"].dt.date
         national["hour"] = national["time"].dt.hour
         
@@ -281,13 +302,20 @@ def generate_combined_drought(solar_df):
         merged = pd.merge(wind_csv, solar_gfs, on="date", suffixes=('_w', '_s'))
         merged["combined_cf"] = (merged["total_wind_gw"] + merged["total_solar_gw"]) / (110.0 + TOTAL_SOLAR_GW)
         
-        # Drought check: Wind < 35% AND Solar consensus < 25% (2 of 3 models)
+        # Drought check: Wind < 35% AND Solar consensus < 25% (2 of X models)
         # First, pivot solar to get all models for consensus
         solar_pivoted = solar_df.pivot(index="date", columns="model", values="national_cf_peak_pct")
+        
+        # Check which models are actually present
+        available_models = [m for m in ["GFS", "ECMWF", "ECMWF_AIFS"] if m in solar_pivoted.columns]
+        needed_for_consensus = 2 if len(available_models) >= 2 else 1
+        
         def check_solar_consensus(d):
             if d not in solar_pivoted.index: return False
             row = solar_pivoted.loc[d]
-            return sum(1 for m in ["GFS", "ECMWF", "ECMWF_AIFS"] if m in row and row[m] < 25.0) >= 2
+            # models in drought
+            mid = sum(1 for m in available_models if m in row and row[m] < 25.0)
+            return mid >= needed_for_consensus
 
         merged["solar_consensus"] = merged["date"].apply(check_solar_consensus)
         merged["both_drought"] = (merged["national_cf_pct_w"] < 35.0) & (merged["solar_consensus"])
