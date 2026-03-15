@@ -134,6 +134,7 @@ def fetch_live_grid():
         
         # Process Load
         load_df["load_mw"] = pd.to_numeric(load_df["value"], errors='coerce')
+        latest_load = load_df.dropna(subset=['load_mw']).head(1)
         # Log the latest available non-null load for this ISO
         if not latest_load.empty:
             print(f"  [LOAD] {ISO_DISPLAY[iso_code]}: {round(latest_load['load_mw'].iloc[0])} MW")
