@@ -940,7 +940,7 @@
                 { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                 { label: 'GFS/CFS (35d)', data: dataGFS_CFS, borderColor: '#03a9f4', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                 { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: true }
+                { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: false }
             );
 
             let ctx = document.getElementById('windChart').getContext('2d');
@@ -1049,7 +1049,7 @@
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'ECMWF AIFS', data: dataECMWFAIFS, borderColor: '#ab47bc', borderDash: [2,2], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: true }
+                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: false }
                     ]
                 },
                 options: {
