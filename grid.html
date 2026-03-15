@@ -864,7 +864,7 @@
             
             badgeEl.style.borderColor = badgeColor;
             let badgeText = `☀️ SOLAR DROUGHT RISK (16d): ${risk}% | Model: GFS Consensus`;
-            const agreement = droughtData.model_agreement_today_pct;
+            const agreement = droughtJSON.model_agreement_today_pct;
             if (agreement != null) {
                 badgeText += ` | Model Agreement: ${agreement}%`;
             }
