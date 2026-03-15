@@ -37,7 +37,12 @@ jobs:
       - name: Commit result
         run: |
           git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          git config user.email "github-actions@github.com"
           git add outputs/freeze/alerts.json
-          git diff --staged --quiet || git commit -m "Auto-update: Freeze alerts $(date '+%Y-%m-%d')"
-          git push
+          git diff --staged --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "Auto-update: Freeze alerts $(date '+%Y-%m-%d') [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main && git push && echo "Push succeeded" && break
+            echo "Push attempt $i failed, retrying in 15s..."
+            sleep 15
+          done

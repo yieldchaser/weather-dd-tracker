@@ -36,13 +36,14 @@ jobs:
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add outputs/wind/wind_power_forecast.csv
-          git add outputs/wind/drought.json
-          git add outputs/wind/wind_climo_30d.json
-          git add outputs/wind/solar_power_forecast.csv
-          git add outputs/wind/solar_climo_30d.json
-          git add outputs/wind/combined_drought.json
-          git diff --staged --quiet || (git commit -m "Auto-update: Wind Forecast $(date '+%Y-%m-%dT%H:%M:%SZ')" && git pull --rebase origin main && git push origin main)
+          git config user.email "github-actions@github.com"
+          git add outputs/wind/wind_power_forecast.csv outputs/wind/drought.json outputs/wind/wind_climo_30d.json outputs/wind/solar_power_forecast.csv outputs/wind/solar_climo_30d.json outputs/wind/combined_drought.json
+          git diff --staged --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "Auto-update: Wind Forecast $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main && git push && echo "Push succeeded" && break
+            echo "Push attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
