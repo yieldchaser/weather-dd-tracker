@@ -49,7 +49,7 @@ def fetch_thermal_history():
 
     # Process all available NATIONAL rows
     all_rows = []
-    required = ["natural_gas_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal"]
+    required = ["natural_gas_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal", "load_mw", "gas_pct_load", "wind_mw"]
     
     # Read existing history if any
     existing_dates = set()
