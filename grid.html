@@ -758,11 +758,13 @@
                 let climoRes = await fetch(basePath + "wind/wind_climo_30d.json" + ts);
                 if (climoRes.ok) climoJSON = await climoRes.json();
 
-                let droughtRes = await fetch(basePath + "wind/drought.json" + ts);
-                if (droughtRes.ok) {
-                    droughtJSON = await droughtRes.json();
-                    updateWindBadge();
-                }
+                try {
+                    let droughtRes = await fetch(basePath + "wind/drought.json" + ts);
+                    if (droughtRes.ok) {
+                        droughtJSON = await droughtRes.json();
+                        updateWindBadge();
+                    }
+                } catch(e) { console.warn("drought.json parse failed (bad JSON?)", e); }
 
                 try {
                     let tddRes = await fetch(basePath + "tdd_master.csv" + ts);

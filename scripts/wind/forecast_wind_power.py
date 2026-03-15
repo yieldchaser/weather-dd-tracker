@@ -17,6 +17,17 @@ def safe_write_csv(df, path, min_rows=1):
     print(f"[OK] Written {path} ({len(df)} rows)")
     return True
 
+def _sanitize_for_json(obj):
+    """Recursively replace float NaN/Inf with None so json.dump produces valid JSON."""
+    import math
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
+
 def safe_write_json(data, path, required_keys=None):
     """Only write if data has required keys and is non-empty."""
     if not data:
@@ -28,7 +39,7 @@ def safe_write_json(data, path, required_keys=None):
             print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
             return False
     with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(_sanitize_for_json(data), f, indent=2)
     print(f"[OK] Written {path}")
     return True
 
