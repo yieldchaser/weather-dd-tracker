@@ -7,9 +7,9 @@
   "worst_cf_pct": 3.5,
   "worst_anomaly_cf_pct": -43.7,
   "worst_model": "GFS",
-  "anomaly_today": 24.6,
-  "anomaly_today_peak": 32.3,
-  "anomaly_today_offpeak": 20.1,
+  "anomaly_today": 24.4,
+  "anomaly_today_peak": 32.2,
+  "anomaly_today_offpeak": 19.8,
   "peak_drought_today": false,
   "models_in_drought_today": [],
   "model_horizons": {
@@ -44,5 +44,5 @@
   "gfs_ensemble_spread_today": NaN,
   "gfs_p10_today": NaN,
   "gfs_p90_today": NaN,
-  "timestamp": "2026-03-15T12:52:13Z"
+  "timestamp": "2026-03-15T13:37:00Z"
 }
