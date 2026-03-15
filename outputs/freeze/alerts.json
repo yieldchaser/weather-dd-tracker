@@ -1,7 +1,12 @@
 {
-  "timestamp": "2026-03-13T14:17:04.029743Z",
-  "gfs_run": "2026-03-13T12:00:00Z",
-  "ecmwf_run": "2026-03-13T14:17:04.026727Z",
+  "timestamp": "2026-03-15T23:15:46.533736Z",
+  "status": "ok",
+  "sources": {
+    "GFS": "ok",
+    "ECMWF": "ok"
+  },
+  "gfs_run": "2026-03-15T18:00:00Z",
+  "ecmwf_run": "2026-03-15T12:00:00Z",
   "alert_level": {
     "Permian": "NONE",
     "Haynesville": "NONE",
@@ -11,5 +16,5 @@
     "SW Marcellus": "NONE"
   },
   "active_alerts": [],
-  "status": "success"
+  "error_reason": null
 }
