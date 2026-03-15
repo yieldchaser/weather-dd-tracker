@@ -77,8 +77,8 @@ Calculates the real-time relationship between heating degree days (HDD) and gas 
 Provides a high-resolution outlook for US renewable generation and potential gas-burn displacement.
 - **How it works:** 
     - **Wind**: Aggregates 15 wind nodes (110 GW) using an IEC Class II power curve. Incorporates **GFS Ensemble Spread** (P10/P90 bands) to quantify forecast uncertainty.
-    - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting GHI from **GFS, ECMWF, and ECMWF AIFS** to Capacity Factor using a **75% Performance Ratio**.
-    - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Consensus < 25% (requires 2 of 3 solar models below threshold).
+    - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting GHI from **GFS and ECMWF** to Capacity Factor using a **75% Performance Ratio**. (ECMWF AIFS excluded — model does not publish solar radiation variables.)
+    - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Consensus < 25% (requires both solar models below threshold).
     - **Model Agreement Score**: Quantifies confidence based on agreement between GFS, ECMWF, and ICON; higher scores indicate lower regime-shift risk.
     - **Combined Signal**: Synthesizes a unified directional bias based on aggregate **gas displacement loss (GW)** vs. 2-year climatology and **Model Agreement** scoring across GFS, ECMWF, and ICON to quantify forecast confidence.
     - **Seasonal Drought Adjustment**: Thresholds vary by season to reflect structural generation patterns:
@@ -193,7 +193,7 @@ The Power Grid Monitor dashboard consumes several rolling history files to visua
 | `outputs/wind/drought.json` | Wind drought probabilities, GFS ensemble spread, and Model Agreement scores. |
 | `outputs/gas_burn_history.csv` | Rolling 3-year history of national gas burn (Bcf/d) vs temperature for scatter analysis. |
 | `outputs/thermal_history.csv` | Historical record of national gas, coal, and nuclear generation MW and gas % metrics. |
-| `outputs/wind/solar_power_forecast.csv` | Daily solar generation forecasts across GFS, ECMWF, and ECMWF AIFS models. |
+| `outputs/wind/solar_power_forecast.csv` | Daily solar generation forecasts across GFS and ECMWF models. |
 | `outputs/wind/solar_climo_30d.json` | 2-year solar capacity factor climatology (Peak-hour and All-day). |
 | `outputs/wind/combined_drought.json` | Unified renewable drought risk, consensus indicators, and gas displacement metrics. |
 | `outputs/wind/wind_power_forecast.csv` | Wind generation forecasts including GFS members (P10/P90) and climo anomalies. |

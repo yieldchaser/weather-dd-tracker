@@ -528,15 +528,27 @@ def main():
     df["month"] = df["date"].dt.month
     df["day"]   = df["date"].dt.day
 
+    season = active_metric(date.today().month)
+
     gw_mode = GW_NORMALS.exists()
     if gw_mode:
-        norms    = pd.read_csv(GW_NORMALS)
-        hdd_col  = "hdd_normal_gw"
+        norms = pd.read_csv(GW_NORMALS)
+        if season == "CDD":
+            norm_col = "cdd_normal_gw"
+        elif season == "BOTH":
+            norms["tdd_normal_gw"] = norms["hdd_normal_gw"] + norms["cdd_normal_gw"]
+            norm_col = "tdd_normal_gw"
+        else:
+            norm_col = "hdd_normal_gw"
     else:
-        norms    = pd.read_csv(STD_NORMALS)
-        hdd_col  = "hdd_normal"
-
-    season = active_metric(date.today().month)
+        norms = pd.read_csv(STD_NORMALS)
+        if season == "CDD":
+            norm_col = "cdd_normal"
+        elif season == "BOTH":
+            norms["tdd_normal"] = norms["hdd_normal"] + norms["cdd_normal"]
+            norm_col = "tdd_normal"
+        else:
+            norm_col = "hdd_normal"
 
     if "tdd_gw" in df.columns:
         tdd_col   = "tdd_gw"
@@ -545,11 +557,11 @@ def main():
         tdd_col   = "tdd"
         metric_lbl = metric_label(date.today().month, gas_weighted=False)
 
-    df = df.merge(norms[["month", "day", hdd_col]], on=["month", "day"], how="left")
+    df = df.merge(norms[["month", "day", norm_col]], on=["month", "day"], how="left")
 
     summary = (
         df.groupby(["model", "run_id"])
-        .agg(fa_gw=(tdd_col, "mean"), na_avg=(hdd_col, "mean"), days=("tdd", "count"))
+        .agg(fa_gw=(tdd_col, "mean"), na_avg=(norm_col, "mean"), days=("tdd", "count"))
         .reset_index()
     )
     if summary.empty:
@@ -666,7 +678,7 @@ def main():
         primary_lines = [f"{SEP}\n<b>📊 PRIMARY MODELS</b> ({metric_lbl})"]
         primary_avgs = {}
         for _, row in primaries.iterrows():
-            primary_lines.append(_fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s))
+            primary_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
             primary_avgs[row["model"]] = row["fa_gw"]
         model_sections.append("\n".join(primary_lines))
 
@@ -681,7 +693,7 @@ def main():
     if not ai_models_df.empty:
         ai_lines = [f"\n<b>🤖 AI BASE SPACE</b> (10–15 Day)"]
         for _, row in ai_models_df.iterrows():
-            ai_lines.append(_fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s))
+            ai_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
         ai_signals = ai_models_df["signal"].tolist()
         bull_ai    = sum("BULLISH" in s for s in ai_signals)
         bear_ai    = sum("BEARISH" in s for s in ai_signals)

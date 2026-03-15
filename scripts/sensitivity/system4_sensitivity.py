@@ -106,11 +106,19 @@ def calculate_OLS_sensitivity():
         return
 
     df_master = pd.read_csv(master_path, parse_dates=["date"])
-    hdd_col   = "hdd_gw" if "hdd_gw" in df_master.columns else "hdd"
+    import sys as _sys; _sys.path.insert(0, str(Path(__file__).parents[1]))
+    from season_utils import active_metric as _active_metric
+    _season = _active_metric(date.today().month)
+    if _season == "CDD":
+        _dd_col = "cdd_gw" if "cdd_gw" in df_master.columns else "cdd"
+    elif _season == "BOTH":
+        _dd_col = "tdd_gw" if "tdd_gw" in df_master.columns else "tdd"
+    else:
+        _dd_col = "hdd_gw" if "hdd_gw" in df_master.columns else "hdd"
     daily_hdd = (
-        df_master.groupby("date")[hdd_col].mean()
+        df_master.groupby("date")[_dd_col].mean()
         .reset_index()
-        .rename(columns={hdd_col: "hdd"})
+        .rename(columns={_dd_col: "hdd"})
     )
     daily_hdd["date"] = daily_hdd["date"].dt.date
 

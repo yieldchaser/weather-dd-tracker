@@ -59,10 +59,21 @@ def plot():
         latest_run_data["month"] = latest_run_data["date"].dt.month
         latest_run_data["day"] = latest_run_data["date"].dt.day
         merged = latest_run_data.merge(norms, on=["month", "day"], how="left")
-        
+        import sys as _sys; _sys.path.insert(0, os.path.dirname(__file__))
+        from season_utils import active_metric as _am
+        import datetime as _dt
+        _season = _am(_dt.date.today().month)
+        if _season == "CDD":
+            _nc = "cdd_normal_gw" if "cdd_normal_gw" in merged.columns else "cdd_normal"
+        elif _season == "BOTH":
+            merged["tdd_normal_gw"] = merged.get("hdd_normal_gw", 0) + merged.get("cdd_normal_gw", 0)
+            _nc = "tdd_normal_gw"
+        else:
+            _nc = "hdd_normal_gw" if "hdd_normal_gw" in merged.columns else "hdd_normal"
+
         ax.plot(
             latest_run_data["date"],
-            merged["hdd_normal_gw"],
+            merged[_nc],
             color="red", # Match HFI red
             linestyle="--",
             linewidth=1.5,

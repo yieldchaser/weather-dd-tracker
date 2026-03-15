@@ -61,10 +61,16 @@ def get_current_year_estimate(target_month, target_type, current_year):
     normals_df = pd.DataFrame()
     if DAILY_NORMALS_PATH.exists():
         normals_df = pd.read_csv(DAILY_NORMALS_PATH)
-        val_col_norm = "hdd_normal_gw" if "hdd_normal_gw" in normals_df.columns else "hdd_normal"
-        # The daily normals CSV holds CDD data too? No, usually just HDD.
-        # But wait, TDD (Total Degree Days) = HDD + CDD!
-        # Since TDD is absolute, we can just use the daily norm directly regardless of whether it's summer or winter.
+        from season_utils import active_metric as _active_metric
+        _season = _active_metric(target_month)
+        if _season == "CDD":
+            val_col_norm = "cdd_normal_gw" if "cdd_normal_gw" in normals_df.columns else "cdd_normal"
+        elif _season == "BOTH":
+            normals_df = normals_df.copy()
+            normals_df["tdd_normal_gw"] = normals_df.get("hdd_normal_gw", 0) + normals_df.get("cdd_normal_gw", 0)
+            val_col_norm = "tdd_normal_gw"
+        else:
+            val_col_norm = "hdd_normal_gw" if "hdd_normal_gw" in normals_df.columns else "hdd_normal"
         norm_dict = dict(zip(zip(normals_df["month"], normals_df["day"]), normals_df[val_col_norm]))
     else:
         norm_dict = {}
