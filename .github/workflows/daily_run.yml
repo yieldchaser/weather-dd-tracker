@@ -122,7 +122,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add data/pipeline_state.json outputs/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ || true
+          git add data/pipeline_state.json outputs/ outputs/health/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ || true
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4 5; do

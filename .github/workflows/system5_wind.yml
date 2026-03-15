@@ -37,7 +37,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add outputs/wind/wind_power_forecast.csv outputs/wind/drought.json outputs/wind/wind_climo_30d.json outputs/wind/solar_power_forecast.csv outputs/wind/solar_climo_30d.json outputs/wind/combined_drought.json
+          git add outputs/wind/ outputs/health/
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Wind Forecast $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4 5; do

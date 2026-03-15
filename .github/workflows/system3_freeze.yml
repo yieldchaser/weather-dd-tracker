@@ -38,7 +38,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add outputs/freeze/alerts.json
+          git add outputs/freeze/alerts.json outputs/health/
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Freeze alerts $(date '+%Y-%m-%d') [skip ci]"
           for i in 1 2 3 4 5; do
