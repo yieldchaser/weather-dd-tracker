@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-15T22:38:48.567Z",
+  "timestamp": "2026-03-16T06:03:28.025Z",
   "composite_score": -5.0,
   "signal": "STRONG BEAR",
-  "confidence": 80.0,
+  "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
@@ -21,16 +21,14 @@
       "score": -2.0
     }
   ],
-  "stale_systems": [
-    "freeze (stale)"
-  ],
+  "stale_systems": [],
   "detail": {
     "bull_accumulator": 0.0,
     "bear_accumulator": 5.0
   },
   "system_status": {
     "teleconnections_connected": true,
-    "freeze_connected": false,
+    "freeze_connected": true,
     "sensitivity_connected": true,
     "wind_connected": true,
     "regimes_connected": true
