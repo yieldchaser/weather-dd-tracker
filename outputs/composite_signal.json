@@ -1,20 +1,20 @@
 {
-  "timestamp": "2026-03-16T06:03:28.025Z",
-  "composite_score": -5.0,
-  "signal": "STRONG BEAR",
+  "timestamp": "2026-03-16T09:41:05.427Z",
+  "composite_score": -3.0,
+  "signal": "BEARISH",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
-      "score": -2.0
+      "score": -1.5
     },
     {
       "name": "Low Weather Sensitivity",
       "score": -1.0
     },
     {
-      "name": "Wind Generation",
-      "score": 0.0
+      "name": "Wind Drought (Moderate)",
+      "score": 1.5
     },
     {
       "name": "Bearish/Mild Regime (Regime 2 (Ridge East))",
@@ -23,8 +23,8 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 0.0,
-    "bear_accumulator": 5.0
+    "bull_accumulator": 1.5,
+    "bear_accumulator": 4.5
   },
   "system_status": {
     "teleconnections_connected": true,
