@@ -530,7 +530,7 @@
             </div>
 
             <div id="iso-breakdown-section" style="margin-bottom: 30px;">
-                <h2 class="section-title">Gas Burn by ISO (Today)</h2>
+                <h2 class="section-title">Gas Burn by ISO (<span id="iso-bar-date">Latest</span>)</h2>
                 <div id="iso-bar-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="iso-bar-msg" class="loader">Loading regional data...</div>
                     <canvas id="isoBarChart"></canvas>
@@ -1046,15 +1046,16 @@
                         { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: false }
+                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y1', spanGaps: false, pointRadius: 0 }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
                         y: { title: { display: true, text: 'Solar Gen (GW)' } },
-                        y1: { position: 'right', title: { display: true, text: `GW ${DD_LABEL}` }, grid: { drawOnChartArea: false } }
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: `GW ${DD_LABEL} (Gas demand)`, color: '#f44336' }, grid: { drawOnChartArea: false } }
                     }
                 },
                 plugins: [{
@@ -1502,12 +1503,13 @@
                             else if (nat.wind_anomaly_mw > 0) anomEl.classList.add('bearish-text');
                         }
 
-                        // ISO Bar
-                        const latestDate = gridData[0].date;
+                        // ISO Bar — find the most recent date in the file (CSV is not guaranteed sorted)
+                        const latestDate = gridData.reduce((max, r) => (r.date > max ? r.date : max), '');
                         const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL' && r.natural_gas_mw != null);
                         
                         if (isos.length > 0) {
                             document.getElementById("iso-bar-msg").style.display = 'none';
+                            document.getElementById("iso-bar-date").textContent = latestDate;
                             let ctx = document.getElementById('isoBarChart').getContext('2d');
                             if (isoBarChart) isoBarChart.destroy();
                             isoBarChart = new Chart(ctx, {
@@ -1638,7 +1640,9 @@
                 document.getElementById('app').style.display = 'block';
                 // Fire wind/solar/drought loaders AFTER #app is visible so charts
                 // are always created in a fully-rendered, properly-sized container.
-                loadWindForecast();
+                // loadWindForecast must complete first — it populates hddMap which
+                // the solar chart's secondary HDD axis depends on.
+                await loadWindForecast();
                 loadSolarForecast();
                 loadCombinedDrought();
 

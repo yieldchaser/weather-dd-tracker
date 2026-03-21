@@ -101,7 +101,7 @@ def fetch_grid_outages():
     
     if OUTPUT_FILE.exists():
         old_df = pd.read_csv(OUTPUT_FILE)
-        combined = pd.concat([old_df, out_df]).drop_duplicates(subset=["date", "iso"], keep="first")
+        combined = pd.concat([old_df, out_df]).drop_duplicates(subset=["date", "iso"], keep="last")
         safe_write_csv(combined, OUTPUT_FILE)
     else:
         safe_write_csv(out_df, OUTPUT_FILE)
