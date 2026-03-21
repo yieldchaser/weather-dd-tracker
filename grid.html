@@ -745,6 +745,40 @@
             updateSolarChart();
         }
 
+        // Loads tdd_master.csv and populates the global hddMap used by both
+        // updateWindChart() and updateSolarChart(). Kept as a standalone async
+        // function so any future chart that needs degree-day overlay can simply
+        // await loadHddMap() without coupling itself to wind data loading.
+        async function loadHddMap() {
+            try {
+                let tddRes = await fetch(basePath + "tdd_master.csv?t=" + Date.now());
+                if (!tddRes.ok) return;
+                let tddText = await tddRes.text();
+                let tddData = Papa.parse(tddText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+
+                // Use latest GFS run that has valid gas-weighted DD values (hdd_gw/tdd_gw/cdd_gw
+                // may be empty on recent runs if the weight grid wasn't applied — fall back).
+                let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
+                let targetRun = null;
+                for (const run of runsGFS) {
+                    if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
+                        targetRun = run; break;
+                    }
+                }
+
+                if (targetRun) {
+                    tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
+                        if (r.date) {
+                            let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
+                            let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
+                            let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null;
+                            hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
+                        }
+                    });
+                }
+            } catch(e) { console.warn("tdd_master load failed", e); }
+        }
+
         async function loadWindForecast() {
             const windSec = document.getElementById("wind-forecast-section");
             let ts = "?t=" + Date.now();
@@ -765,35 +799,6 @@
                         updateWindBadge();
                     }
                 } catch(e) { console.warn("drought.json parse failed (bad JSON?)", e); }
-
-                try {
-                    let tddRes = await fetch(basePath + "tdd_master.csv" + ts);
-                    if (tddRes.ok) {
-                        let tddText = await tddRes.text();
-                        let tddData = Papa.parse(tddText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
-                        
-                        // Use latest GFS run that has valid gas-weighted DD values (hdd_gw/tdd_gw/cdd_gw
-                        // may be empty on recent runs if the weight grid wasn't applied — fall back).
-                        let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
-                        let targetRun = null;
-                        for (const run of runsGFS) {
-                            if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
-                                targetRun = run; break;
-                            }
-                        }
-                        
-                        if (targetRun) {
-                            tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
-                                if (r.date) {
-                                    let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
-                                    let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
-                                    let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null; // Note: tdd_master might not have normals, using null fallback
-                                    hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
-                                }
-                            });
-                        }
-                    }
-                } catch(e) { console.warn("tdd_master load failed", e); }
 
                 if (rawWindData && rawWindData.length > 0) {
                     windSec.style.display = 'block';
@@ -1640,9 +1645,11 @@
                 document.getElementById('app').style.display = 'block';
                 // Fire wind/solar/drought loaders AFTER #app is visible so charts
                 // are always created in a fully-rendered, properly-sized container.
-                // loadWindForecast must complete first — it populates hddMap which
-                // the solar chart's secondary HDD axis depends on.
-                await loadWindForecast();
+                // loadHddMap() must complete first — it populates the global hddMap
+                // that both updateWindChart() and updateSolarChart() read for the
+                // secondary degree-day axis. Wind and solar then load in parallel.
+                await loadHddMap();
+                loadWindForecast();
                 loadSolarForecast();
                 loadCombinedDrought();
 
