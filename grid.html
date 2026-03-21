@@ -530,7 +530,7 @@
             </div>
 
             <div id="iso-breakdown-section" style="margin-bottom: 30px;">
-                <h2 class="section-title">Gas Burn by ISO (Today)</h2>
+                <h2 class="section-title">Gas Burn by ISO (<span id="iso-bar-date">Latest</span>)</h2>
                 <div id="iso-bar-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="iso-bar-msg" class="loader">Loading regional data...</div>
                     <canvas id="isoBarChart"></canvas>
@@ -745,6 +745,40 @@
             updateSolarChart();
         }
 
+        // Loads tdd_master.csv and populates the global hddMap used by both
+        // updateWindChart() and updateSolarChart(). Kept as a standalone async
+        // function so any future chart that needs degree-day overlay can simply
+        // await loadHddMap() without coupling itself to wind data loading.
+        async function loadHddMap() {
+            try {
+                let tddRes = await fetch(basePath + "tdd_master.csv?t=" + Date.now());
+                if (!tddRes.ok) return;
+                let tddText = await tddRes.text();
+                let tddData = Papa.parse(tddText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+
+                // Use latest GFS run that has valid gas-weighted DD values (hdd_gw/tdd_gw/cdd_gw
+                // may be empty on recent runs if the weight grid wasn't applied — fall back).
+                let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
+                let targetRun = null;
+                for (const run of runsGFS) {
+                    if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
+                        targetRun = run; break;
+                    }
+                }
+
+                if (targetRun) {
+                    tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
+                        if (r.date) {
+                            let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
+                            let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
+                            let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null;
+                            hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
+                        }
+                    });
+                }
+            } catch(e) { console.warn("tdd_master load failed", e); }
+        }
+
         async function loadWindForecast() {
             const windSec = document.getElementById("wind-forecast-section");
             let ts = "?t=" + Date.now();
@@ -765,35 +799,6 @@
                         updateWindBadge();
                     }
                 } catch(e) { console.warn("drought.json parse failed (bad JSON?)", e); }
-
-                try {
-                    let tddRes = await fetch(basePath + "tdd_master.csv" + ts);
-                    if (tddRes.ok) {
-                        let tddText = await tddRes.text();
-                        let tddData = Papa.parse(tddText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
-                        
-                        // Use latest GFS run that has valid gas-weighted DD values (hdd_gw/tdd_gw/cdd_gw
-                        // may be empty on recent runs if the weight grid wasn't applied — fall back).
-                        let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
-                        let targetRun = null;
-                        for (const run of runsGFS) {
-                            if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
-                                targetRun = run; break;
-                            }
-                        }
-                        
-                        if (targetRun) {
-                            tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
-                                if (r.date) {
-                                    let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
-                                    let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
-                                    let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null; // Note: tdd_master might not have normals, using null fallback
-                                    hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
-                                }
-                            });
-                        }
-                    }
-                } catch(e) { console.warn("tdd_master load failed", e); }
 
                 if (rawWindData && rawWindData.length > 0) {
                     windSec.style.display = 'block';
@@ -1046,15 +1051,16 @@
                         { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
-                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 1, fill: false, yAxisID: 'y1', spanGaps: false }
+                        { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y1', spanGaps: false, pointRadius: 0 }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
                         y: { title: { display: true, text: 'Solar Gen (GW)' } },
-                        y1: { position: 'right', title: { display: true, text: `GW ${DD_LABEL}` }, grid: { drawOnChartArea: false } }
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: `GW ${DD_LABEL} (Gas demand)`, color: '#f44336' }, grid: { drawOnChartArea: false } }
                     }
                 },
                 plugins: [{
@@ -1502,12 +1508,13 @@
                             else if (nat.wind_anomaly_mw > 0) anomEl.classList.add('bearish-text');
                         }
 
-                        // ISO Bar
-                        const latestDate = gridData[0].date;
+                        // ISO Bar — find the most recent date in the file (CSV is not guaranteed sorted)
+                        const latestDate = gridData.reduce((max, r) => (r.date > max ? r.date : max), '');
                         const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL' && r.natural_gas_mw != null);
                         
                         if (isos.length > 0) {
                             document.getElementById("iso-bar-msg").style.display = 'none';
+                            document.getElementById("iso-bar-date").textContent = latestDate;
                             let ctx = document.getElementById('isoBarChart').getContext('2d');
                             if (isoBarChart) isoBarChart.destroy();
                             isoBarChart = new Chart(ctx, {
@@ -1638,6 +1645,10 @@
                 document.getElementById('app').style.display = 'block';
                 // Fire wind/solar/drought loaders AFTER #app is visible so charts
                 // are always created in a fully-rendered, properly-sized container.
+                // loadHddMap() must complete first — it populates the global hddMap
+                // that both updateWindChart() and updateSolarChart() read for the
+                // secondary degree-day axis. Wind and solar then load in parallel.
+                await loadHddMap();
                 loadWindForecast();
                 loadSolarForecast();
                 loadCombinedDrought();
