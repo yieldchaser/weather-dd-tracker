@@ -1,15 +1,11 @@
 {
-  "timestamp": "2026-03-22T05:44:58.498Z",
-  "composite_score": -4.0,
+  "timestamp": "2026-03-22T08:59:34.460Z",
+  "composite_score": -3.0,
   "signal": "BEARISH",
-  "confidence": 100.0,
+  "confidence": 80.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
-      "score": -1.0
-    },
-    {
-      "name": "Low Weather Sensitivity",
       "score": -1.0
     },
     {
@@ -21,15 +17,17 @@
       "score": -2.0
     }
   ],
-  "stale_systems": [],
+  "stale_systems": [
+    "sensitivity (unavailable)"
+  ],
   "detail": {
     "bull_accumulator": 0.0,
-    "bear_accumulator": 4.0
+    "bear_accumulator": 3.0
   },
   "system_status": {
     "teleconnections_connected": true,
     "freeze_connected": true,
-    "sensitivity_connected": true,
+    "sensitivity_connected": false,
     "wind_connected": true,
     "regimes_connected": true
   }
