@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-03-25T08:49:27.252Z",
-  "sensitivity_bcf_per_hdd": 0.017,
-  "r_squared": 0.002,
+  "timestamp": "2026-03-26T08:53:18.270Z",
+  "sensitivity_bcf_per_hdd": -0.005,
+  "r_squared": 0.0,
   "percentile": 0,
-  "base_demand": 267.1,
-  "n_observations": 21,
+  "base_demand": 267.5,
+  "n_observations": 20,
   "data_source": "real_eia",
   "connected": true
 }
