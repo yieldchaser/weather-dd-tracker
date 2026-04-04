@@ -7,8 +7,8 @@
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260403_12",
-      "prev": "20260403_00",
+      "latest": "20260404_00",
+      "prev": "20260403_12",
       "gap": false,
       "has_gw": true
     },
@@ -19,14 +19,14 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260403_18",
-      "prev": "20260403_12",
+      "latest": "20260404_00",
+      "prev": "20260403_18",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260403_12",
-      "prev": "20260403_00",
+      "latest": "20260404_00",
+      "prev": "20260403_12",
       "gap": false,
       "has_gw": true
     },
@@ -37,14 +37,14 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20260404_01",
-      "prev": "20260404_00",
+      "latest": "20260404_08",
+      "prev": "20260404_07",
       "gap": false,
       "has_gw": false
     },
     "NAM CHG": {
-      "latest": "20260403_18",
-      "prev": "20260403_12",
+      "latest": "20260404_06",
+      "prev": "20260404_00",
       "gap": false,
       "has_gw": false
     },
@@ -55,11 +55,11 @@
       "has_gw": true
     },
     "FOURCASTNETV2-SMALL": {
-      "latest": "20260402_12_AI",
-      "prev": "20260401_12_AI",
+      "latest": "20260403_12_AI",
+      "prev": "20260402_12_AI",
       "gap": false,
       "has_gw": true
     }
   },
-  "generated_at": "2026-04-04T05:32:45.918740"
+  "generated_at": "2026-04-04T10:37:49.373159"
 }
