@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-04-05T16:44:54.736Z",
-  "composite_score": -4.5,
+  "timestamp": "2026-04-05T22:39:49.833Z",
+  "composite_score": -4.0,
   "signal": "BEARISH",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
-      "score": -1.5
+      "score": -1.0
     },
     {
       "name": "Low Weather Sensitivity",
@@ -24,7 +24,7 @@
   "stale_systems": [],
   "detail": {
     "bull_accumulator": 0.0,
-    "bear_accumulator": 4.5
+    "bear_accumulator": 4.0
   },
   "system_status": {
     "teleconnections_connected": true,
