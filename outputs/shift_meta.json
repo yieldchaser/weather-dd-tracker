@@ -1,14 +1,14 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260407_18",
-      "prev": "20260407_12",
+      "latest": "20260408_00",
+      "prev": "20260407_18",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260407_12",
-      "prev": "20260407_00",
+      "latest": "20260408_00",
+      "prev": "20260407_12",
       "gap": false,
       "has_gw": true
     },
@@ -19,14 +19,14 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260407_18",
-      "prev": "20260407_12",
+      "latest": "20260408_00",
+      "prev": "20260407_18",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260407_12",
-      "prev": "20260407_00",
+      "latest": "20260408_00",
+      "prev": "20260407_12",
       "gap": false,
       "has_gw": true
     },
@@ -37,14 +37,14 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20260407_15",
-      "prev": "20260407_14",
+      "latest": "20260408_09",
+      "prev": "20260408_08",
       "gap": false,
       "has_gw": false
     },
     "NAM CHG": {
-      "latest": "20260407_12",
-      "prev": "20260407_06",
+      "latest": "20260408_06",
+      "prev": "20260408_00",
       "gap": false,
       "has_gw": false
     },
@@ -55,11 +55,11 @@
       "has_gw": true
     },
     "FOURCASTNETV2-SMALL": {
-      "latest": "20260406_12_AI",
-      "prev": "20260405_12_AI",
+      "latest": "20260407_12_AI",
+      "prev": "20260406_12_AI",
       "gap": false,
       "has_gw": true
     }
   },
-  "generated_at": "2026-04-08T05:58:51.857452"
+  "generated_at": "2026-04-08T11:05:32.920708"
 }
