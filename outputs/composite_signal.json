@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-04-09T05:59:12.237Z",
-  "composite_score": -2.3,
+  "timestamp": "2026-04-09T09:50:35.662Z",
+  "composite_score": -3.5,
   "signal": "BEARISH",
   "confidence": 100.0,
   "components": [
@@ -13,17 +13,17 @@
       "score": -1.0
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2000000000000002
+      "name": "Wind Generation",
+      "score": 0.0
     },
     {
-      "name": "Strong PV (Bearish)",
+      "name": "Bearish/Mild Regime (Regime 2 (Ridge East))",
       "score": -2.0
     }
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 1.2,
+    "bull_accumulator": 0.0,
     "bear_accumulator": 3.5
   },
   "system_status": {
