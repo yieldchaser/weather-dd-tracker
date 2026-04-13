@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-04-13T06:24:29.987Z",
-  "composite_score": -6.2,
+  "timestamp": "2026-04-13T10:15:12.184Z",
+  "composite_score": -5.0,
   "signal": "STRONG BEAR",
   "confidence": 100.0,
   "components": [
@@ -13,8 +13,8 @@
       "score": -1.0
     },
     {
-      "name": "Strong Wind Surplus",
-      "score": -1.2000000000000002
+      "name": "Wind Generation",
+      "score": 0.0
     },
     {
       "name": "Strong PV (Bearish)",
@@ -24,7 +24,7 @@
   "stale_systems": [],
   "detail": {
     "bull_accumulator": 0.0,
-    "bear_accumulator": 6.2
+    "bear_accumulator": 5.0
   },
   "system_status": {
     "teleconnections_connected": true,
