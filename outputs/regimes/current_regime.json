@@ -1,17 +1,17 @@
 {
-  "current_regime": 0,
-  "regime_label": "Regime 0 (Polar Vortex / Ridge East / Trough West)",
-  "persistence_days": 4,
+  "current_regime": 2,
+  "regime_label": "Regime 2 (Ridge East)",
+  "persistence_days": 1,
   "season": "Spring",
   "in_training_domain": false,
   "stale": false,
-  "timestamp": "2026-04-16T08:48:58.038Z",
+  "timestamp": "2026-04-17T08:47:39.536Z",
   "transition_probs": {
-    "Regime 0 (Polar Vortex / Ridge East / Trough West)": 0.656,
-    "Regime 1 (Arctic Block / Ridge East / Trough West)": 0.053,
-    "Regime 2 (Ridge East)": 0.116,
-    "Regime 3 (Polar Vortex / Trough East / Ridge West)": 0.077,
-    "Regime 4 (Polar Vortex)": 0.091,
-    "Regime 5 (Arctic Block / Trough East / Ridge West)": 0.007
+    "Regime 0 (Polar Vortex / Ridge East / Trough West)": 0.046,
+    "Regime 1 (Arctic Block / Ridge East / Trough West)": 0.033,
+    "Regime 2 (Ridge East)": 0.594,
+    "Regime 3 (Polar Vortex / Trough East / Ridge West)": 0.165,
+    "Regime 4 (Polar Vortex)": 0.071,
+    "Regime 5 (Arctic Block / Trough East / Ridge West)": 0.09
   }
 }
