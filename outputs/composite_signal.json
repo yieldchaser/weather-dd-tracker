@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-04-22T06:11:49.229Z",
-  "composite_score": -3.3,
-  "signal": "BEARISH",
+  "timestamp": "2026-04-22T10:01:31.790Z",
+  "composite_score": 1.2,
+  "signal": "NEUTRAL",
   "confidence": 100.0,
   "components": [
     {
@@ -17,14 +17,14 @@
       "score": 1.2000000000000002
     },
     {
-      "name": "Strong PV (Bearish)",
-      "score": -2.0
+      "name": "Blocking/Trough (Regime 5 (Arctic Block / Trough East / Ridge West))",
+      "score": 2.5
     }
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 1.2,
-    "bear_accumulator": 4.5
+    "bull_accumulator": 3.7,
+    "bear_accumulator": 2.5
   },
   "system_status": {
     "teleconnections_connected": true,
