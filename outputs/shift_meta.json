@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260430_06",
-      "prev": "20260430_00",
+      "latest": "20260430_12",
+      "prev": "20260430_06",
       "gap": false,
       "has_gw": true
     },
@@ -19,8 +19,8 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260430_00",
-      "prev": "20260429_18",
+      "latest": "20260430_06",
+      "prev": "20260430_00",
       "gap": false,
       "has_gw": true
     },
@@ -61,5 +61,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-04-30T11:38:06.411478"
+  "generated_at": "2026-04-30T17:23:39.367035"
 }
