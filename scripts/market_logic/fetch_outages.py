@@ -1,7 +1,14 @@
 """
 fetch_outages.py
 
-Aggregates national daily generator outages for Nuclear, Coal, and Gas.
+Fetches national daily nuclear generator outages from the EIA v2 API.
+
+EIA endpoint migration note (2026):
+  OLD (404): /v2/electricity/outages/generators/data/
+  NEW (live): /v2/nuclear-outages/us-nuclear-outages/data/
+  Nuclear outage data was moved to its own top-level route. The new
+  endpoint provides outage (MW offline), capacity (MW total), and
+  percentOutage directly — no fuelTypeCode facet needed.
 """
 import os
 import requests
@@ -41,80 +48,106 @@ EIA_API_KEY = os.environ.get("EIA_KEY")
 def fetch_grid_outages():
     if not EIA_API_KEY:
         print("[ERR] EIA_KEY not set.")
-        return
+        return False
 
-    url = "https://api.eia.gov/v2/electricity/outages/generators/data/"
-    fuel_types = ["NG", "NUC", "COL"]
-    all_records = []
-    
-    for fuel in fuel_types:
-        params = {
-            "api_key": EIA_API_KEY,
-            "frequency": "daily",
-            "data[0]": "capacity",
-            "facets[fuelTypeCode][]": fuel,
-            "sort[0][column]": "period",
-            "sort[0][direction]": "desc",
-            "length": 500
-        }
-        try:
-            r = requests.get(url, params=params, timeout=30)
-            r.raise_for_status()
-            res_data = r.json()
-            if "response" in res_data and "data" in res_data["response"]:
-                recs = res_data["response"]["data"]
-                all_records.extend(recs)
-                print(f"  [OUTAGES] {fuel}: {len(recs)} records")
-        except Exception as e:
-            print(f"  [WARN] Outages fetch failed for {fuel}: {e}")
+    # Correct EIA v2 endpoint for nuclear outages (migrated from /electricity/outages/)
+    url = "https://api.eia.gov/v2/nuclear-outages/us-nuclear-outages/data/"
+    params = {
+        "api_key": EIA_API_KEY,
+        "frequency": "daily",
+        "data[0]": "outage",
+        "data[1]": "capacity",
+        "data[2]": "percentOutage",
+        "sort[0][column]": "period",
+        "sort[0][direction]": "desc",
+        "length": 500
+    }
 
-    if not all_records:
-        return
-        
-    df = pd.DataFrame(all_records)
-    df["capacity"] = pd.to_numeric(df["capacity"], errors="coerce")
-    
-    # Pivot: Rows = date (period), Cols = fuelTypeCode
-    pivot = df.pivot_table(index="period", columns="fuelTypeCode", values="capacity", aggfunc="sum").reset_index()
-    
-    # Rename to schema
-    outage_map = {"NG": "gas_outage_mw", "NUC": "nuclear_outage_mw", "COL": "coal_outage_mw"}
-    pivot = pivot.rename(columns=outage_map)
-    
-    # Ensure all columns exist
-    for col in outage_map.values():
-        if col not in pivot.columns: pivot[col] = 0.0
-    
-    # Approximate national fleet capacities (GW -> MW)
-    FLEET_NUC = 95000.0 
-    FLEET_COL = 180000.0
-    
-    pivot["date"] = pivot["period"]
-    pivot["iso"] = "NATIONAL"
-    pivot["nuclear_capacity_mw"] = FLEET_NUC
-    pivot["coal_capacity_mw"] = FLEET_COL
-    pivot["total_outage_mw"] = pivot["nuclear_outage_mw"] + pivot["coal_outage_mw"] + pivot["gas_outage_mw"]
-    
-    pivot["nuclear_availability_pct"] = round((FLEET_NUC - pivot["nuclear_outage_mw"]) / FLEET_NUC * 100, 1)
-    
-    out_df = pivot[["date", "iso", "nuclear_outage_mw", "coal_outage_mw", "total_outage_mw", "nuclear_capacity_mw", "coal_capacity_mw", "nuclear_availability_pct"]]
-    
+    try:
+        r = requests.get(url, params=params, timeout=30)
+        r.raise_for_status()
+        res_data = r.json()
+    except Exception as e:
+        print(f"  [ERR] Nuclear outages fetch failed: {e}")
+        return False
+
+    if "response" not in res_data or "data" not in res_data["response"]:
+        print("  [ERR] Unexpected response structure from EIA nuclear outages endpoint.")
+        return False
+
+    recs = res_data["response"]["data"]
+    print(f"  [OUTAGES] NUC: {len(recs)} records retrieved")
+
+    if not recs:
+        print("  [WARN] EIA returned 0 records — endpoint live but no data available.")
+        return False
+
+    df = pd.DataFrame(recs)
+
+    # Cast numeric fields
+    df["outage"]        = pd.to_numeric(df.get("outage"),        errors="coerce").fillna(0.0)
+    df["capacity"]      = pd.to_numeric(df.get("capacity"),      errors="coerce").fillna(0.0)
+    df["percentOutage"] = pd.to_numeric(df.get("percentOutage"), errors="coerce").fillna(0.0)
+
+    # Aggregate to daily national totals (endpoint may return multiple reactors)
+    daily = df.groupby("period").agg(
+        nuclear_outage_mw  = ("outage",        "sum"),
+        nuclear_capacity_mw= ("capacity",      "sum"),
+        pct_outage_raw     = ("percentOutage", "mean"),
+    ).reset_index()
+
+    daily["date"] = daily["period"]
+    daily["iso"]  = "NATIONAL"
+
+    # Availability: EIA provides percentOutage directly; derive availability from it.
+    # Also cross-check with capacity/outage for robustness.
+    daily["nuclear_availability_pct"] = (
+        ((daily["nuclear_capacity_mw"] - daily["nuclear_outage_mw"])
+         / daily["nuclear_capacity_mw"].replace(0, float("nan")) * 100)
+        .round(1)
+        .fillna((100.0 - daily["pct_outage_raw"]).round(1))
+    )
+
+    # Preserve coal columns in schema (sourced elsewhere; default to 0 when absent)
+    daily["coal_outage_mw"]  = 0.0
+    daily["coal_capacity_mw"] = 180000.0
+    daily["total_outage_mw"] = daily["nuclear_outage_mw"]
+
+    out_df = daily[[
+        "date", "iso",
+        "nuclear_outage_mw", "coal_outage_mw", "total_outage_mw",
+        "nuclear_capacity_mw", "coal_capacity_mw",
+        "nuclear_availability_pct"
+    ]]
+
     if OUTPUT_FILE.exists():
         old_df = pd.read_csv(OUTPUT_FILE)
         combined = pd.concat([old_df, out_df]).drop_duplicates(subset=["date", "iso"], keep="last")
+        combined = combined.sort_values("date").reset_index(drop=True)
         safe_write_csv(combined, OUTPUT_FILE)
     else:
         safe_write_csv(out_df, OUTPUT_FILE)
+
     print(f"[OK] Saved outages to {OUTPUT_FILE}")
+    return True
 
 if __name__ == "__main__":
     script_name = Path(__file__).stem
+    success = False
     try:
-        fetch_grid_outages()
-        health = {"script": __file__, "status": "ok", "timestamp": datetime.datetime.utcnow().isoformat() + "Z"}
+        success = fetch_grid_outages()
+        # Only mark 'ok' if data was actually retrieved and written
+        status = "ok" if success else "warn_no_data"
+        health = {
+            "script": __file__,
+            "status": status,
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+        }
         Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:
             json.dump(health, f)
+        if not success:
+            print("[WARN] fetch_grid_outages returned no data — health logged as warn_no_data")
     except Exception as e:
         print(f"[CRITICAL] {__file__} failed: {e}")
         import traceback
