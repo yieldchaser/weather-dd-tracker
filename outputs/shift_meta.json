@@ -1,44 +1,44 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260502_06",
-      "prev": "20260502_00",
+      "latest": "20260502_12",
+      "prev": "20260502_06",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260502_00",
-      "prev": "20260501_12",
+      "latest": "20260502_12",
+      "prev": "20260502_00",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260501_12",
-      "prev": "20260501_00",
-      "gap": false,
-      "has_gw": true
-    },
-    "GFS ENS CHG": {
-      "latest": "20260502_06",
-      "prev": "20260502_00",
-      "gap": false,
-      "has_gw": true
-    },
-    "CMC ENS CHG": {
       "latest": "20260502_00",
       "prev": "20260501_12",
       "gap": false,
       "has_gw": true
     },
-    "EURO AI CHG": {
-      "latest": "20260502_06",
+    "GFS ENS CHG": {
+      "latest": "20260502_12",
+      "prev": "20260502_06",
+      "gap": false,
+      "has_gw": true
+    },
+    "CMC ENS CHG": {
+      "latest": "20260502_12",
       "prev": "20260502_00",
       "gap": false,
       "has_gw": true
     },
+    "EURO AI CHG": {
+      "latest": "20260502_12",
+      "prev": "20260502_06",
+      "gap": false,
+      "has_gw": true
+    },
     "HRRR CHG": {
-      "latest": "20260501_05",
-      "prev": "20260501_04",
+      "latest": "20260502_19",
+      "prev": "20260502_18",
       "gap": false,
       "has_gw": false
     },
@@ -61,5 +61,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-05-02T16:52:29.973833"
+  "generated_at": "2026-05-02T22:46:52.351580"
 }
