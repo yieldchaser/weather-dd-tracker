@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-05-05T17:33:18.766Z",
+  "timestamp": "2026-05-05T23:05:57.557Z",
   "composite_score": 0.7,
   "signal": "NEUTRAL",
-  "confidence": 100.0,
+  "confidence": 80.0,
   "components": [
     {
       "name": "High Weather Sensitivity",
@@ -17,14 +17,16 @@
       "score": -2.0
     }
   ],
-  "stale_systems": [],
+  "stale_systems": [
+    "freeze (stale)"
+  ],
   "detail": {
     "bull_accumulator": 2.7,
     "bear_accumulator": 2.0
   },
   "system_status": {
     "teleconnections_connected": true,
-    "freeze_connected": true,
+    "freeze_connected": false,
     "sensitivity_connected": true,
     "wind_connected": true,
     "regimes_connected": true
