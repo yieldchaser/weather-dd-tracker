@@ -7,8 +7,8 @@
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260507_00",
-      "prev": "20260506_12",
+      "latest": "20260507_12",
+      "prev": "20260507_00",
       "gap": false,
       "has_gw": true
     },
@@ -19,14 +19,14 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260507_06",
-      "prev": "20260507_00",
+      "latest": "20260507_12",
+      "prev": "20260507_06",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260507_00",
-      "prev": "20260506_12",
+      "latest": "20260507_12",
+      "prev": "20260507_00",
       "gap": false,
       "has_gw": true
     },
@@ -61,5 +61,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-05-07T17:56:28.692782"
+  "generated_at": "2026-05-07T23:08:20.639060"
 }
