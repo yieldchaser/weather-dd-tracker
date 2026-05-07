@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260506_12",
-      "prev": "20260506_06",
+      "latest": "20260507_00",
+      "prev": "20260506_18",
       "gap": false,
       "has_gw": true
     },
@@ -13,14 +13,14 @@
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260505_12",
-      "prev": "20260505_00",
+      "latest": "20260506_12",
+      "prev": "20260506_00",
       "gap": false,
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260506_12",
-      "prev": "20260506_06",
+      "latest": "20260507_00",
+      "prev": "20260506_18",
       "gap": false,
       "has_gw": true
     },
@@ -31,8 +31,8 @@
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260506_12",
-      "prev": "20260506_06",
+      "latest": "20260507_00",
+      "prev": "20260506_18",
       "gap": false,
       "has_gw": true
     },
@@ -61,5 +61,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-05-06T22:54:04.120738"
+  "generated_at": "2026-05-07T06:44:06.926100"
 }
