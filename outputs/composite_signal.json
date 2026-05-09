@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-05-09T06:26:39.535Z",
-  "composite_score": -1.8,
+  "timestamp": "2026-05-09T09:53:02.681Z",
+  "composite_score": -3.0,
   "signal": "BEARISH",
   "confidence": 100.0,
   "components": [
@@ -9,8 +9,8 @@
       "score": -1.0
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2000000000000002
+      "name": "Wind Generation",
+      "score": 0.0
     },
     {
       "name": "Strong PV (Bearish)",
@@ -19,7 +19,7 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 1.2,
+    "bull_accumulator": 0.0,
     "bear_accumulator": 3.0
   },
   "system_status": {
