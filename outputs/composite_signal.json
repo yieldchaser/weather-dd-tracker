@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-05-11T07:16:25.353Z",
-  "composite_score": -3.0,
+  "timestamp": "2026-05-11T11:42:28.315Z",
+  "composite_score": -1.8,
   "signal": "BEARISH",
   "confidence": 100.0,
   "components": [
@@ -9,8 +9,8 @@
       "score": -1.0
     },
     {
-      "name": "Wind Generation",
-      "score": 0.0
+      "name": "Wind Drought (Moderate)",
+      "score": 1.2000000000000002
     },
     {
       "name": "Bearish/Mild Regime (Regime 2 (Ridge East))",
@@ -19,7 +19,7 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 0.0,
+    "bull_accumulator": 1.2,
     "bear_accumulator": 3.0
   },
   "system_status": {
