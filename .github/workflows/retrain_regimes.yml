@@ -24,9 +24,12 @@ jobs:
 
       - name: Install system dependencies (libeccodes ≥2.46.0 for ECMWF 50r1 support)
         run: |
+          # Ubuntu 22.04 default repo only has 2.24.2-1, need PPA for >=2.46.0
+          curl -fsSL https://patrick-zippenfenig.github.io/ecCodes-ubuntu/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/eccodes.gpg
+          echo "deb [signed-by=/usr/share/keyrings/eccodes.gpg] https://patrick-zippenfenig.github.io/ecCodes-ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/eccodes.list
           sudo apt-get update -qq
-          sudo apt-get install -y libeccodes-dev=2.46.0-1~bullseye1 || sudo apt-get install -y libeccodes-dev
-          pkg-config --modversion libeccodes 2>/dev/null || echo "libeccodes installed"
+          sudo apt-get install -y libeccodes-dev
+          pkg-config --modversion libeccodes || echo "libeccodes installed via PPA"
 
       - name: Install Python dependencies
         run: |
