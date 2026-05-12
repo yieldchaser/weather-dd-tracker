@@ -129,50 +129,86 @@ def get_gfs_forecasts():
 
 def get_ecmwf_forecasts():
     """
-    Fetch ECMWF temperature forecasts using ecmwf-opendata.
+    Fetch ECMWF IFS temperature forecasts using ecmwf-opendata.
+
+    UPDATED for 50r1 (May 12, 2026):
+      - Uses stream="oper", type="fc" (new 50r1 IFS Control mapping)
+      - Properly specifies model, stream, date, time parameters
+      - Requires ecmwf-opendata>=0.5.0 and libeccodes-dev>=2.46.0
     """
     forecasts = {basin: [] for basin in BASINS}
-    client = ECMWFClient(source="ecmwf")
-    
-    # ECMWF open data provides 2m temp
+
     try:
-        # Retrieve the latest run (00z or 12z typically)
-        # To avoid downloading massive gribs, we will use point extraction if supported, 
-        # or download small bounding boxes. ecmwf-opendata usually requires downloading global files.
-        # This is a mocked or simplified retrieval approach due to file sizes.
-        request = {
-            "type": "fc",
-            "param": "2t",
-            "step": [str(i) for i in range(0, 241, 6)]
-        }
-        res = client.retrieve(request, target="ecmwf_2t.grib")
-        
-        # Load with xarray
-        ds = xr.open_dataset("ecmwf_2t.grib", engine="cfgrib")
-        run_date = pd.to_datetime(ds.time.values).to_pydatetime()
-        
-        for step in request['step']:
-            fxx = int(step)
-            valid_time = run_date + timedelta(hours=fxx)
-            
-            # ECMWF step might be encoded slightly differently
-            step_ds = ds.sel(step=pd.Timedelta(hours=fxx))
-            
-            for name, coords in BASINS.items():
-                val = step_ds.t2m.sel(longitude=360 + coords['lon'] if coords['lon'] < 0 else coords['lon'], 
-                                      latitude=coords['lat'], method='nearest').values.item()
-                temp_c = val - 273.15
-                forecasts[name].append({
-                    'valid_time': valid_time,
-                    'lead_hours': fxx,
-                    'temp_c': temp_c
-                })
-        ds.close()
-        os.remove("ecmwf_2t.grib")
-        return run_date, forecasts
-    except Exception as e:
-        logging.error(f"Failed to fetch ECMWF data: {e}")
-        # Return empty allowing GFS only Watches
+        from ecmwf.opendata import Client as ECMWFClient
+        client = ECMWFClient(source="ecmwf")
+
+        now = datetime.utcnow()
+        # ECMWF runs at 00z and 12z daily
+        cycle = 12 if now.hour >= 12 else 0
+        run_date = now.replace(hour=cycle, minute=0, second=0, microsecond=0)
+        date_str = run_date.strftime("%Y%m%d")
+        cycle_str = str(cycle).zfill(2)
+
+        logging.info(f"Fetching ECMWF IFS 50r1 run: {date_str}_{cycle_str}")
+
+        try:
+            # Properly specify all required ECMWF parameters for 50r1
+            client.retrieve(
+                model="ifs",
+                stream="oper",
+                type="fc",
+                resol="0p25",
+                date=date_str,
+                time=cycle_str,
+                step=[str(i) for i in range(0, 241, 6)],  # 0 to 240 hours every 6h
+                param="2t",
+                target="ecmwf_2t.grib"
+            )
+
+            # Load with xarray + cfgrib
+            ds = xr.open_dataset("ecmwf_2t.grib", engine="cfgrib")
+
+            # Extract run date from dataset
+            run_time = pd.to_datetime(ds.time.values)
+            if hasattr(run_time, '__iter__'):
+                run_time = run_time[0]
+
+            for step in range(0, 241, 6):
+                # Valid time = run time + step hours
+                valid_time = pd.Timestamp(run_time) + timedelta(hours=step)
+
+                try:
+                    # Select data at this step
+                    step_ds = ds.sel(step=pd.Timedelta(hours=step))
+
+                    for name, coords in BASINS.items():
+                        val = step_ds.t2m.sel(
+                            longitude=360 + coords['lon'] if coords['lon'] < 0 else coords['lon'],
+                            latitude=coords['lat'],
+                            method='nearest'
+                        ).values.item()
+                        temp_c = val - 273.15
+
+                        forecasts[name].append({
+                            'valid_time': valid_time.to_pydatetime(),
+                            'lead_hours': step,
+                            'temp_c': temp_c
+                        })
+                except Exception as e:
+                    logging.debug(f"Step {step} extraction failed: {e}")
+                    continue
+
+            ds.close()
+            os.remove("ecmwf_2t.grib")
+            logging.info(f"ECMWF fetch successful: {len([v for vals in forecasts.values() for v in vals])} forecast points")
+            return run_date, forecasts
+
+        except Exception as e:
+            logging.error(f"ECMWF retrieve failed: {e}")
+            return datetime.utcnow(), {}
+
+    except ImportError:
+        logging.error("ecmwf-opendata library not installed")
         return datetime.utcnow(), {}
 
 def determine_alert_tier(lead_hours):

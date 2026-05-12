@@ -4,6 +4,10 @@ fetch_ecmwf_ens.py
 Fetches ECMWF ENS (Ensemble) 2m temperature using the Open-Meteo API.
 Uses `ecmwf_ifs025` (the 0.25-degree ensemble mean).
 
+COMPATIBILITY: Insulated from direct ECMWF API changes (uses Open-Meteo proxy).
+  Open-Meteo will auto-handle 50r1 / AIFS v2 backend migrations.
+  No code changes required for this script; monitoring only.
+
 City list expanded to 79 cities (see demand_constants.py).
 Fetches all cities in a single batched API call via om_batch_fetch
 instead of N serial requests — reduces API calls by ~97%.

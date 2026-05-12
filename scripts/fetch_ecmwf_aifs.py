@@ -2,6 +2,11 @@
 fetch_ecmwf_aifs.py
 
 Fetches ECMWF AIFS (Artificial Intelligence Forecasting System) 2m temperature for the Continental US (CONUS) only.
+
+COMPATIBILITY: Updated for ECMWF AIFS Single v2 (May 12, 2026 upgrade).
+  Uses stream="oper", type="fc" (compatible with 50r1 harmonization).
+  GRIB encoding updated: generatingProcessIdentifier now 36 (was 34), requires ecCodes >=2.46.0.
+  Requires: ecmwf-opendata >=0.5.0, libeccodes-dev >=2.46.0.
 """
 
 import os
