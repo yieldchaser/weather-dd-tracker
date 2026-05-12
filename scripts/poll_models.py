@@ -74,12 +74,19 @@ def check_ecmwf_complete(date_str, cycle):
 def check_ecmwf_ens_complete(date_str, cycle):
     """
     Checks if the ECMWF Ensemble run is completely uploaded.
+
+    UPDATED for 50r1 (May 12, 2026):
+      - Old deprecated stream=enfo,type=fc has been replaced
+      - Now checks for perturbed members: stream=enfo, type=pf (number=1 indicates run is available)
+      - ENS Control now at stream=oper, type=fc (merged with deterministic)
     """
     try:
         from ecmwf.opendata import Client
         client = Client(source="ecmwf")
+        # Check for first perturbed member at final step (360h)
+        # If available, the entire ensemble run is ready
         urls = client.urls(
-            model="ensm", stream="enfo", type="fc", resol="0p25",
+            model="ifs", stream="enfo", type="pf", number=1, resol="0p25",
             date=date_str, time=cycle, step=360, param="2t"
         )
         return len(urls) > 0
