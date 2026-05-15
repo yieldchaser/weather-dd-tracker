@@ -20,37 +20,9 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
           
-      - name: Install system dependencies (libeccodes ≥2.46.0 for ECMWF 50r1 support)
-        run: |
-          # Try PPA first (faster), fallback to source build if PPA fails
-          echo "Attempting ecCodes-ubuntu PPA installation..."
-          (
-            curl -fsSL https://patrick-zippenfenig.github.io/ecCodes-ubuntu/key.gpg 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/eccodes.gpg 2>/dev/null && \
-            echo "deb [signed-by=/usr/share/keyrings/eccodes.gpg] https://patrick-zippenfenig.github.io/ecCodes-ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/eccodes.list >/dev/null && \
-            sudo apt-get update -qq && \
-            sudo apt-get install -y libeccodes-dev && \
-            echo "✅ ecCodes installed via PPA"
-          ) || {
-            echo "⚠️  PPA failed, building ecCodes 2.46.0 from source..."
-            sudo apt-get update -qq
-            sudo apt-get install -y cmake libaec-dev libjpeg-dev libpng-dev zlib1g-dev
-            cd /tmp
-            wget -q https://github.com/ecmwf/eccodes/archive/refs/tags/2.46.0.tar.gz -O eccodes.tar.gz
-            tar -xzf eccodes.tar.gz
-            cd eccodes-2.46.0
-            mkdir build && cd build
-            cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local -DENABLE_PYTHON=OFF -DENABLE_TESTS=OFF >/dev/null 2>&1
-            make -j$(nproc) >/dev/null 2>&1
-            sudo make install >/dev/null 2>&1
-            sudo ldconfig
-            echo "✅ ecCodes built and installed from source"
-            cd /
-          }
-          pkg-config --modversion libeccodes 2>/dev/null || echo "libeccodes installed"
-          
       - name: Install python dependencies
         run: |
-          pip install xarray pandas numpy scikit-learn herbie-data eccodes cfgrib requests
+          pip install xarray pandas numpy scikit-learn herbie-data "eccodes>=0.4.4" cfgrib requests
           
       - name: Run System 2
         env:
