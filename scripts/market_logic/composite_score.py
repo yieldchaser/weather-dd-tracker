@@ -92,7 +92,8 @@ def compute_composite():
     if coeff_file.exists():
         try:
             with open(coeff_file, "r") as f:
-                rolling_coeff = json.load(f).get("rolling_30d_coeff", 2.0)
+                data = json.load(f)
+                rolling_coeff = data.get("sensitivity_bcf_per_hdd", data.get("rolling_30d_coeff", 2.0))
         except Exception:
             pass
 
@@ -214,7 +215,6 @@ def compute_composite():
             "market_bias": trend
         })
         
-    print(f"DEBUG: days_counted={days_counted}, sum_15d_forecast={sum_15d_forecast}, sum_15d_normal={sum_15d_normal}")
     
     if days_counted > 0 and sum_15d_normal > 0:
         pct_dev = ((sum_15d_forecast - sum_15d_normal) / sum_15d_normal) * 100.0

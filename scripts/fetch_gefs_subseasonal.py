@@ -185,8 +185,9 @@ def process_gribs(run_id, downloaded_files):
                 # compute city weighted mean for this member
                 weighted_temp_sum = 0.0
                 for _, lat, lon, weight in DEMAND_CITIES:
-                    # nearest neighbor
-                    val_k = float(ds.t2m.sel(latitude=lat, longitude=lon+360 if lon<0 else lon, method="nearest").values)
+                    # nearest neighbor — use 0-360 convention if dataset uses it
+                    lon_360 = lon + 360 if (lon < 0 and float(ds.longitude.min()) >= 0) else lon
+                    val_k = float(ds.t2m.sel(latitude=lat, longitude=lon_360, method="nearest").values)
                     val_c = val_k - 273.15
                     weighted_temp_sum += (val_c * weight)
                 

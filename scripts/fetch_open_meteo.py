@@ -24,13 +24,13 @@ from om_batch_fetch import fetch_all_cities_batch
 
 OM_FORECAST_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
 
-# Open-Meteo models to pull in fallback
+# Open-Meteo models to pull in fallback (CONUS-compatible only)
+# meteofrance_arpege_europe excluded: Europe-only domain, fails silently for US coords
 OM_MODELS = {
     "OM_ECMWF":  "ecmwf_ifs025",
     "OM_GFS":    "gfs_seamless",
     "OM_ICON":   "icon_seamless",
     "OM_UKMET":  "uk_met_office_seamless",
-    "OM_ARPEGE": "meteofrance_arpege_europe",
 }
 
 
