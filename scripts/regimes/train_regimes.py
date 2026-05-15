@@ -11,7 +11,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-DATA_DIR = r"C:\Users\Dell\OneDrive\Desktop\New folder\misc\Stocks\03-Natural Gas"
+DATA_DIR = os.environ.get("ERA5_DATA_DIR", "data/era5")
 OUTPUT_MODEL_PATH = "data/weights/regime_model.pkl"
 
 def train_regimes():

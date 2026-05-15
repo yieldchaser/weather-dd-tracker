@@ -13,7 +13,7 @@ def load_rolling_coeff():
         try:
             with open(coeff_file, "r") as f:
                 data = json.load(f)
-                return data.get("rolling_30d_coeff", 2.0)
+                return data.get("sensitivity_bcf_per_hdd", data.get("rolling_30d_coeff", 2.0))
         except Exception:
             pass
     return 2.0  # Fallback fixed sensitivity

@@ -264,7 +264,8 @@ def _fmt_regime():
     if not regime_file.exists():
         return ""
     try:
-        regime_data = json.load(open(regime_file))
+        with open(regime_file) as f:
+            regime_data = json.load(f)
         raw_label = regime_data.get("regime_label", "")
         m = re.match(r"^Regime\s+\d+\s*\((.+)\)$", raw_label.strip())
         clean_label = m.group(1).strip() if m else raw_label
@@ -308,7 +309,8 @@ def _fmt_teleconnections():
     if not tele_file.exists():
         return ""
     try:
-        td = json.load(open(tele_file))
+        with open(tele_file) as f:
+            td = json.load(f)
 
         def _arr(val):
             if val is None: return "N/A"
@@ -352,7 +354,8 @@ def _fmt_wind():
     if not wind_file.exists():
         return ""
     try:
-        wd = json.load(open(wind_file))
+        with open(wind_file) as f:
+            wd = json.load(f)
         d7  = wd.get("drought_prob_7d", 0.0)
         d16 = wd.get("drought_prob_16d", 0.0)
         dd7  = wd.get("drought_days_7d", 0)
@@ -399,7 +402,8 @@ def _fmt_solar():
     if not comb_file.exists():
         return ""
     try:
-        cd = json.load(open(comb_file))
+        with open(comb_file) as f:
+            cd = json.load(f)
         solar_risk    = cd.get("solar_drought_prob_10d")
         combined_today = cd.get("combined_drought_today", False)
         gas_loss      = cd.get("gas_displacement_loss_gw")
@@ -430,7 +434,8 @@ def _fmt_freeze():
     if not freeze_file.exists():
         return ""
     try:
-        freeze = json.load(open(freeze_file))
+        with open(freeze_file) as f:
+            freeze = json.load(f)
         status = freeze.get("status", "stale")
         active_alerts = freeze.get("active_alerts", [])
 
@@ -593,7 +598,8 @@ def main():
     if health_dir.exists():
         for hf in health_dir.glob("*.json"):
             try:
-                hs = json.load(open(hf))
+                with open(hf) as f:
+                    hs = json.load(f)
                 if hs.get("status") == "failed":
                     sname = Path(hs.get("script", hf.stem)).name
                     err   = hs.get("error", "unknown")[:80]
@@ -608,7 +614,8 @@ def main():
     bias_file = Path("outputs/composite_signal.json")
     if bias_file.exists():
         try:
-            comp_data = json.load(open(bias_file))
+            with open(bias_file) as f:
+                comp_data = json.load(f)
             sections.append(_fmt_composite(comp_data))
         except Exception as e:
             print(f"[WARN] Composite block: {e}")

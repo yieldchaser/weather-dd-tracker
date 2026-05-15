@@ -53,7 +53,7 @@ def fetch_all_cities_batch(
     endpoint: str,
     model: str,
     forecast_days: int = 16,
-    extra_params: dict | None = None,
+    extra_params=None,
 ) -> dict:
     """
     Fetch daily temperature_2m_mean for every city in DEMAND_CITIES

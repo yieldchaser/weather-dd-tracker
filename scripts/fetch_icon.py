@@ -37,7 +37,7 @@ FORECAST_DAYS = 16
 def fetch_icon():
     # Use UTC today as the run date identifier
     run_date_str = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d")
-    run_id = f"{run_date_str}_00"  # Open-Meteo seamless updates continuously
+    run_id = f"{run_date_str}_seamless"  # No fixed cycle; ICON seamless updates continuously
 
     out_dir = OUTPUT_DIR / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
