@@ -31,7 +31,8 @@ if not os.path.exists(SENTINEL):
         shell=True, check=True
     )
     # Write sentinel so the restarted process skips this block
-    open(SENTINEL, 'w').close()
+    with open(SENTINEL, 'w') as f:
+        pass
     print("[SETUP] Restarting Python to load new packages...")
     os.execv(sys.executable, [sys.executable] + sys.argv)
     # os.execv replaces this process — code below never runs on first boot
