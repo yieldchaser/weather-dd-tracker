@@ -17,6 +17,7 @@ matplotlib.use('Agg')  # Non-interactive backend — required for parallel worke
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import gc
 import imageio.v2 as imageio
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -200,34 +201,7 @@ def generate_gifs_for_model(model_name, folder, manifest):
             delta = grid_curr - grid_prev
             delta = align_lons(delta)
             
-            # Plot
-            fig = plt.figure(figsize=(10, 6))
-            ax = plt.axes(projection=ccrs.LambertConformal(central_longitude=-96, central_latitude=39))
-            
-            # CONUS bounds
-            ax.set_extent([-120, -70, 22, 50], ccrs.PlateCarree())
-            
-            ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
-            ax.add_feature(cfeature.BORDERS, linewidth=0.8)
-            ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black', alpha=0.5)
-
-            # Plot Delta (Red = Warmer = Bearish, Blue = Colder = Bullish)
-            # Using a balanced cmap centered at 0
-            mesh = ax.pcolormesh(
-                lons, lats, delta,
-                transform=ccrs.PlateCarree(),
-                cmap='coolwarm',
-                vmin=-15, vmax=15, # Hard bounds so colors are consistent daily
-                shading='auto'
-            )
-            
-            cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
-            cbar.set_label("Temperature Shift (°F)", fontsize=10)
-
-            date_str = pd.to_datetime(d).strftime('%Y-%m-%d')
-            plt.title(f"{model_name} Run-to-Run Delta: {date_str}\n{latest_run} minus {prev_run}", fontsize=12, fontweight='bold')
-            
-            # SKIP if this GIF already exists (avoids redundant re-renders)
+            # SKIP if this GIF already exists — check BEFORE creating figure to avoid leak
             out_gif_name = f"{model_name}_shift_{latest_run}_vs_{prev_run}.gif"
             out_gif_path = f"{MAPS_DIR}/{out_gif_name}"
             if os.path.exists(out_gif_path):
@@ -236,9 +210,43 @@ def generate_gifs_for_model(model_name, folder, manifest):
                 continue
 
             frame_path = f"{MAPS_DIR}/{model_name}_{latest_run}_vs_{prev_run}_frame_{i}.png"
-            plt.savefig(frame_path, dpi=72, bbox_inches='tight')  # 72dpi: ~50% smaller, same browser quality
-            plt.close()
-            frames.append(frame_path)
+            fig = plt.figure(figsize=(10, 6))
+            try:
+                ax = plt.axes(projection=ccrs.LambertConformal(central_longitude=-96, central_latitude=39))
+
+                # CONUS bounds
+                ax.set_extent([-120, -70, 22, 50], ccrs.PlateCarree())
+
+                ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+                ax.add_feature(cfeature.BORDERS, linewidth=0.8)
+                ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black', alpha=0.5)
+
+                # Plot Delta (Red = Warmer = Bearish, Blue = Colder = Bullish)
+                # Using a balanced cmap centered at 0
+                mesh = ax.pcolormesh(
+                    lons, lats, delta,
+                    transform=ccrs.PlateCarree(),
+                    cmap='coolwarm',
+                    vmin=-15, vmax=15,  # Hard bounds so colors are consistent daily
+                    shading='auto'
+                )
+
+                cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
+                cbar.set_label("Temperature Shift (°F)", fontsize=10)
+
+                date_str = pd.to_datetime(d).strftime('%Y-%m-%d')
+                plt.title(f"{model_name} Run-to-Run Delta: {date_str}\n{latest_run} minus {prev_run}", fontsize=12, fontweight='bold')
+
+                plt.savefig(frame_path, dpi=72, bbox_inches='tight')  # 72dpi: ~50% smaller, same browser quality
+                frames.append(frame_path)   # Only append if savefig succeeded
+            except Exception as loop_error:
+                print(f"  [WARN] Failed to render frame {frame_path}: {loop_error}")
+            finally:
+                fig.clf()           # Flush axes, colorbars, and artist state from figure registry
+                plt.close(fig)      # Explicit figure reference — safe for ProcessPoolExecutor workers
+                del fig             # Drop local reference; eligible for GC immediately
+                if i % 10 == 0:
+                    gc.collect()    # Break Cartopy projection reference cycles every 10 frames
 
         # Compile GIF for this pair
         out_gif_name = f"{model_name}_shift_{latest_run}_vs_{prev_run}.gif"

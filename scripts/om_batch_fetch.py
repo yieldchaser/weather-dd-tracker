@@ -37,7 +37,7 @@ Chunking:
     With 79 cities this means 2 requests total.
 """
 
-import requests
+from resilience_layer import resilient_get
 from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT
 
 BATCH_SIZE = 50          # cities per HTTP request; tune down if you hit 414 errors
@@ -96,8 +96,8 @@ def fetch_all_cities_batch(
         }
 
         try:
-            resp = requests.get(endpoint, params=params, timeout=_TIMEOUT)
-            resp.raise_for_status()
+            resp = resilient_get(endpoint, params=params, timeout=_TIMEOUT,
+                                 label=f"OM chunk {chunk_start}-{chunk_start+len(chunk)-1}")
             results = resp.json()
         except Exception as e:
             chunk_weight = sum(c[3] for c in chunk)
@@ -227,8 +227,8 @@ def fetch_era5_cities_batch(
         }
 
         try:
-            resp = requests.get(endpoint, params=params, timeout=_TIMEOUT)
-            resp.raise_for_status()
+            resp = resilient_get(endpoint, params=params, timeout=_TIMEOUT,
+                                 label=f"ERA5 chunk {chunk_start}-{chunk_start+len(batch)-1}")
             results = resp.json()
         except Exception as e:
             chunk_weight = sum(c[3] for c in batch)

@@ -11,9 +11,9 @@ Requirements:
 """
 
 import os
-import requests
 import pandas as pd
 from pathlib import Path
+from resilience_layer import resilient_get
 
 # EIA API v2 endpoint for Total Energy Data
 EIA_API_URL = "https://api.eia.gov/v2/total-energy/data/"
@@ -45,8 +45,7 @@ def run():
     }
     
     try:
-        r = requests.get(EIA_API_URL, params=params, timeout=15)
-        r.raise_for_status()
+        r = resilient_get(EIA_API_URL, params=params, timeout=15, label="EIA historical normals")
         data = r.json()
     except Exception as e:
         print(f"  [ERR] Failed to fetch data from EIA API: {e}")

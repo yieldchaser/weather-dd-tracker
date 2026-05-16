@@ -17,6 +17,7 @@ from pathlib import Path
 import json
 import sys
 import datetime
+from resilience_layer import resilient_get
 
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
@@ -64,8 +65,7 @@ def fetch_grid_outages():
     }
 
     try:
-        r = requests.get(url, params=params, timeout=30)
-        r.raise_for_status()
+        r = resilient_get(url, params=params, timeout=30, label="EIA nuclear outages")
         res_data = r.json()
     except Exception as e:
         print(f"  [ERR] Nuclear outages fetch failed: {e}")
