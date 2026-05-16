@@ -57,39 +57,49 @@ def check_gefs_complete(date_str, cycle):
 
 def check_ecmwf_complete(date_str, cycle):
     """
-    Checks if the ECMWF run is completely uploaded.
+    Checks if the ECMWF IFS deterministic run is completely uploaded via direct
+    HTTP HEAD request on the ECMWF index file.
+
+    Why HTTP HEAD and not the ecmwf-opendata Client:
+      - client.urls() removed in v0.3.26
+      - HEAD on index file is authoritative: 200 = published, 404 = not yet
     """
     try:
-        from ecmwf.opendata import Client
-        client = Client(source="ecmwf")
-        urls = client.urls(
-            model="ifs", stream="oper", type="fc", resol="0p25",
-            date=date_str, time=cycle, step=360, param="2t"
+        hh = cycle.zfill(2)
+        dt_str = f"{date_str}{hh}0000"
+        url = (
+            f"https://data.ecmwf.int/forecasts/{date_str}/{hh}z/"
+            f"ifs/0p25/oper/{dt_str}-360h-oper-fc.index"
         )
-        return len(urls) > 0
+        r = requests.head(url, timeout=10)
+        return r.status_code == 200
     except Exception as e:
-        print(f"  [WARN] ECMWF Check Error: {e}")
+        print(f"  [DEBUG] ECMWF IFS check {date_str}_{cycle} failed: {e}")
         return False
 
 def check_ecmwf_ens_complete(date_str, cycle):
     """
-    Checks if the ECMWF Ensemble run is completely uploaded.
+    Checks if the ECMWF Ensemble perturbed run is completely uploaded via direct
+    HTTP HEAD request on the ECMWF index file.
 
     UPDATED for 50r1 (May 12, 2026):
       - Old deprecated stream=enfo,type=fc has been replaced
-      - Now checks for perturbed members: stream=enfo, type=pf (number=1 indicates run is available)
+      - Now checks for perturbed members: stream=enfo, type=pf
       - ENS Control now at stream=oper, type=fc (merged with deterministic)
+
+    Why HTTP HEAD and not the ecmwf-opendata Client:
+      - client.urls() removed in v0.3.26
+      - HEAD on index file is authoritative: 200 = published, 404 = not yet
     """
     try:
-        from ecmwf.opendata import Client
-        client = Client(source="ecmwf")
-        # Check for first perturbed member at final step (360h)
-        # If available, the entire ensemble run is ready
-        urls = client.urls(
-            model="ifs", stream="enfo", type="pf", number=1, resol="0p25",
-            date=date_str, time=cycle, step=360, param="2t"
+        hh = cycle.zfill(2)
+        dt_str = f"{date_str}{hh}0000"
+        url = (
+            f"https://data.ecmwf.int/forecasts/{date_str}/{hh}z/"
+            f"ifs/0p25/enfo/{dt_str}-360h-enfo-pf.index"
         )
-        return len(urls) > 0
+        r = requests.head(url, timeout=10)
+        return r.status_code == 200
     except Exception:
         return False
 

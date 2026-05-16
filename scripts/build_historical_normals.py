@@ -19,6 +19,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT
+from om_batch_fetch import fetch_era5_cities_batch
 
 URL = "https://archive-api.open-meteo.com/v1/archive"
 START_DATE = "1991-01-01"
@@ -30,37 +31,25 @@ def celsius_to_f(c):
 def run():
     print(f"\n--- Synthesizing 10-Year & 30-Year Normals from ERA5 ---")
     
-    lats = [c[1] for c in DEMAND_CITIES]
-    lons = [c[2] for c in DEMAND_CITIES]
-    
-    params = {
-        "latitude": ",".join(map(str, lats)),
-        "longitude": ",".join(map(str, lons)),
-        "start_date": START_DATE,
-        "end_date": END_DATE,
-        "daily": "temperature_2m_mean",
-        "timezone": "UTC"
-    }
-    
     print(f"  Fetching ERA5 for {len(DEMAND_CITIES)} cities ({START_DATE} to {END_DATE})...")
-    r = requests.get(URL, params=params, timeout=60)
-    if r.status_code != 200:
-        print(f"  [ERR] Failed to fetch: {r.status_code}")
-        print(r.text)
+    city_data_raw = fetch_era5_cities_batch(
+        endpoint=URL,
+        start_date=START_DATE,
+        end_date=END_DATE,
+        variables=["temperature_2m_mean"],
+    )
+
+    if not city_data_raw:
+        print("  [ERR] ERA5 batch fetch failed — weight coverage too low.")
         return
-        
-    responses = r.json()
-    if isinstance(responses, dict):
-        responses = [responses]
-        
+
+    # Convert from {city_name: (weight, {date_str: temp_value})} to dataframes
     city_data = {}
-    for i, res in enumerate(responses):
-        name = DEMAND_CITIES[i][0]
-        data = res.get("daily", {})
-        times = data.get("time", [])
-        temps = data.get("temperature_2m_mean", [])
+    for name, (weight, temps_dict) in city_data_raw.items():
+        dates = sorted(temps_dict.keys())
+        temps = [temps_dict[d] for d in dates]
         temps_f = [celsius_to_f(t) if t is not None else np.nan for t in temps]
-        df = pd.DataFrame({"date": pd.to_datetime(times), f"temp_{name}": temps_f})
+        df = pd.DataFrame({"date": pd.to_datetime(dates), f"temp_{name}": temps_f})
         city_data[name] = df
         
     if not city_data:
