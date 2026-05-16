@@ -12,6 +12,7 @@ import pandas as pd
 import datetime
 import pytz
 import json
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from resilience_layer import resilient_get
 
 def safe_write_csv(df, path, min_rows=1):
