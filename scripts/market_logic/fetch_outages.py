@@ -17,6 +17,7 @@ from pathlib import Path
 import json
 import sys
 import datetime
+from resilience_layer import resilient_get
 
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
@@ -64,8 +65,7 @@ def fetch_grid_outages():
     }
 
     try:
-        r = requests.get(url, params=params, timeout=30)
-        r.raise_for_status()
+        r = resilient_get(url, params=params, timeout=30, label="EIA nuclear outages")
         res_data = r.json()
     except Exception as e:
         print(f"  [ERR] Nuclear outages fetch failed: {e}")
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         health = {
             "script": __file__,
             "status": status,
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
         }
         Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:
@@ -156,7 +156,7 @@ if __name__ == "__main__":
             "script": __file__,
             "status": "failed",
             "error": str(e),
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
         }
         Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:

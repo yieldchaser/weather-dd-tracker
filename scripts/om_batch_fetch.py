@@ -37,7 +37,7 @@ Chunking:
     With 79 cities this means 2 requests total.
 """
 
-import requests
+from resilience_layer import resilient_get
 from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT
 
 BATCH_SIZE = 50          # cities per HTTP request; tune down if you hit 414 errors
@@ -96,8 +96,8 @@ def fetch_all_cities_batch(
         }
 
         try:
-            resp = requests.get(endpoint, params=params, timeout=_TIMEOUT)
-            resp.raise_for_status()
+            resp = resilient_get(endpoint, params=params, timeout=_TIMEOUT,
+                                 label=f"OM chunk {chunk_start}-{chunk_start+len(chunk)-1}")
             results = resp.json()
         except Exception as e:
             chunk_weight = sum(c[3] for c in chunk)
@@ -165,6 +165,131 @@ def fetch_all_cities_batch(
               f"({coverage_pct*100:.1f}%). Result may be slightly biased.")
     else:
         print(f"  [OK] Batch fetch complete: {n_ok}/{n_tot} cities, "
+              f"{active_weight:.1f}/{TOTAL_WEIGHT:.1f} weight-pts ({coverage_pct*100:.1f}% coverage).")
+
+    return city_data
+
+
+def fetch_era5_cities_batch(
+    endpoint: str,
+    start_date: str,
+    end_date: str,
+    variables: list,
+    batch_size: int = 10,
+) -> dict:
+    """
+    Fetch historical ERA5 data for every city in DEMAND_CITIES via Open-Meteo
+    Archive API with date-range batching.
+
+    Parameters
+    ----------
+    endpoint    : Full URL, e.g. "https://archive-api.open-meteo.com/v1/archive"
+    start_date  : ISO 8601 date string, e.g. "1991-01-01"
+    end_date    : ISO 8601 date string, e.g. "2025-12-31"
+    variables   : List of variable names, e.g. ["temperature_2m_mean"]
+    batch_size  : Number of cities per request (default 10 for historical;
+                  keeps payloads < Open-Meteo Archive API limits)
+
+    Returns
+    -------
+    dict: {city_name: (weight, {date_str: value})}
+         Returns {} if active weight coverage < MIN_WEIGHT_COVERAGE_PCT × TOTAL_WEIGHT.
+         Caller MUST check for empty dict and abort rather than write a biased CSV.
+
+    Notes
+    -----
+    Historical data spans 35 years (12,775 days). With 50 cities, a single
+    request would yield ~650K data points, exceeding Open-Meteo Archive limits.
+    batch_size=10 ensures payloads stay under 150K points per request, safe margin.
+
+    CRITICAL: Uses RELATIVE index mapping. When processing a batch, iterate with:
+        for relative_idx, city in enumerate(batch):
+            entry = results[relative_idx]  # NOT results[chunk_start + i]
+    This prevents IndexError on Batch 2+ when trying to access out-of-bounds indices.
+    """
+    city_data: dict = {}
+    failed_chunk_weight = 0.0
+
+    for chunk_start in range(0, len(DEMAND_CITIES), batch_size):
+        batch = DEMAND_CITIES[chunk_start : chunk_start + batch_size]
+
+        lats = ",".join(str(c[1]) for c in batch)
+        lons = ",".join(str(c[2]) for c in batch)
+
+        params = {
+            "latitude": lats,
+            "longitude": lons,
+            "start_date": start_date,
+            "end_date": end_date,
+            "daily": ",".join(variables),
+            "temperature_unit": "celsius",
+            "timezone": "UTC"
+        }
+
+        try:
+            resp = resilient_get(endpoint, params=params, timeout=_TIMEOUT,
+                                 label=f"ERA5 chunk {chunk_start}-{chunk_start+len(batch)-1}")
+            results = resp.json()
+        except Exception as e:
+            chunk_weight = sum(c[3] for c in batch)
+            failed_chunk_weight += chunk_weight
+            pct = chunk_weight / TOTAL_WEIGHT * 100
+            print(f"  [ERR] ERA5 batch {chunk_start}–{chunk_start+len(batch)-1} "
+                  f"failed ({pct:.1f}% of total weight lost): {e}")
+            continue
+
+        # Multi-location response → JSON array; single-location → dict (wrap it)
+        if isinstance(results, dict):
+            if results.get("error"):
+                chunk_weight = sum(c[3] for c in batch)
+                failed_chunk_weight += chunk_weight
+                print(f"  [ERR] API error for ERA5 chunk {chunk_start}: "
+                      f"{results.get('reason', results)}")
+                continue
+            results = [results]
+
+        # RELATIVE INDEX MAPPING (key safeguard against IndexError on later batches)
+        for relative_idx, city in enumerate(batch):
+            name, _, _, weight = city
+            if relative_idx >= len(results):
+                print(f"  [WARN] No result for city '{name}' (API returned "
+                      f"{len(results)} of {len(batch)} items)")
+                continue
+
+            entry = results[relative_idx]
+            if isinstance(entry, dict) and entry.get("error"):
+                print(f"  [WARN] API error for city '{name}': "
+                      f"{entry.get('reason', entry)}")
+                continue
+
+            daily = entry.get("daily", {})
+            dates = daily.get("time", [])
+            temps = daily.get(variables[0], [])  # Assume single variable per call
+            temps_clean = {d: t for d, t in zip(dates, temps) if t is not None}
+
+            if temps_clean:
+                city_data[name] = (weight, temps_clean)
+            else:
+                print(f"  [WARN] Empty temperature data for '{name}' — excluded")
+
+    # ── Weight coverage guard ─────────────────────────────────────────────────
+    active_weight = sum(w for _, (w, _) in city_data.items())
+    coverage_pct = active_weight / TOTAL_WEIGHT if TOTAL_WEIGHT > 0 else 0.0
+
+    n_ok = len(city_data)
+    n_tot = len(DEMAND_CITIES)
+
+    if n_ok == 0 or coverage_pct < MIN_WEIGHT_COVERAGE_PCT:
+        print(f"  [CRIT] ERA5 weight coverage too low: {active_weight:.1f}/{TOTAL_WEIGHT:.1f} "
+              f"({coverage_pct*100:.1f}% — minimum {MIN_WEIGHT_COVERAGE_PCT*100:.0f}% required). "
+              f"Returning empty — caller should skip this run.")
+        return {}
+
+    if coverage_pct < 0.80:
+        print(f"  [WARN] Reduced ERA5 weight coverage: {active_weight:.1f}/{TOTAL_WEIGHT:.1f} "
+              f"({coverage_pct*100:.1f}%). Result may be slightly biased.")
+    else:
+        print(f"  [OK] ERA5 batch fetch complete: {n_ok}/{n_tot} cities, "
               f"{active_weight:.1f}/{TOTAL_WEIGHT:.1f} weight-pts ({coverage_pct*100:.1f}% coverage).")
 
     return city_data

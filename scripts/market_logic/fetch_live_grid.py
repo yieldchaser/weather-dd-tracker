@@ -7,12 +7,12 @@ Now includes LOAD (demand) data and ISO-level row persistence in outputs.
 
 import os
 import sys
-import time
 import requests
 import pandas as pd
 import datetime
 import pytz
 import json
+from resilience_layer import resilient_get
 
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
@@ -83,16 +83,14 @@ def get_eia_data(endpoint, iso_code, start_dt, today, data_type=None):
     if data_type:
         params["facets[type][]"] = data_type
         
-    for attempt in range(3):
-        try:
-            r = requests.get(endpoint, params=params, timeout=30)
-            r.raise_for_status()
-            data = r.json()
-            if "response" in data and "data" in data["response"]:
-                return pd.DataFrame(data["response"]["data"])
-        except Exception as e:
-            print(f"  [ERR] EIA Fetch failed ({iso_code}, {data_type}): {e}")
-        time.sleep(2)
+    try:
+        r = resilient_get(endpoint, params=params, timeout=30,
+                          label=f"EIA {iso_code} {data_type or ''}")
+        data = r.json()
+        if "response" in data and "data" in data["response"]:
+            return pd.DataFrame(data["response"]["data"])
+    except Exception as e:
+        print(f"  [ERR] EIA Fetch failed ({iso_code}, {data_type}): {e}")
     return pd.DataFrame()
 
 def fetch_live_grid():

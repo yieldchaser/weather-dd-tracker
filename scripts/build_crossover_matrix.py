@@ -14,6 +14,7 @@ COLORS = {
 
 import requests
 from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT
+from om_batch_fetch import fetch_era5_cities_batch
 
 CACHE_PATH = Path("data/normals/era5_10yr_normals.csv")
 
@@ -28,36 +29,31 @@ def get_10yr_normals():
 
     print("  [INFO] Fetching real 10Y normals (2016-2025) from Open-Meteo...")
     URL = "https://archive-api.open-meteo.com/v1/archive"
-    lats = [c[1] for c in DEMAND_CITIES]
-    lons = [c[2] for c in DEMAND_CITIES]
-    
-    params = {
-        "latitude": ",".join(map(str, lats)),
-        "longitude": ",".join(map(str, lons)),
-        "start_date": "2016-01-01",
-        "end_date": "2025-12-31",
-        "daily": "temperature_2m_mean",
-        "temperature_unit": "fahrenheit",
-        "timezone": "America/New_York"
-    }
 
-    r = requests.get(URL, params=params, timeout=60)
-    if r.status_code != 200:
-        print(f"  [ERR] Failed to fetch 10Y data: {r.status_code}")
+    city_data_raw = fetch_era5_cities_batch(
+        endpoint=URL,
+        start_date="2016-01-01",
+        end_date="2025-12-31",
+        variables=["temperature_2m_mean"],
+    )
+
+    if not city_data_raw:
+        print("  [ERR] ERA5 batch fetch failed — weight coverage too low.")
         return None
 
-    res = r.json()
-    if isinstance(res, dict): res = [res]
-    
-    # Process each city's data
+    # Convert from {city_name: (weight, {date_str: temp_value})} to dataframes
+    # Note: fetch_era5_cities_batch returns Celsius; convert to Fahrenheit
+    def celsius_to_f(c):
+        return c * 9 / 5 + 32
+
     city_dfs = []
-    for i, city_res in enumerate(res):
-        name = DEMAND_CITIES[i][0]
-        weight = DEMAND_CITIES[i][3]
-        daily = city_res.get("daily", {})
+    for name, (weight, temps_dict) in city_data_raw.items():
+        dates = sorted(temps_dict.keys())
+        temps = [temps_dict[d] for d in dates]
+        temps_f = [celsius_to_f(t) if t is not None else np.nan for t in temps]
         df = pd.DataFrame({
-            "date": pd.to_datetime(daily.get("time", [])),
-            "temp": daily.get("temperature_2m_mean", []),
+            "date": pd.to_datetime(dates),
+            "temp": temps_f,
             "weight": weight
         })
         city_dfs.append(df)
