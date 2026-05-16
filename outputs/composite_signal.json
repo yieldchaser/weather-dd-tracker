@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-05-16T00:39:24.055Z",
+  "timestamp": "2026-05-16T06:49:57.667Z",
   "composite_score": -3.0,
   "signal": "BEARISH",
-  "confidence": 60.0,
+  "confidence": 80.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
@@ -18,7 +18,6 @@
     }
   ],
   "stale_systems": [
-    "freeze (stale)",
     "regimes (stale)"
   ],
   "detail": {
@@ -27,7 +26,7 @@
   },
   "system_status": {
     "teleconnections_connected": true,
-    "freeze_connected": false,
+    "freeze_connected": true,
     "sensitivity_connected": true,
     "wind_connected": true,
     "regimes_connected": false
