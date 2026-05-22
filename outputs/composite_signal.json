@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-22T07:53:01.983Z",
-  "composite_score": -2.5,
-  "signal": "BEARISH",
+  "timestamp": "2026-05-22T11:24:49.551Z",
+  "composite_score": 0.0,
+  "signal": "NEUTRAL",
   "confidence": 100.0,
   "components": [
     {
@@ -9,8 +9,8 @@
       "score": -1.5
     },
     {
-      "name": "Low Weather Sensitivity",
-      "score": -1.0
+      "name": "High Weather Sensitivity",
+      "score": 1.5
     },
     {
       "name": "Wind Drought (Persistent)",
@@ -23,8 +23,8 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 2.0,
-    "bear_accumulator": 4.5
+    "bull_accumulator": 3.5,
+    "bear_accumulator": 3.5
   },
   "system_status": {
     "teleconnections_connected": true,
