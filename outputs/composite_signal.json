@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-23T07:27:00.564Z",
-  "composite_score": 0.5,
-  "signal": "NEUTRAL",
+  "timestamp": "2026-05-23T10:12:18.991Z",
+  "composite_score": 4.2,
+  "signal": "BULLISH",
   "confidence": 100.0,
   "components": [
     {
@@ -13,18 +13,18 @@
       "score": 1.5
     },
     {
-      "name": "Wind Drought (Persistent)",
-      "score": 2.0
+      "name": "Wind Drought (Moderate)",
+      "score": 1.2000000000000002
     },
     {
-      "name": "Bearish/Mild Regime (Regime 2 (Ridge East))",
-      "score": -2.0
+      "name": "Blocking/Trough (Regime 1 (Arctic Block / Ridge East / Trough West))",
+      "score": 2.5
     }
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 3.5,
-    "bear_accumulator": 3.0
+    "bull_accumulator": 5.2,
+    "bear_accumulator": 1.0
   },
   "system_status": {
     "teleconnections_connected": true,
