@@ -1,28 +1,36 @@
 {
-  "timestamp": "2026-05-27T08:32:25.968Z",
-  "composite_score": -2.0,
-  "signal": "BEARISH",
-  "confidence": 40.0,
+  "timestamp": "2026-05-27T11:54:20.603Z",
+  "composite_score": 4.0,
+  "signal": "BULLISH",
+  "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
       "score": -2.0
+    },
+    {
+      "name": "High Weather Sensitivity",
+      "score": 1.5
+    },
+    {
+      "name": "Wind Drought (Persistent)",
+      "score": 2.0
+    },
+    {
+      "name": "Blocking/Trough (Regime 1 (Arctic Block / Ridge East / Trough West))",
+      "score": 2.5
     }
   ],
-  "stale_systems": [
-    "sensitivity (stale)",
-    "wind (stale)",
-    "regimes (stale)"
-  ],
+  "stale_systems": [],
   "detail": {
-    "bull_accumulator": 0.0,
+    "bull_accumulator": 6.0,
     "bear_accumulator": 2.0
   },
   "system_status": {
     "teleconnections_connected": true,
     "freeze_connected": true,
-    "sensitivity_connected": false,
-    "wind_connected": false,
-    "regimes_connected": false
+    "sensitivity_connected": true,
+    "wind_connected": true,
+    "regimes_connected": true
   }
 }
