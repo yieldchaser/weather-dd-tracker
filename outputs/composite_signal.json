@@ -1,35 +1,28 @@
 {
-  "timestamp": "2026-05-26T23:20:51.607Z",
-  "composite_score": 1.5,
-  "signal": "BULLISH",
-  "confidence": 60.0,
+  "timestamp": "2026-05-27T08:32:25.968Z",
+  "composite_score": -2.0,
+  "signal": "BEARISH",
+  "confidence": 40.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
       "score": -2.0
-    },
-    {
-      "name": "High Weather Sensitivity",
-      "score": 1.5
-    },
-    {
-      "name": "Wind Drought (Persistent)",
-      "score": 2.0
     }
   ],
   "stale_systems": [
-    "freeze (stale)",
+    "sensitivity (stale)",
+    "wind (stale)",
     "regimes (stale)"
   ],
   "detail": {
-    "bull_accumulator": 3.5,
+    "bull_accumulator": 0.0,
     "bear_accumulator": 2.0
   },
   "system_status": {
     "teleconnections_connected": true,
-    "freeze_connected": false,
-    "sensitivity_connected": true,
-    "wind_connected": true,
+    "freeze_connected": true,
+    "sensitivity_connected": false,
+    "wind_connected": false,
     "regimes_connected": false
   }
 }
