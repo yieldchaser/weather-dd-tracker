@@ -138,8 +138,11 @@ def download_member_timestep(args):
 def celsius_to_f(c):
     return c * 9 / 5 + 32
 
-def compute_tdd(temp_f):
+def compute_hdd(temp_f):
     return max(BASE_TEMP_F - temp_f, 0)
+
+def compute_cdd(temp_f):
+    return max(temp_f - BASE_TEMP_F, 0)
 
 # -----------------------------
 # Main logic
@@ -201,12 +204,19 @@ def process_gribs(run_id, downloaded_files):
                 
         if member_temps:
             ens_mean_f = sum(member_temps) / len(member_temps)
-            tdd_val = compute_tdd(ens_mean_f)
+            h = compute_hdd(ens_mean_f)
+            c = compute_cdd(ens_mean_f)
+            t = h + c
             rows.append({
                 "date": date_str,
                 "mean_temp": round(ens_mean_f, 2),
-                "tdd": round(tdd_val, 2),
-                "tdd_gw": round(tdd_val, 2),
+                "hdd": round(h, 2),
+                "cdd": round(c, 2),
+                "tdd": round(t, 2),
+                "mean_temp_gw": round(ens_mean_f, 2),
+                "hdd_gw": round(h, 2),
+                "cdd_gw": round(c, 2),
+                "tdd_gw": round(t, 2),
                 "model": "GEFS_35D",
                 "run_id": run_id,
             })

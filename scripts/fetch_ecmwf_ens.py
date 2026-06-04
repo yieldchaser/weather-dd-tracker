@@ -34,8 +34,12 @@ def celsius_to_f(c):
     return c * 9 / 5 + 32
 
 
-def compute_tdd(temp_f):
+def compute_hdd(temp_f):
     return max(BASE_TEMP_F - temp_f, 0)
+
+
+def compute_cdd(temp_f):
+    return max(temp_f - BASE_TEMP_F, 0)
 
 
 def fetch_run(date_str, cycle):
@@ -80,11 +84,19 @@ def fetch_run(date_str, cycle):
                 total_w += weight
         if total_w > 0:
             avg_f = celsius_to_f(weighted_temp / total_w)
+            h = compute_hdd(avg_f)
+            c = compute_cdd(avg_f)
+            t = h + c
             rows.append({
                 "date":     dt_str,
                 "mean_temp": round(avg_f, 2),
-                "tdd":      round(compute_tdd(avg_f), 2),
-                "tdd_gw":   round(compute_tdd(avg_f), 2),
+                "hdd":      round(h, 2),
+                "cdd":      round(c, 2),
+                "tdd":      round(t, 2),
+                "mean_temp_gw": round(avg_f, 2),
+                "hdd_gw":   round(h, 2),
+                "cdd_gw":   round(c, 2),
+                "tdd_gw":   round(t, 2),
                 "model":    "ECMWF_ENS",
                 "run_id":   run_id,
             })

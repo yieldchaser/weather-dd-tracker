@@ -37,16 +37,16 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20260516_05",
-      "prev": "20260516_04",
+      "latest": "20260604_16",
+      "prev": "20260604_15",
       "gap": false,
-      "has_gw": false
+      "has_gw": true
     },
     "NAM CHG": {
-      "latest": "20260516_00",
-      "prev": "20260515_18",
+      "latest": "20260604_12",
+      "prev": "20260604_06",
       "gap": false,
-      "has_gw": false
+      "has_gw": true
     },
     "NBM CHG": {
       "latest": "20260604_12",
@@ -55,11 +55,11 @@
       "has_gw": true
     },
     "FOURCASTNETV2-SMALL": {
-      "latest": "20260601_12_AI",
-      "prev": "20260531_12_AI",
-      "gap": false,
+      "latest": "20260603_12_AI",
+      "prev": "20260601_12_AI",
+      "gap": true,
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-04T15:29:38.519078"
+  "generated_at": "2026-06-04T23:19:34.811876"
 }

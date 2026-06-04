@@ -1717,7 +1717,7 @@
                     const today = (TIME_TRAVEL_DATE || new Date());
                     const bufferDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
                     const bufferStr = bufferDate.toISOString().substring(0, 10);
-                    const startClip = (minDate < bufferStr) ? bufferStr : minDate;
+                    const startClip = (minDate < bufferStr && maxDate >= bufferStr) ? bufferStr : minDate;
 
                     // REDRAW X-AXIS: extend window based on model horizon
                     const SUBSEASONAL = ['GEFS_35D', 'CFS'];
