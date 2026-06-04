@@ -1850,7 +1850,13 @@
             try {
                 const r = await fetch(url + '?t=' + Date.now());
                 if (!r.ok) return null;
-             function setTcCard(valEl, value) {
+                return await r.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function setTcCard(valEl, value) {
             valEl.textContent = Number(value).toFixed(1);
             valEl.className = 'tc-val ' + (value < 0 ? 'tc-cold' : value > 0 ? 'tc-warm' : 'tc-zero');
         }
