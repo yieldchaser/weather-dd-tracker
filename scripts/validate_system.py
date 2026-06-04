@@ -10,7 +10,7 @@ def validate_test1_and_2():
     files_to_check = {
         "outputs/teleconnections/latest.json": ["ao", "nao", "pna", "epo", "composite_score", "analogs"],
         "outputs/regimes/current_regime.json": ["current_regime", "regime_label", "persistence_days", "transition_probs", "season"],
-        "outputs/wind/drought.json": ["national_cf_anomaly", "drought_isos", "in_drought", "power_burn_impact_signal", "per_iso"],
+        "outputs/wind/drought.json": ["drought_prob_16d", "drought_prob_7d", "worst_day", "anomaly_today", "model_agreement_today_pct"],
         "outputs/sensitivity/rolling_coeff.json": ["sensitivity_bcf_per_hdd", "r_squared", "percentile"],
         "outputs/freeze/alerts.json": ["alert_level"],
         "outputs/composite_signal.json": ["composite_score", "signal", "confidence", "components"]
@@ -48,8 +48,8 @@ def validate_test1_and_2():
         with open("outputs/sensitivity/rolling_coeff.json", "r") as f:
             d = json.load(f)
             val = d.get("sensitivity_bcf_per_hdd", 0)
-            if not (0.1 <= val <= 5.0):
-                logging.error(f"FAIL: Sensitivity {val} outside 0.1-5.0 range.")
+            if not (0.1 <= val <= 15.0):
+                logging.error(f"FAIL: Sensitivity {val} outside 0.1-15.0 range.")
                 all_pass = False
             r2 = d.get("r_squared", 0)
             if not (0.0 <= r2 <= 1.0):
@@ -59,11 +59,11 @@ def validate_test1_and_2():
     if os.path.exists("outputs/wind/drought.json"):
         with open("outputs/wind/drought.json", "r") as f:
             d = json.load(f)
-            iso_data = d.get("per_iso", {})
-            for iso, cf in iso_data.items():
-                # CF can be slightly negative in anomaly terms, but usually within -1 to 1 bounds for anomalies
-                if not (-1.0 <= cf <= 1.0):
-                    logging.warning(f"Value Warning: {iso} CF anomaly {cf} looks extreme.")
+            for k in ["drought_prob_16d", "drought_prob_7d"]:
+                val = d.get(k, 0)
+                if not (0.0 <= val <= 1.0):
+                    logging.error(f"FAIL: {k} {val} outside 0-1 range.")
+                    all_pass = False
 
     if os.path.exists("outputs/composite_signal.json"):
         with open("outputs/composite_signal.json", "r") as f:

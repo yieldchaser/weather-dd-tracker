@@ -24,6 +24,8 @@ def test_edge_cases():
         
         # Run composite
         try:
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             import scripts.compute_composite_weather_signal as s
             s.compute_composite_weather_signal()
             with open("outputs/composite_signal.json", "r") as f:
