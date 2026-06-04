@@ -991,8 +991,8 @@
 
                             let n10 = normVal(r, true);
                             let a10 = IS_CDD
-                                ? parseFloat(r.cdd_anomaly_10yr || r.cdd_anomaly_gw || 0)
-                                : parseFloat(r.hdd_anomaly_gw_10yr || r.hdd_anomaly_10yr || 0);
+                                ? parseFloat(r.cdd_anomaly_10yr ?? r.cdd_anomaly_gw ?? 0)
+                                : parseFloat(r.hdd_anomaly_gw_10yr ?? r.hdd_anomaly_10yr ?? 0);
 
                             let rDate = new Date(`${r.date}T00:00:00Z`);
                             let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
