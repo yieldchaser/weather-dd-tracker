@@ -13,6 +13,7 @@ The platform operates as a decentralized intelligence pipeline. Raw atmospheric 
 - **Frontend:** Dual-dashboard interface using vanilla JS and Chart.js.
     - `index.html`: **Weather Desk** (Macro-weather, HDDs, regimes, and teleconnections).
     - `grid.html`: **Power Grid Monitor** (Real-time burn, wind impact, and forward generation).
+    - **Premium Unified Tooltip System:** Interactive hover-state explanations covering every weather model (including AI systems like GraphCast and AIFS), teleconnections, real-time grid metrics, and dynamic cell-level run-to-run shifts.
 - **Backend:** Python-based state machine running on GitHub Actions.
 - **Persistence:** JSON/CSV flat-file database stored directly in the repository.
 
