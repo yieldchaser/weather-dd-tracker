@@ -68,17 +68,23 @@ if ecmwf_result.returncode != 0 and gfs_result.returncode != 0:
 # ------------------------------------------
 
 print("\n3. Computing HDD for all models (CONUS avg + gas-weighted)...")
-subprocess.run(f"{PY} scripts/compute_tdd.py", shell=True)
+r3 = subprocess.run(f"{PY} scripts/compute_tdd.py", shell=True)
+if r3.returncode != 0:
+    print("  [ERR] compute_tdd.py exited non-zero — check output above")
 
 # ------------------------------------------
 # Step 4: Merge + compare to normals
 # ------------------------------------------
 
 print("\n4. Merging data...")
-subprocess.run(f"{PY} scripts/merge_tdd.py", shell=True)
+r4 = subprocess.run(f"{PY} scripts/merge_tdd.py", shell=True)
+if r4.returncode != 0:
+    print("  [ERR] merge_tdd.py exited non-zero — check output above")
 
 print("\n4b. Extracting latest run per model...")
-subprocess.run(f"{PY} scripts/select_latest_run.py", shell=True)
+r4b = subprocess.run(f"{PY} scripts/select_latest_run.py", shell=True)
+if r4b.returncode != 0:
+    print("  [ERR] select_latest_run.py exited non-zero")
 
 print("\n4c. Comparing to normals (HDD + CDD, simple + gas-weighted)...")
 subprocess.run(f"{PY} scripts/compare_to_normal.py", shell=True)

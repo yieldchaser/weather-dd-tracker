@@ -49,17 +49,18 @@ def detect_grid_type(ds):
     x_dim = next((d for d in ds.dims if d.lower() == "x"), None)
     y_dim = next((d for d in ds.dims if d.lower() == "y"), None)
 
-    # Step 2: Check for 2D coordinate variables safely across variables and coordinates
-    lat_2d = ds["lat"] if "lat" in ds else None
-    lon_2d = ds["lon"] if "lon" in ds else None
+    # Step 2: Check for 2D coordinate variable names (lat/latitude, lon/longitude)
+    lat_coord_name = next((n for n in ("lat", "latitude") if n in ds), None)
+    lon_coord_name = next((n for n in ("lon", "longitude") if n in ds), None)
 
     # Step 3: Return based on what was found (priority order)
+    # Always return STRING names so callers can uniformly use ds[lat_coord]
     if lat_dim is not None and lon_dim is not None:
         return (lat_dim, lon_dim, "regular_1d")
-    elif x_dim is not None and y_dim is not None and lat_2d is not None and lon_2d is not None:
-        return (lat_2d, lon_2d, "projected_2d")
-    elif lat_2d is not None and lon_2d is not None:
-        return (lat_2d, lon_2d, "projected_2d_no_dims")
+    elif x_dim is not None and y_dim is not None and lat_coord_name and lon_coord_name:
+        return (lat_coord_name, lon_coord_name, "projected_2d")
+    elif lat_coord_name and lon_coord_name:
+        return (lat_coord_name, lon_coord_name, "projected_2d_no_dims")
     elif "rlat" in dim_lower and "rlon" in dim_lower:
         return (dim_lower["rlat"], dim_lower["rlon"], "rotated_1d")
     else:
@@ -112,16 +113,25 @@ def crop_to_conus_robust(ds, lat_coord, lon_coord, grid_type):
     Uses xarray's native .where(drop=True) to preserve dimension integrity on projected grids.
     """
     if grid_type == "regular_1d":
+        # Normalize -180→+180 to 0→360 if needed (ECMWF opendata uses negative W lons)
+        if float(ds[lon_coord].min()) < 0:
+            ds = ds.assign_coords({lon_coord: ds[lon_coord] % 360})
+            ds = ds.sortby(lon_coord)
+        # Handle descending latitudes (some grids run 90°N→-90°N)
+        lat_vals = ds[lat_coord].values
+        lat_slice = slice(CONUS_LAT_MAX, CONUS_LAT_MIN) if lat_vals[0] > lat_vals[-1] else slice(CONUS_LAT_MIN, CONUS_LAT_MAX)
         return ds.sel(
-            {lat_coord: slice(CONUS_LAT_MIN, CONUS_LAT_MAX), lon_coord: slice(CONUS_LON_MIN, CONUS_LON_MAX)},
+            {lat_coord: lat_slice, lon_coord: slice(CONUS_LON_MIN, CONUS_LON_MAX)},
             drop=False
         )
 
     elif grid_type in ("projected_2d", "projected_2d_no_dims"):
-        # Native xarray 2D conditional masking to prevent shape mismatches
-        mask = (ds["lat"] >= CONUS_LAT_MIN) & (ds["lat"] <= CONUS_LAT_MAX) & \
-               (ds["lon"] >= CONUS_LON_MIN) & (ds["lon"] <= CONUS_LON_MAX)
-        return ds.where(mask, drop=True)
+        # lat_coord/lon_coord are string names (lat/latitude, lon/longitude)
+        # Use where(mask, drop=False) to avoid OOM on large grids (HRRR ~1.9M cells).
+        # Values outside CONUS become NaN; apply_gas_weights handles NaN masking.
+        mask = (ds[lat_coord] >= CONUS_LAT_MIN) & (ds[lat_coord] <= CONUS_LAT_MAX) & \
+               (ds[lon_coord] >= CONUS_LON_MIN) & (ds[lon_coord] <= CONUS_LON_MAX)
+        return ds.where(mask, drop=False)
 
     elif grid_type == "rotated_1d":
         rlat_dim = lat_coord if isinstance(lat_coord, str) else None
@@ -170,10 +180,12 @@ def apply_gas_weights(temp_2d, w_interp):
     try:
         if w_interp is None:
             return None
-        total_w = w_interp.sum()
+        # Mask out NaN cells (projected grids have NaN outside CONUS after where/drop)
+        valid = ~np.isnan(temp_2d)
+        total_w = w_interp[valid].sum()
         if total_w == 0:
             return None
-        return float((temp_2d * w_interp).sum() / total_w)
+        return float((temp_2d[valid] * w_interp[valid]).sum() / total_w)
     except Exception as e:
         print(f"  [WARN]  Applying gas weights failed ({e})")
         return None
@@ -191,12 +203,19 @@ def process_ecmwf_grib(run_path, weights, w_lats, w_lons, ensemble=False):
         ds = xr.open_dataset(file, engine="cfgrib")
     except Exception as e:
         if "multiple values for unique key" in str(e):
-            print("  [INFO] Multiple data types found, filtering for 'pf' (perturbed forecast)")
-            try:
-                ds = xr.open_dataset(file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"dataType": "pf"}})
-            except Exception:
-                print("  [INFO] 'pf' failed, trying 'cf' (control forecast)")
-                ds = xr.open_dataset(file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"dataType": "cf"}})
+            # ECMWF 50r1 IFS mixes an+fc in one file; try fc first (deterministic 50r1+), then pf/cf/an
+            opened = False
+            for dtype in ("fc", "pf", "cf", "an"):
+                try:
+                    ds = xr.open_dataset(file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"dataType": dtype}})
+                    print(f"  [INFO] Opened with dataType='{dtype}'")
+                    opened = True
+                    break
+                except Exception:
+                    continue
+            if not opened:
+                print("  [ERR] All dataType fallbacks exhausted. Cannot open GRIB.")
+                return None
         else:
             print(f"  Error opening GRIB: {e}")
             return None
@@ -262,7 +281,7 @@ def process_ecmwf_ens(run_path, w, wl, wlo): return process_ecmwf_grib(run_path,
 def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filter=None):
     """
     Process multi-file GRIB dataset for HRRR/NAM/GEFS/ICON.
-    Detects grid type, crops to CONUS without dimension leakage, and computes weighted TDD.
+    Detects grid type once, crops EVERY file to CONUS, computes weighted TDD.
     """
     all_files = sorted([
         f for f in Path(run_path).iterdir()
@@ -276,7 +295,6 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
 
     rows = []
     w_interp = None
-    first_file = True
     lat_coord = None
     lon_coord = None
     grid_type = None
@@ -293,47 +311,44 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
             )
             var = list(ds.data_vars)[0]
 
-            if first_file and weights is not None:
-                # STEP 1: Detect grid type safely
+            # Detect grid type once (all files in a run share the same grid)
+            if lat_coord is None:
                 try:
                     lat_coord, lon_coord, grid_type = detect_grid_type(ds)
                 except ValueError as e:
                     print(f"  [CRIT] Coordinate detection failed: {e}")
                     raise
 
-                # STEP 2: Crop to CONUS using native xarray filtering
+            # Crop EVERY file to CONUS (not just the first)
+            try:
+                ds = crop_to_conus_robust(ds, lat_coord, lon_coord, grid_type)
+            except Exception as e:
+                print(f"  [WARN] CONUS crop failed for {file.name}: {e}")
+                continue
+
+            # Build weight interpolation from first successfully cropped file
+            if w_interp is None and weights is not None:
                 try:
-                    ds = crop_to_conus_robust(ds, lat_coord, lon_coord, grid_type)
-                except ValueError as e:
-                    print(f"  [CRIT] CONUS crop failed: {e}")
-                    raise
-
-                # Re-reference data array after cropping
-                da = ds[var]
-
-                # STEP 3: Extract lat/lon for weight interpolation from the newly cropped dataset
-                if grid_type == "regular_1d":
-                    lat_vals = ds[lat_coord].values
-                    lon_vals = ds[lon_coord].values
-                else:
-                    # Pull directly from cropped ds to avoid shape anomalies
-                    lat_vals = ds["lat"].values.flatten()
-                    lon_vals = ds["lon"].values.flatten()
-
-                # STEP 4: Interpolate weights to this model's grid
-                try:
-                    w_interp = get_interpolated_weights(
-                        lat_vals, lon_vals, weights, w_lats, w_lons
-                    )
+                    if grid_type == "regular_1d":
+                        lat_vals = ds[lat_coord].values   # 1D → get_interpolated_weights gives 2D result
+                        lon_vals = ds[lon_coord].values
+                        w_interp = get_interpolated_weights(lat_vals, lon_vals, weights, w_lats, w_lons)
+                    else:
+                        # Projected grids (Lambert Conformal, HRRR/NAM): lat/lon are 2D (y, x).
+                        # Use nearest-neighbour searchsorted lookup — O(N log N), memory-safe.
+                        # xr.DataArray.interp on ~2M scattered points creates an (N×M) OOM matrix.
+                        lat_2d = ds[lat_coord].values
+                        lon_2d = ds[lon_coord].values
+                        lat_idx = np.clip(np.searchsorted(w_lats, lat_2d.flatten()), 0, len(w_lats) - 1)
+                        lon_idx = np.clip(np.searchsorted(w_lons, lon_2d.flatten()), 0, len(w_lons) - 1)
+                        w_interp = weights[lat_idx, lon_idx].reshape(lat_2d.shape)
                 except Exception as e:
-                    print(f"  [CRIT] Weight interpolation failed: {e}")
-                    raise
-
-                first_file = False
+                    print(f"  [WARN] Weight interpolation failed: {e}")
 
             temp_k_2d = ds[var].values
             temp_f_2d = kelvin_to_f(temp_k_2d)
             if temp_f_2d.size == 0:
+                print(f"  [WARN] Empty data array in {file.name}")
                 continue
             temp_f_simple = float(np.nanmean(temp_f_2d))
             temp_f_gw = apply_gas_weights(temp_f_2d, w_interp) if w_interp is not None else None
@@ -354,13 +369,11 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
 
     if rows:
         df = pd.DataFrame(rows)
-        # Filter out incomplete days (start/end biasing)
         steps = df.groupby("date").size().max()
         min_steps = max(1, int(steps * MIN_DAY_COVERAGE))
         day_counts = df.groupby("date").size()
         valid_days = day_counts[day_counts >= min_steps].index
         df = df[df["date"].isin(valid_days)]
-
         return df.groupby("date").mean(numeric_only=True).reset_index()
     print("  No valid rows computed.")
     return None
