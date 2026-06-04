@@ -402,6 +402,60 @@
                 font-size: 1.6rem;
             }
         }
+
+        /* ── Unified Tooltip Overlay ── */
+        #tooltipOverlay {
+            position: fixed;
+            z-index: 10000;
+            background: rgba(31, 40, 51, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            max-width: 320px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s ease, transform 0.12s ease;
+            transform: translateY(6px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: left;
+        }
+
+        #tooltipOverlay.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tt-title {
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 6px;
+            border-bottom: 1px solid rgba(102, 252, 241, 0.2);
+            padding-bottom: 4px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tt-body strong {
+            color: var(--text-br);
+        }
+
+        .tt-body em {
+            color: #ffb74d; /* Amber highlight */
+        }
+
+        .has-tooltip {
+            cursor: help;
+            border-bottom: 1px dashed rgba(102, 252, 241, 0.4);
+        }
+
+        .has-tooltip:hover {
+            border-bottom-color: var(--accent);
+        }
     </style>
 </head>
 
@@ -423,17 +477,17 @@
         <div id="app" style="display:none;">
             <!-- COMBINED DROUGHT BADGE -->
             <div id="combined-drought-container" style="display:none; margin-bottom: 20px;">
-                <div id="combined-drought-badge" style="font-weight: bold; font-size: 1.1rem; padding: 15px; border: 3px solid var(--bearish); border-radius: 6px; background: rgba(244, 67, 54, 0.05); text-align: center;">
+                <div id="combined-drought-badge" class="has-tooltip" data-tooltip-key="Combined Renewable Drought" style="font-weight: bold; font-size: 1.1rem; padding: 15px; border: 3px solid var(--bearish); border-radius: 6px; background: rgba(244, 67, 54, 0.05); text-align: center;">
                     --
                 </div>
             </div>
 
             <!-- FORWARD WIND FORECAST -->
             <div id="wind-forecast-section" style="display:none; margin-bottom: 30px;">
-                <h2 class="section-title" style="margin-top: 25px;">Forward Wind Generation Forecast (Multi-Model)</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Forward Wind Forecast" style="margin-top: 25px;">Forward Wind Generation Forecast (Multi-Model)</h2>
                 
                 <div class="chart-controls">
-                    <div id="wind-badge" style="font-weight: bold; padding: 10px; border: 2px solid var(--neutral); border-radius: 4px; display: inline-block;">
+                    <div id="wind-badge" class="has-tooltip" data-tooltip-key="Forward Wind Forecast" style="font-weight: bold; padding: 10px; border: 2px solid var(--neutral); border-radius: 4px; display: inline-block;">
                         --
                     </div>
                     <div class="button-group">
@@ -454,10 +508,10 @@
 
             <!-- FORWARD SOLAR FORECAST -->
             <div id="solar-forecast-section" style="display:none; margin-bottom: 30px;">
-                <h2 class="section-title" style="margin-top: 25px;">Forward Solar Generation Forecast</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Forward Solar Forecast" style="margin-top: 25px;">Forward Solar Generation Forecast</h2>
                 
                 <div class="chart-controls">
-                    <div id="solar-badge" style="font-weight: bold; padding: 10px; border: 2px solid var(--neutral); border-radius: 4px; display: inline-block;">
+                    <div id="solar-badge" class="has-tooltip" data-tooltip-key="Forward Solar Forecast" style="font-weight: bold; padding: 10px; border: 2px solid var(--neutral); border-radius: 4px; display: inline-block;">
                         --
                     </div>
                     <div class="button-group">
@@ -474,19 +528,19 @@
             <!-- NATIONAL POWER GRID -->
             <h2 class="section-title" style="margin-top: 25px;">National Power Grid (Big 4 ISOs)</h2>
             <div class="summary-row">
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="Total NatGas Burn">
                     <h3>Total NatGas Burn (MW)</h3>
                     <div class="val" id="national-gas-burn">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="Total Wind Generation">
                     <h3>Total Wind Generation (MW)</h3>
                     <div class="val" id="national-wind-gen">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="National Wind Anomaly">
                     <h3>National Wind Anomaly</h3>
                     <div class="val" id="national-wind-anomaly">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="National Load">
                     <h3>National Load (MW)</h3>
                     <div class="val" id="national-load">--</div>
                 </div>
@@ -495,23 +549,23 @@
             <!-- REAL-TIME GRID MONITOR (ERCOT) -->
             <h2 class="section-title" style="margin-top: 25px;">Real-Time Grid Monitor (ERCOT)</h2>
             <div class="summary-row">
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Gas Gen">
                     <h3>NatGas Burn (MW)</h3>
                     <div class="val" id="live-gas-burn">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Wind Gen">
                     <h3>Wind Generation (MW)</h3>
                     <div class="val" id="live-wind-gen">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Wind Anomaly">
                     <h3>Wind Anomaly (vs 30d)</h3>
                     <div class="val" id="live-wind-anomaly">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Grid Impact">
                     <h3>Grid Impact</h3>
                     <div class="val" id="live-grid-impact" style="font-size: 1.2rem;">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="ERCOT System Load">
                     <h3>National Load (MW)</h3>
                     <div class="val" id="national-load-ercot">--</div>
                 </div>
@@ -539,7 +593,7 @@
 
             <!-- GAS BURN VS TEMPERATURE SCATTER -->
             <div id="gas-burn-scatter-section" style="margin-bottom: 30px;">
-                <h2 class="section-title" style="margin-top: 25px;">Gas Burn vs Temperature (Bcf/d)</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Gas-Temp Relationship" style="margin-top: 25px;">Gas Burn vs Temperature (Bcf/d)</h2>
                 <div class="chart-controls">
                     <div id="scatter-info" style="font-size: 0.9rem; color: var(--text-main);">
                         Grouped by year (U-shape demand curve)
@@ -560,7 +614,7 @@
 
             <!-- THERMAL GENERATION CHARTS -->
             <div id="thermal-section" style="margin-bottom: 30px;">
-                <h2 class="section-title" style="margin-top: 25px;">Gas as % of Thermal Generation</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Gas % of Thermal" style="margin-top: 25px;">Gas as % of Thermal Generation</h2>
                 <div id="thermal-pct-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="thermal-pct-msg" class="loader" style="display: block;">Checking for thermal data...</div>
                     <canvas id="thermalPctChart"></canvas>
@@ -571,13 +625,13 @@
                     <canvas id="thermalSwitchChart"></canvas>
                 </div>
 
-                <h2 class="section-title" style="margin-top: 35px;">Nuclear Fleet Availability (%)</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Nuclear Fleet Availability" style="margin-top: 35px;">Nuclear Fleet Availability (%)</h2>
                 <div id="outage-container" style="min-height: 350px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="outage-msg" class="loader">Loading outage data...</div>
                     <canvas id="outageChart"></canvas>
                 </div>
 
-                <h2 class="section-title" style="margin-top: 35px;">Gas Peaker Utilization Proxy</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Gas Peaker Proxy" style="margin-top: 35px;">Gas Peaker Utilization Proxy</h2>
                 <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 15px;">
                     Ratio of peak gas vs off-peak gas generation | >1.4 indicates heavy peaker dispatch
                 </div>
@@ -841,6 +895,10 @@
                         let risk = Math.round(data.combined_drought_prob_7d * 100);
                         let loss = formatNum(data.gas_displacement_loss_gw, 1, true);
                         badge.innerHTML = `☀️💨 COMBINED RENEWABLE DROUGHT: ${risk}% risk (${data.combined_drought_days_7d}/7 days) | Gas displacement: ${loss} GW vs climo | Signal: ${data.signal} 🔴`;
+                        
+                        if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Combined Renewable Drought"]) {
+                            TOOLTIPS["Combined Renewable Drought"].body = `Current Risk: <strong>${risk}%</strong> (${data.combined_drought_days_7d}/7 days forecast drought).<br>Expected loss displacement: <strong>${loss} GW</strong> vs climo.<br>Signal: <strong>${data.signal}</strong>.<br><br>Occurs when both wind and solar output fall significantly below normal simultaneously, forcing heavy natural gas power burn dispatch.`;
+                        }
                     }
                 }
             } catch (e) { console.warn("loadCombinedDrought failed", e); }
@@ -861,6 +919,10 @@
             badgeEl.style.borderColor = badgeColor;
             let cf = (droughtJSON.worst_cf_pct || 0).toFixed(1);
             badgeEl.innerHTML = `⚡ WIND DROUGHT RISK (16d): ${Math.round(p16*100)}% | Worst: ${droughtJSON.worst_day} (${cf}% CF)${pdToday} | Bias: ${biasLbl}`;
+
+            if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Forward Wind Forecast"]) {
+                TOOLTIPS["Forward Wind Forecast"].body = `16-Day Drought Risk: <strong>${Math.round(p16*100)}%</strong>.<br>Worst Day: <strong>${droughtJSON.worst_day}</strong> (${cf}% Capacity Factor).<br>Current Bias: <strong>${biasLbl}</strong>.<br><br>Displays forward wind generation forecast across GFS, ECMWF, and ICON models scaled to 110 GW national capacity. Solid red lines/shading highlight wind drought events.`;
+            }
         }
 
         function updateSolarBadge() {
@@ -879,6 +941,11 @@
                 badgeText += ` | Model Agreement: ${agreement}%`;
             }
             badgeEl.innerHTML = badgeText;
+
+            if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Forward Solar Forecast"]) {
+                const agreementStr = agreement != null ? `Model Agreement: <strong>${agreement}%</strong>` : 'N/A';
+                TOOLTIPS["Forward Solar Forecast"].body = `16-Day Solar Drought Risk: <strong>${risk}%</strong>.<br>Agreement: <strong>${agreementStr}</strong>.<br><br>Plots forward solar generation expectations scaled to 48 GW national solar capacity. Yellow shading indicates periods of solar drought (below climo thresholds).`;
+            }
         }
 
         function updateWindChart() {
@@ -1659,8 +1726,162 @@
             }
         }
 
+        // ── Tooltip Engine ──
+        const TOOLTIPS = {
+            "Total NatGas Burn": {
+                title: "Total National Gas Burn",
+                body: "Combined power generation from natural gas facilities across the Big 4 ISOs (ERCOT, PJM, MISO, SPP) in Megawatts. Measures current gas demand in the power sector."
+            },
+            "Total Wind Generation": {
+                title: "Total National Wind Gen",
+                body: "Real-time wind generation aggregated across major ISO grids. Higher wind output displaces natural gas burn, acting bearish for gas prices."
+            },
+            "National Wind Anomaly": {
+                title: "National Wind Anomaly",
+                body: "Current wind generation relative to the rolling 30-day climatological normal. A <strong>negative anomaly (drought)</strong> is bullish for natural gas."
+            },
+            "National Load": {
+                title: "National Grid Load",
+                body: "Aggregated electrical load (demand) across major ISO networks. High load increases overall generation requirements across all fuel types."
+            },
+            "ERCOT Gas Gen": {
+                title: "ERCOT Gas Generation",
+                body: "Real-time power generation from natural gas peaker and combined-cycle plants within the Texas (ERCOT) grid."
+            },
+            "ERCOT Wind Gen": {
+                title: "ERCOT Wind Generation",
+                body: "Real-time wind power output in the ERCOT region. Texas has the largest wind fleet in the nation."
+            },
+            "ERCOT Wind Anomaly": {
+                title: "ERCOT Wind Anomaly",
+                body: "ERCOT wind generation compared to its 30-day rolling historical average. Dry/calm weather causes wind droughts."
+            },
+            "ERCOT Grid Impact": {
+                title: "ERCOT Grid Impact Bias",
+                body: "Calculated impact of current wind and temperature deviations on natural gas demand. A <strong>BULLISH</strong> classification indicates high demand or low wind."
+            },
+            "ERCOT System Load": {
+                title: "ERCOT System Load",
+                body: "Total electricity demand in the ERCOT control area. Highly sensitive to extreme hot (cooling) and cold (heating) temperatures."
+            },
+            "Gas % of Thermal": {
+                title: "Gas % of Thermal",
+                body: "The proportion of fossil-fuel thermal generation (Gas + Coal) supplied by natural gas. High percentages reflect coal-to-gas switching or coal plant retirements."
+            },
+            "Gas Peaker Proxy": {
+                title: "Gas Peaker Proxy",
+                body: "The ratio of peak-hour gas generation to off-peak gas generation. Ratios <strong>above 1.4</strong> indicate heavy dispatch of expensive peaker units."
+            },
+            "Nuclear Fleet Availability": {
+                title: "Nuclear Fleet Availability",
+                body: "Percentage of the national nuclear fleet currently online. Nuclear outages force grid operators to dispatch gas generation to maintain base load."
+            },
+            "Forward Wind Forecast": {
+                title: "Forward Wind Forecast",
+                body: "Multi-model wind power outlook (ECMWF, GFS, ICON) scaled to current national capacity. Highlights upcoming wind drought risks."
+            },
+            "Forward Solar Forecast": {
+                title: "Forward Solar Forecast",
+                body: "GFS and ECMWF consensus solar power generation forecasts. Useful for identifying high solar irradiance and solar drought periods."
+            },
+            "Combined Renewable Drought": {
+                title: "Combined Renewable Drought",
+                body: "Occurs when both wind and solar output fall significantly below normal simultaneously. Dramatically increases the grid's reliance on natural gas."
+            },
+            "Gas-Temp Relationship": {
+                title: "Gas Burn vs Temperature",
+                body: "Demand curve showing the non-linear relationship between temperature and natural gas burn. Formulates the classic U-shape (high burn during winter cold and summer heat, minimum around 55°F)."
+            }
+        };
+
+        const overlay = document.getElementById("tooltipOverlay");
+        const ttTitle = document.getElementById("tt-title");
+        const ttBody = document.getElementById("tt-body");
+
+        function showTooltip(target) {
+            let title = "";
+            let body = "";
+
+            const dynTitle = target.getAttribute("data-dyn-title");
+            const dynBody = target.getAttribute("data-dyn-body");
+
+            if (dynTitle) {
+                title = dynTitle;
+                body = dynBody || "";
+            } else {
+                const key = target.getAttribute("data-tooltip-key");
+                if (key && TOOLTIPS[key]) {
+                    title = TOOLTIPS[key].title;
+                    body = TOOLTIPS[key].body;
+                }
+            }
+
+            if (!title && !body) return;
+
+            ttTitle.innerHTML = title;
+            ttBody.innerHTML = body;
+            overlay.classList.add("visible");
+            placeTooltipAnchored(target);
+        }
+
+        function hideTooltip() {
+            overlay.classList.remove("visible");
+        }
+
+        function placeTooltipAnchored(anchor) {
+            const anchorRect = anchor.getBoundingClientRect();
+            const overlayRect = overlay.getBoundingClientRect();
+
+            let left = anchorRect.left + (anchorRect.width / 2) - (overlayRect.width / 2);
+            let top = anchorRect.top - overlayRect.height - 10;
+
+            const margin = 12;
+            if (left < margin) {
+                left = margin;
+            } else if (left + overlayRect.width > window.innerWidth - margin) {
+                left = window.innerWidth - overlayRect.width - margin;
+            }
+
+            if (top < margin) {
+                top = anchorRect.bottom + 10;
+            }
+
+            overlay.style.left = `${left}px`;
+            overlay.style.top = `${top}px`;
+        }
+
+        function initTooltipDelegation() {
+            document.addEventListener("mouseover", (e) => {
+                const trigger = e.target.closest(".has-tooltip");
+                if (trigger) showTooltip(trigger);
+            });
+
+            document.addEventListener("mouseout", (e) => {
+                const trigger = e.target.closest(".has-tooltip");
+                if (trigger) hideTooltip();
+            });
+
+            document.addEventListener("touchstart", (e) => {
+                const trigger = e.target.closest(".has-tooltip");
+                if (trigger) {
+                    showTooltip(trigger);
+                } else if (!e.target.closest("#tooltipOverlay")) {
+                    hideTooltip();
+                }
+            }, { passive: true });
+
+            window.addEventListener("scroll", hideTooltip, { passive: true });
+            window.addEventListener("resize", hideTooltip, { passive: true });
+        }
+
+        window.addEventListener('DOMContentLoaded', initTooltipDelegation);
+
         window.onload = loadDashboard;
     </script>
+    <div id="tooltipOverlay" role="tooltip">
+        <div class="tt-title" id="tt-title"></div>
+        <div class="tt-body" id="tt-body"></div>
+    </div>
 </body>
 
 </html>

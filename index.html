@@ -504,6 +504,60 @@
             font-size: 0.7rem;
             color: #888;
         }
+
+        /* ── Unified Tooltip Overlay ── */
+        #tooltipOverlay {
+            position: fixed;
+            z-index: 10000;
+            background: rgba(31, 40, 51, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            max-width: 320px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s ease, transform 0.12s ease;
+            transform: translateY(6px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: left;
+        }
+
+        #tooltipOverlay.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tt-title {
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 6px;
+            border-bottom: 1px solid rgba(102, 252, 241, 0.2);
+            padding-bottom: 4px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tt-body strong {
+            color: var(--text-br);
+        }
+
+        .tt-body em {
+            color: #ffb74d; /* Amber highlight */
+        }
+
+        .has-tooltip {
+            cursor: help;
+            border-bottom: 1px dashed rgba(102, 252, 241, 0.4);
+        }
+
+        .has-tooltip:hover {
+            border-bottom-color: var(--accent);
+        }
     </style>
 </head>
 
@@ -538,47 +592,47 @@
 
             <!-- TELECONNECTION PANEL -->
             <div class="telecon-panel" id="telecon-panel">
-                <div class="telecon-card" id="tc-ao">
+                <div class="telecon-card has-tooltip" id="tc-ao" data-tooltip-key="AO">
                     <div class="tc-name">AO</div>
                     <div class="tc-val tc-zero" id="tc-ao-val">--</div>
                 </div>
-                <div class="telecon-card" id="tc-nao">
+                <div class="telecon-card has-tooltip" id="tc-nao" data-tooltip-key="NAO">
                     <div class="tc-name">NAO</div>
                     <div class="tc-val tc-zero" id="tc-nao-val">--</div>
                 </div>
-                <div class="telecon-card" id="tc-pna">
+                <div class="telecon-card has-tooltip" id="tc-pna" data-tooltip-key="PNA">
                     <div class="tc-name">PNA</div>
                     <div class="tc-val tc-zero" id="tc-pna-val">--</div>
                 </div>
-                <div class="telecon-card" id="tc-epo">
+                <div class="telecon-card has-tooltip" id="tc-epo" data-tooltip-key="EPO">
                     <div class="tc-name">EPO</div>
                     <div class="tc-val tc-zero" id="tc-epo-val">--</div>
                 </div>
             </div>
-
+ 
             <!-- INTELLIGENCE SIGNAL BANNER -->
-            <div class="intel-banner" id="intel-banner">
+            <div class="intel-banner has-tooltip" id="intel-banner" data-tooltip-key="Weather Intelligence Signal">
                 <div class="ib-header">WEATHER INTELLIGENCE SIGNAL</div>
                 <div class="ib-score" id="ib-score">--</div>
                 <div class="ib-components" id="ib-components"></div>
             </div>
-
+ 
             <!-- MACRO SUMMARY -->
             <div class="summary-row">
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="Algorithmic Market Bias">
                     <h3>Algorithmic Market Bias</h3>
                     <div class="val" id="macro-bias">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="Total Forecast DDs (Gas-Weighted)">
                     <h3 id="macro-dd-label">Total Forecast DDs (Gas-Weighted)</h3>
                     <div class="val" id="macro-total-hdd">--</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card has-tooltip" data-tooltip-key="Avg Daily DD Shift (Run-to-Run)">
                     <h3 id="macro-delta-label">Avg Daily DD Shift (Run-to-Run)</h3>
                     <div class="val" id="macro-delta">--</div>
                 </div>
             </div>
-
+ 
             <!-- TIME HORIZON PANELS -->
             <h2 class="section-title" id="horizon-title">Gas-Weighted Degree Days by Horizon (All Models)</h2>
             <div class="weeks-grid">
@@ -590,12 +644,12 @@
                             <thead>
                                 <tr>
                                     <th>Model</th>
-                                    <th>Fcst</th>
-                                    <th>30y<br>N</th>
-                                    <th>30y<br>A</th>
-                                    <th>10y<br>N</th>
-                                    <th>10y<br>A</th>
-                                    <th>Δ Chg</th>
+                                    <th class="has-tooltip" data-tooltip-key="Fcst">Fcst</th>
+                                    <th class="has-tooltip" data-tooltip-key="30y N">30y<br>N</th>
+                                    <th class="has-tooltip" data-tooltip-key="30y A">30y<br>A</th>
+                                    <th class="has-tooltip" data-tooltip-key="10y N">10y<br>N</th>
+                                    <th class="has-tooltip" data-tooltip-key="10y A">10y<br>A</th>
+                                    <th class="has-tooltip" data-tooltip-key="Δ Chg">Δ Chg</th>
                                 </tr>
                             </thead>
                             <tbody id="short-term-body"></tbody>
@@ -610,12 +664,12 @@
                             <thead>
                                 <tr>
                                     <th>Model</th>
-                                    <th>Fcst</th>
-                                    <th>30y<br>N</th>
-                                    <th>30y<br>A</th>
-                                    <th>10y<br>N</th>
-                                    <th>10y<br>A</th>
-                                    <th>Δ Chg</th>
+                                    <th class="has-tooltip" data-tooltip-key="Fcst">Fcst</th>
+                                    <th class="has-tooltip" data-tooltip-key="30y N">30y<br>N</th>
+                                    <th class="has-tooltip" data-tooltip-key="30y A">30y<br>A</th>
+                                    <th class="has-tooltip" data-tooltip-key="10y N">10y<br>N</th>
+                                    <th class="has-tooltip" data-tooltip-key="10y A">10y<br>A</th>
+                                    <th class="has-tooltip" data-tooltip-key="Δ Chg">Δ Chg</th>
                                 </tr>
                             </thead>
                             <tbody id="med-term-body"></tbody>
@@ -630,12 +684,12 @@
                             <thead>
                                 <tr>
                                     <th>Model</th>
-                                    <th>Fcst</th>
-                                    <th>30y<br>N</th>
-                                    <th>30y<br>A</th>
-                                    <th>10y<br>N</th>
-                                    <th>10y<br>A</th>
-                                    <th>Δ Chg</th>
+                                    <th class="has-tooltip" data-tooltip-key="Fcst">Fcst</th>
+                                    <th class="has-tooltip" data-tooltip-key="30y N">30y<br>N</th>
+                                    <th class="has-tooltip" data-tooltip-key="30y A">30y<br>A</th>
+                                    <th class="has-tooltip" data-tooltip-key="10y N">10y<br>N</th>
+                                    <th class="has-tooltip" data-tooltip-key="10y A">10y<br>A</th>
+                                    <th class="has-tooltip" data-tooltip-key="Δ Chg">Δ Chg</th>
                                 </tr>
                             </thead>
                             <tbody id="long-term-body"></tbody>
@@ -1796,11 +1850,7 @@
             try {
                 const r = await fetch(url + '?t=' + Date.now());
                 if (!r.ok) return null;
-                return await r.json();
-            } catch (e) { return null; }
-        }
-
-        function setTcCard(valEl, value) {
+             function setTcCard(valEl, value) {
             valEl.textContent = Number(value).toFixed(1);
             valEl.className = 'tc-val ' + (value < 0 ? 'tc-cold' : value > 0 ? 'tc-warm' : 'tc-zero');
         }
@@ -1817,7 +1867,9 @@
                 const keys = { ao: 'tc-ao-val', nao: 'tc-nao-val', pna: 'tc-pna-val', epo: 'tc-epo-val' };
                 for (const [key, elId] of Object.entries(keys)) {
                     if (tcData[key] !== undefined) {
-                        setTcCard(document.getElementById(elId), tcData[key]);
+                        const val = tcData[key];
+                        setTcCard(document.getElementById(elId), val);
+                        updateTcTooltip(key, val);
                     }
                 }
                 document.getElementById('telecon-panel').classList.add('visible');
@@ -1839,6 +1891,12 @@
                     return '&#8226; ' + label;
                 }).join('<br>');
                 document.getElementById('intel-banner').classList.add('visible');
+
+                // Dynamic Tooltip Update
+                if (TOOLTIPS["Weather Intelligence Signal"]) {
+                    const compList = components.map(c => `&#8226; ${c.name || c}`).join('<br>');
+                    TOOLTIPS["Weather Intelligence Signal"].body = `Current Score: <strong>${score >= 0 ? '+' : ''}${score.toFixed(1)}</strong> (Bias: <strong>${sig}</strong>)<br><br><strong>Composite Breakdown:</strong><br>${compList}`;
+                }
             }
 
             // Task 3 — Regime Badge
@@ -1855,7 +1913,174 @@
         }
 
         window.addEventListener('DOMContentLoaded', loadIntelligenceOverlays);
-    </script>
-</body>
 
+        // ── Tooltip Engine ──
+        const TOOLTIPS = {
+            "Algorithmic Market Bias": {
+                title: "Algorithmic Market Bias",
+                body: "Calculated composite market bias across all physical and machine learning models. Evaluation threshold is <strong>+/- 0.5 DD</strong>."
+            },
+            "Total Forecast DDs (Gas-Weighted)": {
+                title: "Total Forecast DDs",
+                body: "Cumulative Degree Days over the active forecast window weighted by spatial natural gas consumption density. Models standard HDD, CDD, or shoulder TDD based on season."
+            },
+            "Avg Daily DD Shift (Run-to-Run)": {
+                title: "Avg Daily DD Shift",
+                body: "The average daily degree day difference between the current model run and the previous model run. A positive value indicates a colder shift, whereas a negative value indicates a warmer shift."
+            },
+            "Fcst": {
+                title: "Forecast Value",
+                body: "The current model forecast values summed over the selected time horizon."
+            },
+            "30y N": {
+                title: "30-Year Normal",
+                body: "The 30-year daily historical normals (1991–2020) mapped to this forecast period."
+            },
+            "30y A": {
+                title: "30-Year Anomaly",
+                body: "The forecast anomaly relative to the 30-year historical normals. Formula: <em>Forecast − 30y Normal</em>."
+            },
+            "10y N": {
+                title: "10-Year Normal",
+                body: "The 10-year daily historical normals (2011–2020) mapped to this forecast period."
+            },
+            "10y A": {
+                title: "10-Year Anomaly",
+                body: "The forecast anomaly relative to the 10-year historical normals. Formula: <em>Forecast − 10y Normal</em>."
+            },
+            "Δ Chg": {
+                title: "Run-to-Run Change (Δ Chg)",
+                body: "The average day-by-day run-to-run shift. Reflects the rate of change in the model's outlook between the latest two runs."
+            },
+            "AO": {
+                title: "Arctic Oscillation (AO)",
+                body: "The Arctic Oscillation index. A <strong>negative phase</strong> is associated with high pressure in the Arctic, pushing cold polar air south into the US, whereas a <strong>positive phase</strong> keeps cold air locked in polar regions."
+            },
+            "NAO": {
+                title: "North Atlantic Oscillation (NAO)",
+                body: "The North Atlantic Oscillation index. A <strong>negative phase</strong> often correlates with cold eastern US winters, whereas a <strong>positive phase</strong> correlates with milder eastern US weather."
+            },
+            "PNA": {
+                title: "Pacific-North American (PNA)",
+                body: "The Pacific-North American index. A <strong>positive phase</strong> correlates with warmer western US and colder eastern US temperatures, whereas a <strong>negative phase</strong> is the reverse."
+            },
+            "EPO": {
+                title: "East Pacific Oscillation (EPO)",
+                body: "The East Pacific Oscillation index. A <strong>negative phase</strong> blocks warm Pacific air and drives cold arctic air down into the central and eastern US, whereas a <strong>positive phase</strong> leads to zonal flow and mild weather."
+            },
+            "Weather Intelligence Signal": {
+                title: "Weather Intelligence Signal",
+                body: "A 7-system composite intelligence score combining physics models, AI models, teleconnections, regime analysis, and historical analogs."
+            }
+        };
+
+        const overlay = document.getElementById("tooltipOverlay");
+        const ttTitle = document.getElementById("tt-title");
+        const ttBody = document.getElementById("tt-body");
+
+        function escAttr(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&#39;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;');
+        }
+
+        function showTooltip(target) {
+            let title = "";
+            let body = "";
+
+            const dynTitle = target.getAttribute("data-dyn-title");
+            const dynBody = target.getAttribute("data-dyn-body");
+
+            if (dynTitle) {
+                title = dynTitle;
+                body = dynBody || "";
+            } else {
+                const key = target.getAttribute("data-tooltip-key");
+                if (key && TOOLTIPS[key]) {
+                    title = TOOLTIPS[key].title;
+                    body = TOOLTIPS[key].body;
+                }
+            }
+
+            if (!title && !body) return;
+
+            ttTitle.innerHTML = title;
+            ttBody.innerHTML = body;
+            overlay.classList.add("visible");
+            placeTooltipAnchored(target);
+        }
+
+        function hideTooltip() {
+            overlay.classList.remove("visible");
+        }
+
+        function placeTooltipAnchored(anchor) {
+            const anchorRect = anchor.getBoundingClientRect();
+            const overlayRect = overlay.getBoundingClientRect();
+
+            let left = anchorRect.left + (anchorRect.width / 2) - (overlayRect.width / 2);
+            let top = anchorRect.top - overlayRect.height - 10;
+
+            const margin = 12;
+            if (left < margin) {
+                left = margin;
+            } else if (left + overlayRect.width > window.innerWidth - margin) {
+                left = window.innerWidth - overlayRect.width - margin;
+            }
+
+            if (top < margin) {
+                top = anchorRect.bottom + 10;
+            }
+
+            overlay.style.left = `${left}px`;
+            overlay.style.top = `${top}px`;
+        }
+
+        function initTooltipDelegation() {
+            document.addEventListener("mouseover", (e) => {
+                const trigger = e.target.closest(".has-tooltip");
+                if (trigger) showTooltip(trigger);
+            });
+
+            document.addEventListener("mouseout", (e) => {
+                const trigger = e.target.closest(".has-tooltip");
+                if (trigger) hideTooltip();
+            });
+
+            document.addEventListener("touchstart", (e) => {
+                const trigger = e.target.closest(".has-tooltip");
+                if (trigger) {
+                    showTooltip(trigger);
+                } else if (!e.target.closest("#tooltipOverlay")) {
+                    hideTooltip();
+                }
+            }, { passive: true });
+
+            window.addEventListener("scroll", hideTooltip, { passive: true });
+            window.addEventListener("resize", hideTooltip, { passive: true });
+        }
+
+        function updateTcTooltip(key, val) {
+            const keyUpper = key.toUpperCase();
+            if (!TOOLTIPS[keyUpper]) return;
+            const descMap = {
+                "AO": "The Arctic Oscillation index. A <strong>negative phase</strong> is associated with cold polar air outbreaks in the US, whereas a <strong>positive phase</strong> keeps cold air locked in polar regions.",
+                "NAO": "The North Atlantic Oscillation index. A <strong>negative phase</strong> often correlates with cold eastern US winters, whereas a <strong>positive phase</strong> correlates with milder eastern US weather.",
+                "PNA": "The Pacific-North American index. A <strong>positive phase</strong> correlates with warmer western US and colder eastern US temperatures, whereas a <strong>negative phase</strong> is the reverse.",
+                "EPO": "The East Pacific Oscillation index. A <strong>negative phase</strong> blocks warm Pacific air and drives cold arctic air down into the central and eastern US, whereas a <strong>positive phase</strong> leads to zonal flow and mild weather."
+            };
+            const trend = val < -0.5 ? "<em>strong negative phase (cold risk)</em>" : (val > 0.5 ? "<em>strong positive phase (warm risk)</em>" : "neutral phase");
+            TOOLTIPS[keyUpper].body = `Today's Value: <strong>${val.toFixed(2)}</strong> (${trend}).<br><br>${descMap[keyUpper]}`;
+        }
+
+        window.addEventListener('DOMContentLoaded', initTooltipDelegation);
+    </script>
+    <div id="tooltipOverlay" role="tooltip">
+        <div class="tt-title" id="tt-title"></div>
+        <div class="tt-body" id="tt-body"></div>
+    </div>
+</body>
 </html>
