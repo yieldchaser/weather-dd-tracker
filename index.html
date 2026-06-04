@@ -566,15 +566,15 @@
     <div class="container">
 
         <div class="nav-bar">
-            <a href="index.html" class="nav-link active">Weather Desk</a>
-            <a href="grid.html" class="nav-link">Power Grid</a>
+            <a href="index.html" class="nav-link active has-tooltip" data-tooltip-key="Weather Desk Nav">Weather Desk</a>
+            <a href="grid.html" class="nav-link has-tooltip" data-tooltip-key="Power Grid Nav">Power Grid</a>
         </div>
 
         <div class="header">
             <h1>WEATHER DESK</h1>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-                <div class="timestamp" id="last-updated">Updating live...</div>
-                <div class="regime-badge" id="regime-badge">
+                <div class="timestamp has-tooltip" id="last-updated" data-tooltip-key="Live Data Timestamp">Updating live...</div>
+                <div class="regime-badge has-tooltip" id="regime-badge" data-tooltip-key="Flow Regime Pattern">
                     <div class="rb-label">PATTERN: <span id="rb-val" class="rb-val"></span></div>
                     <div class="rb-persist" id="rb-persist"></div>
                 </div>
@@ -586,8 +586,8 @@
         <div id="app">
             <!-- ALERTS -->
             <div class="alerts-container">
-                <div id="alert-fast-rev" class="alert-box">⚡ FAST REVISION ALERT: <span id="rev-text"></span></div>
-                <div id="alert-conv" class="alert-box conv">🎯 CONVERGENCE ALERT: <span id="conv-text"></span></div>
+                <div id="alert-fast-rev" class="alert-box has-tooltip">⚡ FAST REVISION ALERT: <span id="rev-text"></span></div>
+                <div id="alert-conv" class="alert-box conv has-tooltip">🎯 CONVERGENCE ALERT: <span id="conv-text"></span></div>
             </div>
 
             <!-- TELECONNECTION PANEL -->
@@ -634,16 +634,16 @@
             </div>
  
             <!-- TIME HORIZON PANELS -->
-            <h2 class="section-title" id="horizon-title">Gas-Weighted Degree Days by Horizon (All Models)</h2>
+            <h2 class="section-title has-tooltip" id="horizon-title" data-tooltip-key="Horizon Tables">Gas-Weighted Degree Days by Horizon (All Models)</h2>
             <div class="weeks-grid">
                 <!-- Short-Term -->
                 <div class="week-card">
-                    <div class="week-header">Short-Term (Days 1 - 5)</div>
+                    <div class="week-header has-tooltip" data-tooltip-key="Short-Term Horizon">Short-Term (Days 1 - 5)</div>
                     <div class="table-responsive">
                         <table class="horizon-table">
                             <thead>
                                 <tr>
-                                    <th>Model</th>
+                                    <th class="has-tooltip" data-tooltip-key="Weather Model Column">Model</th>
                                     <th class="has-tooltip" data-tooltip-key="Fcst">Fcst</th>
                                     <th class="has-tooltip" data-tooltip-key="30y N">30y<br>N</th>
                                     <th class="has-tooltip" data-tooltip-key="30y A">30y<br>A</th>
@@ -658,12 +658,12 @@
                 </div>
                 <!-- Medium-Term -->
                 <div class="week-card">
-                    <div class="week-header">Medium-Term (Days 6 - 15)</div>
+                    <div class="week-header has-tooltip" data-tooltip-key="Medium-Term Horizon">Medium-Term (Days 6 - 15)</div>
                     <div class="table-responsive">
                         <table class="horizon-table">
                             <thead>
                                 <tr>
-                                    <th>Model</th>
+                                    <th class="has-tooltip" data-tooltip-key="Weather Model Column">Model</th>
                                     <th class="has-tooltip" data-tooltip-key="Fcst">Fcst</th>
                                     <th class="has-tooltip" data-tooltip-key="30y N">30y<br>N</th>
                                     <th class="has-tooltip" data-tooltip-key="30y A">30y<br>A</th>
@@ -678,12 +678,12 @@
                 </div>
                 <!-- Long-Term -->
                 <div class="week-card">
-                    <div class="week-header">Long-Term (Days 16+)</div>
+                    <div class="week-header has-tooltip" data-tooltip-key="Long-Term Horizon">Long-Term (Days 16+)</div>
                     <div class="table-responsive">
                         <table class="horizon-table">
                             <thead>
                                 <tr>
-                                    <th>Model</th>
+                                    <th class="has-tooltip" data-tooltip-key="Weather Model Column">Model</th>
                                     <th class="has-tooltip" data-tooltip-key="Fcst">Fcst</th>
                                     <th class="has-tooltip" data-tooltip-key="30y N">30y<br>N</th>
                                     <th class="has-tooltip" data-tooltip-key="30y A">30y<br>A</th>
@@ -699,17 +699,17 @@
             </div>
 
             <!-- HISTORICAL MONTHLY OUTLIER CHART -->
-            <h2 class="section-title" id="monthly-matrix-title">Historical Monthly Degree Days</h2>
+            <h2 class="section-title has-tooltip" id="monthly-matrix-title" data-tooltip-key="Historical Monthly">Historical Monthly Degree Days</h2>
             <div class="chart-section" style="position: relative;">
                 <div class="chart-controls"
                     style="display: flex; justify-content: flex-end; margin-bottom: 10px; align-items: center; gap: 10px;">
-                    <label for="metricSelect" style="font-weight: bold;">Select Metric: </label>
+                    <label for="metricSelect" style="font-weight: bold;" class="has-tooltip" data-tooltip-key="Select Metric">Select Metric: </label>
                     <select id="metricSelect">
                         <option value="HDD">HDD</option>
                         <option value="CDD">CDD</option>
                         <option value="TDD">TDD</option>
                     </select>
-                    <label for="monthSelect" style="font-weight: bold;">Select Month: </label>
+                    <label for="monthSelect" style="font-weight: bold;" class="has-tooltip" data-tooltip-key="Select Month">Select Month: </label>
                     <select id="monthSelect">
                         <option value="1">January</option>
                         <option value="2">February</option>
@@ -731,17 +731,17 @@
             </div>
 
             <!-- HISTORICAL SEASON CUMULATIVE CHART -->
-            <h2 class="section-title" id="spaghetti-title">Season Cumulative Degree Days (Gas-Weighted)</h2>
+            <h2 class="section-title has-tooltip" id="spaghetti-title" data-tooltip-key="Season Cumulative">Season Cumulative Degree Days (Gas-Weighted)</h2>
             <div class="chart-section" style="height: 400px; position: relative;">
                 <canvas id="winterSpaghettiChart"></canvas>
             </div>
 
             <!-- MODEL RUN COMPARISON CHART & MAPS -->
-            <h2 class="section-title">Model Diagnostics (Run-to-Run Analysis)</h2>
+            <h2 class="section-title has-tooltip" data-tooltip-key="Model Diagnostics">Model Diagnostics (Run-to-Run Analysis)</h2>
             <div class="chart-section">
                 <div class="chart-controls" style="display: flex; justify-content: space-between; flex-wrap: wrap;">
                     <div>
-                        <label for="modelSelect"><strong>Select Model for Analytics: </strong></label>
+                        <label for="modelSelect" class="has-tooltip" data-tooltip-key="Select Model for Analytics"><strong>Select Model for Analytics: </strong></label>
                         <select id="modelSelect"></select>
                     </div>
                     <div>
@@ -774,12 +774,12 @@
         </div>
 
         <!-- MODEL SHIFT MATRIX -->
-        <h2 class="section-title" id="shift-title">Day-by-Day Model Consensus Shift (GW Degree Days)</h2>
+        <h2 class="section-title has-tooltip" id="shift-title" data-tooltip-key="Consensus Shift">Day-by-Day Model Consensus Shift (GW Degree Days)</h2>
         <div class="table-responsive">
             <table id="shift-table" style="table-layout:auto; white-space:nowrap; min-width:max-content;">
                 <thead>
                     <tr id="shift-header">
-                        <th style="white-space:nowrap;">Date</th>
+                        <th style="white-space:nowrap;" class="has-tooltip" data-tooltip-key="Forecast Date Header">Date</th>
                     </tr>
                 </thead>
                 <tbody id="shift-body">
@@ -926,7 +926,11 @@
 
                 // 2. Alerts
                 if (convAlert.length > 0) {
-                    document.getElementById('alert-conv').style.display = 'block';
+                    const alertConvEl = document.getElementById('alert-conv');
+                    alertConvEl.style.display = 'block';
+                    const dir = String(convAlert[0].direction).toUpperCase();
+                    alertConvEl.setAttribute('data-dyn-title', 'Convergence Alert');
+                    alertConvEl.setAttribute('data-dyn-body', `High consensus alert: <strong>${convAlert.length} day(s)</strong> are consistently shifting <strong>${dir}</strong> across different models, reinforcing the trend direction.`);
                     document.getElementById('conv-text').innerText = `${convAlert.length} day(s) aligning ${convAlert[0].direction}`;
                 }
 
@@ -934,11 +938,15 @@
                     let fr = runChange.filter(r => r.fast_revision === true || r.fast_revision === 'True');
                     if (fr.length > 0) {
                         let latestFr = fr[fr.length - 1];
-                        document.getElementById('alert-fast-rev').style.display = 'block';
+                        const alertFastEl = document.getElementById('alert-fast-rev');
+                        alertFastEl.style.display = 'block';
                         let chgCol = latestFr[`${DD_FIELD.replace('_gw', '')}_change_gw`]
                             ?? latestFr[`${DD_FIELD.replace('_gw', '')}_change`]
                             ?? latestFr.hdd_change_gw ?? latestFr.tdd_change_gw ?? latestFr.cdd_change_gw ?? latestFr.hdd_change ?? 0;
                         let arr = chgCol > 0 ? "▲" : "▼";
+                        let direction = chgCol > 0 ? "colder" : "warmer";
+                        alertFastEl.setAttribute('data-dyn-title', 'Fast Revision Alert');
+                        alertFastEl.setAttribute('data-dyn-body', `Rapid adjustment alert: <strong>${latestFr.model}</strong> shifted by <strong>${formatNum(chgCol, 1, true)} ${DD_LABEL}s</strong> (${direction}) in its latest run, indicating a significant short-term pattern revision.`);
                         document.getElementById('rev-text').innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} ${DD_LABEL}s`;
                     }
                 }
@@ -1079,13 +1087,64 @@
                         let h3 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 15) ? MODEL_HORIZONS[m] : len3;
 
                         if (len1 > 0) {
-                            shortTermHtml += `<tr><td><strong>${m} <small>(${h1}d)</small>${gwWarning}</strong></td><td>${formatNum(w1_fcst / len1, 1)}</td><td>${formatNum(w1_norm / len1, 1)}</td><td class="${a1_cls}">${formatNum(w1_anom / len1, 1, true)}</td><td>${formatNum(w1_norm10 / len1, 1)}</td><td class="${a1_cls10}">${formatNum(w1_anom10 / len1, 1, true)}</td><td>${w1_chg}</td></tr>`;
+                            let f1 = formatNum(w1_fcst / len1, 1);
+                            let n1 = formatNum(w1_norm / len1, 1);
+                            let a1 = formatNum(w1_anom / len1, 1, true);
+                            let n1_10 = formatNum(w1_norm10 / len1, 1);
+                            let a1_10 = formatNum(w1_anom10 / len1, 1, true);
+                            let chg1_td = (c1 !== 0 && len1 > 0)
+                                ? `<td class="has-tooltip" data-dyn-title="${m} Run-to-Run Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c1 / len1, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w1_chg}</td>`
+                                : `<td>-</td>`;
+
+                            shortTermHtml += `<tr>
+                                <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h1}d)</small>${gwWarning}</strong></td>
+                                <td class="has-tooltip" data-dyn-title="${m} Short-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f1} ${DD_LABEL}s</strong> over this horizon.">${f1}</td>
+                                <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n1} ${DD_LABEL}s</strong>.">${n1}</td>
+                                <td class="has-tooltip ${a1_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a1}</td>
+                                <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
+                                <td class="has-tooltip ${a1_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a1_10}</td>
+                                ${chg1_td}
+                            </tr>`;
                         }
                         if (len2 > 0) {
-                            medTermHtml += `<tr><td><strong>${m} <small>(${h2}d)</small>${gwWarning}</strong></td><td>${formatNum(w2_fcst / len2, 1)}</td><td>${formatNum(w2_norm / len2, 1)}</td><td class="${a2_cls}">${formatNum(w2_anom / len2, 1, true)}</td><td>${formatNum(w2_norm10 / len2, 1)}</td><td class="${a2_cls10}">${formatNum(w2_anom10 / len2, 1, true)}</td><td>${w2_chg}</td></tr>`;
+                            let f2 = formatNum(w2_fcst / len2, 1);
+                            let n2 = formatNum(w2_norm / len2, 1);
+                            let a2 = formatNum(w2_anom / len2, 1, true);
+                            let n2_10 = formatNum(w2_norm10 / len2, 1);
+                            let a2_10 = formatNum(w2_anom10 / len2, 1, true);
+                            let chg2_td = (c2 !== 0 && len2 > 0)
+                                ? `<td class="has-tooltip" data-dyn-title="${m} Medium-Term Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c2 / len2, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w2_chg}</td>`
+                                : `<td>-</td>`;
+
+                            medTermHtml += `<tr>
+                                <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h2}d)</small>${gwWarning}</strong></td>
+                                <td class="has-tooltip" data-dyn-title="${m} Medium-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f2} ${DD_LABEL}s</strong> over this horizon.">${f2}</td>
+                                <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n2} ${DD_LABEL}s</strong>.">${n2}</td>
+                                <td class="has-tooltip ${a2_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a2}</td>
+                                <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
+                                <td class="has-tooltip ${a2_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a2_10}</td>
+                                ${chg2_td}
+                            </tr>`;
                         }
                         if (len3 > 0) {
-                            longTermHtml += `<tr><td><strong>${m} <small>(${h3}d)</small>${gwWarning}</strong></td><td>${formatNum(w3_fcst / len3, 1)}</td><td>${formatNum(w3_norm / len3, 1)}</td><td class="${a3_cls}">${formatNum(w3_anom / len3, 1, true)}</td><td>${formatNum(w3_norm10 / len3, 1)}</td><td class="${a3_cls10}">${formatNum(w3_anom10 / len3, 1, true)}</td><td>${w3_chg}</td></tr>`;
+                            let f3 = formatNum(w3_fcst / len3, 1);
+                            let n3 = formatNum(w3_norm / len3, 1);
+                            let a3 = formatNum(w3_anom / len3, 1, true);
+                            let n3_10 = formatNum(w3_norm10 / len3, 1);
+                            let a3_10 = formatNum(w3_anom10 / len3, 1, true);
+                            let chg3_td = (c3 !== 0 && len3 > 0)
+                                ? `<td class="has-tooltip" data-dyn-title="${m} Long-Term Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c3 / len3, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w3_chg}</td>`
+                                : `<td>-</td>`;
+
+                            longTermHtml += `<tr>
+                                <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h3}d)</small>${gwWarning}</strong></td>
+                                <td class="has-tooltip" data-dyn-title="${m} Long-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f3} ${DD_LABEL}s</strong> over this horizon.">${f3}</td>
+                                <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n3} ${DD_LABEL}s</strong>.">${n3}</td>
+                                <td class="has-tooltip ${a3_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a3}</td>
+                                <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
+                                <td class="has-tooltip ${a3_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a3_10}</td>
+                                ${chg3_td}
+                            </tr>`;
                         }
 
                         // Macro updates (prefer ECMWF, fallback GFS if ECMWF empty)
@@ -1106,10 +1165,10 @@
 
                 // 5. Shift Table
                 if (shiftTable.length > 0) {
-                    let headerRow = document.getElementById('shift-header');
-                    let cols = Object.keys(shiftTable[0]);
                     cols.filter(c => c !== "date").forEach(c => {
                         let th = document.createElement('th');
+                        th.className = 'has-tooltip';
+                        th.setAttribute('data-tooltip-key', c);
                         th.innerText = c;
                         headerRow.appendChild(th);
                     });
@@ -1119,7 +1178,12 @@
                         let tr = document.createElement('tr');
                         // Date col
                         let tdDate = document.createElement('td');
-                        tdDate.innerText = String(row["date"] || "").substring(0, 10);
+                        const targetDtStr = String(row["date"] || "").substring(0, 10);
+                        tdDate.innerText = targetDtStr;
+                        tdDate.style.fontWeight = 'bold';
+                        tdDate.className = 'has-tooltip';
+                        tdDate.setAttribute('data-dyn-title', `Target Date: ${targetDtStr}`);
+                        tdDate.setAttribute('data-dyn-body', `Day-by-day run shifts on this row represent forecast updates targeting the 24-hour period of <strong>${targetDtStr}</strong>.`);
                         tr.appendChild(tdDate);
 
                         cols.filter(c => c !== "date").forEach(c => {
@@ -1138,6 +1202,10 @@
                                 td.innerText = formatNum(val, 1, true) + gapFlag;
                                 if (val > 0) td.classList.add('pos-val');
                                 else if (val < 0) td.classList.add('neg-val');
+                                td.className = 'has-tooltip';
+                                let direction = val > 0 ? 'colder' : 'warmer';
+                                td.setAttribute('data-dyn-title', `${c} Run Shift — ${String(row["date"] || "").substring(0, 10)}`);
+                                td.setAttribute('data-dyn-body', `The model run shifted by <strong>${formatNum(val, 1, true)} ${DD_LABEL}s</strong> (${direction}) compared to the previous run on this date.`);
                             }
                             tr.appendChild(td);
                         });
@@ -1894,7 +1962,28 @@
                 );
                 document.getElementById('ib-components').innerHTML = components.map(c => {
                     const label = typeof c === 'object' ? c.name : c;
-                    return '&#8226; ' + label;
+                    let dynTitle = "";
+                    let dynBody = "";
+
+                    if (label.includes("Sensitivity")) {
+                        dynTitle = "Grid Weather Sensitivity";
+                        dynBody = "Quantifies how changes in temperature affect electrical grid load and gas consumption. High sensitivity means small temperature anomalies cause large shifts in power burn.";
+                    } else if (label.includes("Wind")) {
+                        dynTitle = "Wind Generation Drought";
+                        dynBody = "Indicates whether wind speeds are forecasted to remain low, depressing wind power output below the historical 30-day average.";
+                    } else if (label.includes("Blocking") || label.includes("Regime") || label.includes("Trough") || label.includes("Block") || label.includes("Ridge")) {
+                        dynTitle = "Atmospheric Flow Regime";
+                        dynBody = "Represents the current large-scale weather pattern regime, such as an Arctic Block or Ridge East, which dictates persistent regional temperature anomalies.";
+                    } else if (label.includes("Teleconnections")) {
+                        dynTitle = "Teleconnection Alignment";
+                        dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration.";
+                    }
+
+                    if (dynTitle) {
+                        return `<span class="has-tooltip" data-dyn-title="${escAttr(dynTitle)}" data-dyn-body="${escAttr(dynBody)}">&#8226; ${label}</span>`;
+                    } else {
+                        return '&#8226; ' + label;
+                    }
                 }).join('<br>');
                 document.getElementById('intel-banner').classList.add('visible');
 
@@ -1922,6 +2011,74 @@
 
         // ── Tooltip Engine ──
         const TOOLTIPS = {
+            "Weather Desk Nav": {
+                title: "Weather Desk Dashboard",
+                body: "Provides real-time spatial weather analysis, teleconnections, algorithmic market bias, temperature anomaly forecasts, and model run-to-run changes."
+            },
+            "Power Grid Nav": {
+                title: "Power Grid Dashboard",
+                body: "Monitors regional and national electrical grid loads, real-time natural gas/wind/solar generation mixes, wind/solar droughts, and nuclear availability."
+            },
+            "Live Data Timestamp": {
+                title: "Live Data Timestamp",
+                body: "The UTC timestamp of the last weather pipeline ingestion run. We poll global physics and AI models continuously as soon as their runs start releasing."
+            },
+            "Flow Regime Pattern": {
+                title: "Flow Regime Pattern",
+                body: "The dominant large-scale atmospheric circulation pattern (e.g. Arctic Block, Ridge East) analyzed by our clustering algorithm. Different regimes have strong historical correlation with specific temperature and demand anomalies."
+            },
+            "Horizon Tables": {
+                title: "Horizon Forecast Tables",
+                body: "Compares current weather model forecasts (ECMWF, GFS, NBM, etc.) against 30-year and 10-year normals across Short-Term (1-5 days), Medium-Term (6-10 days), and Long-Term (11-15 days) horizons."
+            },
+            "Historical Monthly": {
+                title: "Historical Monthly Degree Days",
+                body: "A matrix of monthly heating degree days (HDD), cooling degree days (CDD), or total degree days (TDD) for the current season, compared against the 30-year climatological normal to track cumulative energy demand anomalies."
+            },
+            "Season Cumulative": {
+                title: "Season Cumulative Degree Days",
+                body: "Traces the running cumulative sum of gas-weighted degree days for the current heating or cooling season (solid line) against the 30-year normal and previous years (spaghetti lines) to visualize seasonal demand pacing."
+            },
+            "Model Diagnostics": {
+                title: "Model Diagnostics (Run-to-Run Analysis)",
+                body: "A comparison chart plotting the 6 most recent forecast runs of a selected weather model alongside historical normals. Helps track model stability, trend consensus, and consecutive run-to-run shifting."
+            },
+            "Consensus Shift": {
+                title: "Consensus Shift Table",
+                body: "Displays the day-by-day shift in forecast degree days for the latest run of each model compared to its previous run. Essential for identifying which specific calendar dates are driving overall model changes."
+            },
+            "Forecast Date Header": {
+                title: "Forecast Target Date",
+                body: "The specific calendar date for which the weather anomaly is being forecasted. Allows analyzing exactly when model changes are expected to verify."
+            },
+            "Short-Term Horizon": {
+                title: "Short-Term Horizon (Days 1-5)",
+                body: "Standard weather models have very high skill in this range. Driven heavily by regional mesoscale models (HRRR, NAM) and deterministic physics models (ECMWF, GFS)."
+            },
+            "Medium-Term Horizon": {
+                title: "Medium-Term Horizon (Days 6-15)",
+                body: "Weather forecasting enters a probabilistic phase. We rely on deterministic global models and ensemble averages (ECMWF EPS, GEFS) to smooth out run-to-run volatility."
+            },
+            "Long-Term Horizon": {
+                title: "Long-Term Horizon (Days 16+)",
+                body: "Subseasonal forecast range. Individual physics details wash out; we look at weekly ensemble averages (GEFS 35d, CFS) to detect persistent blocking patterns and teleconnection trends."
+            },
+            "Weather Model Column": {
+                title: "Weather Models",
+                body: "The atmospheric simulation model or ensemble blend. Hover over individual model names in the rows below to see their design, resolution, and bias characteristics."
+            },
+            "Select Metric": {
+                title: "Degree Day Metric",
+                body: "Toggle between HDD (Heating Degree Days) for winter heating demand, CDD (Cooling Degree Days) for summer air conditioning demand, or TDD (Total Degree Days) for shoulder season volatility tracking."
+            },
+            "Select Month": {
+                title: "Analysis Month",
+                body: "Select a specific calendar month to analyze historical distribution and anomalies."
+            },
+            "Select Model for Analytics": {
+                title: "Model Selection",
+                body: "Choose which weather model (e.g. GFS, ECMWF, GEFS, NBM) to display in the run comparison chart."
+            },
             "Algorithmic Market Bias": {
                 title: "Algorithmic Market Bias",
                 body: "Calculated composite market bias across all physical and machine learning models. Evaluation threshold is <strong>+/- 0.5 DD</strong>."
@@ -1977,6 +2134,102 @@
             "Weather Intelligence Signal": {
                 title: "Weather Intelligence Signal",
                 body: "A 7-system composite intelligence score combining physics models, AI models, teleconnections, regime analysis, and historical analogs."
+            },
+            "ECMWF": {
+                title: "ECMWF (Deterministic)",
+                body: "European Centre for Medium-Range Weather Forecasts. Operating at ~9km resolution, this global model is widely regarded as the gold standard for medium-range (days 1-10) forecasting due to its superior data assimilation."
+            },
+            "GFS": {
+                title: "GFS (Deterministic)",
+                body: "Global Forecast System. NOAA's flagship global model. Updated 4x daily, forecasting out to 16 days at 28km resolution. Highly responsive to changes, but historically prone to cold/warm flip-flops in the extended range."
+            },
+            "HRRR": {
+                title: "HRRR (Regional 3km)",
+                body: "High-Resolution Rapid Refresh. NOAA's hourly-updating convective-allowing regional model. Operating at 3km resolution over the CONUS, it is highly accurate for short-term (day 1-2) wind/solar generation and temperature spikes."
+            },
+            "NAM": {
+                title: "NAM (Regional Mesoscale)",
+                body: "North American Mesoscale. A regional mesoscale model covering North America at 12km resolution. Updated 4x daily, providing detailed 84-hour short-term forecasts, particularly useful for coastal and mountainous regions."
+            },
+            "NBM": {
+                title: "NBM (National Blend)",
+                body: "National Blend of Models. NOAA's nationally consistent, post-processed multi-model blend. Calibrates output from dozens of models to reduce systematic biases, making it extremely reliable for base-case grid planning."
+            },
+            "ECMWF_ENS": {
+                title: "ECMWF Ensemble (EPS)",
+                body: "Consists of 50 perturbed forecasts and 1 control run. Provides probabilistic distributions and confidence bounds out to 15 days, critical for identifying ensemble spread and tail-risk weather events."
+            },
+            "GEFS": {
+                title: "GEFS Ensemble (GEPS)",
+                body: "NOAA's 31-member ensemble system. Great for understanding model uncertainty and probability distributions of degree days across the 16-day forecast horizon."
+            },
+            "GEFS_35D": {
+                title: "GEFS Subseasonal (35d)",
+                body: "Extended ensemble run out to 35 days (updated once daily). A vital bridge for week 3-5 subseasonal outlooks, analyzing blocking ridges and polar vortex trends."
+            },
+            "CMC_ENS": {
+                title: "CMC Ensemble (GEPS)",
+                body: "Canadian Meteorological Centre Ensemble. Consists of 20 perturbed members. Useful for model consensus comparison, often serving as a middle-ground forecast between GFS and ECMWF."
+            },
+            "FOURCASTNETV2-SMALL": {
+                title: "FourCastNet v2 (NVIDIA AI)",
+                body: "NVIDIA's AI-driven global model based on Fourier Neural Operators. Generates high-fidelity 10-day global forecasts in seconds, capturing atmospheric dynamics at 0.25° resolution with extreme computational efficiency."
+            },
+            "FOURCASTNETV2": {
+                title: "FourCastNet v2 (NVIDIA AI)",
+                body: "NVIDIA's artificial intelligence weather forecasting model based on Fourier Neural Operators. Trained on ERA5 data, it captures atmospheric dynamics with high skill and efficiency."
+            },
+            "GRAPHCAST": {
+                title: "GraphCast (Google DeepMind)",
+                body: "Google DeepMind's state-of-the-art machine learning weather model based on Graph Neural Networks. Operating at 0.25° resolution, it yields highly accurate forecasts and regular outperformance of physics models."
+            },
+            "PANGUWEATHER": {
+                title: "Pangu-Weather (Huawei AI)",
+                body: "Huawei's AI-based global weather forecasting system using 3D Earth-specific transformers. Outperforms numerical weather prediction methods in speed and accuracy."
+            },
+            "AURORA": {
+                title: "Aurora (Microsoft AI)",
+                body: "Microsoft's foundation AI model for atmospheric forecasting. Ingests heterogeneous datasets to produce high-resolution global predictions, achieving superior medium-range accuracy."
+            },
+            "ECMWF_AIFS": {
+                title: "ECMWF AIFS (AI model)",
+                body: "ECMWF Artificial Intelligence Forecasting System. ECMWF's leading-edge machine learning weather model. Trained on ERA5 reanalysis, it outperforms traditional physics-based models in many key verification metrics."
+            },
+            "AIFS": {
+                title: "AIFS (ECMWF AI)",
+                body: "Artificial Intelligence Forecasting System (ECMWF). A highly accurate, deep learning-based global model showing superior forecast skill in medium-range temperature anomalies."
+            },
+            "ICON": {
+                title: "ICON (German Global)",
+                body: "Icosahedral Non-hydrostatic. Germany's (DWD) global forecast model. Runs on a triangular grid, offering 13km resolution with strong performance in European and transatlantic weather pattern tracking."
+            },
+            "OM_ICON": {
+                title: "OM ICON (Seamless ICON)",
+                body: "Open-Meteo ICON seamless blend. Post-processed version of the German mesoscale/global model optimized for seamless regional transitions."
+            },
+            "Climatology": {
+                title: "30-Year Climatology",
+                body: "The historical normal baseline (1991–2020) for the current calendar day, representing normal weather behavior."
+            },
+            "GW CDD": {
+                title: "Gas-Weighted CDD",
+                body: "Gas-Weighted Cooling Degree Days. Represents the daily cooling degree days scaled across the CONUS by local natural gas consumption density, reflecting power burn demand."
+            },
+            "TDD": {
+                title: "Total Degree Days (TDD)",
+                body: "Sum of Heating Degree Days (HDD) and Cooling Degree Days (CDD). Used during shoulder seasons to track combined grid demand volatility."
+            },
+            "HDD": {
+                title: "Heating Degree Days (HDD)",
+                body: "Measures the demand for home heating. Calculated as <em>max(65 - Temp, 0)</em> in Fahrenheit, weighted by regional gas customer density."
+            },
+            "CDD": {
+                title: "Cooling Degree Days (CDD)",
+                body: "Measures the demand for air conditioning. Calculated as <em>max(Temp - 65, 0)</em> in Fahrenheit, weighted by regional gas customer density."
+            },
+            "GFS/CFS": {
+                title: "GFS/CFS (Subseasonal)",
+                body: "Seamless combination of the 16-day GFS (Global Forecast System) and the extended subseasonal CFS (Climate Forecast System) to provide wind and solar predictions out to 35 days."
             }
         };
 
@@ -2082,7 +2335,11 @@
             TOOLTIPS[keyUpper].body = `Today's Value: <strong>${val.toFixed(2)}</strong> (${trend}).<br><br>${descMap[keyUpper]}`;
         }
 
-        window.addEventListener('DOMContentLoaded', initTooltipDelegation);
+        if (document.readyState === "loading") {
+            window.addEventListener("DOMContentLoaded", initTooltipDelegation);
+        } else {
+            initTooltipDelegation();
+        }
     </script>
     <div id="tooltipOverlay" role="tooltip">
         <div class="tt-title" id="tt-title"></div>

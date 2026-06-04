@@ -463,13 +463,13 @@
 
     <div class="container">
         <div class="nav-bar">
-            <a href="index.html" class="nav-link">Weather Desk</a>
-            <a href="grid.html" class="nav-link active">Power Grid</a>
+            <a href="index.html" class="nav-link has-tooltip" data-tooltip-key="Weather Desk Nav">Weather Desk</a>
+            <a href="grid.html" class="nav-link active has-tooltip" data-tooltip-key="Power Grid Nav">Power Grid</a>
         </div>
 
         <div class="header">
             <h1>POWER GRID MONITOR</h1>
-            <div class="timestamp" id="last-updated">Updating live...</div>
+            <div class="timestamp has-tooltip" id="last-updated" data-tooltip-key="Live Data Timestamp">Updating live...</div>
         </div>
 
         <div id="loading" class="loader">Loading grid data...</div>
@@ -491,10 +491,10 @@
                         --
                     </div>
                     <div class="button-group">
-                        <button class="toggle-btn active" onclick="setPeriod('all')">All-Day</button>
-                        <button class="toggle-btn" onclick="setPeriod('peak')">Peak</button>
-                        <button class="toggle-btn" onclick="setPeriod('offpeak')">Off-Peak</button>
-                        <button class="toggle-btn" onclick="setPeriod('shoulder')">Shoulder</button>
+                        <button class="toggle-btn active has-tooltip" onclick="setPeriod('all')" data-tooltip-key="All-Day Wind">All-Day</button>
+                        <button class="toggle-btn has-tooltip" onclick="setPeriod('peak')" data-tooltip-key="Peak Wind">Peak</button>
+                        <button class="toggle-btn has-tooltip" onclick="setPeriod('offpeak')" data-tooltip-key="Off-Peak Wind">Off-Peak</button>
+                        <button class="toggle-btn has-tooltip" onclick="setPeriod('shoulder')" data-tooltip-key="Shoulder Wind">Shoulder</button>
                     </div>
                 </div>
 
@@ -502,7 +502,7 @@
                     <canvas id="windChart"></canvas>
                 </div>
                 <div style="color: #888; font-size: 0.75rem; text-align: center; margin-top: -15px;">
-                    Model horizons: ECMWF 10d | GFS 16d | ICON 7d | GFS/CFS 35d
+                    Model horizons: <span class="has-tooltip" data-tooltip-key="ECMWF">ECMWF</span> 10d | <span class="has-tooltip" data-tooltip-key="GFS">GFS</span> 16d | <span class="has-tooltip" data-tooltip-key="ICON">ICON</span> 7d | <span class="has-tooltip" data-tooltip-key="GFS/CFS">GFS/CFS</span> 35d
                 </div>
             </div>
 
@@ -515,8 +515,8 @@
                         --
                     </div>
                     <div class="button-group">
-                        <button class="solar-toggle-btn active" onclick="setSolarPeriod('all')" style="background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer;">All-Day</button>
-                        <button class="solar-toggle-btn" onclick="setSolarPeriod('peak')" style="background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer;">Peak Only</button>
+                        <button class="solar-toggle-btn active has-tooltip" onclick="setSolarPeriod('all')" data-tooltip-key="All-Day Solar" style="background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer;">All-Day</button>
+                        <button class="solar-toggle-btn has-tooltip" onclick="setSolarPeriod('peak')" data-tooltip-key="Peak Solar" style="background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer;">Peak Only</button>
                     </div>
                 </div>
 
@@ -526,7 +526,7 @@
             </div>
 
             <!-- NATIONAL POWER GRID -->
-            <h2 class="section-title" style="margin-top: 25px;">National Power Grid (Big 4 ISOs)</h2>
+            <h2 class="section-title has-tooltip" style="margin-top: 25px;" data-tooltip-key="National Power Grid (Big 4 ISOs)">National Power Grid (Big 4 ISOs)</h2>
             <div class="summary-row">
                 <div class="summary-card has-tooltip" data-tooltip-key="Total NatGas Burn">
                     <h3>Total NatGas Burn (MW)</h3>
@@ -547,7 +547,7 @@
             </div>
 
             <!-- REAL-TIME GRID MONITOR (ERCOT) -->
-            <h2 class="section-title" style="margin-top: 25px;">Real-Time Grid Monitor (ERCOT)</h2>
+            <h2 class="section-title has-tooltip" style="margin-top: 25px;" data-tooltip-key="Real-Time Grid Monitor (ERCOT)">Real-Time Grid Monitor (ERCOT)</h2>
             <div class="summary-row">
                 <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Gas Gen">
                     <h3>NatGas Burn (MW)</h3>
@@ -573,7 +573,7 @@
 
             <!-- NATIONAL LOAD & ISO BREAKDOWN -->
             <div id="grid-load-section" style="margin-bottom: 30px;">
-                <h2 class="section-title">National Grid Load vs Gas Generation</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="National Grid Load vs Gas Generation">National Grid Load vs Gas Generation</h2>
                 <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
                     Load & Gas Burn (GW) | Secondary axis shows Gas % of Load
                 </div>
@@ -584,7 +584,7 @@
             </div>
 
             <div id="iso-breakdown-section" style="margin-bottom: 30px;">
-                <h2 class="section-title">Gas Burn by ISO (<span id="iso-bar-date">Latest</span>)</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Gas Burn by ISO">Gas Burn by ISO (<span id="iso-bar-date">Latest</span>)</h2>
                 <div id="iso-bar-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="iso-bar-msg" class="loader">Loading regional data...</div>
                     <canvas id="isoBarChart"></canvas>
@@ -1728,6 +1728,34 @@
 
         // ── Tooltip Engine ──
         const TOOLTIPS = {
+            "Weather Desk Nav": {
+                title: "Weather Desk Dashboard",
+                body: "Provides real-time spatial weather analysis, teleconnections, algorithmic market bias, temperature anomaly forecasts, and model run-to-run changes."
+            },
+            "Power Grid Nav": {
+                title: "Power Grid Dashboard",
+                body: "Monitors regional and national electrical grid loads, real-time natural gas/wind/solar generation mixes, wind/solar droughts, and nuclear availability."
+            },
+            "Live Data Timestamp": {
+                title: "Live Data Timestamp",
+                body: "The UTC timestamp of the last weather pipeline ingestion run. We poll global physics and AI models continuously as soon as their runs start releasing."
+            },
+            "National Power Grid (Big 4 ISOs)": {
+                title: "National Power Grid (Big 4 ISOs)",
+                body: "Aggregated real-time metrics across the four largest US electrical grids: ERCOT (Texas), PJM (Mid-Atlantic/Midwest), MISO (Midwest/South), and SPP (Great Plains)."
+            },
+            "Real-Time Grid Monitor (ERCOT)": {
+                title: "ERCOT Grid Monitor",
+                body: "Real-time generation mix, load demand, and renewable anomalies specifically for the Electric Reliability Council of Texas (ERCOT), which is highly sensitive to extreme temperatures."
+            },
+            "National Grid Load vs Gas Generation": {
+                title: "National Grid Load vs Gas Gen",
+                body: "Real-time load demand plotted against total natural gas power burn across major ISO networks to visualize gas displacement."
+            },
+            "Gas Burn by ISO": {
+                title: "Gas Burn by ISO",
+                body: "Bar chart displaying power-sector natural gas burn across individual ISO regions to pinpoint regional demand shifts."
+            },
             "Total NatGas Burn": {
                 title: "Total National Gas Burn",
                 body: "Combined power generation from natural gas facilities across the Big 4 ISOs (ERCOT, PJM, MISO, SPP) in Megawatts. Measures current gas demand in the power sector."
@@ -1791,6 +1819,126 @@
             "Gas-Temp Relationship": {
                 title: "Gas Burn vs Temperature",
                 body: "Demand curve showing the non-linear relationship between temperature and natural gas burn. Formulates the classic U-shape (high burn during winter cold and summer heat, minimum around 55°F)."
+            },
+            "ECMWF": {
+                title: "ECMWF (Deterministic)",
+                body: "European Centre for Medium-Range Weather Forecasts. Operating at ~9km resolution, this global model is widely regarded as the gold standard for medium-range (days 1-10) forecasting due to its superior data assimilation."
+            },
+            "GFS": {
+                title: "GFS (Deterministic)",
+                body: "Global Forecast System. NOAA's flagship global model. Updated 4x daily, forecasting out to 16 days at 28km resolution. Highly responsive to changes, but historically prone to cold/warm flip-flops in the extended range."
+            },
+            "HRRR": {
+                title: "HRRR (Regional 3km)",
+                body: "High-Resolution Rapid Refresh. NOAA's hourly-updating convective-allowing regional model. Operating at 3km resolution over the CONUS, it is highly accurate for short-term (day 1-2) wind/solar generation and temperature spikes."
+            },
+            "NAM": {
+                title: "NAM (Regional Mesoscale)",
+                body: "North American Mesoscale. A regional mesoscale model covering North America at 12km resolution. Updated 4x daily, providing detailed 84-hour short-term forecasts, particularly useful for coastal and mountainous regions."
+            },
+            "NBM": {
+                title: "NBM (National Blend)",
+                body: "National Blend of Models. NOAA's nationally consistent, post-processed multi-model blend. Calibrates output from dozens of models to reduce systematic biases, making it extremely reliable for base-case grid planning."
+            },
+            "ECMWF_ENS": {
+                title: "ECMWF Ensemble (EPS)",
+                body: "Consists of 50 perturbed forecasts and 1 control run. Provides probabilistic distributions and confidence bounds out to 15 days, critical for identifying ensemble spread and tail-risk weather events."
+            },
+            "GEFS": {
+                title: "GEFS Ensemble (GEPS)",
+                body: "NOAA's 31-member ensemble system. Great for understanding model uncertainty and probability distributions of degree days across the 16-day forecast horizon."
+            },
+            "GEFS_35D": {
+                title: "GEFS Subseasonal (35d)",
+                body: "Extended ensemble run out to 35 days (updated once daily). A vital bridge for week 3-5 subseasonal outlooks, analyzing blocking ridges and polar vortex trends."
+            },
+            "CMC_ENS": {
+                title: "CMC Ensemble (GEPS)",
+                body: "Canadian Meteorological Centre Ensemble. Consists of 20 perturbed members. Useful for model consensus comparison, often serving as a middle-ground forecast between GFS and ECMWF."
+            },
+            "FOURCASTNETV2-SMALL": {
+                title: "FourCastNet v2 (NVIDIA AI)",
+                body: "NVIDIA's AI-driven global model based on Fourier Neural Operators. Generates high-fidelity 10-day global forecasts in seconds, capturing atmospheric dynamics at 0.25° resolution with extreme computational efficiency."
+            },
+            "FOURCASTNETV2": {
+                title: "FourCastNet v2 (NVIDIA AI)",
+                body: "NVIDIA's artificial intelligence weather forecasting model based on Fourier Neural Operators. Trained on ERA5 data, it captures atmospheric dynamics with high skill and efficiency."
+            },
+            "GRAPHCAST": {
+                title: "GraphCast (Google DeepMind)",
+                body: "Google DeepMind's state-of-the-art machine learning weather model based on Graph Neural Networks. Operating at 0.25° resolution, it yields highly accurate forecasts and regular outperformance of physics models."
+            },
+            "PANGUWEATHER": {
+                title: "Pangu-Weather (Huawei AI)",
+                body: "Huawei's AI-based global weather forecasting system using 3D Earth-specific transformers. Outperforms numerical weather prediction methods in speed and accuracy."
+            },
+            "AURORA": {
+                title: "Aurora (Microsoft AI)",
+                body: "Microsoft's foundation AI model for atmospheric forecasting. Ingests heterogeneous datasets to produce high-resolution global predictions, achieving superior medium-range accuracy."
+            },
+            "ECMWF_AIFS": {
+                title: "ECMWF AIFS (AI model)",
+                body: "ECMWF Artificial Intelligence Forecasting System. ECMWF's leading-edge machine learning weather model. Trained on ERA5 reanalysis, it outperforms traditional physics-based models in many key verification metrics."
+            },
+            "AIFS": {
+                title: "AIFS (ECMWF AI)",
+                body: "Artificial Intelligence Forecasting System (ECMWF). A highly accurate, deep learning-based global model showing superior forecast skill in medium-range temperature anomalies."
+            },
+            "ICON": {
+                title: "ICON (German Global)",
+                body: "Icosahedral Non-hydrostatic. Germany's (DWD) global forecast model. Runs on a triangular grid, offering 13km resolution with strong performance in European and transatlantic weather pattern tracking."
+            },
+            "OM_ICON": {
+                title: "OM ICON (Seamless ICON)",
+                body: "Open-Meteo ICON seamless blend. Post-processed version of the German mesoscale/global model optimized for seamless regional transitions."
+            },
+            "Climatology": {
+                title: "30-Year Climatology",
+                body: "The historical normal baseline (1991–2020) for the current calendar day, representing normal weather behavior."
+            },
+            "GW CDD": {
+                title: "Gas-Weighted CDD",
+                body: "Gas-Weighted Cooling Degree Days. Represents the daily cooling degree days scaled across the CONUS by local natural gas consumption density, reflecting power burn demand."
+            },
+            "TDD": {
+                title: "Total Degree Days (TDD)",
+                body: "Sum of Heating Degree Days (HDD) and Cooling Degree Days (CDD). Used during shoulder seasons to track combined grid demand volatility."
+            },
+            "HDD": {
+                title: "Heating Degree Days (HDD)",
+                body: "Measures the demand for home heating. Calculated as <em>max(65 - Temp, 0)</em> in Fahrenheit, weighted by regional gas customer density."
+            },
+            "CDD": {
+                title: "Cooling Degree Days (CDD)",
+                body: "Measures the demand for air conditioning. Calculated as <em>max(Temp - 65, 0)</em> in Fahrenheit, weighted by regional gas customer density."
+            },
+            "All-Day Wind": {
+                title: "All-Day Wind Forecast",
+                body: "Average wind power output calculated across all 24 hours of the day, scaled to national capacity."
+            },
+            "Peak Wind": {
+                title: "Peak Wind Forecast",
+                body: "Average wind power output during peak electricity demand hours (Hour Ending 07:00 to 22:00)."
+            },
+            "Off-Peak Wind": {
+                title: "Off-Peak Wind Forecast",
+                body: "Average wind power output during off-peak hours (Hour Ending 23:00 to HE 06:00), when wind output is typically strongest."
+            },
+            "Shoulder Wind": {
+                title: "Shoulder Wind Forecast",
+                body: "Average wind power output during transitional grid hours."
+            },
+            "All-Day Solar": {
+                title: "All-Day Solar Forecast",
+                body: "Average solar power output calculated over the full 24-hour cycle, including nighttime zero hours."
+            },
+            "Peak Solar": {
+                title: "Peak Solar Forecast",
+                body: "Average solar power output calculated strictly during peak daylight hours when solar generation occurs."
+            },
+            "GFS/CFS": {
+                title: "GFS/CFS (Subseasonal)",
+                body: "Seamless combination of the 16-day GFS (Global Forecast System) and the extended subseasonal CFS (Climate Forecast System) to provide wind and solar predictions out to 35 days."
             }
         };
 
@@ -1874,7 +2022,11 @@
             window.addEventListener("resize", hideTooltip, { passive: true });
         }
 
-        window.addEventListener('DOMContentLoaded', initTooltipDelegation);
+        if (document.readyState === "loading") {
+            window.addEventListener("DOMContentLoaded", initTooltipDelegation);
+        } else {
+            initTooltipDelegation();
+        }
 
         window.onload = loadDashboard;
     </script>
