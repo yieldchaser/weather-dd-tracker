@@ -5,7 +5,7 @@ Fetches ECMWF IFS HRES 2m temperature for the Continental US (CONUS) only.
 
 COMPATIBILITY: Updated for ECMWF IFS Cycle 50r1 (May 12, 2026 upgrade).
   Uses stream="oper", type="fc" (new 50r1 mapping, formerly HRES).
-  Requires: ecmwf-opendata >=0.5.0, libeccodes-dev >=2.46.0.
+  Requires: ecmwf-opendata >=0.3.3 (latest PyPI: 0.3.29).
 
 Geographic scope:
   - Lat: 25°N – 50°N  (lower 48 states)
