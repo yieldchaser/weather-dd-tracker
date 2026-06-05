@@ -1942,9 +1942,9 @@
             }
         };
 
-        const overlay = document.getElementById("tooltipOverlay");
-        const ttTitle = document.getElementById("tt-title");
-        const ttBody = document.getElementById("tt-body");
+        let overlay = null;
+        let ttTitle = null;
+        let ttBody = null;
 
         function showTooltip(target) {
             let title = "";
@@ -1999,6 +1999,10 @@
         }
 
         function initTooltipDelegation() {
+            overlay = document.getElementById("tooltipOverlay");
+            ttTitle = document.getElementById("tt-title");
+            ttBody = document.getElementById("tt-body");
+
             document.addEventListener("mouseover", (e) => {
                 const trigger = e.target.closest(".has-tooltip");
                 if (trigger) showTooltip(trigger);
