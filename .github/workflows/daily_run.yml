@@ -63,21 +63,34 @@ jobs:
           python scripts/market_logic/fetch_peaker_proxy.py
 
       - name: Trigger Kaggle AI Inference Kernel (00z/12z Major Cycles Only)
+        if: env.NEW_DATA_FOUND == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          echo "Major cycle window detected. Triggering Kaggle AI models..."
-          pip install kaggle -q
-          if kaggle kernels push -p scripts/kaggle_env; then
-            echo "Kernel push succeeded. Will poll for completion."
-            echo "RUN_KAGGLE=true" >> $GITHUB_ENV
+          HOUR=$(date -u +%-H)
+          echo "Current UTC Hour: $HOUR"
+          
+          # Only trigger heavy Kaggle inference between 03-09z (GFS/ECMWF 00z cycle completion)
+          # OR between 15-21z (GFS/ECMWF 12z cycle completion).
+          # This prevents HRRR/NAM hourly micro-updates from spamming GPU compute.
+          if [[ ( $HOUR -ge 3 && $HOUR -le 9 ) || ( $HOUR -ge 15 && $HOUR -le 21 ) ]]; then
+             echo "Major cycle window detected. Triggering Kaggle AI models..."
+             pip install kaggle -q
+             if kaggle kernels push -p scripts/kaggle_env; then
+               echo "Kernel push succeeded. Will poll for completion."
+               echo "RUN_KAGGLE=true" >> $GITHUB_ENV
+             else
+               echo "[WARN] Kaggle push failed (auth issue? API down?). Skipping poll."
+               echo "RUN_KAGGLE=false" >> $GITHUB_ENV
+             fi
           else
-            echo "[WARN] Kaggle push failed (auth issue? API down?). Skipping poll."
-            echo "RUN_KAGGLE=false" >> $GITHUB_ENV
+             echo "Minor cycle window. Skipping AI Inference to save Kaggle quotas."
+             echo "RUN_KAGGLE=false" >> $GITHUB_ENV
           fi
 
       - name: Poll Kaggle until kernel completes
+        if: env.RUN_KAGGLE == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
@@ -85,6 +98,7 @@ jobs:
           python -u scripts/poll_kaggle_robust.py
 
       - name: Download Kaggle kernel output
+        if: env.RUN_KAGGLE == 'true'
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
