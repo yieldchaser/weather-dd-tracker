@@ -67,7 +67,7 @@ TOTAL_INSTALLED_GW = sum(n[4] for n in WIND_NODES)  # ~110 GW represented
 MODELS = {
     "GFS":   {"om_name": "gfs_seamless",        "horizon_days": 16, "wind_var": "wind_speed_100m"},
     "ECMWF": {"om_name": "ecmwf_ifs025",        "horizon_days": 10, "wind_var": "wind_speed_100m"},
-    "ICON":  {"om_name": "icon_seamless",        "horizon_days": 7,  "wind_var": "wind_speed_80m"},
+    "ICON":  {"om_name": "icon_seamless",        "horizon_days": 7,  "wind_var": "wind_speed_100m"},
     "GFS_CFS": {
         "om_name":      "gfs_seamless",
         "endpoint":     "https://ensemble-api.open-meteo.com/v1/ensemble",
