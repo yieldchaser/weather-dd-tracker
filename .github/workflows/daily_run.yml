@@ -68,7 +68,7 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          HOUR=$(date -u +%H)
+          HOUR=$(date -u +%-H)
           echo "Current UTC Hour: $HOUR"
           
           # Only trigger heavy Kaggle inference between 03-09z (GFS/ECMWF 00z cycle completion)
@@ -95,34 +95,7 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          # Pre-flight: verify kaggle CLI and auth work
-          echo "--- Kaggle diagnostic ---"
-          kaggle --version || echo "[DIAG] kaggle CLI not found"
-          echo "KAGGLE_USERNAME=${KAGGLE_USERNAME:-(not set)}"
-          kaggle kernels list --mine --page-size 1 2>&1 || echo "[DIAG] Auth check failed"
-          echo "--- End diagnostic ---"
-
-          CONSEC_FAIL=0
-          for i in $(seq 1 60); do
-            STATUS=$(kaggle kernels status prateekriders/weather-dd-ai-inference 2>&1) && EXIT_CODE=0 || EXIT_CODE=$?
-            echo "[$i/60] (exit=$EXIT_CODE) $STATUS"
-
-            if [[ $EXIT_CODE -ne 0 || "$STATUS" == *"Server Error"* || "$STATUS" == *"Connection aborted"* || "$STATUS" == *"RemoteDisconnected"* ]]; then
-              CONSEC_FAIL=$((CONSEC_FAIL + 1))
-              echo "[WARN] Kaggle API error (consecutive: $CONSEC_FAIL/5). Retrying in 60s..."
-              if [[ $CONSEC_FAIL -ge 5 ]]; then
-                echo "[FATAL] 5 consecutive Kaggle API failures. Aborting poll."
-                echo "Last error: $STATUS"
-                exit 1
-              fi
-            else
-              CONSEC_FAIL=0
-              echo "$STATUS" | grep -q "COMPLETE" && echo "Kernel complete!" && exit 0
-              echo "$STATUS" | grep -q "ERROR" && echo "Kernel errored!" && exit 1
-            fi
-            sleep 60
-          done
-          echo "[WARN] Timed out waiting for kernel (60 min max)"
+          python -u scripts/poll_kaggle_robust.py
 
       - name: Download Kaggle kernel output
         if: env.RUN_KAGGLE == 'true'
