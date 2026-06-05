@@ -5,6 +5,9 @@ on:
     - cron: '0 6 1 * *'  # 6 AM UTC on 1st of month
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
