@@ -38,6 +38,7 @@ FETCH_SCRIPTS = [
     "fetch_gefs_subseasonal.py",
     "fetch_cmc_ens.py",
     "fetch_open_meteo_ai.py",
+    "fetch_aigfs_grib.py", "fetch_hgefs_grib.py",
     "fetch_hrrr.py", "fetch_nam.py", "fetch_icon.py",
     "fetch_historical_eia_normals.py", "fetch_historical_weather.py",
 ]

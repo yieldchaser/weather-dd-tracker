@@ -81,6 +81,17 @@ def fetch_icon():
     df = pd.DataFrame(rows)
     df.to_csv(out_path, index=False)
 
+    # Save raw city data to json for map generation
+    city_dir = OUTPUT_DIR / "cities"
+    city_dir.mkdir(parents=True, exist_ok=True)
+    city_json_path = city_dir / f"{run_id}_cities.json"
+    import json
+    city_temps_f = {}
+    for name, (weight, temps) in city_data.items():
+        city_temps_f[name] = {d: round(celsius_to_f(t), 2) for d, t in temps.items()}
+    with open(city_json_path, "w") as f:
+        json.dump(city_temps_f, f)
+
     print(f"[OK] ICON TDD computed for {len(rows)} days.")
     print(f"     Active cities: {len(city_data)}/{len(DEMAND_CITIES)}")
     print(f"     Saved -> {out_path}")

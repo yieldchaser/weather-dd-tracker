@@ -46,6 +46,8 @@ jobs:
           mkdir -p outputs/maps
           mkdir -p data/aigfs
           mkdir -p data/hgefs
+          mkdir -p data/aigfs_grib
+          mkdir -p data/hgefs_grib
 
       - name: Copy normals file
         run: |
@@ -126,7 +128,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add data/pipeline_state.json outputs/ outputs/health/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ || true
+          git add data/pipeline_state.json outputs/ outputs/health/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ || true
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4 5; do

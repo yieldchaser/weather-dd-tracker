@@ -1078,6 +1078,7 @@
                             'GEFS': 16,
                             'GEFS_35D': 35,
                             'CMC_ENS': 15,
+                            'ICON': 16,
                             'FOURCASTNETV2-SMALL': 10,
                             'FOURCASTNETV2': 10,
                             'GRAPHCAST': 10,
@@ -1727,7 +1728,7 @@
             let err = document.getElementById('mapError');
             let mapSelect = document.getElementById('mapRunSelect');
 
-            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'GEFS_35D', 'ECMWF_ENS', 'ECMWF_AIFS'];
+            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'GEFS_35D', 'ECMWF_ENS', 'ECMWF_AIFS', 'AIGFS', 'HGEFS', 'CMC_ENS', 'HRRR', 'NAM', 'NBM', 'ICON'];
             if (mapModels.includes(selectedModel) && manifest[selectedModel] && manifest[selectedModel].length > 0) {
                 img.style.display = 'block';
                 err.style.display = 'none';
