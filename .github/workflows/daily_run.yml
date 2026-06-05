@@ -92,10 +92,14 @@ jobs:
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           for i in $(seq 1 60); do
-            STATUS=$(kaggle kernels status prateekriders/weather-dd-ai-inference 2>&1)
+            STATUS=$(kaggle kernels status prateekriders/weather-dd-ai-inference 2>&1) || STATUS="API_ERROR"
             echo "[$i/60] $STATUS"
-            echo "$STATUS" | grep -q "COMPLETE" && echo "Kernel complete!" && exit 0
-            echo "$STATUS" | grep -q "ERROR" && echo "Kernel errored!" && exit 1
+            if [[ "$STATUS" == "API_ERROR" || "$STATUS" == *"Server Error"* || "$STATUS" == *"Connection aborted"* || "$STATUS" == *"RemoteDisconnected"* ]]; then
+              echo "[WARN] Kaggle API transient error detected. Retrying in 60s..."
+            else
+              echo "$STATUS" | grep -q "COMPLETE" && echo "Kernel complete!" && exit 0
+              echo "$STATUS" | grep -q "ERROR" && echo "Kernel errored!" && exit 1
+            fi
             sleep 60
           done
           echo "[WARN] Timed out waiting for kernel (60 min max)"
