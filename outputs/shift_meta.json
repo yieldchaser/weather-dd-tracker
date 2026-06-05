@@ -36,6 +36,18 @@
       "gap": false,
       "has_gw": true
     },
+    "NOAA AI CHG": {
+      "latest": "20260605_06",
+      "prev": "20260605_00",
+      "gap": false,
+      "has_gw": true
+    },
+    "NOAA AI ENS CHG": {
+      "latest": "20260605_00",
+      "prev": "20260604_18",
+      "gap": false,
+      "has_gw": true
+    },
     "HRRR CHG": {
       "latest": "20260605_11",
       "prev": "20260605_10",
@@ -61,5 +73,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-05T13:17:08.414692"
+  "generated_at": "2026-06-05T19:36:55.101085"
 }

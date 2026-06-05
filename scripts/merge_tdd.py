@@ -13,6 +13,8 @@ def load_all():
         "data/ecmwf_aifs/*_tdd.csv",
         "data/ecmwf_ens/*_tdd.csv",
         "data/cmc_ens/*_tdd.csv",
+        "data/aigfs/*_tdd.csv",
+        "data/hgefs/*_tdd.csv",
         "data/nbm/*_tdd.csv",
         "data/hrrr/*_tdd.csv",
         "data/nam/*_tdd.csv",
@@ -47,6 +49,8 @@ def load_all():
             if "model" not in df.columns:
                 f_lower = f.lower()
                 if "ecmwf_aifs" in f_lower: df["model"] = "ECMWF_AIFS"
+                elif "aigfs" in f_lower: df["model"] = "AIGFS"
+                elif "hgefs" in f_lower: df["model"] = "HGEFS"
                 elif "ecmwf_ens" in f_lower: df["model"] = "ECMWF_ENS"
                 elif "cmc_ens" in f_lower: df["model"] = "CMC_ENS"
                 elif "gfs" in f_lower: df["model"] = "GFS"

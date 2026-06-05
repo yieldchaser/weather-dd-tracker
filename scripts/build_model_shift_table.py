@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Optional: if you add ECMWF Ens and GFS Ens later, they can be added here
 # Models to track in the shift table
-MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "ECMWF_AIFS", "HRRR", "NAM", "NBM", "FOURCASTNETV2-SMALL"]
+MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "ECMWF_AIFS", "AIGFS", "HGEFS", "HRRR", "NAM", "NBM", "FOURCASTNETV2-SMALL"]
 
 def main():
     print("\n--- Generating Model Shift Table ---")
@@ -95,6 +95,8 @@ def main():
         "ECMWF_ENS Op Chg": "EURO ENS CHG",
         "CMC_ENS Op Chg": "CMC ENS CHG",
         "ECMWF_AIFS Op Chg": "EURO AI CHG",
+        "AIGFS Op Chg": "NOAA AI CHG",
+        "HGEFS Op Chg": "NOAA AI ENS CHG",
         "HRRR Op Chg": "HRRR CHG",
         "NAM Op Chg": "NAM CHG",
         "NBM Op Chg": "NBM CHG"
@@ -102,13 +104,13 @@ def main():
     shift_df.rename(columns=rename_map, inplace=True)
             
     # Ensure all expected columns exist even if empty (for UI stability)
-    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
+    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
     for col in expected_cols:
         if col not in shift_df.columns:
             shift_df[col] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
-    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
+    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
     # --- STRICT SYNCHRONIZATION ALIGNMENT ---
