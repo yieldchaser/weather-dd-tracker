@@ -146,7 +146,9 @@ except ImportError:
 
 
 def celsius_to_f(c): return c * 9 / 5 + 32
-def compute_tdd(temp_f): return max(65.0 - temp_f, 0)
+def hdd(temp_f): return max(65.0 - temp_f, 0)
+def cdd(temp_f): return max(temp_f - 65.0, 0)
+def tdd(temp_f): return hdd(temp_f) + cdd(temp_f)
 
 def ensure_dir(d):
     os.makedirs(d, exist_ok=True)
@@ -325,12 +327,19 @@ def extract_conus_tdd(grib_path, model_name):
             
         avg_c = weighted_temp / total_w
         avg_f = celsius_to_f(avg_c)
-        tdd_val = round(compute_tdd(avg_f), 2)
+        hdd_val = round(hdd(avg_f), 2)
+        cdd_val = round(cdd(avg_f), 2)
+        tdd_val = round(tdd(avg_f), 2)
         rows.append({
             "date": dt_str,
             "mean_temp": round(avg_f, 2),
+            "hdd": hdd_val,
+            "cdd": cdd_val,
             "tdd": tdd_val,
-            "tdd_gw": tdd_val,   
+            "mean_temp_gw": round(avg_f, 2),
+            "hdd_gw": hdd_val,
+            "cdd_gw": cdd_val,
+            "tdd_gw": tdd_val,
             "model": model_name.upper(),
             "run_id": pd.to_datetime(ds.time.values).strftime("%Y%m%d_%H") + "_AI",
         })
