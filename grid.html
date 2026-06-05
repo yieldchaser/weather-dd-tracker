@@ -963,14 +963,14 @@
             droughtDaysList = [];
             dates.forEach(d => {
                 let sum = 0;
-                ['GFS', 'ICON', 'ECMWF'].forEach(m => {
+                ['GFS', 'ICON', 'ECMWF', 'HRRR'].forEach(m => {
                     if (byModel[m] && byModel[m][d] && byModel[m][d].drought_flag) sum++;
                 });
                 if (sum >= 2) droughtDaysList.push(d);
             });
 
             const cfCol = selectedPeriod === 'all' ? 'national_cf_pct' : `national_cf_${selectedPeriod}_pct`;
-            let dataECMWF = [], dataGFS = [], dataICON = [], dataGFS_CFS = [], dataClimo = [], dataHDD = [];
+            let dataECMWF = [], dataGFS = [], dataICON = [], dataHRRR = [], dataGFS_CFS = [], dataClimo = [], dataHDD = [];
             let dataGFSP10 = [], dataGFSP90 = [];
             
             dates.forEach(d => {
@@ -978,6 +978,7 @@
                 dataECMWF.push(getGW('ECMWF'));
                 dataGFS.push(getGW('GFS'));
                 dataICON.push(getGW('ICON'));
+                dataHRRR.push(getGW('HRRR'));
                 dataGFS_CFS.push(getGW('GFS_CFS'));
 
                 const row = (byModel['GFS'] && byModel['GFS'][d]) ? byModel['GFS'][d] : 
@@ -1010,6 +1011,7 @@
 
             datasets.push(
                 { label: 'ICON', data: dataICON, borderColor: '#ab47bc', borderWidth: 2, borderDash: [5,5], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                { label: 'HRRR (2d)', data: dataHRRR, borderColor: '#ffc107', borderWidth: 2, borderDash: [2,2], pointRadius: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                 { label: 'GFS/CFS (35d)', data: dataGFS_CFS, borderColor: '#03a9f4', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                 { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                 { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: false }
@@ -1095,12 +1097,13 @@
             });
 
             const cfCol = selectedSolarPeriod === 'all' ? 'national_cf_pct' : `national_cf_${selectedSolarPeriod}_pct`;
-            let dataGFS = [], dataECMWF = [], dataClimo = [], dataHDD = [];
+            let dataGFS = [], dataECMWF = [], dataHRRR = [], dataClimo = [], dataHDD = [];
 
             dates.forEach(d => {
                 const getGW = (m) => (byModel[m]&&byModel[m][d]) ? (byModel[m][d][cfCol]/100 * TOTAL_SOLAR_GW) : null;
                 dataGFS.push(getGW('GFS'));
                 dataECMWF.push(getGW('ECMWF'));
+                dataHRRR.push(getGW('HRRR'));
                 
                 let mm_dd = d.substring(5, 10);
                 let c = solarClimoJSON[mm_dd] || solarClimoJSON["02-28"] || {all: 0.18, peak: 0.3};
@@ -1117,6 +1120,7 @@
                     datasets: [
                         { label: 'GFS', data: dataGFS, borderColor: '#4caf50', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'ECMWF', data: dataECMWF, borderColor: '#66fcf1', borderWidth: 3, fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
+                        { label: 'HRRR (2d)', data: dataHRRR, borderColor: '#ffc107', borderWidth: 2, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: 'Climatology', data: dataClimo, borderColor: '#c5c6c7', borderWidth: 1, borderDash: [2,2], fill: false, yAxisID: 'y', tension: 0.4, spanGaps: true },
                         { label: `GW ${DD_LABEL}`, data: dataHDD, borderColor: '#f44336', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y1', spanGaps: false, pointRadius: 0 }
                     ]

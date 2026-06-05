@@ -44,35 +44,35 @@ def safe_write_json(data, path, required_keys=None):
     return True
 
 WIND_NODES = [
-    # (name, iso, lat, lon, installed_gw)
-    ("W_TX_PERMIAN",    "ERCOT",  31.5, -102.5, 18.0),
-    ("W_TX_PANHANDLE",  "ERCOT",  35.2, -101.8, 14.0),
-    ("TX_COAST",        "ERCOT",  27.8,  -97.4,  6.0),
-    ("OK_CENTRAL",      "SPP",    35.8,  -97.5, 12.0),
-    ("KS_PLAINS",       "SPP",    38.3,  -98.2,  9.0),
-    ("NE_PLAINS",       "SPP",    41.5,  -99.0,  5.0),
-    ("IA_CENTRAL",      "MISO",   42.0,  -93.5, 12.0),
-    ("MN_SOUTHWEST",    "MISO",   44.2,  -95.8,  5.5),
-    ("SD_CENTRAL",      "MISO",   44.0, -100.2,  4.5),
-    ("IN_NORTH",        "MISO",   40.8,  -86.5,  4.0),
-    ("IL_CENTRAL",      "MISO",   40.5,  -89.0,  3.5),
-    ("WY_SOUTH",        "WECC",   41.8, -106.5,  4.0),
-    ("CA_ALTAMONT",     "WECC",   37.7, -121.6,  2.5),
-    ("CA_TEHACHAPI",    "WECC",   35.1, -118.4,  3.0),
-    ("PJM_OHIO",        "PJM",    40.5,  -83.0,  3.0),
+    # (name, iso, lat, lon, installed_gw, hub_height)
+    ("W_TX_PERMIAN",    "ERCOT",  31.5, -102.5, 18.0, 120),
+    ("W_TX_PANHANDLE",  "ERCOT",  35.2, -101.8, 14.0, 120),
+    ("TX_COAST",        "ERCOT",  27.8,  -97.4,  6.0, 100),
+    ("OK_CENTRAL",      "SPP",    35.8,  -97.5, 12.0, 120),
+    ("KS_PLAINS",       "SPP",    38.3,  -98.2,  9.0, 120),
+    ("NE_PLAINS",       "SPP",    41.5,  -99.0,  5.0, 120),
+    ("IA_CENTRAL",      "MISO",   42.0,  -93.5, 12.0, 120),
+    ("MN_SOUTHWEST",    "MISO",   44.2,  -95.8,  5.5, 120),
+    ("SD_CENTRAL",      "MISO",   44.0, -100.2,  4.5, 120),
+    ("IN_NORTH",        "MISO",   40.8,  -86.5,  4.0, 120),
+    ("IL_CENTRAL",      "MISO",   40.5,  -89.0,  3.5, 120),
+    ("WY_SOUTH",        "WECC",   41.8, -106.5,  4.0, 120),
+    ("CA_ALTAMONT",     "WECC",   37.7, -121.6,  2.5, 80),
+    ("CA_TEHACHAPI",    "WECC",   35.1, -118.4,  3.0, 80),
+    ("PJM_OHIO",        "PJM",    40.5,  -83.0,  3.0, 100),
 ]
 
 TOTAL_INSTALLED_GW = sum(n[4] for n in WIND_NODES)  # ~110 GW represented
 
 MODELS = {
-    "GFS":   {"om_name": "gfs_seamless",        "horizon_days": 16, "wind_var": "wind_speed_100m"},
-    "ECMWF": {"om_name": "ecmwf_ifs025",        "horizon_days": 10, "wind_var": "wind_speed_100m"},
-    "ICON":  {"om_name": "icon_seamless",        "horizon_days": 7,  "wind_var": "wind_speed_100m"},
+    "GFS":   {"om_name": "gfs_seamless",        "horizon_days": 16},
+    "ECMWF": {"om_name": "ecmwf_ifs025",        "horizon_days": 10},
+    "ICON":  {"om_name": "icon_seamless",        "horizon_days": 7},
+    "HRRR":  {"om_name": "gfs_hrrr",            "horizon_days": 2},
     "GFS_CFS": {
         "om_name":      "gfs_seamless",
         "endpoint":     "https://ensemble-api.open-meteo.com/v1/ensemble",
         "horizon_days": 35,
-        "wind_var":     "wind_speed_100m",
         "ensemble":     True
     },
 }
@@ -126,6 +126,25 @@ def get_peak_wind_drought_threshold(month: int) -> float:
     else:
         return 0.25
 
+def get_node_wind_speed(hourly_data, preferred_height):
+    """
+    Finds the best populated wind height variable from hourly data, falling back
+    if the preferred height is not supported (all-null) by the forecast model.
+    """
+    preferred_var = f"wind_speed_{preferred_height}m"
+    ws = hourly_data.get(preferred_var, [])
+    if ws and not all(v is None for v in ws):
+        return preferred_var, list(ws)
+    
+    # Fallback order
+    for h in [100, 80, 120, 10]:
+        alt_var = f"wind_speed_{h}m"
+        ws = hourly_data.get(alt_var, [])
+        if ws and not all(v is None for v in ws):
+            return alt_var, list(ws)
+            
+    return None, []
+
 def build_wind_climatology():
     logging.info("Climatology not found or outdated — starting GFS Historical bootstrap (one-time, ~2 min)")
     end_date = date.today() - timedelta(days=5)
@@ -136,7 +155,7 @@ def build_wind_climatology():
         "longitude":       ",".join(str(n[3]) for n in WIND_NODES),
         "start_date":      start_date.strftime("%Y-%m-%d"),
         "end_date":        end_date.strftime("%Y-%m-%d"),
-        "hourly":          "wind_speed_100m",
+        "hourly":          "wind_speed_80m,wind_speed_100m,wind_speed_120m",
         "models":          "gfs_seamless",
         "wind_speed_unit": "ms",
         "timezone":        "UTC"
@@ -162,7 +181,9 @@ def build_wind_climatology():
             continue
             
         times = pd.to_datetime(node_data["hourly"]["time"])
-        ws = node_data["hourly"].get("wind_speed_100m", [])
+        h_var, ws = get_node_wind_speed(node_data["hourly"], node[5])
+        if not h_var:
+            continue
         
         df = pd.DataFrame({"time": times, "ws": ws})
         df = df.dropna()
@@ -244,14 +265,13 @@ def main_logic():
         
         node_dfs = []
         model_id = config["om_name"]
-        target_var = config["wind_var"]
         endpoint = config.get("endpoint", BASE_URL)
 
         # Batch fetch for all models
         params = {
             "latitude":        ",".join(str(n[2]) for n in WIND_NODES),
             "longitude":       ",".join(str(n[3]) for n in WIND_NODES),
-            "hourly":          target_var,
+            "hourly":          "wind_speed_80m,wind_speed_100m,wind_speed_120m",
             "wind_speed_unit": "ms",
             "forecast_days":   config["horizon_days"],
             "models":          model_id,
@@ -285,9 +305,9 @@ def main_logic():
                 continue
                 
             hourly_data = node_data["hourly"]
-            ws = hourly_data.get(target_var, [])
-            if not ws or all(v is None for v in ws):
-                if i == 0: logging.warning(f"{model} node {node[0]} variable {target_var} empty/null. Available: {list(hourly_data.keys())}")
+            h_var, ws = get_node_wind_speed(hourly_data, node[5])
+            if not h_var:
+                if i == 0: logging.warning(f"{model} node {node[0]} variable wind_speed_{node[5]}m and fallbacks empty/null. Available: {list(hourly_data.keys())}")
                 continue
             
             times = pd.to_datetime(hourly_data["time"])
@@ -303,7 +323,7 @@ def main_logic():
             # PART 1: GFS Ensemble Spread Calculation
             if model == "GFS_CFS":
                 try:
-                    member_cols = [c for c in hourly_data.keys() if c.startswith(f"{target_var}_member")]
+                    member_cols = [c for c in hourly_data.keys() if c.startswith(f"{h_var}_member")]
                     if member_cols:
                         # Create a temporary DF for members to compute quantiles
                         member_data = {}
@@ -421,7 +441,7 @@ def main_logic():
             gfs_spread[d.strftime("%Y-%m-%d")] = round(pd.Series(gws).std(), 2)
 
     # PART 2: Model agreement score
-    models_checked = ["GFS", "ECMWF", "ICON"]
+    models_checked = ["GFS", "ECMWF", "ICON", "HRRR"]
     daily_cf = df_future.pivot(index="date", columns="model", values="national_cf_pct")
     
     # Drought threshold for current month
@@ -431,18 +451,31 @@ def main_logic():
     def get_models_in_drought(d_str):
         if d_str not in daily_cf.index: return []
         row = daily_cf.loc[d_str]
-        return [m for m in models_checked if m in row and row[m] < d_thresh_pct]
+        # Only active models on this specific day
+        active_models = [m for m in models_checked if m in row and pd.notna(row[m])]
+        return [m for m in active_models if row[m] < d_thresh_pct]
 
     models_in_drought_today_list = get_models_in_drought(today_str)
-    agreement_score = round(len(models_in_drought_today_list) / len(models_checked) * 100) if len(models_checked) > 0 else 0
+    
+    row_today = daily_cf.loc[today_str] if today_str in daily_cf.index else pd.Series()
+    models_active_today = [m for m in models_checked if m in row_today and pd.notna(row_today[m])]
+    agreement_score = round(len(models_in_drought_today_list) / len(models_active_today) * 100) if len(models_active_today) > 0 else 0
 
-    # Agreement score for 7d window (days with 2+ models in drought)
+    # Agreement score for 7d window
     next_7_days = [(datetime.now(UTC).date() + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
     agreement_7d_count = 0
+    valid_days = 0
     for d in next_7_days:
-        if len(get_models_in_drought(d)) >= 2:
-            agreement_7d_count += 1
-    agreement_7d_pct = round(agreement_7d_count / 7 * 100)
+        if d in daily_cf.index:
+            row_d = daily_cf.loc[d]
+            models_active_d = [m for m in models_checked if m in row_d and pd.notna(row_d[m])]
+            if len(models_active_d) > 0:
+                valid_days += 1
+                models_in_drought_d = [m for m in models_active_d if row_d[m] < d_thresh_pct]
+                # Agreement if 2+ models agree in drought, or if only 1 active and it is in drought
+                if len(models_in_drought_d) >= 2 or (len(models_active_d) == 1 and len(models_in_drought_d) == 1):
+                    agreement_7d_count += 1
+    agreement_7d_pct = round(agreement_7d_count / valid_days * 100) if valid_days > 0 else 0
 
     daily_model_counts = df_future[df_future["model"].isin(models_checked)].groupby("date")["drought_flag"].sum()
     drought_days_all = daily_model_counts[daily_model_counts >= 2].index.tolist()

@@ -78,7 +78,7 @@ TOTAL_SOLAR_GW = sum(n[4] for n in SOLAR_NODES)  # ~48 GW
 SOLAR_MODELS = {
     "GFS":   {"om_name": "gfs_seamless", "horizon_days": 16},
     "ECMWF": {"om_name": "ecmwf_ifs025", "horizon_days": 10},
-    # ECMWF AIFS omitted: AI model does not publish solar radiation variables
+    "HRRR":  {"om_name": "gfs_hrrr",     "horizon_days": 2},
 }
 
 PERFORMANCE_RATIO = 0.75     # system losses (inverter, wiring, temp)
@@ -123,7 +123,9 @@ def build_solar_climatology():
         "longitude": ",".join(str(n[2]) for n in SOLAR_NODES),
         "start_date": start_date.strftime("%Y-%m-%d"),
         "end_date":   end_date.strftime("%Y-%m-%d"),
-        "hourly":     "direct_radiation,diffuse_radiation",
+        "hourly":     "global_tilted_irradiance",
+        "tilt":       25,
+        "azimuth":    180,
         "models":     "gfs_seamless",
         "timezone":   "UTC"
     }
@@ -145,7 +147,7 @@ def build_solar_climatology():
         if not h: continue
         
         times = pd.to_datetime(h["time"])
-        ghi = pd.Series(h.get("direct_radiation", [])) + pd.Series(h.get("diffuse_radiation", []))
+        ghi = pd.Series(h.get("global_tilted_irradiance", []))
         
         df = pd.DataFrame({"time": times, "ghi": ghi})
         df["cf"] = df["ghi"].apply(irradiance_to_cf)
@@ -194,7 +196,9 @@ def main_logic():
         params = {
             "latitude":      ",".join(str(n[1]) for n in SOLAR_NODES),
             "longitude":     ",".join(str(n[2]) for n in SOLAR_NODES),
-            "hourly":         "direct_radiation,diffuse_radiation",
+            "hourly":         "global_tilted_irradiance",
+            "tilt":           25,
+            "azimuth":        180,
             "past_days":      1,
             "forecast_days":  config["horizon_days"],
             "models":         config["om_name"],
@@ -218,7 +222,7 @@ def main_logic():
             if not h: continue
             
             times = pd.to_datetime(h["time"])
-            ghi = pd.Series(h.get("direct_radiation", [])) + pd.Series(h.get("diffuse_radiation", []))
+            ghi = pd.Series(h.get("global_tilted_irradiance", []))
             df = pd.DataFrame({"time": times, "ghi": ghi})
             df["cf"] = df["ghi"].apply(irradiance_to_cf)
             df["gw"] = df["cf"] * node[4]
@@ -307,14 +311,16 @@ def generate_combined_drought(solar_df):
         solar_pivoted = solar_df.pivot(index="date", columns="model", values="national_cf_peak_pct")
         
         # Check which models are actually present
-        available_models = [m for m in ["GFS", "ECMWF", "ECMWF_AIFS"] if m in solar_pivoted.columns]
-        needed_for_consensus = 2 if len(available_models) >= 2 else 1
+        available_models = [m for m in ["GFS", "ECMWF", "HRRR"] if m in solar_pivoted.columns]
         
         def check_solar_consensus(d):
             if d not in solar_pivoted.index: return False
             row = solar_pivoted.loc[d]
-            # models in drought
-            mid = sum(1 for m in available_models if m in row and row[m] < 25.0)
+            # Find active models with non-null values today
+            active_models = [m for m in available_models if m in row and pd.notna(row[m])]
+            if not active_models: return False
+            mid = sum(1 for m in active_models if row[m] < 25.0)
+            needed_for_consensus = 2 if len(active_models) >= 2 else 1
             return mid >= needed_for_consensus
 
         merged["solar_consensus"] = merged["date"].apply(check_solar_consensus)
