@@ -1290,6 +1290,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
                         y: {
                             min: 0,
@@ -1494,6 +1495,7 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
                         y: { title: { display: true, text: 'GW Generation / Load' } },
                         y1: { position: 'right', title: { display: true, text: '% of Load' }, min: 0, max: 100, grid: { drawOnChartArea: false } }
@@ -1525,6 +1527,7 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: { y: { min: 70, max: 100, title: { display: true, text: 'Availability (%)' } } }
                 }
             });
@@ -1554,6 +1557,7 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: { y: { suggestedMin: 1.0, suggestedMax: 2.0, title: { display: true, text: 'Ratio' } } }
                 }
             });
