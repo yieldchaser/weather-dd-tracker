@@ -9,6 +9,10 @@ from datetime import date
 import datetime
 
 sys.path.insert(0, str(Path(__file__).parent))
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except AttributeError:
+    pass
 from season_utils import active_metric, metric_label
 
 NEAR_TERM_DAYS = 7
