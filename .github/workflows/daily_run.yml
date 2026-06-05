@@ -77,9 +77,13 @@ jobs:
           if [[ ( $HOUR -ge 3 && $HOUR -le 9 ) || ( $HOUR -ge 15 && $HOUR -le 21 ) ]]; then
              echo "Major cycle window detected. Triggering Kaggle AI models..."
              pip install kaggle -q
-             kaggle kernels push -p scripts/kaggle_env || echo "[INFO] Kernel already up-to-date"
-             echo "Kernel triggered. Waiting for completion..."
-             echo "RUN_KAGGLE=true" >> $GITHUB_ENV
+             if kaggle kernels push -p scripts/kaggle_env; then
+               echo "Kernel push succeeded. Will poll for completion."
+               echo "RUN_KAGGLE=true" >> $GITHUB_ENV
+             else
+               echo "[WARN] Kaggle push failed (auth issue? API down?). Skipping poll."
+               echo "RUN_KAGGLE=false" >> $GITHUB_ENV
+             fi
           else
              echo "Minor cycle window. Skipping AI Inference to save Kaggle quotas."
              echo "RUN_KAGGLE=false" >> $GITHUB_ENV
@@ -91,12 +95,28 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
+          # Pre-flight: verify kaggle CLI and auth work
+          echo "--- Kaggle diagnostic ---"
+          kaggle --version || echo "[DIAG] kaggle CLI not found"
+          echo "KAGGLE_USERNAME=${KAGGLE_USERNAME:-(not set)}"
+          kaggle kernels list --mine --page-size 1 2>&1 || echo "[DIAG] Auth check failed"
+          echo "--- End diagnostic ---"
+
+          CONSEC_FAIL=0
           for i in $(seq 1 60); do
-            STATUS=$(kaggle kernels status prateekriders/weather-dd-ai-inference 2>&1) || STATUS="API_ERROR"
-            echo "[$i/60] $STATUS"
-            if [[ "$STATUS" == "API_ERROR" || "$STATUS" == *"Server Error"* || "$STATUS" == *"Connection aborted"* || "$STATUS" == *"RemoteDisconnected"* ]]; then
-              echo "[WARN] Kaggle API transient error detected. Retrying in 60s..."
+            STATUS=$(kaggle kernels status prateekriders/weather-dd-ai-inference 2>&1) && EXIT_CODE=0 || EXIT_CODE=$?
+            echo "[$i/60] (exit=$EXIT_CODE) $STATUS"
+
+            if [[ $EXIT_CODE -ne 0 || "$STATUS" == *"Server Error"* || "$STATUS" == *"Connection aborted"* || "$STATUS" == *"RemoteDisconnected"* ]]; then
+              CONSEC_FAIL=$((CONSEC_FAIL + 1))
+              echo "[WARN] Kaggle API error (consecutive: $CONSEC_FAIL/5). Retrying in 60s..."
+              if [[ $CONSEC_FAIL -ge 5 ]]; then
+                echo "[FATAL] 5 consecutive Kaggle API failures. Aborting poll."
+                echo "Last error: $STATUS"
+                exit 1
+              fi
             else
+              CONSEC_FAIL=0
               echo "$STATUS" | grep -q "COMPLETE" && echo "Kernel complete!" && exit 0
               echo "$STATUS" | grep -q "ERROR" && echo "Kernel errored!" && exit 1
             fi
