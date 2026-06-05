@@ -85,10 +85,10 @@ def main():
                     print("Current files metadata:")
                     print(current_files)
                     sys.exit(0)
+            elif current_files and baseline and current_files == baseline:
+                print("No changes in files metadata (kernel is still running).")
             elif current_files and not baseline:
-                # If we couldn't get a baseline, we can't detect change. But if we can list files,
-                # let's just log it and wait.
-                pass
+                print("Retrieving files metadata succeeded, but no baseline is available to compare.")
                 
         time.sleep(60)
         
