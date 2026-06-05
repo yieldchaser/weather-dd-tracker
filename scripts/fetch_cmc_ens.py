@@ -122,16 +122,19 @@ def fetch_run(date_str, cycle):
 def sync_all_cmc():
     print("\n--- CMC ENS SYNC SERVICE ---")
     now = datetime.datetime.now(datetime.UTC)
-    for day_offset in range(-1, 1):
-        date_str = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
-        for cycle in ["00", "12"]:
-            # Open-Meteo mirrors CMC 00z at ~07:00 UTC and 12z at ~19:00 UTC.
-            if day_offset == 0:
-                if cycle == "00" and now.hour < 7:
-                    continue
-                if cycle == "12" and now.hour < 19:
-                    continue
-            fetch_run(date_str, cycle)
+    
+    # Determine the single active cycle based on current UTC time
+    if now.hour >= 19:
+        date_str = now.strftime("%Y%m%d")
+        cycle = "12"
+    elif now.hour >= 7:
+        date_str = now.strftime("%Y%m%d")
+        cycle = "00"
+    else:
+        date_str = (now - datetime.timedelta(days=1)).strftime("%Y%m%d")
+        cycle = "12"
+        
+    fetch_run(date_str, cycle)
 
 
 if __name__ == "__main__":

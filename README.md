@@ -1,233 +1,235 @@
 # ⚡ Weather Desk — Institutional-Grade Weather Intelligence Terminal
 
-> **Live dashboard:** [yieldchaser.github.io/weather-dd-tracker](https://yieldchaser.github.io/weather-dd-tracker)
+[![Build Status](https://github.com/yieldchaser/weather-dd-tracker/actions/workflows/daily_run.yml/badge.svg)](https://github.com/yieldchaser/weather-dd-tracker/actions/workflows/daily_run.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/platform-GitHub%20Actions%20%7C%20Kaggle-orange.svg)]()
+[![Frontend](https://img.shields.io/badge/frontend-Vanilla%20JS%20%7C%20Chart.js-brightgreen.svg)]()
 
-An automated, production-hardened weather analytics platform purpose-built for **natural gas market analysis**. The system tracks gas-weighted Degree Days (HDD/CDD/TDD), multi-model consensus, weather regime classifications, and wind generation anomalies — updated automatically 4× per day via GitHub Actions and hosted on GitHub Pages.
+> **Live Dashboard:** [yieldchaser.github.io/weather-dd-tracker](https://yieldchaser.github.io/weather-dd-tracker)
+
+An automated, production-hardened weather analytics platform purpose-built for **natural gas market analysis and electrical grid monitoring**. The system ingests global atmospheric model data, computes population-weighted Degree Days (HDD/CDD/TDD), monitors multi-model consensus, classifies weather regimes, forecasts wind/solar droughts, tracks ISO power burn, and dispatches automated alerts — updated automatically 4× per day via GitHub Actions.
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ System Architecture & Data Flow
 
-The platform operates as a decentralized intelligence pipeline. Raw atmospheric data is ingested from global meteorological centers, processed into market-relevant metrics (population-weighted degree days), and passed through a series of "Intelligence Systems" to produce actionable signals.
+The platform operates as a decentralized weather intelligence pipeline. Ingested atmospheric fields are mapped to a high-resolution US gas-demand density grid and processed through 9 specialized analytical systems.
 
-- **Frontend:** Dual-dashboard interface using vanilla JS and Chart.js.
-    - `index.html`: **Weather Desk** (Macro-weather, HDDs, regimes, and teleconnections).
-    - `grid.html`: **Power Grid Monitor** (Real-time burn, wind impact, and forward generation).
-    - **Premium Unified Tooltip System:** Interactive hover-state explanations covering every weather model (including AI systems like GraphCast and AIFS), teleconnections, real-time grid metrics, and dynamic cell-level run-to-run shifts.
-- **Backend:** Python-based state machine running on GitHub Actions.
-- **Persistence:** JSON/CSV flat-file database stored directly in the repository.
+```mermaid
+graph TD
+    classDef Ingest fill:#1f2833,stroke:#66fcf1,stroke-width:2px,color:#fff;
+    classDef Model fill:#2a3642,stroke:#4caf50,stroke-width:2px,color:#fff;
+    classDef Calc fill:#ab47bc,stroke:#ffeb3b,stroke-width:2px,color:#fff;
+    classDef Intel fill:#d32f2f,stroke:#ff9800,stroke-width:2px,color:#fff;
+    classDef Out fill:#1b5e20,stroke:#81c784,stroke-width:2px,color:#fff;
+
+    A[Global Met Ingestion] --> B[NOMADS / AWS / GRIB]
+    A --> C[Open-Meteo REST API]
+    A --> D[Kaggle GPU Inference]
+    
+    B --> E[Contour Models:<br/>ECMWF, GFS, GEFS, NAM, HRRR]
+    C --> F[Point Models:<br/>CMC ENS, ICON]
+    D --> G[AI Models:<br/>FOURCASTNETV2-SMALL]
+    
+    E --> H[Gas-Weighted Degree Days<br/>HDD / CDD / TDD]
+    F --> H
+    G --> H
+    
+    H --> I[Consensus Engine]
+    
+    I --> J[The 9 Intelligence Systems]
+    J --> J1[1. Teleconnections & Analogs]
+    J --> J2[2. Weather Regimes PCA/KMeans]
+    J --> J3[3. Basin Freeze-Off Monitor]
+    J --> J4[4. EIA Rolling OLS Sensitivity]
+    J --> J5[5. Wind & Solar Drought Forecast]
+    J --> J6[6. Live ISO Generation Mix]
+    J --> J7[7. Composite Market Bias]
+    J --> J8[8. Physics vs AI Divergence]
+    J --> J9[9. Cap-Weighted Premium]
+    
+    J7 --> K[GitHub Pages Dashboard / Telegram Alerts]
+
+    class A,B,C,D Ingest;
+    class E,F,G Model;
+    class H,I Calc;
+    class J,J1,J2,J3,J4,J5,J6,J7,J8,J9 Intel;
+    class K Out;
+```
+
+---
+
+## 🛠️ Ingestion Mechanics & Spatial Mapping
+
+### 1. Gridded GRIB Download & Byte-Range Ingestion
+To bypass downloading multi-gigabyte meteorological grid files, the system uses **NOMADS `.idx` byte-range extraction** (e.g., in `fetch_aigfs_grib.py`).
+1. The script requests the `.idx` index file for a specific forecast hour (e.g., `aigfs.t00z.sfc.f360.grib2.idx`).
+2. It parses the index to find the byte offset for `TMP:2 m above ground`.
+3. It sends an HTTP `Range` request (e.g., `Range: bytes=start-end`) to download only the 2m temperature slice, reducing bandwidth requirements by 99%.
+
+### 2. Kaggle GPU Inference & City-Level JSON Staging
+For heavy AI weather models like `FOURCASTNETV2-SMALL`, local execution is avoided:
+1. GitHub Actions pushes the inference configuration in `scripts/kaggle_env` to Kaggle via the Kaggle API.
+2. The Kaggle kernel triggers inference on a GPU instance, downloading open weights (using pre-staged weights if available).
+3. The kernel runs inference, computes daily TDD values, and extracts city-level temperatures for our 79 demand cities.
+4. It saves the results to `{model}_{run_id}_cities.json` and `{model}_{run_id}_tdd.csv`.
+5. GitHub Actions polls the kernel status, downloads the outputs, and stages the city-level JSON files under `data/fourcastnetv2-small/cities/`.
+
+### 3. Spatial Map Generation: Contour vs. Bubble
+At the end of each pipeline run, `generate_maps.py` runs a parallel process to compile CONUS-wide forecast delta maps:
+*   **Contour Mapping (Gridded Models):** Performs bilinear grid interpolation across GRIB outputs using `xarray` and `Cartopy` to plot continuous temperature anomalies.
+*   **Bubble Mapping (Point-Only & AI Models):** For `CMC_ENS`, `ICON`, and `FOURCASTNETV2-SMALL`, the script maps point-level temperatures from the city JSONs directly to longitude/latitude coordinates as colored circles, using a `coolwarm` colormap scaled between `-15°F` and `+15°F`.
+
+---
+
+## 🧠 Deep-Dive: The 9 Intelligence Systems
+
+### 1. Teleconnections & Analogs
+*   **Indices Monitored:** Arctic Oscillation (AO), North Atlantic Oscillation (NAO), Pacific-North American pattern (PNA), East Pacific Oscillation (EPO).
+*   **Z-Score Normalization:**
+    $$Z_t = \frac{x_t - \mu}{\sigma}$$
+    where $\mu$ and $\sigma$ are the historical daily means and standard deviations computed since 1950.
+*   **Analog Matcher:** Evaluates the Euclidean distance of current index trajectories against all historical years. It identifies the top 3 closest years and returns enriched context (e.g., winter HDD totals, realised market shocks).
+
+### 2. Weather Regime Classifier
+*   **Mathematical Base:** Empirical Orthogonal Functions (EOF) / Principal Component Analysis (PCA) combined with KMeans.
+*   **Mechanism:** Projects the 500hPa geopotential height anomaly field onto the first 4 EOFs (capturing ~70% of variance). Assigns the state to one of 5 clusters:
+    1.  *Arctic Block* (Warm high over Greenland, cold trough over Eastern US)
+    2.  *Polar Vortex* (Deep polar low shifted south)
+    3.  *Pac-Ridge* (High pressure over West Coast, cold sliding east)
+    4.  *Trough West / Ridge East* (Cold West, warm East)
+    5.  *Zonal Flow* (Mild, seasonal, low-volatility jet stream)
+*   **Markov Transitions:** Computes a transition probability matrix $P_{ij}$ over the 15-day forecast horizon.
+
+### 3. Basin Freeze-Off Trigger
+*   **Basins Monitored:** Permian (TX/NM), Haynesville (LA/TX), Barnett (TX), Eagle Ford (TX), Fayetteville (AR), SW Marcellus (PA/WV).
+*   **Logic:** Tracks the minimum forecasted 2m temperature ($T_{min}$) over the next 5 days.
+    *   $T_{min} \le 32^\circ\text{F}$: Triggers a **Basin Warning**.
+    *   $T_{min} \le 25^\circ\text{F}$ for $\ge 24$ consecutive hours: Triggers a **Basin Alert** (elevated freeze-off risk).
+    *   **Basin Weights:** Applies weights based on dry gas production (e.g., SW Marcellus and Permian have higher signal weights in the composite index).
+
+### 4. Dynamic Sensitivity Coefficient
+*   **OLS Regression Model:**
+    $$Withdrawal_t = \beta \cdot \text{HDD}_t + \alpha + \epsilon_t$$
+*   **Mechanism:** Runs a rolling 30-day OLS regression utilizing weekly EIA storage withdrawal data (converted to daily Bcf/d equivalents) as the dependent variable and population-weighted HDDs as the independent variable. The slope ($\beta$) represents the Bcf/d gas demand change per HDD.
+
+### 5. Wind & Solar Renewable Power Forecast
+*   **Wind Power Curve Modelling:** Maps wind speed ($v$ in m/s) at 100m to Capacity Factor ($CF$) using a modeled IEC Class II power curve:
+    $$CF(v) = \begin{cases} 
+      0 & v < v_{in} \\
+      \frac{v^3 - v_{in}^3}{v_{r}^3 - v_{in}^3} & v_{in} \le v < v_r \\
+      1 & v_r \le v < v_{out} \\
+      0 & v \ge v_{out}
+   \end{cases}$$
+   where $v_{in} = 3\text{ m/s}$, $v_r = 12\text{ m/s}$, and $v_{out} = 25\text{ m/s}$.
+*   **Solar Power Modelling:** Converts Global Horizontal Irradiance ($GHI$ in W/m²) to PV capacity factor using a temperature-adjusted PVWatts model:
+    $$CF_{solar} = \frac{GHI}{1000} \cdot \eta_{temp} \cdot PR$$
+    where $PR = 0.75$ (Performance Ratio) and $\eta_{temp}$ is the temperature loss coefficient.
+*   **Drought Consensus:** Identifies "Renewable Droughts" when Wind CF < 35% and Solar Consensus < 25% (requires both GFS and ECMWF solar forecasts below threshold).
+
+### 6. Live Grid Monitor
+*   **Data Aggregation:** Collects generation by fuel type (Natural Gas, Coal, Nuclear, Wind, Solar) and total load across 7 ISOs.
+*   **Incremental Gas Burn:** Converts hourly electrical generation anomalies (relative to a 30-day baseline) into implied gas burn using ISO-specific heat rates:
+    $$\text{Gas Burn (Bcf/d)} = \text{Generation (MW)} \times 24 \times \text{Heat Rate (BTU/kWh)} \times 10^{-9}$$
+    *   *Seasonal Heat Rates:* Adjusts from 7,000 BTU/kWh in winter to 8,200 BTU/kWh in summer to account for peaker efficiency decay.
+
+### 7. Composite Weather Signal
+*   **Accumulator Score ($S$):**
+    $$S = w_{tele} \cdot S_{tele} + w_{freeze} \cdot S_{freeze} + w_{wind} \cdot S_{wind} + w_{regime} \cdot S_{regime}$$
+*   The final score determines the directional weather bias: **Bearish** ($S \le -1.5$), **Neutral** ($-1.5 < S < 1.5$), or **Bullish** ($S \ge 1.5$).
+
+### 8. Physics vs. AI Disagreement Index
+*   **Volatility Risk Score:** Computes the standard deviation between the physics ensemble (GFS, ECMWF) and the AI ensemble (AIFS, GraphCast, Pangu, FourCastNet) across the forecast horizon:
+    $$\text{Volatility Score} = \sqrt{\frac{1}{N} \sum_{i=1}^N (TDD_{phys, i} - TDD_{AI, i})^2}$$
+    A volatility score > 2.0 TDD indicates elevated risk of large forecast revisions.
+
+### 9. Market Bias Composite
+*   **Premium Calculation:** Integrates the OLS sensitivity coefficient ($\beta$), the HDD anomaly, the renewable drought premium, and peaker multipliers:
+    $$\text{Bias Score} = \text{Clip}\left(\frac{\beta \cdot \text{Anomaly}_{HDD} + \text{Drought Premium}}{\text{Market Cap Limit}}, -1.0, 1.0\right)$$
+
+---
+
+## 🗂️ Script Inventory & Directory Layout
+
+### Ingestion & Sync Scripts
+*   [fetch_gfs.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_gfs.py): Downloads GFS 2m temperature GRIB files from NOMADS.
+*   [fetch_gefs.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_gefs.py): Syncs GEFS ensemble members and averages them.
+*   [fetch_ecmwf_ifs.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_ecmwf_ifs.py): Ingests ECMWF Open Data GRIB2 forecasts.
+*   [fetch_cmc_ens.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_cmc_ens.py): Connects to the Open-Meteo Ensemble API. Contains the **Active Cycle Constraint** to prevent overwriting past data with today's live forecast.
+*   [fetch_open_meteo_ai.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_open_meteo_ai.py): Pulls NOAA AIGFS and HGEFS runs from the Single Runs API.
+*   [fetch_aigfs_grib.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_aigfs_grib.py) & [fetch_hgefs_grib.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_hgefs_grib.py): Run byte-range downloads of AIGFS and HGEFS models for CONUS mapping.
+*   [poll_kaggle_robust.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/poll_kaggle_robust.py): Manages Kaggle kernel execution, status polling, and output staging.
+
+### Analytics & Processing Scripts
+*   [compute_tdd.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/compute_tdd.py): Computes population-weighted HDDs, CDDs, and TDDs using the 79-city demand matrix.
+*   [generate_maps.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/generate_maps.py): Multiprocessing script that generates animated run-to-run shift maps.
+*   [build_model_shift_table.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/build_model_shift_table.py): Builds day-by-day consensus shift matrices for the front-end.
+*   [cleanup_repo.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/cleanup_repo.py): Housekeeping utility that deletes outdated maps and subseasonal runs to keep Git size optimized.
+
+---
+
+## 📊 Output File Schema Reference
+
+### 1. `outputs/tdd_master.csv`
+Contains the computed Degree Days for all models.
+```csv
+date,mean_temp,hdd,cdd,tdd,mean_temp_gw,hdd_gw,cdd_gw,tdd_gw,model,run_id
+2026-06-05,72.09,0.00,7.09,7.09,72.09,0.00,7.09,7.09,CMC_ENS,20260605_00
+```
+*   `date`: Target verification date (YYYY-MM-DD).
+*   `hdd_gw` / `cdd_gw`: Gas-weighted population-adjusted degree days.
+*   `run_id`: Nominal initialization cycle (e.g., `20260605_00`).
+
+### 2. `outputs/wind/combined_drought.json`
+Stores the renewable drought flag and confidence scoring.
+```json
+{
+  "wind_cf": 0.28,
+  "solar_cf": 0.18,
+  "is_drought": true,
+  "season": "summer",
+  "drought_premium_bcf": 1.25,
+  "model_agreement_score": 0.85
+}
+```
+
+---
+
+## 🚨 Troubleshooting & Failure Modes
+
+### 1. Gray Maps (0 Run-to-Run Delta) for CMC_ENS
+*   **Cause:** The sync script was triggered outside the active cycle window, downloading the same live forecast multiple times under different cycle filenames.
+*   **Fix:** Ensure `sync_all_cmc()` is restricted to the active window (00z: 07-19 UTC; 12z: 19-07 UTC). Run the backfill/perturbation script to restore past data variation.
+
+### 2. NOMADS HTTP 404/503 Errors
+*   **Cause:** GRIB index (`.idx`) files are published before the GRIB data files are fully uploaded to NOAA servers.
+*   **Fix:** The ingestion scripts staggered schedule wait 3-4 hours after nominal cycle runtime, and use the `resilience_layer.py` backoff wrapper.
+
+### 3. Kaggle API Internal Server Errors (500)
+*   **Cause:** Kaggle's status API is rate-limited or experiencing transient outages.
+*   **Fix:** `poll_kaggle_robust.py` automatically disables status polling and falls back to comparing kernel file metadata changes to verify run completion.
 
 ---
 
 ## 🚀 Setup & Installation
 
-### Prerequisites
-- Python 3.10+
-- GitHub account with Actions enabled
-
 ### Local Development
-```bash
-git clone https://github.com/yieldchaser/weather-dd-tracker
-cd weather-dd-tracker
-pip install -r requirements.txt
-
-# Run individual pipeline components
-export EIA_KEY=your_key_here
-python scripts/poll_models.py               # fetch latest model data
-python scripts/wind/forecast_wind_power.py  # run wind forecast
-```
-
-### GitHub Actions Secrets
-| Secret | Description |
-|---|---|
-| `EIA_KEY` | Official EIA v2 API key for live grid data and storage withdrawals. |
-| `TELEGRAM_TOKEN` | Bot API token for dispatching weather alerts to mobile. |
-| `TELEGRAM_CHAT_ID` | Target channel or user ID for Telegram notifications. |
-| `KAGGLE_USERNAME` | Kaggle account name for triggering GPU-accelerated AI inference. |
-| `KAGGLE_KEY` | Kaggle API key for kernel authentication. |
-| `GITHUB_TOKEN` | (Automatic) Standard GHA permission for repository commits. |
-
----
-
-## 🧠 The 9 Intelligence Systems
-
-### 1. Teleconnections & Analogs
-Identifies historical cold risk by monitoring standard climate indices and matching them to past winter analogs.
-- **How it works:** Fetches and Z-score normalizes AO, NAO, PNA, and EPO indices against their full 1950+ historical distributions. It calculates a composite cold risk score based on specific threshold rules (e.g., Negative AO + Positive PNA = High Bullish Risk) and identifies the top 3 analog years with **enriched historical context**, including specific HDD anomalies and realized winter outcomes (e.g., "Record warm March", "Late season freeze").
-- **Data Source:** [NOAA CPC CPC Daily Indices](https://ftp.cpc.ncep.noaa.gov/cwlinks/) and [NOAA PSL EPO Monitoring](https://downloads.psl.noaa.gov/Public/map/teleconnections/).
-
-### 2. Weather Regime Classifier
-Classifies the current atmospheric configuration into distinct weather patterns (e.g., Arctic Trough, Polar Vortex, Pacific Ridge).
-- **How it works:** Uses the `Herbie` library to ingest GFS 0.25° Z500 geopotential height fields. The fields are projected onto a pre-trained PCA space and classified via KMeans clustering. A Markov transition matrix is then applied to forecast the probability of regime shifts over the next 24-72 hours.
-- **Data Source:** NOAA GFS 0.25° (via NOMADS/AWS).
-
-### 3. Freeze-Off Trigger (Hardened)
-Monitors natural gas wellhead freeze risk across 6 major US producing basins with high-reliability fetching logic.
-- **How it works:** Tracks 2m temperature forecasts for the Permian, Haynesville, Barnett, Eagle Ford, Fayetteville, and SW Marcellus.
-    - **Reliability Engine**: Features a **Herbie retry-with-backoff** mechanism (3 attempts, 10min wait) to handle delayed model index files.
-    - **Staggered Fetch**: Schedule is timed (`06:30/18:30 UTC`) specifically to allow for NCEP index file generation.
-    - **Partial Success Reporting**: Gracefully handles individual source failures (GFS or ECMWF), allowing the system to provide "Partial" alerts instead of failing entirely.
-- **Data Source:** GFS (via Herbie) and ECMWF (via `ecmwf-opendata`).
-
-### 4. Dynamic Sensitivity Coefficient
-Calculates the real-time relationship between heating degree days (HDD) and gas demand (Bcf).
-- **How it works:** Performs a 30-day rolling OLS (Ordinary Least Squares) regression of weekly EIA net storage withdrawals against population-weighted HDDs. This produces a `Bcf/HDD` coefficient that the system uses to weight the market impact of forecast changes.
-- **Data Source:** [EIA v2 Storage API](https://api.eia.gov/v2/natural-gas/stor/wkly/data/).
-
-### 5. Wind & Solar Renewable Power Forecast (Upgraded)
-Provides a high-resolution outlook for US renewable generation and potential gas-burn displacement.
-- **How it works:** 
-    - **Wind**: Aggregates 15 wind nodes (110 GW) using an IEC Class II power curve. Incorporates **GFS Ensemble Spread** (P10/P90 bands) to quantify forecast uncertainty.
-    - **Solar**: Tracks 12 geographically diverse solar nodes (~48 GW) across ERCOT, WECC, PJM, MISO, and SPP. Uses a PVWatts-style model converting GHI from **GFS and ECMWF** to Capacity Factor using a **75% Performance Ratio**. (ECMWF AIFS excluded — model does not publish solar radiation variables.)
-    - **Drought Consensus**: Identifies "Renewable Droughts" when Wind CF < 35% and Solar Consensus < 25% (requires both solar models below threshold).
-    - **Model Agreement Score**: Quantifies confidence based on agreement between GFS, ECMWF, and ICON; higher scores indicate lower regime-shift risk.
-    - **Combined Signal**: Synthesizes a unified directional bias based on aggregate **gas displacement loss (GW)** vs. 2-year climatology and **Model Agreement** scoring across GFS, ECMWF, and ICON to quantify forecast confidence.
-    - **Seasonal Drought Adjustment**: Thresholds vary by season to reflect structural generation patterns:
-        - **Wind drought**: 35% CF winter → 30% shoulder → 25% summer.
-        - **Solar drought**: 15% CF winter → 25% shoulder → 35% summer.
-        - **Wind drought signal weight**: 1.0x heating → 0.8x shoulder → 0.6x cooling.
-    - **35-Day Outlook**: Extends the horizon via GFS/CFS Ensemble API multi-node batching.
-- **Data Source:** [Open-Meteo Forecast & Ensemble APIs](https://api.open-meteo.com/v1/).
-
-### 6. Live Grid Monitor
-Tracks real-time fuel mix, load, and incremental natural gas burn across 7 major ISOs: **ERCOT, PJM, MISO, SPP, CAISO, ISONE, and NYISO**.
-- **How it works:** Queries the EIA v2 API for hourly generation and demand (load) data in ERCOT, PJM, MISO, SPP, CAISO, ISONE, and NYISO. It maintains a 30-day rolling baseline for each fuel type and load profile to compute real-time anomalies. A "NATIONAL" aggregate is synthesized to show the total gas-displacement impact of renewable surges and peaker utilization.
-- **Data Source:** [EIA v2 Electricity Data](https://api.eia.gov/v2/electricity/rto/).
-
-### 7. Composite Weather Signal
-Integrates multi-system outputs into a single directional market bias banner with detailed catalyst attribution.
-- **How it works:** Uses a heuristic "accumulator" that weights contributions from Teleconnections, Freeze-Off alerts, Wind droughts, and Regimes.
-    - **Nuanced Polar Vortex Logic**: Distinguishes between "PV Disruption/Strengthening" (Bullish, cold air descending) and "Strong/Established PV" (Bearish, cold locked in Arctic).
-    - **Bulls/Bears Breakdown**: Telegram alerts include a full component-level breakdown of individual catalysts and their contributing scores (e.g., "PV Disruption (+2.5)", "WND Drought (+1.2)").
-- **Data Source:** Aggregated outputs of Systems 1–6.
-
-### 8. Physics vs. AI Disagreement Index
-Measures forecast uncertainty and market volatility risk through model divergence.
-- **How it works:** Compares the degree-day (TDD) consensus of physics-based models (GFS, ECMWF) against state-of-the-art AI models (AIFS, GraphCast, Pangu). A "Volatility Risk Score" is produced based on the variance between these two ensembles; higher divergence signals a higher risk of large forecast revisions.
-- **Data Source:** Combined `outputs/tdd_master.csv`.
-
-### 9. Market Bias Composite
-Calculates a final quantitative score for the next 15 days.
-- **How it works:** Applies the Dynamic Sensitivity Coefficient to degree-day anomalies to calculate expected Bcf deviations. The score is further modified by wind premiums (bullish for droughts) and power burn multipliers, then capped between -1.0 (Strong Bear) and +1.0 (Strong Bull).
-- **Data Source:** Integrated market logic pipeline.
-
----
-
-## ❄️ Seasonal Adaptation
-
-The system is fully season-aware, dynamically adjusting thresholds and logic based on the current month:
-
-- **Dashboard Intelligence**: Automatically switches between **HDD/CDD/TDD** logic and labels (Nov-Mar = HDD, May-Sep = CDD, Apr+Oct = TDD).
-- **Threshold Dynamics**: All wind and solar drought thresholds adjust by season to maintain relevance against structural climo shifts.
-- **Gas Burn Sensitivity**: MW to Bcf/d conversion adapts for summer peaker dispatch efficiency shifts (7,000 → 8,200 BTU/kWh).
-- **Composite Signal weighting**: Adjusts the importance of specific signals (like wind) based on their seasonal correlation to total gas demand.
-
----
-
-## 📅 Data Sources & Frequency
-
-| Source | Endpoint | Variables Used | Frequency |
-|---|---|---|---|
-| **Open-Meteo Forecast** | `api.open-meteo.com/v1/forecast` | t2m, ws_100m, cloudcover, **direct_radiation, diffuse_radiation** | 4x daily |
-| **Open-Meteo Historical**| `historical-forecast-api.open-meteo.com/v1/forecast` | t2m, ws_100m | Monthly (climo) |
-| **Open-Meteo Ensemble** | `ensemble-api.open-meteo.com/v1/ensemble` | GFS_CFS (35d), ens_mean | 2x daily |
-| **EIA v2 API** | `api.eia.gov/v2/` | Storage, Fuel-mix (NG, COL, NUC, WND, SUN), Withdrawals | Hourly/Weekly |
-| **EIA v2 Region Data** | `api.eia.gov/v2/electricity/rto/region-data/data/` | Total load demand (D type) by ISO | Hourly |
-| **EIA v2 Outages** | `api.eia.gov/v2/electricity/outages/generators/data/` | Nuclear and coal generator outages | Daily |
-| **NOAA CPC** | `ftp.cpc.ncep.noaa.gov/cwlinks/` | AO, NAO, PNA indices | Daily |
-| **NOAA PSL** | `downloads.psl.noaa.gov/Public/map/...` | EPO index (dam anomalies) | Daily |
-| **Kaggle** | `kaggle.com` | FourCastNetV2 GPU Inference | 2x daily |
-
----
-
-## ⚙️ Automated Workflows
-
-| Workflow | Schedule (UTC) | Action |
-|---|---|---|
-| `daily_run.yml` | 04/10/16/22:00 | **Primary Pipeline**: TDDs, plus Grid metrics (`fetch_live_grid`, `fetch_outages`, `fetch_peaker_proxy`). |
-| `system3_freeze.yml` | 06:30, 18:30 | **Hardened Freeze Check**: 16-day basin-level freeze monitoring with retry logic. |
-| `system5_wind.yml` | 07:30 | Wind & Solar generation forecast and sub-daily drought tracking. |
-| `system2_regimes.yml` | 07:00 | Daily weather regime classification and Markov pathing. |
-| `system_composite.yml` | 08:30 | Updates translated integrated signal banner. |
-| `system4_sensitivity.yml` | 08:00 | Rolling HDD→demand coefficient regression. |
-| `teleconnections.yml` | 06:00, 18:00 | Fetches updated NOAA teleconnection indices & analogs. |
-| `retrain_solar_climo.yml` | 06:00 (1st of month) | Monthly rebuild of solar peak-hour climatology from GFS history. |
-| `retrain_regimes.yml` | 01-01 / 04-01 / 07-01 / 10-01 02:00 | Re-trains KMeans model on latest ERA5 history. |
-
----
-
-## 🧹 Repository Maintenance
-
-Automated self-pruning via `scripts/cleanup_repo.py`:
-- **Spatial Maps:** Retains last 10 GIFs per model.
-- **Sub-seasonal Data:** Limits GEFS sub-seasonal folders to the 3 most recent runs.
-- **Footprint:** Targets repository size of **~750 MB**.
-
----
-
-## 🛠️ Reliability & Health Monitoring
-
-The system implements a multi-layered hardening strategy to ensure high availability and data integrity:
-
-- **State-Preserving Guards**: Every pipeline script is wrapped in a top-level exception handler. If a script fails (e.g., API timeout), it captures the error, alerts the user, and **halts before overwriting data**, ensuring the dashboard always displays the "last known good" state.
-- **Centralized Health Status**: Scripts report their status to `outputs/health/{script_name}.json`. These logs track success/failure, timestamps, and specific error messages.
-- **Telegram Health Alerts**: The messaging system (`send_telegram.py`) scans all health status files before dispatching alerts. Any system failures are prepended to the top of the message: `🚨 SYSTEM HEALTH ALERTS 🚨`.
-- **Safe-Write Wrappers**: Replaced standard file-writing with custom logic that validates dataframes (e.g., minimum row counts) before committing to disk, preventing "empty file" corruption.
-
----
-
-## 📊 Power Grid Charts
-The Power Grid Monitor dashboard consumes several rolling history files to visualize market relationships:
-- **Wind Generation Forecast**: Multi-model outlook for the next 16 days, including **GFS Ensemble Spread Bands** (P10/P90) and active drought alert markers.
-- **National Load vs Gas Generation**: Dual-axis line chart tracking total grid demand against natural gas dispatch.
-- **Nuclear Fleet Availability**: Monitors national generator outages to identify potential secondary gas demand from reliability gaps.
-- **ISO Regional Breakdown**: Stacked horizontal breakdown of today's natural gas burn across all 7 tracked ISOs.
-- **Gas Peaker Utilization**: Tracks the peak-to-offpeak gas generation ratio identifying marginal peaker dispatch.
-
----
-
-## 🗂️ Key Output Reference
-
-| Path | Description |
-|---|---|
-| `outputs/composite_signal.json` | Final integrated intelligence signal and confidence. |
-| `outputs/wind/drought.json` | Wind drought probabilities, GFS ensemble spread, and Model Agreement scores. |
-| `outputs/gas_burn_history.csv` | Rolling 3-year history of national gas burn (Bcf/d) vs temperature for scatter analysis. |
-| `outputs/thermal_history.csv` | Historical record of national gas, coal, and nuclear generation MW and gas % metrics. |
-| `outputs/wind/solar_power_forecast.csv` | Daily solar generation forecasts across GFS and ECMWF models. |
-| `outputs/wind/solar_climo_30d.json` | 2-year solar capacity factor climatology (Peak-hour and All-day). |
-| `outputs/wind/combined_drought.json` | Unified renewable drought risk, consensus indicators, and gas displacement metrics. |
-| `outputs/wind/wind_power_forecast.csv` | Wind generation forecasts including GFS members (P10/P90) and climo anomalies. |
-| `outputs/wind/wind_actuals_history.csv` | Persistent log of historical national and ISO-level wind generation actuals. |
-| `outputs/tdd_master.csv` | Master HDD/CDD timeseries across all models and horizons. |
-| `outputs/live_grid_generation.csv` | EIA ISO fuel mix (7 ISOs + NATIONAL), load_mw, gas_pct_load, and nuclear_mw. |
-| `outputs/grid_outages.csv` | Daily nuclear and coal outage tracking, fleet availability %. |
-| `outputs/peaker_history.csv` | Daily peak vs off-peak gas generation ratio, peaker utilization proxy. |
-| `outputs/hourly_grid_data.csv` | Intraday hourly national gas generation, passed to peaker proxy script. |
-| `outputs/vs_normal.csv` | Comparative data for forecasts vs. 10y and 30y normals. |
-| `outputs/health/` | JSON status files for every pipeline script, used for health monitoring and Telegram alerts. |
-
----
-
-## 🔮 Planned Improvements
-
-### Power Grid Monitor (`grid.html`)
-- **Historical Wind Actuals Overlay** — overlay observed wind generation actuals on the forward wind forecast chart. Activates automatically once `wind_actuals_history.csv` accumulates 14+ days (~March 27).
-- **Model Skill Scoring** — track how each model's 5-day wind/HDD forecast verified against observed actuals. Rolling 30-day MAE per model displayed on dashboard.
-- **LNG Export Tracker** — track LNG feedgas demand (~15+ Bcf/d) as a competing demand signal alongside power burn.
-- **Production vs Demand Balance** — daily supply/demand balance showing surplus/deficit, tying all signals together.
-
-### Weather Desk (`index.html`)
-- **Analog Enrichment** — include HDD magnitude and outcome descriptions for top analogs.
-- **Composite Catalyst Transparency** — add full Bulls/Bears breakdown to the dashboard UI (currently in Telegram only).
-
-### Storage & Production Dashboard (Planned Separate Page)
-- **EIA Storage Actuals vs Model-Implied Withdrawal** — ground truth feedback loop validating whether HDD signals moved the market correctly.
-- **Production tracker** — Appalachian, Permian, Haynesville basin-level production vs prior year.
-- **Supply/demand balance sheet** — integrated daily Bcf/d supply vs demand with surplus/deficit signal.
-
-### Infrastructure
-- **Git history size reduction** — implement `git filter-repo` to squash old large GRIB files from git history, reducing clone size.
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/yieldchaser/weather-dd-tracker
+    cd weather-dd-tracker
+    ```
+2.  **Install Dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  **Run Ingestion & Map Pipelines:**
+    ```bash
+    export EIA_KEY=your_eia_api_key
+    python scripts/poll_models.py       # Fetch latest GRIB/point forecasts
+    python scripts/generate_maps.py     # Regenerate spatial delta map GIFs
+    ```
 
 ---
 

@@ -407,6 +407,7 @@ def rebuild_manifest():
         "NAM": "NAM_shift_",
         "NBM": "NBM_shift_",
         "ICON": "ICON_shift_",
+        "FOURCASTNETV2-SMALL": "FOURCASTNETV2-SMALL_shift_",
     }
     
     if not os.path.exists(MAPS_DIR):
@@ -463,6 +464,7 @@ def main():
         {"name": "NBM",        "path": "data/nbm",              "is_bubble": False},
         {"name": "CMC_ENS",    "path": "data/cmc_ens",          "is_bubble": True},
         {"name": "ICON",       "path": "data/icon",             "is_bubble": True},
+        {"name": "FOURCASTNETV2-SMALL", "path": "data/fourcastnetv2-small", "is_bubble": True},
     ]
 
     with ProcessPoolExecutor(max_workers=4) as pool:

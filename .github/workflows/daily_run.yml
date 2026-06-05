@@ -111,11 +111,22 @@ jobs:
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           mkdir -p data/ai_models
+          mkdir -p data/fourcastnetv2-small/cities
           kaggle kernels output prateekriders/weather-dd-ai-inference -p /tmp/kaggle_out
           # CSVs are saved to /kaggle/working/output/ inside the kernel
           find /tmp/kaggle_out -name "*.csv" -exec cp {} data/ai_models/ \;
-          echo "Downloaded files:"
+          # JSONs are renamed to strip the 'fourcastnetv2-small_' prefix so they match bubble run naming
+          for f in /tmp/kaggle_out/*.json; do
+            if [ -f "$f" ]; then
+              base=$(basename "$f")
+              newname=${base#fourcastnetv2-small_}
+              cp "$f" "data/fourcastnetv2-small/cities/$newname"
+            fi
+          done
+          echo "Downloaded AI Model CSV files:"
           ls -la data/ai_models/ || true
+          echo "Downloaded FOURCASTNETV2-SMALL City JSON files:"
+          ls -la data/fourcastnetv2-small/cities/ || true
 
       - name: Run Repo Cleanup
         if: env.NEW_DATA_FOUND == 'true'

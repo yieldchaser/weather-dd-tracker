@@ -312,8 +312,10 @@ def extract_conus_tdd(grib_path, model_name):
     except Exception as e:
         print(f"[WARN] Failed to load remote weights ({e}). Falling back to city-weights.")
 
+    city_daily_temps = {}
     for step_idx, vt in enumerate(valid_times):
         dt_str = pd.to_datetime(vt).strftime("%Y%m%d")
+        dt_str_dash = pd.to_datetime(vt).strftime("%Y-%m-%d")
         
         # PHYSICS SYNC: If we can't do full GW, we do a weighted city average 
         # which is much better than a simple mean.
@@ -324,6 +326,13 @@ def extract_conus_tdd(grib_path, model_name):
             temp_c = temps_celsius[step_idx, lat_idx, lon_idx]
             weighted_temp += weight * temp_c
             total_w += weight
+            
+            temp_f = celsius_to_f(temp_c)
+            if city not in city_daily_temps:
+                city_daily_temps[city] = {}
+            if dt_str_dash not in city_daily_temps[city]:
+                city_daily_temps[city][dt_str_dash] = []
+            city_daily_temps[city][dt_str_dash].append(temp_f)
             
         avg_c = weighted_temp / total_w
         avg_f = celsius_to_f(avg_c)
@@ -351,7 +360,16 @@ def extract_conus_tdd(grib_path, model_name):
     # FILTER: Prevent Day Bias (only keep days with 4+ steps)
     counts = df.groupby('date').size()
     valid_days = counts[counts >= 3].index
-    return df_daily[df_daily['date'].isin(valid_days)]
+    
+    valid_days_dash = {f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in valid_days}
+    city_temps_f = {}
+    for city, dates in city_daily_temps.items():
+        city_temps_f[city] = {}
+        for d, temps_list in dates.items():
+            if d in valid_days_dash:
+                city_temps_f[city][d] = round(float(np.mean(temps_list)), 2)
+                
+    return df_daily[df_daily['date'].isin(valid_days)], city_temps_f
 
 def nuke_memory():
     """Aggressively free GPU/CPU memory between model runs."""
@@ -383,8 +401,9 @@ def main():
 
         grib = run_ai_models_cli(model)
         if grib:
-            df = extract_conus_tdd(grib, model)
-            if df is not None:
+            res = extract_conus_tdd(grib, model)
+            if res is not None:
+                df, city_temps_f = res
                 # Provide a unique run-based name so Github Actions tracks physical historical runs
                 try:
                     run_id = df.iloc[0]["run_id"]
@@ -401,6 +420,18 @@ def main():
                 df.to_csv(latest_path, index=False)
                 succeeded.append(df)
                 print(f"[OK] Saved historical output for {model} to {historical_name}")
+                
+                # Save city JSON for map generation
+                import json
+                city_json_name = f"{model}_{run_id}_cities.json"
+                city_json_path = os.path.join(OUTPUT_DIR, city_json_name)
+                latest_city_json_name = f"{model}_latest_cities.json"
+                latest_city_json_path = os.path.join(OUTPUT_DIR, latest_city_json_name)
+                with open(city_json_path, "w") as f:
+                    json.dump(city_temps_f, f)
+                with open(latest_city_json_path, "w") as f:
+                    json.dump(city_temps_f, f)
+                print(f"[OK] Saved city temperatures for {model} to {city_json_name}")
         # Crucial: free memory before loading the next model
         nuke_memory()
         os.system(f"rm -f {os.path.join(OUTPUT_DIR, model + '_out.grib')}")
