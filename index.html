@@ -745,7 +745,7 @@
                         <select id="modelSelect"></select>
                     </div>
                     <div>
-                        <label for="mapRunSelect"><strong>Map Comparison: </strong></label>
+                        <label for="mapRunSelect" class="has-tooltip" data-tooltip-key="Map Comparison"><strong>Map Comparison: </strong></label>
                         <select id="mapRunSelect" style="display:none;"></select>
                     </div>
                 </div>
@@ -2082,6 +2082,10 @@
                 title: "Model Selection",
                 body: "Choose which weather model (e.g. GFS, ECMWF, GEFS, NBM) to display in the run comparison chart."
             },
+            "Map Comparison": {
+                title: "Map Comparison",
+                body: "Allows you to select which two model runs to compare on the spatial delta map. <strong>Latest vs [Run]</strong> shows the difference between the most recent run and a previous run, highlighting where the model is shifting colder or warmer."
+            },
             "Algorithmic Market Bias": {
                 title: "Algorithmic Market Bias",
                 body: "Calculated composite market bias across all physical and machine learning models. Evaluation threshold is <strong>+/- 0.5 DD</strong>."
@@ -2260,10 +2264,24 @@
                 title = dynTitle;
                 body = dynBody || "";
             } else {
-                const key = target.getAttribute("data-tooltip-key");
-                if (key && TOOLTIPS[key]) {
-                    title = TOOLTIPS[key].title;
-                    body = TOOLTIPS[key].body;
+                let key = target.getAttribute("data-tooltip-key");
+                if (key) {
+                    const keyMap = {
+                        "GFS OP CHG": "GFS",
+                        "GFS ENS CHG": "GEFS",
+                        "ECMWF OP CHG": "ECMWF",
+                        "EURO ENS CHG": "ECMWF_ENS",
+                        "CMC ENS CHG": "CMC_ENS",
+                        "EURO AI CHG": "ECMWF_AIFS",
+                        "HRRR CHG": "HRRR",
+                        "NAM CHG": "NAM",
+                        "NBM CHG": "NBM"
+                    };
+                    if (keyMap[key]) key = keyMap[key];
+                    if (TOOLTIPS[key]) {
+                        title = TOOLTIPS[key].title;
+                        body = TOOLTIPS[key].body;
+                    }
                 }
             }
 
