@@ -32,7 +32,7 @@ session = get_session()
 BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/aigfs/prod"
 OUTPUT_DIR = "data/aigfs_grib"
 
-FORECAST_HOURS = list(range(0, 361, 24))   # 0h to 360h (15 days), daily steps
+FORECAST_HOURS = list(range(0, 361, 6))   # 0h to 360h (15 days), 6-hourly steps
 CYCLES = ["18", "12", "06", "00"]               # order of preference
 T2M_PATTERN = re.compile(r"TMP:2 m above ground")
 

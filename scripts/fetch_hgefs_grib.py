@@ -32,7 +32,7 @@ session = get_session()
 BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hgefs/prod"
 OUTPUT_DIR = "data/hgefs_grib"
 
-FORECAST_HOURS = list(range(0, 241, 24))   # 0h to 240h (10 days), daily steps
+FORECAST_HOURS = list(range(0, 241, 6))   # 0h to 240h (10 days), 6-hourly steps
 CYCLES = ["18", "12", "06", "00"]               # order of preference
 T2M_PATTERN = re.compile(r"TMP:2 m above ground")
 

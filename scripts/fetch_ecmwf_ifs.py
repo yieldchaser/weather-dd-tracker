@@ -29,7 +29,7 @@ from ecmwf.opendata import Client
 
 BASE_DIR = "data/ecmwf"
 CYCLES   = ["18", "12", "06", "00"]          # newest -> oldest
-EXPECTED_STEPS = list(range(0, 16 * 24, 24)) # 0, 24, 48 … 360 h (16 days)
+EXPECTED_STEPS = list(range(0, 361, 6)) # 0, 6, 12, 18, 24 … 360 h (15 days)
 
 # CONUS bounding box [N, W, S, E] in degrees
 # ECMWF OpenData uses [north, west, south, east] convention for `area`

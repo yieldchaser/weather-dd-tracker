@@ -40,7 +40,7 @@ OUTPUT_DIR = "data/gefs"
 CYCLES = ["18", "12", "06", "00"]
 
 # We pull daily snapshots (0, 24, 48... 384) to significantly reduce IO wait
-FORECAST_HOURS = list(range(0, 385, 24))
+FORECAST_HOURS = list(range(0, 385, 6))
 
 MEMBERS = ["gec00"] + [f"gep{i:02d}" for i in range(1, 31)]
 T2M_PATTERN = re.compile(r"TMP:2 m above ground")

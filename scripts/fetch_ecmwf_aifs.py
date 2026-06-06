@@ -18,7 +18,7 @@ CYCLES   = ["18", "12", "06", "00"]          # newest -> oldest
 # AIFS operates similarly to IFS for step ranges. Let's pull daily steps up to 10 days or 15 days.
 # Using 10 days for now as standard AIFS output length on OpenData (it goes up to 15 days in some versions).
 # We will request 24h intervals.
-EXPECTED_STEPS = list(range(0, 15 * 24 + 24, 24))
+EXPECTED_STEPS = list(range(0, 361, 6))
 
 # CONUS bounding box [N, W, S, E] in degrees
 ECMWF_AREA = [50, -125, 25, -65]
