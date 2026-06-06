@@ -7,14 +7,14 @@
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260605_12",
-      "prev": "20260605_00",
+      "latest": "20260606_00",
+      "prev": "20260605_12",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260605_12",
-      "prev": "20260605_00",
+      "latest": "20260606_00",
+      "prev": "20260605_12",
       "gap": false,
       "has_gw": true
     },
@@ -26,7 +26,7 @@
     },
     "CMC ENS CHG": {
       "latest": "20260606_00",
-      "prev": "20260605_00",
+      "prev": "20260605_12",
       "gap": false,
       "has_gw": true
     },
@@ -43,8 +43,8 @@
       "has_gw": true
     },
     "NOAA AI ENS CHG": {
-      "latest": "20260605_18",
-      "prev": "20260605_12",
+      "latest": "20260606_00",
+      "prev": "20260605_18",
       "gap": false,
       "has_gw": true
     },
@@ -67,11 +67,11 @@
       "has_gw": true
     },
     "FOURCASTNETV2-SMALL": {
-      "latest": "20260604_12_AI",
-      "prev": "20260603_12_AI",
+      "latest": "20260605_12_AI",
+      "prev": "20260604_12_AI",
       "gap": false,
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-06T13:27:43.964197"
+  "generated_at": "2026-06-06T10:00:15.234298"
 }
