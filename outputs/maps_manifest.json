@@ -14,36 +14,36 @@
             "latest": "20260606_00",
             "previous": "20260605_06",
             "file": "GFS_shift_20260606_00_vs_20260605_06.gif"
-        },
-        {
-            "latest": "20260605_18",
-            "previous": "20260605_12",
-            "file": "GFS_shift_20260605_18_vs_20260605_12.gif"
-        },
-        {
-            "latest": "20260605_18",
-            "previous": "20260605_06",
-            "file": "GFS_shift_20260605_18_vs_20260605_06.gif"
-        },
-        {
-            "latest": "20260605_18",
-            "previous": "20260605_00",
-            "file": "GFS_shift_20260605_18_vs_20260605_00.gif"
         }
     ],
     "GEFS": [
         {
+            "latest": "20260607_12",
+            "previous": "20260607_06",
+            "file": "GEFS_shift_20260607_12_vs_20260607_06.gif"
+        },
+        {
             "latest": "20260607_06",
             "previous": "20260607_00",
             "file": "GEFS_shift_20260607_06_vs_20260607_00.gif"
-        },
-        {
-            "latest": "20260607_00",
-            "previous": "20260606_18",
-            "file": "GEFS_shift_20260607_00_vs_20260606_18.gif"
         }
     ],
     "ECMWF": [
+        {
+            "latest": "20260607_12",
+            "previous": "20260607_00",
+            "file": "ECMWF_shift_20260607_12_vs_20260607_00.gif"
+        },
+        {
+            "latest": "20260607_12",
+            "previous": "20260606_12",
+            "file": "ECMWF_shift_20260607_12_vs_20260606_12.gif"
+        },
+        {
+            "latest": "20260607_12",
+            "previous": "20260606_00",
+            "file": "ECMWF_shift_20260607_12_vs_20260606_00.gif"
+        },
         {
             "latest": "20260607_00",
             "previous": "20260606_12",
@@ -62,14 +62,14 @@
     ],
     "ECMWF_AIFS": [
         {
-            "latest": "20260607_06",
-            "previous": "20260607_00",
-            "file": "ECMWF_AIFS_shift_20260607_06_vs_20260607_00.gif"
+            "latest": "20260607_12",
+            "previous": "20260607_06",
+            "file": "ECMWF_AIFS_shift_20260607_12_vs_20260607_06.gif"
         },
         {
-            "latest": "20260607_06",
-            "previous": "20260606_18",
-            "file": "ECMWF_AIFS_shift_20260607_06_vs_20260606_18.gif"
+            "latest": "20260607_12",
+            "previous": "20260607_00",
+            "file": "ECMWF_AIFS_shift_20260607_12_vs_20260607_00.gif"
         }
     ],
     "HGEFS": [
