@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260609_00",
-      "prev": "20260608_18",
+      "latest": "20260609_06",
+      "prev": "20260609_00",
       "gap": false,
       "has_gw": true
     },
@@ -13,14 +13,14 @@
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260608_12",
-      "prev": "20260608_00",
+      "latest": "20260609_00",
+      "prev": "20260608_12",
       "gap": false,
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260609_00",
-      "prev": "20260608_18",
+      "latest": "20260609_06",
+      "prev": "20260609_00",
       "gap": false,
       "has_gw": true
     },
@@ -31,32 +31,32 @@
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260609_00",
-      "prev": "20260608_18",
+      "latest": "20260609_06",
+      "prev": "20260609_00",
       "gap": false,
       "has_gw": true
     },
     "NOAA AI CHG": {
+      "latest": "20260609_06",
+      "prev": "20260609_00",
+      "gap": false,
+      "has_gw": true
+    },
+    "NOAA AI ENS CHG": {
       "latest": "20260609_00",
       "prev": "20260608_18",
       "gap": false,
       "has_gw": true
     },
-    "NOAA AI ENS CHG": {
-      "latest": "20260608_18",
-      "prev": "20260608_12",
-      "gap": false,
-      "has_gw": true
-    },
     "HRRR CHG": {
-      "latest": "20260608_16",
-      "prev": "20260608_15",
+      "latest": "20260609_09",
+      "prev": "20260609_08",
       "gap": false,
       "has_gw": true
     },
     "NAM CHG": {
-      "latest": "20260608_12",
-      "prev": "20260608_06",
+      "latest": "20260609_06",
+      "prev": "20260609_00",
       "gap": false,
       "has_gw": true
     },
@@ -67,11 +67,11 @@
       "has_gw": true
     },
     "FOURCASTNETV2-SMALL": {
-      "latest": "20260607_12_AI",
-      "prev": "20260606_12_AI",
+      "latest": "20260608_12_AI",
+      "prev": "20260607_12_AI",
       "gap": false,
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-09T08:05:17.516028"
+  "generated_at": "2026-06-09T12:50:15.063744"
 }
