@@ -455,7 +455,7 @@ def main():
         {"name": "GFS",        "path": "data/gfs",              "is_bubble": False},
         {"name": "GEFS",       "path": "data/gefs",             "is_bubble": False},
         {"name": "GEFS_35D",   "path": "data/gefs_subseasonal", "is_bubble": False},
-        {"name": "ECMWF_ENS",  "path": "data/ecmwf_ens",        "is_bubble": False},
+        {"name": "ECMWF_ENS",  "path": "data/ecmwf_ens",        "is_bubble": True},
         {"name": "ECMWF_AIFS", "path": "data/ecmwf_aifs",       "is_bubble": False},
         {"name": "AIGFS",      "path": "data/aigfs_grib",       "is_bubble": False},
         {"name": "HGEFS",      "path": "data/hgefs_grib",       "is_bubble": False},

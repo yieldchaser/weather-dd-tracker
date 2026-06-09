@@ -80,9 +80,10 @@ def cleanup_maps():
         "GEFS_shift", 
         "GEFS_35D_shift",
         "ECMWF_shift",
+        "ECMWF_ENS_shift",
         "ECMWF_AIFS_shift",
         "ICON_shift",
-        "CMC_shift",
+        "CMC_ENS_shift",
         "NBM_shift",
         "HRRR_shift",
         "NAM_shift",
@@ -99,13 +100,15 @@ def cleanup_maps():
             reverse=True
         )
         
+        # Mark all matched files as processed so they are not deleted by the secondary sweep
+        for gif in model_gifs:
+            processed_files.add(gif)
+        
         if len(model_gifs) > MAPS_GIF_LIMIT_PER_MODEL:
             to_delete = model_gifs[MAPS_GIF_LIMIT_PER_MODEL:]
             print(f"Cleaning {prefix} map GIFs (keeping {MAPS_GIF_LIMIT_PER_MODEL})...")
             for gif in to_delete:
-                if gif not in processed_files:
-                    git_rm(gif)
-                    processed_files.add(gif)
+                git_rm(gif)
 
     # Secondary sweep for anything missed or outliers
     # If it's a GIF and hasn't been handled, and we have too many total, prune oldest

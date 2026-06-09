@@ -63,12 +63,12 @@ def url_exists(url, timeout=15):
     except Exception:
         return False
 
-def find_latest_available_runs():
-    """Finds the latest completely uploaded 00z run that has the f840 index."""
+def find_latest_available_runs(max_runs=3):
+    """Finds the latest completely uploaded 00z runs that have the f840 index."""
     now = datetime.datetime.now(datetime.UTC)
     runs = []
-    # GEFS Subseasonal can take a long time to upload, check back up to 4 days
-    for day_offset in [0, -1, -2, -3]:
+    # Check back up to 5 days
+    for day_offset in range(0, -6, -1):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         # Check if the 35-day terminal file is available
         test_file = f"gec00.t{CYCLE}z.pgrb2a.0p50.f840.idx"
@@ -76,8 +76,10 @@ def find_latest_available_runs():
         print(f"Checking subseasonal availability: {date}_{CYCLE}Z (f840)")
         if url_exists(test_url):
             print(f"[OK] Found complete subseasonal run: {date}_{CYCLE}Z")
-            return f"{date}_{CYCLE}"
-    return None
+            runs.append(f"{date}_{CYCLE}")
+            if len(runs) >= max_runs:
+                break
+    return runs
 
 def parse_t2m_byte_range(idx_url):
     try:
@@ -234,42 +236,50 @@ def process_gribs(run_id, downloaded_files):
 
 
 def fetch_latest():
-    run_id = find_latest_available_runs()
-    if not run_id:
-        print("No subseasonal GEFS run is fully available yet.")
+    available_runs = find_latest_available_runs(max_runs=3)
+    if not available_runs:
+        print("No subseasonal GEFS runs are fully available yet.")
         return
 
-    run_date = run_id.split("_")[0]
-    run_dir = os.path.join(OUTPUT_DIR, run_id)
-    ensure_dir(run_dir)
-
-    print(f"\nFetching GEFS Subseasonal 35-Day extension: {run_id}Z")
-    
-    tasks = []
-    for m in MEMBERS:
-        for fh in FORECAST_HOURS:
-            tasks.append((run_date, CYCLE, m, fh, run_dir))
+    for run_id in available_runs:
+        run_date = run_id.split("_")[0]
+        run_dir = os.path.join(OUTPUT_DIR, run_id)
+        
+        # Skip logic: if we already have the TDD CSV file, and the GRIB files exist on disk, we skip
+        out_csv = os.path.join(OUTPUT_DIR, f"{run_id}_tdd.csv")
+        grib_files = [f for f in os.listdir(run_dir) if "pgrb2a" in f] if os.path.exists(run_dir) else []
+        if os.path.exists(out_csv) and len(grib_files) > 100:
+            print(f"[{run_id}Z] Already fetched fully (TDD and GRIBs present). Skipping.")
+            continue
             
-    success_files = []
-    
-    # We will do a smaller parallel execution so we don't spam AWS too hard
-    print(f"Submitting {len(tasks)} slice extraction tasks...")
-    
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {executor.submit(download_member_timestep, t): t for t in tasks}
-        for future in as_completed(futures):
-            member, fh, path, success, msg = future.result()
-            if success:
-                success_files.append((member, fh, path))
-            else:
-                pass # print(f"  [ERR] {member} f{fh:03d} failed: {msg}")
-
-    print(f"\n[OK] GEFS Subseasonal Fetch complete.")
-    print(f"     Successfully retrieved: {len(success_files)}/{len(tasks)} slices.")
-    
-    # Run the math
-    if success_files:
-        process_gribs(run_id, success_files)
+        ensure_dir(run_dir)
+        print(f"\nFetching GEFS Subseasonal 35-Day extension: {run_id}Z")
+        
+        tasks = []
+        for m in MEMBERS:
+            for fh in FORECAST_HOURS:
+                tasks.append((run_date, CYCLE, m, fh, run_dir))
+                
+        success_files = []
+        
+        # We will do a smaller parallel execution so we don't spam AWS too hard
+        print(f"Submitting {len(tasks)} slice extraction tasks...")
+        
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {executor.submit(download_member_timestep, t): t for t in tasks}
+            for future in as_completed(futures):
+                member, fh, path, success, msg = future.result()
+                if success:
+                    success_files.append((member, fh, path))
+                else:
+                    pass
+                    
+        print(f"\n[OK] GEFS Subseasonal Fetch complete for {run_id}Z.")
+        print(f"     Successfully retrieved: {len(success_files)}/{len(tasks)} slices.")
+        
+        # Run the math
+        if success_files:
+            process_gribs(run_id, success_files)
 
 if __name__ == "__main__":
     fetch_latest()

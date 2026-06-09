@@ -60,3 +60,9 @@ output/
 # ── Stray root-level GRIB index files ─────────────────────────────────────────
 ecmwf_*.idx
 *.download
+
+# ── Allow committing metadata, CSVs, and city JSONs under raw data dirs ───────
+!data/**/*.csv
+!data/**/manifest.json
+!data/**/cities/*.json
+

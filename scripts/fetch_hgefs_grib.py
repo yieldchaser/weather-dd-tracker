@@ -138,12 +138,14 @@ def fetch_latest_hgefs():
         run_dir = os.path.join(OUTPUT_DIR, run_id)
         mani_path = os.path.join(run_dir, "manifest.json")
 
-        if os.path.exists(mani_path):
+        # Check if we already have it fully downloaded (both manifest and GRIB files exist)
+        grib_files = [f for f in os.listdir(run_dir) if f.endswith(".grib2")] if os.path.exists(run_dir) else []
+        if os.path.exists(mani_path) and len(grib_files) >= len(FORECAST_HOURS):
             try:
                 with open(mani_path, "r") as f:
                     mani = json.load(f)
                 if FORECAST_HOURS[-1] in mani.get("forecast_hours", []):
-                    print(f"[{run_id}Z] Already fetched fully. Skipping.")
+                    print(f"[{run_id}Z] Already fetched fully (manifest and GRIBs present). Skipping.")
                     continue
             except:
                 pass
