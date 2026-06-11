@@ -3,7 +3,8 @@
   "run_date": "20260610",
   "cycle": "12",
   "field": "TMP:2 m above ground (byte-range extracted)",
-  "forecast_hours": [
+  "forecast_hours": [],
+  "skipped_hours": [
     0,
     6,
     12,
@@ -57,6 +58,7 @@
     300,
     306,
     312,
+    318,
     324,
     330,
     336,
@@ -65,8 +67,5 @@
     354,
     360
   ],
-  "skipped_hours": [
-    318
-  ],
-  "created_utc": "2026-06-10T18:27:50.115874+00:00"
+  "created_utc": "2026-06-11T08:33:12.356584+00:00"
 }
