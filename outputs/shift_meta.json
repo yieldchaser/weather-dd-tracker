@@ -1,14 +1,14 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260615_06",
-      "prev": "20260615_00",
+      "latest": "20260615_12",
+      "prev": "20260615_06",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260615_00",
-      "prev": "20260614_12",
+      "latest": "20260615_12",
+      "prev": "20260615_00",
       "gap": false,
       "has_gw": true
     },
@@ -19,38 +19,38 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260615_06",
-      "prev": "20260615_00",
+      "latest": "20260615_12",
+      "prev": "20260615_06",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260615_00",
-      "prev": "20260614_12",
+      "latest": "20260615_12",
+      "prev": "20260615_00",
       "gap": false,
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260615_06",
-      "prev": "20260615_00",
+      "latest": "20260615_12",
+      "prev": "20260615_06",
       "gap": false,
       "has_gw": true
     },
     "NOAA AI CHG": {
+      "latest": "20260615_12",
+      "prev": "20260615_06",
+      "gap": false,
+      "has_gw": true
+    },
+    "NOAA AI ENS CHG": {
       "latest": "20260615_06",
       "prev": "20260615_00",
       "gap": false,
       "has_gw": true
     },
-    "NOAA AI ENS CHG": {
-      "latest": "20260615_00",
-      "prev": "20260614_18",
-      "gap": false,
-      "has_gw": true
-    },
     "HRRR CHG": {
-      "latest": "20260615_13",
-      "prev": "20260615_12",
+      "latest": "20260615_16",
+      "prev": "20260615_15",
       "gap": false,
       "has_gw": true
     },
@@ -67,11 +67,11 @@
       "has_gw": true
     },
     "FOURCASTNETV2-SMALL": {
-      "latest": "20260613_12_AI",
-      "prev": "20260612_12_AI",
+      "latest": "20260614_12_AI",
+      "prev": "20260613_12_AI",
       "gap": false,
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-15T16:19:23.230134"
+  "generated_at": "2026-06-15T20:19:49.478634"
 }
