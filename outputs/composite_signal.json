@@ -1,9 +1,13 @@
 {
-  "timestamp": "2026-06-19T09:45:12.325Z",
-  "composite_score": -1.1,
+  "timestamp": "2026-06-19T12:31:44.983Z",
+  "composite_score": 0.4,
   "signal": "NEUTRAL",
   "confidence": 100.0,
   "components": [
+    {
+      "name": "High Weather Sensitivity",
+      "score": 1.5
+    },
     {
       "name": "Wind Drought (Moderate)",
       "score": 0.8999999999999999
@@ -15,7 +19,7 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 0.9,
+    "bull_accumulator": 2.4,
     "bear_accumulator": 2.0
   },
   "system_status": {
