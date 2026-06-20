@@ -1,13 +1,13 @@
 {
   "wind_drought_prob_16d": 0.38,
-  "solar_drought_prob_10d": 0.0,
+  "solar_drought_prob_10d": 0.06,
   "combined_drought_today": false,
   "combined_drought_prob_7d": 0.0,
   "combined_drought_days_7d": 0,
-  "worst_combined_day": "2026-06-19",
-  "worst_combined_renewable_cf_pct": 14.6,
-  "gas_displacement_loss_gw": 21.4,
+  "worst_combined_day": "2026-06-20",
+  "worst_combined_renewable_cf_pct": 16.3,
+  "gas_displacement_loss_gw": 29.6,
   "signal": "MODERATE BULL",
   "solar_drought_threshold_cf_pct": 35.0,
-  "timestamp": "2026-06-19T11:47:05Z"
+  "timestamp": "2026-06-20T10:17:28Z"
 }
