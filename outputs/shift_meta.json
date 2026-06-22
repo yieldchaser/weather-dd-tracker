@@ -1,56 +1,56 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260621_12",
-      "prev": "20260621_06",
+      "latest": "20260622_00",
+      "prev": "20260621_12",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260621_12",
-      "prev": "20260621_00",
+      "latest": "20260622_00",
+      "prev": "20260621_12",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260621_12",
-      "prev": "20260621_00",
+      "latest": "20260622_00",
+      "prev": "20260621_12",
       "gap": false,
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260621_12",
-      "prev": "20260621_06",
+      "latest": "20260622_00",
+      "prev": "20260621_18",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260621_00",
-      "prev": "20260620_12",
+      "latest": "20260622_00",
+      "prev": "20260621_00",
       "gap": false,
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260621_12",
-      "prev": "20260621_06",
+      "latest": "20260622_00",
+      "prev": "20260621_18",
       "gap": false,
       "has_gw": true
     },
     "NOAA AI CHG": {
+      "latest": "20260622_00",
+      "prev": "20260621_18",
+      "gap": false,
+      "has_gw": true
+    },
+    "NOAA AI ENS CHG": {
       "latest": "20260621_18",
       "prev": "20260621_12",
       "gap": false,
       "has_gw": true
     },
-    "NOAA AI ENS CHG": {
-      "latest": "20260621_12",
-      "prev": "20260621_06",
-      "gap": false,
-      "has_gw": true
-    },
     "HRRR CHG": {
-      "latest": "20260621_21",
-      "prev": "20260621_20",
+      "latest": "20260622_07",
+      "prev": "20260622_06",
       "gap": false,
       "has_gw": true
     },
@@ -61,8 +61,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20260621_12",
-      "prev": "20260621_00",
+      "latest": "20260622_00",
+      "prev": "20260621_12",
       "gap": false,
       "has_gw": true
     },
@@ -73,5 +73,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-21T23:34:28.595610"
+  "generated_at": "2026-06-22T10:19:07.036856"
 }
