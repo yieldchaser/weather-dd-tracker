@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260623_06",
-      "prev": "20260623_00",
+      "latest": "20260623_12",
+      "prev": "20260623_06",
       "gap": false,
       "has_gw": true
     },
@@ -31,8 +31,8 @@
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260623_06",
-      "prev": "20260623_00",
+      "latest": "20260623_12",
+      "prev": "20260623_06",
       "gap": false,
       "has_gw": true
     },
@@ -43,8 +43,8 @@
       "has_gw": true
     },
     "NOAA AI ENS CHG": {
-      "latest": "20260623_00",
-      "prev": "20260622_18",
+      "latest": "20260623_06",
+      "prev": "20260623_00",
       "gap": false,
       "has_gw": true
     },
@@ -61,8 +61,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20260622_12",
-      "prev": "20260622_00",
+      "latest": "20260623_12",
+      "prev": "20260623_00",
       "gap": false,
       "has_gw": true
     },
@@ -73,5 +73,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-23T13:06:17.957131"
+  "generated_at": "2026-06-23T18:27:58.685344"
 }
