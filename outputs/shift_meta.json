@@ -7,26 +7,26 @@
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260623_00",
-      "prev": "20260622_12",
-      "gap": false,
-      "has_gw": true
-    },
-    "EURO ENS CHG": {
-      "latest": "20260623_00",
-      "prev": "20260622_12",
-      "gap": false,
-      "has_gw": true
-    },
-    "GFS ENS CHG": {
-      "latest": "20260623_06",
+      "latest": "20260623_12",
       "prev": "20260623_00",
       "gap": false,
       "has_gw": true
     },
+    "EURO ENS CHG": {
+      "latest": "20260623_12",
+      "prev": "20260623_00",
+      "gap": false,
+      "has_gw": true
+    },
+    "GFS ENS CHG": {
+      "latest": "20260623_12",
+      "prev": "20260623_06",
+      "gap": false,
+      "has_gw": true
+    },
     "CMC ENS CHG": {
-      "latest": "20260623_00",
-      "prev": "20260622_12",
+      "latest": "20260623_12",
+      "prev": "20260623_00",
       "gap": false,
       "has_gw": true
     },
@@ -73,5 +73,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-23T18:27:58.685344"
+  "generated_at": "2026-06-23T23:42:29.541488"
 }
