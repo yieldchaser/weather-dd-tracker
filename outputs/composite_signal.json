@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-29T18:47:07.570Z",
-  "composite_score": 0.6,
+  "timestamp": "2026-06-29T23:33:17.881Z",
+  "composite_score": 0.4,
   "signal": "NEUTRAL",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
-      "score": -1.0
+      "score": -1.2
     },
     {
       "name": "Strong Wind Surplus",
@@ -20,7 +20,7 @@
   "stale_systems": [],
   "detail": {
     "bull_accumulator": 2.5,
-    "bear_accumulator": 1.9
+    "bear_accumulator": 2.1
   },
   "system_status": {
     "teleconnections_connected": true,
