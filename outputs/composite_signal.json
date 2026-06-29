@@ -1,16 +1,12 @@
 {
-  "timestamp": "2026-06-29T09:38:31.918Z",
-  "composite_score": 2.1,
-  "signal": "BULLISH",
+  "timestamp": "2026-06-29T12:46:22.855Z",
+  "composite_score": 0.6,
+  "signal": "NEUTRAL",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
       "score": -1.0
-    },
-    {
-      "name": "High Weather Sensitivity",
-      "score": 1.5
     },
     {
       "name": "Strong Wind Surplus",
@@ -23,7 +19,7 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 4.0,
+    "bull_accumulator": 2.5,
     "bear_accumulator": 1.9
   },
   "system_status": {
