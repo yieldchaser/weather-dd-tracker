@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-30T18:29:39.379Z",
-  "composite_score": 1.3,
+  "timestamp": "2026-06-30T23:47:37.787Z",
+  "composite_score": 1.2,
   "signal": "NEUTRAL",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
-      "score": -1.2
+      "score": -1.3
     },
     {
       "name": "Wind Generation",
@@ -20,7 +20,7 @@
   "stale_systems": [],
   "detail": {
     "bull_accumulator": 2.5,
-    "bear_accumulator": 1.2
+    "bear_accumulator": 1.3
   },
   "system_status": {
     "teleconnections_connected": true,
