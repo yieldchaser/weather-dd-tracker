@@ -1,44 +1,44 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260630_12",
-      "prev": "20260630_06",
+      "latest": "20260701_00",
+      "prev": "20260630_18",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260630_12",
-      "prev": "20260630_00",
+      "latest": "20260701_00",
+      "prev": "20260630_12",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260630_12",
-      "prev": "20260630_00",
+      "latest": "20260701_00",
+      "prev": "20260630_12",
       "gap": false,
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260630_12",
-      "prev": "20260630_06",
+      "latest": "20260701_00",
+      "prev": "20260630_18",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260630_12",
-      "prev": "20260630_00",
+      "latest": "20260701_00",
+      "prev": "20260630_12",
       "gap": false,
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260630_12",
-      "prev": "20260630_06",
+      "latest": "20260701_00",
+      "prev": "20260630_18",
       "gap": false,
       "has_gw": true
     },
     "NOAA AI CHG": {
-      "latest": "20260630_18",
-      "prev": "20260630_12",
+      "latest": "20260701_00",
+      "prev": "20260630_18",
       "gap": false,
       "has_gw": true
     },
@@ -61,8 +61,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20260630_00",
-      "prev": "20260629_12",
+      "latest": "20260701_00",
+      "prev": "20260630_12",
       "gap": false,
       "has_gw": true
     },
@@ -73,5 +73,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-06-30T23:45:08.565988"
+  "generated_at": "2026-07-01T08:48:28.058665"
 }
