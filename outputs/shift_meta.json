@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260701_06",
-      "prev": "20260701_00",
+      "latest": "20260701_12",
+      "prev": "20260701_06",
       "gap": false,
       "has_gw": true
     },
@@ -31,8 +31,8 @@
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260701_06",
-      "prev": "20260701_00",
+      "latest": "20260701_12",
+      "prev": "20260701_06",
       "gap": false,
       "has_gw": true
     },
@@ -73,5 +73,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-07-01T13:10:38.842299"
+  "generated_at": "2026-07-01T18:26:48.395943"
 }
