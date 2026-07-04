@@ -1,11 +1,11 @@
 {
   "current_regime": 1,
   "regime_label": "Regime 1 (Arctic Block / Ridge East / Trough West)",
-  "persistence_days": 8,
+  "persistence_days": 9,
   "season": "Summer",
   "in_training_domain": false,
   "stale": false,
-  "timestamp": "2026-07-03T10:08:16.335Z",
+  "timestamp": "2026-07-04T09:26:40.669Z",
   "transition_probs": {
     "Regime 0 (Polar Vortex / Ridge East / Trough West)": 0.055,
     "Regime 1 (Arctic Block / Ridge East / Trough West)": 0.727,
