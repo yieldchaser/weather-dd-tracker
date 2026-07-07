@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-07-07T08:11:36.048Z",
-  "composite_score": 0.9,
-  "signal": "NEUTRAL",
+  "timestamp": "2026-07-07T11:25:01.012Z",
+  "composite_score": 1.5,
+  "signal": "BULLISH",
   "confidence": 100.0,
   "components": [
     {
@@ -13,8 +13,8 @@
       "score": -1.0
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 0.8999999999999999
+      "name": "Wind Drought (Persistent)",
+      "score": 1.5
     },
     {
       "name": "Blocking/Trough (Regime 1 (Arctic Block / Ridge East / Trough West))",
@@ -23,7 +23,7 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 3.4,
+    "bull_accumulator": 4.0,
     "bear_accumulator": 2.5
   },
   "system_status": {
