@@ -53,6 +53,11 @@
     ],
     "GEFS": [
         {
+            "latest": "20260711_06",
+            "previous": "20260711_00",
+            "file": "GEFS_shift_20260711_06_vs_20260711_00.gif"
+        },
+        {
             "latest": "20260711_00",
             "previous": "20260710_18",
             "file": "GEFS_shift_20260711_00_vs_20260710_18.gif"
@@ -205,21 +210,6 @@
             "latest": "20260709_12",
             "previous": "20260709_00",
             "file": "ECMWF_shift_20260709_12_vs_20260709_00.gif"
-        },
-        {
-            "latest": "20260709_12",
-            "previous": "20260708_12",
-            "file": "ECMWF_shift_20260709_12_vs_20260708_12.gif"
-        },
-        {
-            "latest": "20260709_12",
-            "previous": "20260708_00",
-            "file": "ECMWF_shift_20260709_12_vs_20260708_00.gif"
-        },
-        {
-            "latest": "20260709_00",
-            "previous": "20260708_12",
-            "file": "ECMWF_shift_20260709_00_vs_20260708_12.gif"
         }
     ],
     "ECMWF_ENS": [
@@ -272,19 +262,19 @@
             "latest": "20260709_12",
             "previous": "20260708_00",
             "file": "ECMWF_ENS_shift_20260709_12_vs_20260708_00.gif"
-        },
-        {
-            "latest": "20260709_00",
-            "previous": "20260708_12",
-            "file": "ECMWF_ENS_shift_20260709_00_vs_20260708_12.gif"
-        },
-        {
-            "latest": "20260709_00",
-            "previous": "20260708_00",
-            "file": "ECMWF_ENS_shift_20260709_00_vs_20260708_00.gif"
         }
     ],
     "ECMWF_AIFS": [
+        {
+            "latest": "20260711_06",
+            "previous": "20260711_00",
+            "file": "ECMWF_AIFS_shift_20260711_06_vs_20260711_00.gif"
+        },
+        {
+            "latest": "20260711_06",
+            "previous": "20260710_18",
+            "file": "ECMWF_AIFS_shift_20260711_06_vs_20260710_18.gif"
+        },
         {
             "latest": "20260711_00",
             "previous": "20260710_18",
@@ -588,11 +578,6 @@
             "latest": "20260612_12",
             "previous": "20260612_06",
             "file": "HGEFS_shift_20260612_12_vs_20260612_06.gif"
-        },
-        {
-            "latest": "20260612_12",
-            "previous": "20260612_00",
-            "file": "HGEFS_shift_20260612_12_vs_20260612_00.gif"
         }
     ],
     "CMC_ENS": [
@@ -645,24 +630,14 @@
             "latest": "20260709_12",
             "previous": "20260709_00",
             "file": "CMC_ENS_shift_20260709_12_vs_20260709_00.gif"
-        },
-        {
-            "latest": "20260709_12",
-            "previous": "20260708_12",
-            "file": "CMC_ENS_shift_20260709_12_vs_20260708_12.gif"
-        },
-        {
-            "latest": "20260709_12",
-            "previous": "20260708_00",
-            "file": "CMC_ENS_shift_20260709_12_vs_20260708_00.gif"
-        },
-        {
-            "latest": "20260709_00",
-            "previous": "20260708_12",
-            "file": "CMC_ENS_shift_20260709_00_vs_20260708_12.gif"
         }
     ],
     "HRRR": [
+        {
+            "latest": "20260711_13",
+            "previous": "20260711_12",
+            "file": "HRRR_shift_20260711_13_vs_20260711_12.gif"
+        },
         {
             "latest": "20260710_14",
             "previous": "20260710_13",
@@ -773,6 +748,16 @@
     ],
     "NBM": [
         {
+            "latest": "20260711_12",
+            "previous": "20260711_00",
+            "file": "NBM_shift_20260711_12_vs_20260711_00.gif"
+        },
+        {
+            "latest": "20260711_12",
+            "previous": "20260710_12",
+            "file": "NBM_shift_20260711_12_vs_20260710_12.gif"
+        },
+        {
             "latest": "20260711_00",
             "previous": "20260710_12",
             "file": "NBM_shift_20260711_00_vs_20260710_12.gif"
@@ -821,16 +806,6 @@
             "latest": "20260709_00",
             "previous": "20260708_00",
             "file": "NBM_shift_20260709_00_vs_20260708_00.gif"
-        },
-        {
-            "latest": "20260708_12",
-            "previous": "20260708_00",
-            "file": "NBM_shift_20260708_12_vs_20260708_00.gif"
-        },
-        {
-            "latest": "20260708_12",
-            "previous": "20260707_12",
-            "file": "NBM_shift_20260708_12_vs_20260707_12.gif"
         }
     ],
     "ICON": [
