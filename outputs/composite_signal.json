@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-07-18T17:31:42.389Z",
-  "composite_score": 1.4,
-  "signal": "NEUTRAL",
+  "timestamp": "2026-07-18T23:25:09.137Z",
+  "composite_score": 1.9,
+  "signal": "BULLISH",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm/Neutral",
-      "score": -2.0
+      "score": -1.5
     },
     {
       "name": "Wind Drought (Moderate)",
@@ -20,7 +20,7 @@
   "stale_systems": [],
   "detail": {
     "bull_accumulator": 3.4,
-    "bear_accumulator": 2.0
+    "bear_accumulator": 1.5
   },
   "system_status": {
     "teleconnections_connected": true,
