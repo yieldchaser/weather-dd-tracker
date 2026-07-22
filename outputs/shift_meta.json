@@ -19,14 +19,14 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260722_00",
-      "prev": "20260721_18",
+      "latest": "20260722_06",
+      "prev": "20260722_00",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260721_12",
-      "prev": "20260721_00",
+      "latest": "20260722_00",
+      "prev": "20260721_12",
       "gap": false,
       "has_gw": true
     },
@@ -49,9 +49,9 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20260719_18",
-      "prev": "20260718_04",
-      "gap": true,
+      "latest": "20260722_15",
+      "prev": "20260722_14",
+      "gap": false,
       "has_gw": true
     },
     "NAM CHG": {
@@ -73,5 +73,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-07-22T12:14:14.127649"
+  "generated_at": "2026-07-22T17:51:25.608683"
 }
