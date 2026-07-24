@@ -46,8 +46,16 @@ __pycache__/
 logs/
 *log*.txt
 
-# ── IDE / OS ───────────────────────────────────────────────────────────────────
+# ── IDE / OS / Local Agent Environment ───────────────────────────────────────
 .vscode/
+.claude/
+.cursor/
+.gemini/
+.kiro/
+.qoder/
+.code-review-graph/
+.mcp.json
+.opencode.json
 .DS_Store
 Thumbs.db
 *.swp
