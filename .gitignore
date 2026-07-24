@@ -35,10 +35,12 @@ kaggle_logs_v*.txt
 data/ai_models/.deps_installed
 data/ai_models/output/
 
-# ── Python cache ───────────────────────────────────────────────────────────────
+# ── Python cache & test output ───────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
+output_test/
 
 # ── Logs (runtime only, not source) ───────────────────────────────────────────
 *.log
