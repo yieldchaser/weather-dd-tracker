@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-26T19:03:01.971590Z",
+  "timestamp": "2026-07-27T09:41:12.863616Z",
   "ao": 1.203,
   "nao": 0.525,
   "pna": -0.358,
-  "epo": 1.739,
+  "epo": 0.0,
   "composite_score": 0,
   "analogs": [
     {
@@ -13,16 +13,10 @@
       "outcome": "Warm March \u2192 Cold April snap"
     },
     {
-      "year": 1966,
-      "mar_hdd_anomaly": 5.1,
-      "apr_hdd_anomaly": -2.0,
-      "outcome": "Cold March, mild spring"
+      "year": 1982
     },
     {
-      "year": 2025,
-      "mar_hdd_anomaly": -6.3,
-      "apr_hdd_anomaly": 1.2,
-      "outcome": "Record warm March"
+      "year": 1975
     }
   ],
   "status": "success"
