@@ -1,7 +1,7 @@
 {
-  "model": "AIGFS",
+  "model": "HGEFS",
   "run_date": "20260801",
-  "cycle": "00",
+  "cycle": "06",
   "field": "TMP:2 m above ground (byte-range extracted)",
   "forecast_hours": [
     0,
@@ -44,29 +44,8 @@
     222,
     228,
     234,
-    240,
-    246,
-    252,
-    258,
-    264,
-    270,
-    276,
-    282,
-    288,
-    294,
-    300,
-    306,
-    312,
-    318,
-    324,
-    330,
-    336,
-    342,
-    348,
-    354
+    240
   ],
-  "skipped_hours": [
-    360
-  ],
-  "created_utc": "2026-08-01T16:56:17.754289+00:00"
+  "skipped_hours": [],
+  "created_utc": "2026-08-01T16:55:47.181444+00:00"
 }
