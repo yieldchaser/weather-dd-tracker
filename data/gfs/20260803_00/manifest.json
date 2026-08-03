@@ -1,7 +1,7 @@
 {
-  "model": "AIGFS",
-  "run_date": "20260802",
-  "cycle": "18",
+  "model": "GFS",
+  "run_date": "20260803",
+  "cycle": "00",
   "field": "TMP:2 m above ground (byte-range extracted)",
   "forecast_hours": [
     0,
@@ -47,7 +47,6 @@
     240,
     246,
     252,
-    258,
     264,
     270,
     276,
@@ -64,8 +63,14 @@
     342,
     348,
     354,
-    360
+    360,
+    366,
+    372,
+    378,
+    384
   ],
-  "skipped_hours": [],
-  "created_utc": "2026-08-03T06:57:13.036854+00:00"
+  "skipped_hours": [
+    258
+  ],
+  "created_utc": "2026-08-03T06:54:18.993187+00:00"
 }
