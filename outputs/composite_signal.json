@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-08-13T17:23:16.014Z",
-  "composite_score": 2.7,
+  "timestamp": "2026-08-13T23:12:21.803Z",
+  "composite_score": 2.9,
   "signal": "BULLISH",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Cold Risk High",
-      "score": 0.3
+      "score": 0.5
     },
     {
       "name": "Low Weather Sensitivity",
@@ -23,7 +23,7 @@
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 3.7,
+    "bull_accumulator": 3.9,
     "bear_accumulator": 1.0
   },
   "system_status": {
