@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-08-13T06:11:18.004Z",
-  "composite_score": -1.8,
-  "signal": "BEARISH",
+  "timestamp": "2026-08-13T09:41:18.312Z",
+  "composite_score": 2.7,
+  "signal": "BULLISH",
   "confidence": 100.0,
   "components": [
     {
@@ -17,14 +17,14 @@
       "score": 0.8999999999999999
     },
     {
-      "name": "Bearish/Mild Regime (Regime 2 (Ridge East))",
-      "score": -2.0
+      "name": "Blocking/Trough (Regime 5 (Arctic Block / Trough East / Ridge West))",
+      "score": 2.5
     }
   ],
   "stale_systems": [],
   "detail": {
-    "bull_accumulator": 1.2,
-    "bear_accumulator": 3.0
+    "bull_accumulator": 3.7,
+    "bear_accumulator": 1.0
   },
   "system_status": {
     "teleconnections_connected": true,
