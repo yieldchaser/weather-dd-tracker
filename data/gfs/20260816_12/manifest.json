@@ -1,10 +1,9 @@
 {
   "model": "GFS",
-  "run_date": "20260815",
-  "cycle": "18",
+  "run_date": "20260816",
+  "cycle": "12",
   "field": "TMP:2 m above ground (byte-range extracted)",
-  "forecast_hours": [],
-  "skipped_hours": [
+  "forecast_hours": [
     0,
     6,
     12,
@@ -43,7 +42,9 @@
     210,
     216,
     222,
-    228,
+    228
+  ],
+  "skipped_hours": [
     234,
     240,
     246,
@@ -71,5 +72,5 @@
     378,
     384
   ],
-  "created_utc": "2026-08-16T22:19:19.029518+00:00"
+  "created_utc": "2026-08-16T22:19:18.216472+00:00"
 }
