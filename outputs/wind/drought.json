@@ -3,13 +3,13 @@
   "drought_prob_7d": 1.0,
   "drought_days_16d": 10,
   "drought_days_7d": 7,
-  "worst_day": "2026-09-09",
-  "worst_cf_pct": 1.7,
-  "worst_anomaly_cf_pct": -13.1,
-  "worst_model": "GFS_CFS",
-  "anomaly_today": -9.7,
-  "anomaly_today_peak": -8.8,
-  "anomaly_today_offpeak": -11.3,
+  "worst_day": "2026-08-21",
+  "worst_cf_pct": 3.1,
+  "worst_anomaly_cf_pct": -11.3,
+  "worst_model": "ECMWF",
+  "anomaly_today": -2.8,
+  "anomaly_today_peak": -2.2,
+  "anomaly_today_offpeak": -6.3,
   "peak_drought_today": true,
   "models_in_drought_today": [
     "GFS",
@@ -27,9 +27,8 @@
   "drought_threshold_cf_pct": 25.0,
   "peak_drought_threshold_cf_pct": 20.0,
   "gfs_spatial_spread": {
-    "2026-08-17": 1.12,
     "2026-08-18": 1.65,
-    "2026-08-19": 2.0,
+    "2026-08-19": 1.96,
     "2026-08-20": 1.38,
     "2026-08-21": 0.96,
     "2026-08-22": 0.96,
@@ -42,7 +41,8 @@
     "2026-08-29": 0.57,
     "2026-08-30": 0.86,
     "2026-08-31": 0.98,
-    "2026-09-01": 1.16
+    "2026-09-01": 1.16,
+    "2026-09-02": 2.0
   },
   "model_agreement_today_pct": 100,
   "model_agreement_7d_pct": 100,
@@ -55,5 +55,5 @@
   "gfs_ensemble_spread_today": null,
   "gfs_p10_today": null,
   "gfs_p90_today": null,
-  "timestamp": "2026-08-17T08:06:06Z"
+  "timestamp": "2026-08-18T08:01:58Z"
 }
