@@ -1,10 +1,9 @@
 {
   "model": "HGEFS",
-  "run_date": "20260820",
-  "cycle": "18",
+  "run_date": "20260821",
+  "cycle": "00",
   "field": "TMP:2 m above ground (byte-range extracted)",
-  "forecast_hours": [],
-  "skipped_hours": [
+  "forecast_hours": [
     0,
     6,
     12,
@@ -26,7 +25,9 @@
     108,
     114,
     120,
-    126,
+    126
+  ],
+  "skipped_hours": [
     132,
     138,
     144,
@@ -47,5 +48,5 @@
     234,
     240
   ],
-  "created_utc": "2026-08-21T10:25:15.741497+00:00"
+  "created_utc": "2026-08-21T10:25:15.343183+00:00"
 }
