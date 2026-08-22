@@ -19,14 +19,14 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260821_18",
-      "prev": "20260821_12",
+      "latest": "20260822_00",
+      "prev": "20260821_18",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260821_12",
-      "prev": "20260821_00",
+      "latest": "20260822_00",
+      "prev": "20260821_12",
       "gap": false,
       "has_gw": true
     },
@@ -60,6 +60,12 @@
       "gap": false,
       "has_gw": true
     },
+    "UKMO ENS CHG": {
+      "latest": "20260822_00",
+      "prev": "20260821_12",
+      "gap": false,
+      "has_gw": true
+    },
     "HRRR CHG": {
       "latest": "20260822_01",
       "prev": "20260822_00",
@@ -85,5 +91,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-08-22T06:20:02.446885"
+  "generated_at": "2026-08-22T07:58:38.112766"
 }

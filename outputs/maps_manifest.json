@@ -53,6 +53,11 @@
     ],
     "GEFS": [
         {
+            "latest": "20260822_00",
+            "previous": "20260821_18",
+            "file": "GEFS_shift_20260822_00_vs_20260821_18.gif"
+        },
+        {
             "latest": "20260821_18",
             "previous": "20260821_12",
             "file": "GEFS_shift_20260821_18_vs_20260821_12.gif"
@@ -309,16 +314,13 @@
             "latest": "20260821_00",
             "previous": "20260820_12",
             "file": "ECMWF_AIFS_shift_20260821_00_vs_20260820_12.gif"
-        },
+        }
+    ],
+    "AIGFS": [
         {
-            "latest": "20260820_18",
-            "previous": "20260820_12",
-            "file": "ECMWF_AIFS_shift_20260820_18_vs_20260820_12.gif"
-        },
-        {
-            "latest": "20260820_18",
-            "previous": "20260820_06",
-            "file": "ECMWF_AIFS_shift_20260820_18_vs_20260820_06.gif"
+            "latest": "20260822_00",
+            "previous": "20260821_18",
+            "file": "AIGFS_shift_20260822_00_vs_20260821_18.gif"
         }
     ],
     "HGEFS": [
@@ -561,14 +563,24 @@
             "latest": "20260803_18",
             "previous": "20260803_12",
             "file": "HGEFS_shift_20260803_18_vs_20260803_12.gif"
-        },
-        {
-            "latest": "20260803_18",
-            "previous": "20260803_06",
-            "file": "HGEFS_shift_20260803_18_vs_20260803_06.gif"
         }
     ],
     "CMC_ENS": [
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_12",
+            "file": "CMC_ENS_shift_20260822_00_vs_20260821_12.gif"
+        },
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_00",
+            "file": "CMC_ENS_shift_20260822_00_vs_20260821_00.gif"
+        },
+        {
+            "latest": "20260822_00",
+            "previous": "20260820_12",
+            "file": "CMC_ENS_shift_20260822_00_vs_20260820_12.gif"
+        },
         {
             "latest": "20260821_12",
             "previous": "20260821_00",
@@ -632,6 +644,13 @@
             "latest": "20260822_00",
             "previous": "20260821_18",
             "file": "AIGEFS_shift_20260822_00_vs_20260821_18.gif"
+        }
+    ],
+    "UKMO_ENS": [
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_12",
+            "file": "UKMO_ENS_shift_20260822_00_vs_20260821_12.gif"
         }
     ],
     "HRRR": [
