@@ -429,7 +429,18 @@ def _fmt_regime():
         tp = regime_data.get("transition_probs", {})
         trans_parts = []
         if tp:
-            others = {k: v for k, v in tp.items() if k.strip() != raw_label.strip()}
+            # Regimes are persistent: P(stay) is usually the dominant
+            # outcome and must lead the line, otherwise low single-digit
+            # flip probabilities read as if the model expects a change.
+            persist_prob = None
+            others = {}
+            for k, v in tp.items():
+                if k.strip() == raw_label.strip():
+                    persist_prob = v
+                else:
+                    others[k] = v
+            if persist_prob is not None:
+                trans_parts.append(f"persists: {persist_prob:.0%}")
             top2 = sorted(others.items(), key=lambda x: x[1], reverse=True)[:2]
             for label_k, prob in top2:
                 m2 = re.match(r"^Regime\s+\d+\s*\((.+)\)$", label_k.strip())
