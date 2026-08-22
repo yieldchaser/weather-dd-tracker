@@ -47,8 +47,10 @@ def fetch_thermal_history():
         print("  [ERR] No NATIONAL row found in grid generation file.")
         return
 
-    # Process all available NATIONAL rows (upsert: fresh rows replace stored
-    # rows for the same date so early partial-day captures self-heal)
+    # Process all available NATIONAL rows with completeness-aware upsert:
+    # richer samples win over thinner ones, ties go to the newest capture.
+    # A naive replace would let an early partial-day capture (e.g. 5h of
+    # data) permanently overwrite a complete stored day.
     all_rows = []
     required = ["natural_gas_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal", "load_mw", "gas_pct_load", "wind_mw"]
 
@@ -57,14 +59,19 @@ def fetch_thermal_history():
         row_dict = {"date": d_str}
         for col in required:
             row_dict[col] = row.get(col)
+        sh = row.get("sample_hours")
+        row_dict["sample_hours"] = int(sh) if pd.notna(sh) else 0
         all_rows.append(row_dict)
 
     new_df = pd.DataFrame(all_rows)
 
     if OUTPUT_FILE.exists():
         existing_df = pd.read_csv(OUTPUT_FILE)
-        existing_df = existing_df[~existing_df['date'].astype(str).isin(new_df['date'].astype(str))]
-        final_df = pd.concat([existing_df, new_df], ignore_index=True).sort_values('date')
+        if "sample_hours" not in existing_df.columns:
+            existing_df["sample_hours"] = 24
+        combined = pd.concat([existing_df, new_df], ignore_index=True).sort_values("sample_hours", kind="mergesort")
+        combined = combined.drop_duplicates(subset=["date"], keep="last")
+        final_df = combined.sort_values("date").reset_index(drop=True)
         safe_write_csv(final_df, OUTPUT_FILE)
         print(f"  [OK] Upserted {len(all_rows)} rows into {OUTPUT_FILE} ({len(final_df)} total)")
     else:

@@ -518,9 +518,11 @@ def process_nbm(run_path, weights, w_lats, w_lons):
                     if w_total > 0:
                         temp_f_gw = float((flat_tmp * w_vals).sum() / w_total)
                 except Exception as gw_e:
-                    print(f"  [WARN] NBM GW lookup failed ({gw_e}), using simple mean")
-            if temp_f_gw is None:
-                temp_f_gw = temp_f_simple
+                    print(f"  [WARN] NBM GW lookup failed ({gw_e}); leaving gw columns null")
+            # No silent substitution: other processors emit null *_gw when
+            # weighting is unavailable; filling with the simple box mean here
+            # would smuggle a different methodology into the same columns
+            # and bias cross-model comparisons.
 
             vt = ds.valid_time.values
             date = pd.Timestamp(vt.ravel()[0] if hasattr(vt, "ravel") else vt).date()

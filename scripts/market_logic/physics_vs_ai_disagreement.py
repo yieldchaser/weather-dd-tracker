@@ -45,6 +45,26 @@ def get_latest_file(base_dir, file_suffix="tdd.csv"):
                 
     return latest_file
 
+# Runs older than this are excluded: a zombie vintage diverges from fresh
+# runs because weather EVOLVED, not because models disagree — counting it
+# would fabricate volatility signal.
+MAX_RUN_AGE_DAYS = 4
+
+def _run_is_fresh(df, label):
+    if "run_id" not in df.columns or df.empty:
+        return True
+    rid = str(df["run_id"].max())
+    try:
+        run_date = pd.to_datetime(rid[:8], format="%Y%m%d")
+        now = pd.Timestamp.now().normalize()
+        age = (now - run_date.normalize()).days
+    except Exception:
+        return True
+    if age > MAX_RUN_AGE_DAYS:
+        print(f"[SKIP] {label}: latest run {rid} is {age}d old (> {MAX_RUN_AGE_DAYS}d)")
+        return False
+    return True
+
 def load_data():
     """Loads the absolute latest run from all available models."""
     dfs = []
@@ -55,7 +75,8 @@ def load_data():
         try:
             df = pd.read_csv(ecmwf_cf)
             if "model" not in df.columns: df["model"] = "ECMWF"
-            dfs.append(df)
+            if _run_is_fresh(df, "ECMWF"):
+                dfs.append(df)
         except Exception as e:
             print(f"[WARN] Could not load ECMWF: {e}")
         
@@ -64,7 +85,8 @@ def load_data():
         try:
             df = pd.read_csv(gfs_cf)
             if "model" not in df.columns: df["model"] = "GFS"
-            dfs.append(df)
+            if _run_is_fresh(df, "GFS"):
+                dfs.append(df)
         except Exception as e:
             print(f"[WARN] Could not load GFS: {e}")
 
@@ -74,7 +96,8 @@ def load_data():
         try:
             df = pd.read_csv(aifs_cf)
             df["model"] = "ECMWF_AIFS"
-            dfs.append(df)
+            if _run_is_fresh(df, "ECMWF_AIFS"):
+                dfs.append(df)
         except Exception as e:
             print(f"[WARN] Could not load AIFS: {e}")
 
@@ -142,9 +165,11 @@ def compute_disagreement():
         pivot["volatility_risk_score"] = (pivot["disagreement_abs"] / 5.0) * 100
         pivot["volatility_risk_score"] = pivot["volatility_risk_score"].clip(upper=100).round(1)
     else:
-        pivot["disagreement_hdd"] = 0.0
-        pivot["disagreement_abs"] = 0.0
-        pivot["volatility_risk_score"] = 0.0
+        # No comparable pair -> unknown, NOT zero. Zero would masquerade as
+        # "perfect agreement" and read as low volatility risk downstream.
+        pivot["disagreement_hdd"] = float("nan")
+        pivot["disagreement_abs"] = float("nan")
+        pivot["volatility_risk_score"] = float("nan")
 
     out_file = OUTPUT_DIR / "physics_vs_ai_disagreement.csv"
     pivot.reset_index().to_csv(out_file, index=False)

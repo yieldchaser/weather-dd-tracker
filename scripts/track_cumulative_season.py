@@ -48,8 +48,12 @@ def main():
         season_end_real = f"{heat_start_year + 1}-03-31"
         chart_metric = "HDD"
         y_max = 4000
+        # Label must reflect the ACTUAL running season: in Jan-Mar the
+        # ongoing season started the previous November.
+        season_label = f"{heat_start_year}/{heat_start_year + 1}"
 
-    season_label = f"{today.year}/{today.year+1}" if chart_metric == "HDD" else str(today.year)
+    if chart_metric == "CDD":
+        season_label = str(today.year)
     print(f"\n--- Generating Cumulative {chart_metric} Season Tracker ---")
     
     normals_df = load_normals()
@@ -116,7 +120,9 @@ def main():
             (ecmwf_latest["date"] <= season_end_real)
         ].copy()
 
-        # Fill history gap with normals + noise
+        # Pre-forecast gap: fill with the normal curve but keep it HONEST —
+        # no random noise, and rendered as a distinct dashed segment so it
+        # is never mistaken for observed weather or forecast output.
         history_dates = pd.date_range(
             start=season_start_real,
             end=season_fcst["date"].min() - pd.Timedelta(days=1)
@@ -132,11 +138,13 @@ def main():
                 pd_date = pd.Timestamp(year=yr, month=d.month, day=d.day)
                 val = season_norms.loc[pd_date, metric_key]
             except KeyError:
-                val = 15.0
-            hist_rows.append({"date": d, "hdd_value": val * np.random.uniform(0.8, 1.2)})
+                continue
+            hist_rows.append({"date": d, "hdd_value": val, "kind": "norm_fill"})
 
         hist_df = pd.DataFrame(hist_rows)
-        current_season = pd.concat([hist_df, season_fcst[["date", "hdd_value"]]]).sort_values("date")
+        fcst_part = season_fcst[["date", "hdd_value"]].copy()
+        fcst_part["kind"] = "fcst"
+        current_season = pd.concat([hist_df, fcst_part]).sort_values("date")
 
         def to_pseudo(x):
             if chart_metric == "HDD":
@@ -150,6 +158,8 @@ def main():
         current_season["pseudo_date"] = current_season["date"].apply(to_pseudo)
         current_season = current_season.sort_values("pseudo_date").set_index("pseudo_date")
         current_season["cumulative_dd"] = current_season["hdd_value"].cumsum()
+        fill_part = current_season[current_season["kind"] == "norm_fill"]
+        fcst_only = current_season[current_season["kind"] == "fcst"]
 
         # Chart
         plt.style.use('seaborn-v0_8-whitegrid')
@@ -157,7 +167,10 @@ def main():
 
         ax.plot(season_norms.index, season_norms["cumulative_norm"], color=COLORS["NORM"],
                 linewidth=3, label="NORM", marker="o", markersize=4)
-        ax.plot(current_season.index, current_season["cumulative_dd"], color=COLORS["FCST"],
+        if not fill_part.empty:
+            ax.plot(fill_part.index, fill_part["cumulative_dd"], color="#888888",
+                    linestyle="--", linewidth=2, label="Normal fill (pre-forecast)")
+        ax.plot(fcst_only.index, fcst_only["cumulative_dd"], color=COLORS["FCST"],
                 linewidth=3, label=season_label, marker="o", markersize=4)
 
         ax.set_title(f"Cumulative {chart_metric} : Current Season vs Normal", fontsize=14, fontweight='bold', pad=15)

@@ -109,9 +109,12 @@ def fetch_grid_outages():
         .fillna((100.0 - daily["pct_outage_raw"]).round(1))
     )
 
-    # Preserve coal columns in schema (sourced elsewhere; default to 0 when absent)
-    daily["coal_outage_mw"]  = 0.0
-    daily["coal_capacity_mw"] = 180000.0
+    # Coal columns kept for schema compatibility but NOT fabricated:
+    # coal data is not sourced here, and hardcoded capacity/zeros read as
+    # measurements downstream. Only the sole real consumer
+    # (grid.html nuclear availability) reads this file today.
+    daily["coal_outage_mw"]  = float("nan")
+    daily["coal_capacity_mw"] = float("nan")
     daily["total_outage_mw"] = daily["nuclear_outage_mw"]
 
     out_df = daily[[
