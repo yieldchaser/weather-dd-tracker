@@ -101,11 +101,6 @@
             "latest": "20260819_18",
             "previous": "20260819_12",
             "file": "GEFS_shift_20260819_18_vs_20260819_12.gif"
-        },
-        {
-            "latest": "20260819_12",
-            "previous": "20260819_06",
-            "file": "GEFS_shift_20260819_12_vs_20260819_06.gif"
         }
     ],
     "GEFS_35D": [
@@ -162,6 +157,21 @@
     ],
     "ECMWF": [
         {
+            "latest": "20260822_00",
+            "previous": "20260821_12",
+            "file": "ECMWF_shift_20260822_00_vs_20260821_12.gif"
+        },
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_00",
+            "file": "ECMWF_shift_20260822_00_vs_20260821_00.gif"
+        },
+        {
+            "latest": "20260822_00",
+            "previous": "20260820_12",
+            "file": "ECMWF_shift_20260822_00_vs_20260820_12.gif"
+        },
+        {
             "latest": "20260821_12",
             "previous": "20260821_00",
             "file": "ECMWF_shift_20260821_12_vs_20260821_00.gif"
@@ -213,6 +223,16 @@
         }
     ],
     "ECMWF_ENS": [
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_12",
+            "file": "ECMWF_ENS_shift_20260822_00_vs_20260821_12.gif"
+        },
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_00",
+            "file": "ECMWF_ENS_shift_20260822_00_vs_20260821_00.gif"
+        },
         {
             "latest": "20260821_12",
             "previous": "20260821_00",
@@ -321,6 +341,11 @@
             "latest": "20260822_00",
             "previous": "20260821_18",
             "file": "AIGFS_shift_20260822_00_vs_20260821_18.gif"
+        },
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_12",
+            "file": "AIGFS_shift_20260822_00_vs_20260821_12.gif"
         }
     ],
     "HGEFS": [
@@ -615,24 +640,19 @@
             "latest": "20260820_12",
             "previous": "20260820_00",
             "file": "CMC_ENS_shift_20260820_12_vs_20260820_00.gif"
-        },
-        {
-            "latest": "20260820_12",
-            "previous": "20260819_12",
-            "file": "CMC_ENS_shift_20260820_12_vs_20260819_12.gif"
-        },
-        {
-            "latest": "20260820_12",
-            "previous": "20260819_00",
-            "file": "CMC_ENS_shift_20260820_12_vs_20260819_00.gif"
-        },
-        {
-            "latest": "20260820_00",
-            "previous": "20260819_12",
-            "file": "CMC_ENS_shift_20260820_00_vs_20260819_12.gif"
         }
     ],
     "GOOGLE_WN2": [
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_12",
+            "file": "GOOGLE_WN2_shift_20260822_00_vs_20260821_12.gif"
+        },
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_00",
+            "file": "GOOGLE_WN2_shift_20260822_00_vs_20260821_00.gif"
+        },
         {
             "latest": "20260821_12",
             "previous": "20260821_00",
@@ -646,6 +666,13 @@
             "file": "AIGEFS_shift_20260822_00_vs_20260821_18.gif"
         }
     ],
+    "AIFS_ENS": [
+        {
+            "latest": "20260822_00",
+            "previous": "20260821_12",
+            "file": "AIFS_ENS_shift_20260822_00_vs_20260821_12.gif"
+        }
+    ],
     "UKMO_ENS": [
         {
             "latest": "20260822_00",
@@ -654,6 +681,21 @@
         }
     ],
     "HRRR": [
+        {
+            "latest": "20260822_08",
+            "previous": "20260822_07",
+            "file": "HRRR_shift_20260822_08_vs_20260822_07.gif"
+        },
+        {
+            "latest": "20260822_08",
+            "previous": "20260822_06",
+            "file": "HRRR_shift_20260822_08_vs_20260822_06.gif"
+        },
+        {
+            "latest": "20260822_08",
+            "previous": "20260822_05",
+            "file": "HRRR_shift_20260822_08_vs_20260822_05.gif"
+        },
         {
             "latest": "20260822_01",
             "previous": "20260822_00",
@@ -703,11 +745,6 @@
             "latest": "20260820_03",
             "previous": "20260820_01",
             "file": "HRRR_shift_20260820_03_vs_20260820_01.gif"
-        },
-        {
-            "latest": "20260222_04",
-            "previous": "20260222_03",
-            "file": "HRRR_shift_20260222_04_vs_20260222_03.gif"
         }
     ],
     "NAM": [
