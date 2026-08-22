@@ -388,6 +388,19 @@
             }
         }
 
+        /* Consensus shift table: compact enough that every model column fits
+           on one screen — no horizontal scrolling to reach later models. */
+        #shift-table th,
+        #shift-table td {
+            padding: 4px 6px;
+            font-size: 0.72rem;
+        }
+        #shift-table th.shift-col {
+            font-size: 0.6rem;
+            letter-spacing: 0.2px;
+            color: var(--text-br);
+        }
+
         /* ── Weather Intelligence Panel ── */
         .telecon-panel {
             display: none;
@@ -612,8 +625,9 @@
  
             <!-- INTELLIGENCE SIGNAL BANNER -->
             <div class="intel-banner has-tooltip" id="intel-banner" data-tooltip-key="Weather Intelligence Signal">
-                <div class="ib-header">WEATHER INTELLIGENCE SIGNAL</div>
+                <div class="ib-header">WEATHER INTELLIGENCE SIGNAL <span id="ib-horizon" style="font-size:0.62rem; font-weight:400; color:#888; letter-spacing:0.5px;"></span></div>
                 <div class="ib-score" id="ib-score">--</div>
+                <div id="ib-reconcile" style="display:none; margin-top:6px; padding:6px 10px; border-radius:4px; background:rgba(255,255,255,0.04); border:1px solid #333; font-size:0.78rem; color:#c5c6c7; line-height:1.5;"></div>
                 <div class="ib-components" id="ib-components"></div>
             </div>
  
@@ -767,7 +781,7 @@
                         onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
                     <div id="mapError"
                         style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
-                        Spatial map not generated for this model.
+                        Spatial map not generated for this model yet — bubble maps build automatically once two runs are archived (new models accumulate from Aug 22).
                     </div>
                 </div>
             </div>
@@ -1174,13 +1188,25 @@
 
                 // 5. Shift Table
                 if (shiftTable.length > 0) {
+                    // Display abbreviations keep every model on screen without
+                    // horizontal scrolling; the full name stays on the tooltip.
+                    const SHORT_NAMES = {
+                        'GOOGLE_WN2': 'WN2',
+                        'FOURCASTNETV2-SMALL': 'FCNv2',
+                        'FOURCASTNETV2': 'FCNv2',
+                        'ECMWF_ENS': 'EC-ENS',
+                        'ECMWF_AIFS': 'EC-AIFS',
+                        'GEFS_35D': 'GEFS-35D',
+                        'UKMO_ENS': 'UKMO',
+                        'AIFS_ENS': 'AIFS-E'
+                    };
                     let headerRow = document.getElementById('shift-header');
                     let cols = Object.keys(shiftTable[0]);
                     cols.filter(c => c !== "date").forEach(c => {
                         let th = document.createElement('th');
-                        th.className = 'has-tooltip';
+                        th.className = 'has-tooltip shift-col';
                         th.setAttribute('data-tooltip-key', c);
-                        th.innerText = c;
+                        th.innerText = SHORT_NAMES[c] || c;
                         headerRow.appendChild(th);
                     });
 
@@ -1214,7 +1240,9 @@
                                 if (val > 0) td.classList.add('pos-val');
                                 else if (val < 0) td.classList.add('neg-val');
                                 td.className = 'has-tooltip';
-                                let direction = val > 0 ? 'colder' : 'warmer';
+                                // Season-correct polarity: a positive DD shift is
+                                // colder in HDD season but HOTTER in CDD season.
+                                const direction = val > 0 ? (IS_CDD ? 'hotter' : 'colder') : (IS_CDD ? 'cooler' : 'milder');
                                 td.setAttribute('data-dyn-title', `${c} Run Shift — ${String(row["date"] || "").substring(0, 10)}`);
                                 td.setAttribute('data-dyn-body', `The model run shifted by <strong>${formatNum(val, 1, true)} ${DD_LABEL}s</strong> (${direction}) compared to the previous run on this date.`);
                             }
@@ -1971,6 +1999,26 @@
                     sig.includes('BEAR') ? 'bearish-text' :
                         sig.includes('BULL') ? 'bullish-text' : ''
                 );
+                if (signalData.horizon) {
+                    document.getElementById('ib-horizon').textContent = '· ' + signalData.horizon.split('(')[0].replace('Subseasonal', 'SUBSEASONAL').trim();
+                }
+
+                // Tactical reconciliation row: the 0-15d ensemble signal vs this
+                // subseasonal composite. Divergence is structure, not error.
+                const reconEl = document.getElementById('ib-reconcile');
+                const tac = signalData.tactical_signal;
+                if (tac && tac.bias) {
+                    const aligned = signalData.agreement_pct === 100;
+                    const divergent = signalData.agreement_pct === 0;
+                    const badgeColor = aligned ? '#4caf50' : (divergent ? '#ff9800' : '#888');
+                    const badgeText = aligned ? 'ALIGNED ✓' : (divergent ? 'DIVERGENT ⚠' : '');
+                    let line = `<strong>TACTICAL (0-15d):</strong> <span style="color:${tac.score > 0 ? '#4caf50' : tac.score < 0 ? '#ef5350' : '#c5c6c7'}; font-weight:bold;">${tac.bias} (${tac.score >= 0 ? '+' : ''}${Number(tac.score).toFixed(2)})</span>`;
+                    if (badgeText) line += ` &nbsp;<span style="color:${badgeColor}; font-weight:bold;">${badgeText}</span>`;
+                    if (signalData.divergence_note && divergent) line += `<br><span style="color:#ffb74d;">${signalData.divergence_note}</span>`;
+                    reconEl.innerHTML = line;
+                    reconEl.style.display = 'block';
+                }
+
                 document.getElementById('ib-components').innerHTML = components.map(c => {
                     const label = typeof c === 'object' ? c.name : c;
                     let dynTitle = "";
@@ -1982,12 +2030,15 @@
                     } else if (label.includes("Wind")) {
                         dynTitle = "Wind Generation Drought";
                         dynBody = "Indicates whether wind speeds are forecasted to remain low, depressing wind power output below the historical 30-day average.";
-                    } else if (label.includes("Blocking") || label.includes("Regime") || label.includes("Trough") || label.includes("Block") || label.includes("Ridge")) {
+                    } else if (label.includes("Ridge") || label.includes("Trough") || label.includes("Block") || label.includes("Pattern") || label.includes("PV ") || label.includes("Polar Vortex")) {
                         dynTitle = "Atmospheric Flow Regime";
-                        dynBody = "Represents the current large-scale weather pattern regime, such as an Arctic Block or Ridge East, which dictates persistent regional temperature anomalies.";
+                        dynBody = "The current large-scale 500mb flow pattern, scored with season-correct polarity: in heating season a block/trough means cold delivery (bullish); in cooling season a ridge means heat demand (bullish). Off-season signals are damped.";
                     } else if (label.includes("Teleconnections")) {
                         dynTitle = "Teleconnection Alignment";
-                        dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration.";
+                        dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration. Weighted by season — these indices only translate into gas demand when heating degree days are in play.";
+                    } else if (label.includes("Freeze")) {
+                        dynTitle = "Freeze-Off Alert System";
+                        dynBody = "Production freeze-offs curtail supply, which is bullish. Tiers: EMERGENCY > WARNING > WATCH.";
                     }
 
                     if (dynTitle) {
@@ -2000,8 +2051,12 @@
 
                 // Dynamic Tooltip Update
                 if (TOOLTIPS["Weather Intelligence Signal"]) {
-                    const compList = components.map(c => `&#8226; ${c.name || c}`).join('<br>');
-                    TOOLTIPS["Weather Intelligence Signal"].body = `Current Score: <strong>${score >= 0 ? '+' : ''}${score.toFixed(1)}</strong> (Bias: <strong>${sig}</strong>)<br><br><strong>Composite Breakdown:</strong><br>${compList}`;
+                    const compList = components.map(c => `&#8226; ${c.name || c} ${typeof c === 'object' && c.score ? `(${c.score > 0 ? '+' : ''}${Number(c.score).toFixed(2)})` : ''}`).join('<br>');
+                    let body = `<strong>Subseasonal composite (weeks 2-6):</strong> ${sig} (${score >= 0 ? '+' : ''}${Number(score).toFixed(1)})<br>Confidence blends system connectivity with internal agreement among signed components.<br><br><strong>Breakdown:</strong><br>${compList}`;
+                    if (signalData.tactical_signal) {
+                        body += `<br><br><strong>Tactical (0-15d):</strong> ${signalData.tactical_signal.bias} (${signalData.tactical_signal.score >= 0 ? '+' : ''}${Number(signalData.tactical_signal.score).toFixed(2)}). The tactical signal reads the ensemble anomaly vs normals; this banner reads the subseasonal setup. When they diverge, the front of the curve trades the ensemble and the back prices the pattern — they are different bets, not a contradiction.`;
+                    }
+                    TOOLTIPS["Weather Intelligence Signal"].body = body;
                 }
             }
 
@@ -2147,8 +2202,8 @@
                 body: "The East Pacific Oscillation index. A <strong>negative phase</strong> blocks warm Pacific air and drives cold arctic air down into the central and eastern US, whereas a <strong>positive phase</strong> leads to zonal flow and mild weather."
             },
             "Weather Intelligence Signal": {
-                title: "Weather Intelligence Signal",
-                body: "A 7-system composite intelligence score combining physics models, AI models, teleconnections, regime analysis, and historical analogs."
+                title: "Weather Intelligence Signal (Subseasonal)",
+                body: "A five-system subseasonal composite (weeks 2-6) combining teleconnections, freeze-off alerts, grid weather sensitivity, wind-drought probability and 500mb flow regimes. Every component is seasonally weighted — teleconnection cold risk in deep summer, for example, is damped to near-zero because it does not translate into gas demand — and flow-regime polarity flips with the season. Confidence blends system connectivity with internal agreement among signed components. It answers a different question than the Algorithmic Market Bias (0-15d ensemble anomaly): when they diverge, trade the front of the curve and respect the pattern behind it."
             },
             "ECMWF": {
                 title: "ECMWF (Deterministic)",
@@ -2399,7 +2454,15 @@
                 "PNA": "The Pacific-North American index. A <strong>positive phase</strong> correlates with warmer western US and colder eastern US temperatures, whereas a <strong>negative phase</strong> is the reverse.",
                 "EPO": "The East Pacific Oscillation index. A <strong>negative phase</strong> blocks warm Pacific air and drives cold arctic air down into the central and eastern US, whereas a <strong>positive phase</strong> leads to zonal flow and mild weather."
             };
-            const trend = val < -0.5 ? "<em>strong negative phase (cold risk)</em>" : (val > 0.5 ? "<em>strong positive phase (warm risk)</em>" : "neutral phase");
+                // Per-index risk hints: AO-/NAO-/EPO- favor cold delivery into
+                // the US; PNA+ does too via an East trough (its West warms).
+                const riskHint = {
+                    "AO":  { neg: "cold risk", pos: "mild risk" },
+                    "NAO": { neg: "cold risk", pos: "mild risk" },
+                    "EPO": { neg: "cold risk", pos: "mild risk" },
+                    "PNA": { neg: "mild East risk", pos: "cold East risk" }
+                }[keyUpper] || { neg: "negative phase", pos: "positive phase" };
+                const trend = val < -0.5 ? `<em>strong negative phase — ${riskHint.neg}</em>` : (val > 0.5 ? `<em>strong positive phase — ${riskHint.pos}</em>` : "neutral phase");
             TOOLTIPS[keyUpper].body = `Today's Value: <strong>${val.toFixed(2)}</strong> (${trend}).<br><br>${descMap[keyUpper]}`;
         }
 

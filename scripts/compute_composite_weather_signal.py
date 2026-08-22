@@ -37,7 +37,22 @@ FREEZE_FILE          = "outputs/freeze/alerts.json"
 SENSITIVITY_FILE     = "outputs/sensitivity/rolling_coeff.json"
 WIND_FILE            = "outputs/wind/drought.json"
 REGIMES_FILE         = "outputs/regimes/current_regime.json"
+TACTICAL_FILE        = "outputs/composite_bull_bear_signal.csv"
 OUTPUT_FILE          = "outputs/composite_signal.json"
+
+# Seasonal demand-translation weight. Teleconnection phases and 500mb flow
+# regimes only translate into gas demand when heating (or, inverted, cooling)
+# degree days are actually on the table. Deep summer: an AO- cold risk is
+# nearly meaningless for burn — it must not print bull points.
+SEASONAL_WEIGHTS = {
+    12: 1.0, 1: 1.0, 2: 1.0, 3: 1.0,
+    11: 0.7, 4: 0.7,
+    10: 0.6,
+    9: 0.3, 5: 0.3,
+    6: 0.15, 7: 0.15, 8: 0.15,
+}
+
+COOLING_MONTHS = {6, 7, 8}
 
 # Data freshness thresholds
 STALE_THRESHOLD_HOURS = {
@@ -104,6 +119,7 @@ def _is_connected(data, system_name, threshold_hours=36):
 
 def compute_composite_weather_signal():
     logging.info("[Composite] Starting Composite Signal Integration...")
+    _month = datetime.now(UTC).month
 
     teleconnections = load_json_safe(TELECONNECTIONS_FILE)
     freeze          = load_json_safe(FREEZE_FILE)
@@ -126,14 +142,19 @@ def compute_composite_weather_signal():
     # ── 1. Teleconnections ────────────────────────────────────────────────────
     if tele_connected:
         cold_risk = teleconnections.get('composite_score', 0)
+        sw = SEASONAL_WEIGHTS[_month]
         if cold_risk > 50:
-            val = (float(cold_risk) - 50) / 10.0
+            val = ((float(cold_risk) - 50) / 10.0) * sw
             bull_score += val
-            components.append({"name": "Teleconnections Cold Risk High", "score": val})
+            suffix = "" if sw >= 0.6 else " (off-season, damped)"
+            components.append({"name": f"Teleconnections Cold Risk High{suffix}", "score": round(val, 2)})
         elif cold_risk < 20:
-            val = (20 - cold_risk) / 10.0
+            val = ((20 - cold_risk) / 10.0) * sw
             bear_score += val
-            components.append({"name": "Teleconnections Warm/Neutral", "score": -val})
+            suffix = "" if sw >= 0.6 else " (off-season, damped)"
+            components.append({"name": f"Teleconnections Warm/Neutral{suffix}", "score": -round(val, 2)})
+        else:
+            components.append({"name": "Teleconnections Neutral Band", "score": 0.0})
     else:
         stale_systems.append(f"teleconnections ({tele_reason})")
 
@@ -156,11 +177,15 @@ def compute_composite_weather_signal():
     if sens_connected:
         rolling_coeff = sensitivity.get('sensitivity_bcf_per_hdd', 2.0)
         if rolling_coeff > 2.5:
-            bull_score += 1.5
-            components.append({"name": "High Weather Sensitivity", "score": 1.5})
+            val = 1.5 * 0.75
+            bull_score += val
+            components.append({"name": "High Weather Sensitivity (amplifies anomalies)", "score": val})
         elif rolling_coeff < 1.8:
-            bear_score += 1.0
-            components.append({"name": "Low Weather Sensitivity", "score": -1.0})
+            val = 1.0 * 0.75
+            bear_score += val
+            components.append({"name": "Low Weather Sensitivity (dampens anomalies)", "score": -val})
+        else:
+            components.append({"name": "Weather Sensitivity Neutral", "score": 0.0})
     else:
         stale_systems.append(f"sensitivity ({sens_reason})")
 
@@ -171,7 +196,6 @@ def compute_composite_weather_signal():
 
         # Seasonal weight multiplier for wind drought signal
         # Wind drought matters more in winter (high demand) than summer (lower demand)
-        _month = datetime.now(UTC).month
         if _month >= 11 or _month <= 3:
             wind_weight_multiplier = 1.0   # Full weight in heating season
         elif 6 <= _month <= 8:
@@ -183,15 +207,15 @@ def compute_composite_weather_signal():
             wind_connected = False
             stale_systems.append("wind (null drought_prob_16d)")
         elif p >= 0.60:
-            val = 2.5 * wind_weight_multiplier
+            val = round(2.5 * wind_weight_multiplier, 2)
             bull_score += val
             components.append({"name": "Wind Drought (Persistent)", "score": val})
         elif p >= 0.35:
-            val = 1.5 * wind_weight_multiplier
+            val = round(1.5 * wind_weight_multiplier, 2)
             bull_score += val
             components.append({"name": "Wind Drought (Moderate)", "score": val})
         elif p < 0.15 and anomaly_today > 0.05:
-            val = 1.5 * wind_weight_multiplier
+            val = round(1.5 * wind_weight_multiplier, 2)
             bear_score += val
             components.append({"name": "Strong Wind Surplus", "score": -val})
         else:
@@ -202,29 +226,48 @@ def compute_composite_weather_signal():
     # ── 5. Weather Regimes ────────────────────────────────────────────────────
     if regime_connected:
         regime_lbl  = regimes.get('regime_label', '')
-        regime_lbl_lower = regime_lbl.lower()
-        regime_stale = regimes.get('stale', False)
-        if regime_stale:
-            logging.warning("[Composite] Regime JSON is flagged as stale — using label but noting caveat.")
-        
-        # Polar Vortex phase detection
-        pv_strengthening = any(w in regime_lbl_lower for w in ["strengthening", "disruption", "split", "displacement"])
-        pv_established   = any(w in regime_lbl_lower for w in ["polar vortex", "vortex"]) and not pv_strengthening
+        # Explicit tag parsing against the vocabulary emitted by
+        # train_regimes.py — the old substring lists matched words ("strengthening",
+        # "disruption") that never occur in labels and conflated opposite patterns.
+        has_block = "Arctic Block" in regime_lbl
+        has_pv    = "Polar Vortex" in regime_lbl
+        ridge     = ("Ridge East" in regime_lbl) or ("Ridge West" in regime_lbl)
+        trough    = ("Trough East" in regime_lbl) or ("Trough West" in regime_lbl)
+        zonal     = "Zonal Flow" in regime_lbl
 
-        if pv_strengthening:
-            # PV breaking down → cold air descending into CONUS → bullish
-            bull_score += 2.5
-            components.append({"name": "PV Disruption (Bullish)", "score": 2.5})
-        elif pv_established:
-            # Strong PV → cold air locked in Arctic → warm CONUS → bearish
-            bear_score += 2.0
-            components.append({"name": "Strong PV (Bearish)", "score": -2.0})
-        elif any(w in regime_lbl_lower for w in ["trough", "arctic", "block"]):
-            bull_score += 2.5
-            components.append({"name": f"Blocking/Trough ({regimes.get('regime_label','')})", "score": 2.5})
-        elif any(w in regime_lbl_lower for w in ["ridge", "zonal"]):
-            bear_score += 2.0
-            components.append({"name": f"Bearish/Mild Regime ({regimes.get('regime_label','')})", "score": -2.0})
+        sw = SEASONAL_WEIGHTS[_month]
+        cooling = _month in COOLING_MONTHS
+
+        if cooling:
+            # Summer geometry: a ridge IS the heat (bullish CDD demand); a
+            # trough / strong PV is cool (bearish). Arctic Block carries no
+            # summer demand translation — scored neutral rather than guessed.
+            if ridge:
+                val = 1.5 * sw
+                bull_score += val
+                components.append({"name": f"Summer Ridge Heat ({regimes.get('regime_label','')})", "score": round(val, 2)})
+            elif trough or has_pv or zonal:
+                val = 1.25 * sw
+                bear_score += val
+                components.append({"name": f"Summer Trough Cool ({regimes.get('regime_label','')})", "score": -round(val, 2)})
+            else:
+                components.append({"name": f"Regime Neutral ({regimes.get('regime_label','')})", "score": 0.0})
+        else:
+            # Heating-season polarity: block/trough = cold delivery (bull);
+            # established PV / ridge-zonal mildness = cold locked north (bear).
+            if has_block or trough:
+                val = 2.5 * sw
+                bull_score += val
+                components.append({"name": f"Cold Delivery Pattern ({regimes.get('regime_label','')})", "score": round(val, 2)})
+            elif has_pv or ridge or zonal:
+                val = 2.0 * sw
+                bear_score += val
+                components.append({"name": f"Mild Pattern ({regimes.get('regime_label','')})", "score": -round(val, 2)})
+            else:
+                components.append({"name": f"Regime Neutral ({regimes.get('regime_label','')})", "score": 0.0})
+
+        if not regimes.get('in_training_domain', True) and not cooling:
+            logging.warning("[Composite] Regime classified outside its Nov-Mar training domain — seasonal damping applied.")
     else:
         stale_systems.append(f"regimes ({regime_reason})")
 
@@ -237,21 +280,70 @@ def compute_composite_weather_signal():
     elif net_score <= -1.5: signal = "BEARISH"
     else:                   signal = "NEUTRAL"
 
-    # Confidence: only count truly connected + real-data systems.
-    # Denominator is dynamic (len of the flags list) so adding/removing a system
-    # never silently distorts the percentage without a code change.
+    # Confidence: connectivity (systems online with fresh real data) modulated
+    # by internal agreement among SIGNED components. Five systems disagreeing
+    # must not print 100% confidence just because they are all online.
     connected_flags = [tele_connected, freeze_connected, sens_connected, wind_connected, regime_connected]
-    total_systems   = len(connected_flags)          # <- dynamic, not hardcoded 5
+    total_systems   = len(connected_flags)
     connected_count = sum(connected_flags)
-    confidence      = round((connected_count / total_systems) * 100.0, 1) if total_systems > 0 else 0.0
+    connectivity    = (connected_count / total_systems * 100.0) if total_systems > 0 else 0.0
+
+    signed = [c["score"] for c in components if c.get("score", 0) != 0]
+    if signed:
+        agree = sum(1 for s in signed if (s > 0) == (net_score > 0)) / len(signed)
+        confidence = round(connectivity * (0.55 + 0.45 * agree), 1)
+    else:
+        confidence = round(connectivity, 1)
+
+    # ── Tactical reconciliation (0-15d ensemble anomaly signal) ──────────────
+    # This composite answers the SUBSEASONAL question (weeks 2-6). The
+    # Algorithmic Market Bias answers the TACTICAL question (next 15 days).
+    # Both are surfaced together so divergence reads as structure, not error.
+    tactical = None
+    divergence_note = None
+    agreement_pct = None
+    try:
+        import csv as _csv
+        if os.path.exists(TACTICAL_FILE):
+            with open(TACTICAL_FILE, "r") as f:
+                first = next(_csv.DictReader(f), None)
+            if first and first.get("composite_score") not in (None, ""):
+                t_score = float(first["composite_score"])
+                t_bias = str(first.get("market_bias", "NEUTRAL")).upper()
+                tactical = {
+                    "score": round(t_score, 2),
+                    "bias": t_bias,
+                    "horizon": "Days 0-15 (model consensus vs normals)",
+                }
+                both_directional = signal != "NEUTRAL" and t_bias not in ("NEUTRAL", "")
+                if both_directional:
+                    same = (net_score > 0) == (t_score > 0)
+                    agreement_pct = 100.0 if same else 0.0
+                    if same:
+                        divergence_note = "Tactical and subseasonal views are ALIGNED."
+                    else:
+                        if t_score < 0:
+                            divergence_note = ("DIVERGENT: front of the curve (0-15d) prices BELOW-normal demand; "
+                                               "subseasonal risk (10-45d) leans the other way. Trade the front, "
+                                               "respect the back — do not average them into one number.")
+                        else:
+                            divergence_note = ("DIVERGENT: front of the curve (0-15d) prices ABOVE-normal demand; "
+                                               "subseasonal risk (10-45d) leans the other way. Trade the front, "
+                                               "respect the back — do not average them into one number.")
+    except Exception as e:
+        logging.warning(f"[Composite] Tactical reconciliation skipped: {e}")
 
     output = {
         "timestamp":       datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         "composite_score": round(net_score, 2),
         "signal":          signal,
+        "horizon":         "Subseasonal · weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
         "confidence":      confidence,
         "components":      components,
         "stale_systems":   stale_systems,
+        "tactical_signal": tactical,
+        "agreement_pct":   agreement_pct,
+        "divergence_note": divergence_note,
         "detail": {
             "bull_accumulator": round(bull_score, 2),
             "bear_accumulator": round(bear_score, 2),
