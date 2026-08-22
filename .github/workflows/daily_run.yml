@@ -61,13 +61,13 @@ jobs:
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           EIA_KEY: ${{ secrets.EIA_KEY }}
         run: |
-          python scripts/market_logic/fetch_live_grid.py
+          python scripts/market_logic/fetch_live_grid.py || echo "[WARN] Live grid fetch failed — continuing pipeline."
           python scripts/poll_models.py
           python scripts/generate_maps.py || echo "[WARN] Map generation failed."
-          python scripts/market_logic/fetch_gas_burn_history.py
-          python scripts/market_logic/fetch_thermal_history.py
-          python scripts/market_logic/fetch_outages.py
-          python scripts/market_logic/fetch_peaker_proxy.py
+          python scripts/market_logic/fetch_gas_burn_history.py || echo "[WARN] Gas burn history failed."
+          python scripts/market_logic/fetch_thermal_history.py || echo "[WARN] Thermal history failed."
+          python scripts/market_logic/fetch_outages.py || echo "[WARN] Outage fetch failed."
+          python scripts/market_logic/fetch_peaker_proxy.py || echo "[WARN] Peaker proxy failed."
 
       - name: Trigger Kaggle AI Inference Kernel (00z/12z Major Cycles Only)
         if: env.NEW_DATA_FOUND == 'true'

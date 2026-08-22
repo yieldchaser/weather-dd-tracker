@@ -502,7 +502,7 @@
                     <canvas id="windChart"></canvas>
                 </div>
                 <div style="color: #888; font-size: 0.75rem; text-align: center; margin-top: -15px;">
-                    Model horizons: <span class="has-tooltip" data-tooltip-key="ECMWF">ECMWF</span> 10d | <span class="has-tooltip" data-tooltip-key="GFS">GFS</span> 16d | <span class="has-tooltip" data-tooltip-key="ICON">ICON</span> 7d | <span class="has-tooltip" data-tooltip-key="GFS/CFS">GFS/CFS</span> 35d
+                    Model horizons: <span id="wind-horizon-footnote"><span class="has-tooltip" data-tooltip-key="ECMWF">ECMWF</span> 10d | <span class="has-tooltip" data-tooltip-key="GFS">GFS</span> 16d | <span class="has-tooltip" data-tooltip-key="ICON">ICON</span> 7d | <span class="has-tooltip" data-tooltip-key="HRRR">HRRR</span> 2d | <span class="has-tooltip" data-tooltip-key="GFS/CFS">GFS/CFS</span> 35d</span>
                 </div>
             </div>
 
@@ -545,6 +545,9 @@
                     <div class="val" id="national-load">--</div>
                 </div>
             </div>
+            <div style="color: #888; font-size: 0.75rem; text-align: right; margin-top: -12px;">
+                National as of: <span id="national-asof">—</span>
+            </div>
 
             <!-- REAL-TIME GRID MONITOR (ERCOT) -->
             <h2 class="section-title has-tooltip" style="margin-top: 25px;" data-tooltip-key="Real-Time Grid Monitor (ERCOT)">Real-Time Grid Monitor (ERCOT)</h2>
@@ -566,9 +569,12 @@
                     <div class="val" id="live-grid-impact" style="font-size: 1.2rem;">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="ERCOT System Load">
-                    <h3>National Load (MW)</h3>
+                    <h3>ERCOT System Load (MW)</h3>
                     <div class="val" id="national-load-ercot">--</div>
                 </div>
+            </div>
+            <div style="color: #888; font-size: 0.75rem; text-align: right; margin-top: -12px;">
+                ERCOT as of: <span id="ercot-asof">—</span>
             </div>
 
             <!-- NATIONAL LOAD & ISO BREAKDOWN -->
@@ -584,7 +590,7 @@
             </div>
 
             <div id="iso-breakdown-section" style="margin-bottom: 30px;">
-                <h2 class="section-title has-tooltip" data-tooltip-key="Gas Burn by ISO">Gas Burn by ISO (<span id="iso-bar-date">Latest</span>)</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Gas Burn by ISO">ISO Generation Mix &amp; Gas Burn (<span id="iso-bar-date">Latest</span>)</h2>
                 <div id="iso-bar-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="iso-bar-msg" class="loader">Loading regional data...</div>
                     <canvas id="isoBarChart"></canvas>
@@ -609,6 +615,18 @@
                 </div>
                 <div style="color: #888; font-size: 0.75rem; text-align: center; margin-top: -15px;">
                     U-shape: High burn in Cold (Heating) & Hot (Cooling) | Minimum at ~55°F
+                </div>
+            </div>
+
+            <!-- POWER BURN TREND -->
+            <div id="gas-burn-trend-section" style="margin-bottom: 30px;">
+                <h2 class="section-title has-tooltip" data-tooltip-key="Power Burn Trend" style="margin-top: 25px;">National Power Burn Trend (Bcf/d)</h2>
+                <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
+                    Daily power-sector gas burn with gas-weighted degree-day overlay (secondary axis)
+                </div>
+                <div id="gas-burn-trend-container" style="min-height: 400px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="gas-burn-trend-msg" class="loader">Loading power burn history...</div>
+                    <canvas id="gasBurnTrendChart"></canvas>
                 </div>
             </div>
 
@@ -652,24 +670,6 @@
         const DD_LABEL = SEASON === 'COOLING' ? 'CDD' : (SEASON === 'TDD' ? 'TDD' : 'HDD');
         const DD_FIELD = SEASON === 'COOLING' ? 'cdd_gw' : (SEASON === 'TDD' ? 'tdd_gw' : 'hdd_gw');
         const DD_NORMAL_FIELD = SEASON === 'COOLING' ? 'cdd_normal_gw' : (SEASON === 'TDD' ? 'tdd_normal_gw' : 'hdd_normal_gw');
-
-        function fetchCSV(filename) {
-            return new Promise((resolve, reject) => {
-                Papa.parse(basePath + filename, {
-                    download: true,
-                    header: true,
-                    dynamicTyping: true,
-                    skipEmptyLines: true,
-                    complete: function (results) {
-                        resolve(results.data);
-                    },
-                    error: function (err) {
-                        console.warn(`Could not load ${filename}`);
-                        resolve([]);
-                    }
-                });
-            });
-        }
 
         function formatNum(num, dec = 1, showSign = false) {
             if (num === null || num === undefined || isNaN(num)) return "-";
@@ -720,6 +720,16 @@
 
         let loadGasChart = null;
         let isoBarChart = null;
+        let gasBurnTrendChart = null;
+
+        // Applies the correct signed-delta color class, clearing any stale
+        // opposite class first (prevents CSS-order-dependent coloring when a
+        // value flips sign between renders).
+        function setDeltaClass(el, num) {
+            el.classList.remove('bullish-text', 'bearish-text');
+            if (num < 0) el.classList.add('bullish-text');
+            else if (num > 0) el.classList.add('bearish-text');
+        }
 
         const isoLines = [
             { ratio: 0.5,  label: '0.5×' },
@@ -761,7 +771,11 @@
                 sumXY += xArr[i] * yArr[i];
                 sumXX += xArr[i] * xArr[i];
             }
-            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const denom = n * sumXX - sumX * sumX;
+            // Zero x-variance (all points identical): a vertical trendline is
+            // undefined — fall back to a flat line at the mean y.
+            if (denom === 0) return { slope: 0, intercept: sumY / n };
+            const slope = (n * sumXY - sumX * sumY) / denom;
             const intercept = (sumY - slope * sumX) / n;
             return { slope, intercept };
         }
@@ -777,7 +791,7 @@
 
         function setPeriod(p) {
             selectedPeriod = p;
-            document.querySelectorAll('.toggle-btn').forEach(b => {
+            document.querySelectorAll('#wind-forecast-section .toggle-btn').forEach(b => {
                 b.classList.remove('active');
                 if (b.getAttribute('onclick').includes(p)) b.classList.add('active');
             });
@@ -923,6 +937,24 @@
             if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Forward Wind Forecast"]) {
                 TOOLTIPS["Forward Wind Forecast"].body = `16-Day Drought Risk: <strong>${Math.round(p16*100)}%</strong>.<br>Worst Day: <strong>${droughtJSON.worst_day}</strong> (${cf}% Capacity Factor).<br>Current Bias: <strong>${biasLbl}</strong>.<br><br>Displays forward wind generation forecast across GFS, ECMWF, and ICON models scaled to 110 GW national capacity. Solid red lines/shading highlight wind drought events.`;
             }
+
+            // Rebuild the model-horizon footnote from the pipeline's own
+            // drought.json metadata so it never goes stale when models change.
+            const hz = droughtJSON.model_horizons;
+            if (hz && typeof hz === 'object') {
+                const fn = document.getElementById('wind-horizon-footnote');
+                if (fn) {
+                    fn.innerHTML = Object.entries(hz)
+                        .map(([m, d]) => `<span class="has-tooltip" data-tooltip-key="${TOOLTIPS[m] ? m : 'Forward Wind Forecast'}">${String(m).replace('_', '/')}</span> ${d}d`)
+                        .join(' | ');
+                }
+            }
+
+            // Prefer the pipeline's own ingestion timestamp over page-load time
+            if (droughtJSON.timestamp) {
+                let ts = String(droughtJSON.timestamp);
+                document.getElementById('last-updated').innerText = "Pipeline Ingested | " + ts.replace('T', ' ').replace('Z', ' UTC');
+            }
         }
 
         function updateSolarBadge() {
@@ -1047,10 +1079,13 @@
                                         let cf = climoEntry[selectedPeriod] || climoEntry["all"] || 0.4;
                                         return `Climo (${selectedPeriod}): ${(cf*100).toFixed(1)}% CF → ${ctx.raw.toFixed(1)} GW`;
                                     }
-                                    let r = byModel[dsLabel] ? byModel[dsLabel][d] : null;
+                                    // Dataset labels carry horizon suffixes like
+                                    // "HRRR (2d)" — strip them to find the raw model row.
+                                    let modelKey = dsLabel.replace(/\s*\(.*\)$/, '');
+                                    let r = byModel[modelKey] ? byModel[modelKey][d] : null;
                                     if (!r || ctx.raw === null) return `${dsLabel}: —`;
                                     let cfVal = r[cfCol];
-                                    let icon = (r.drought_flag && dsLabel !== 'GFS/CFS (35d)') ? ' 🔴' : '';
+                                    let icon = (r.drought_flag && modelKey !== 'GFS_CFS') ? ' 🔴' : '';
                                     return `${dsLabel}: ${cfVal}% CF → ${ctx.raw.toFixed(1)} GW${icon}`;
                                 }
                             }
@@ -1085,6 +1120,7 @@
             let byModel = {};
             rawSolarData.forEach(r => {
                 let d = String(r.date).trim();
+                if (!d) return;
                 datesSet.add(d);
                 if(!byModel[r.model]) byModel[r.model] = {};
                 byModel[r.model][d] = r;
@@ -1154,14 +1190,20 @@
             if (!rawScatterData || rawScatterData.length === 0) return;
 
             let filtered = rawScatterData;
+            // Parse month via string slice, not new Date(): "YYYY-MM-DD" is
+            // parsed as UTC midnight and getMonth() reads LOCAL time, which
+            // shifted boundary dates (Oct 1 / Apr 1) a day in negative-UTC
+            // locales. Pure string handling is timezone-proof.
             if (selectedScatterSeason === 'heating') {
                 filtered = rawScatterData.filter(r => {
-                    let month = new Date(r.date).getMonth() + 1;
+                    if (!r.date) return false;
+                    let month = parseInt(String(r.date).substring(5, 7), 10);
                     return month >= 10 || month <= 3;
                 });
             } else if (selectedScatterSeason === 'cooling') {
                 filtered = rawScatterData.filter(r => {
-                    let month = new Date(r.date).getMonth() + 1;
+                    if (!r.date) return false;
+                    let month = parseInt(String(r.date).substring(5, 7), 10);
                     return month >= 4 && month <= 9;
                 });
             }
@@ -1239,6 +1281,46 @@
             });
         }
 
+        // Daily national power burn over time (from gas_burn_history.csv,
+        // already fetched for the scatter) with the gas-weighted degree-day
+        // overlay on a secondary axis — the temporal counterpart to the
+        // temp-vs-burn scatter above.
+        function updateGasBurnTrend() {
+            if (!rawScatterData || rawScatterData.length < 2) {
+                document.getElementById("gas-burn-trend-msg").textContent = "Accumulating power burn history — check back after next pipeline run.";
+                document.getElementById("gas-burn-trend-msg").style.display = 'block';
+                return;
+            }
+            document.getElementById("gas-burn-trend-msg").style.display = 'none';
+
+            const rows = [...rawScatterData].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+            const labels = rows.map(r => r.date);
+            const burn = rows.map(r => (r.gas_burn_bcfd != null && !isNaN(r.gas_burn_bcfd)) ? r.gas_burn_bcfd : null);
+            const dd = rows.map(r => hddMap[r.date] ? hddMap[r.date][0] : null);
+
+            let ctx = document.getElementById('gasBurnTrendChart').getContext('2d');
+            if (gasBurnTrendChart) gasBurnTrendChart.destroy();
+            gasBurnTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Power Burn (Bcf/d)', data: burn, borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.08)', borderWidth: 2, pointRadius: 1, tension: 0.25, fill: true, spanGaps: true },
+                        { label: `GW ${DD_LABEL}`, data: dd, borderColor: '#f44336', borderDash: [5,5], borderWidth: 2, pointRadius: 0, fill: false, yAxisID: 'y1', spanGaps: false }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { title: { display: true, text: 'Gas Burn (Bcf/d)' }, beginAtZero: true },
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: `GW ${DD_LABEL} (Gas demand)`, color: '#f44336' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+
         function updateThermalCharts() {
             if (!rawThermalData || rawThermalData.length < 1) return;
             
@@ -1305,12 +1387,15 @@
                         tooltip: {
                             callbacks: {
                                 label: function(ctx) {
+                                    // Guard the /1000 conversions: early history
+                                    // rows can carry blank fuel cells.
+                                    const gw = (v) => (v != null && !isNaN(v)) ? `${(v/1000).toFixed(1)} GW` : '—';
                                     let r = rawThermalData[ctx.dataIndex];
                                     return [
                                         `Gas: ${ctx.raw.toFixed(1)}% of Thermal`,
-                                        `Gas: ${(r.natural_gas_mw/1000).toFixed(1)} GW`,
-                                        `Coal: ${(r.coal_mw/1000).toFixed(1)} GW`,
-                                        `Nuclear: ${(r.nuclear_mw/1000).toFixed(1)} GW`
+                                        `Gas: ${gw(r.natural_gas_mw)}`,
+                                        `Coal: ${gw(r.coal_mw)}`,
+                                        `Nuclear: ${gw(r.nuclear_mw)}`
                                     ];
                                 }
                             }
@@ -1338,10 +1423,11 @@
             });
 
             // --- Chart B: Gas vs Coal Switch Scatter ---
-            // Group by year
+            // Group by year (string slice — see season-filter note above)
             let byYear = {};
             rawThermalData.forEach(r => {
-                let y = new Date(r.date).getFullYear();
+                if (!r.date) return;
+                let y = String(r.date).substring(0, 4);
                 if (!byYear[y]) byYear[y] = [];
                 byYear[y].push({ x: r.coal_mw / 1000, y: r.natural_gas_mw / 1000, date: r.date });
             });
@@ -1528,7 +1614,7 @@
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    scales: { y: { min: 70, max: 100, title: { display: true, text: 'Availability (%)' } } }
+                    scales: { y: { suggestedMin: 70, suggestedMax: 100, title: { display: true, text: 'Availability (%)' } } }
                 }
             });
         }
@@ -1542,63 +1628,137 @@
             document.getElementById("peaker-msg").style.display = 'none';
             let ctx = document.getElementById('peakerChart').getContext('2d');
             if (peakerChart) peakerChart.destroy();
+            // Null-safe 30-day trailing average: one blank ratio must not
+            // poison the whole window (old code summed raw values and required
+            // exactly 30 prior points).
+            const ratioSeries = rawPeakerData.map(r => {
+                const v = parseFloat(r.peak_offpeak_ratio);
+                return isNaN(v) ? null : v;
+            });
+            const rolling = ratioSeries.map((_, i) => {
+                const slice = ratioSeries.slice(Math.max(0, i - 29), i + 1).filter(v => v !== null);
+                return slice.length >= 15 ? slice.reduce((s, v) => s + v, 0) / slice.length : null;
+            });
             peakerChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: rawPeakerData.map(r => r.date),
                     datasets: [
-                        { label: 'Peak/Off-Peak Ratio', data: rawPeakerData.map(r => r.peak_offpeak_ratio), borderColor: '#ffeb3b', borderWidth: 3, tension: 0.2 },
-                        { label: '30d Avg', data: rawPeakerData.map((_,i,a) => {
-                            if (i < 29) return null;
-                            const slice = a.slice(i-29, i+1);
-                            return slice.reduce((s,v) => s + v.peak_offpeak_ratio, 0) / 30;
-                        }), borderColor: 'white', borderDash: [5,5], borderWidth: 1, pointRadius: 0 }
+                        { label: 'Peak Gas (GW)', data: rawPeakerData.map(r => (r.peak_gas_mw != null && !isNaN(r.peak_gas_mw)) ? r.peak_gas_mw / 1000 : null), backgroundColor: 'rgba(255, 152, 0, 0.45)', borderColor: '#ff9800', borderWidth: 1, yAxisID: 'y1' },
+                        { label: 'Off-Peak Gas (GW)', data: rawPeakerData.map(r => (r.offpeak_gas_mw != null && !isNaN(r.offpeak_gas_mw)) ? r.offpeak_gas_mw / 1000 : null), backgroundColor: 'rgba(3, 169, 244, 0.35)', borderColor: '#03a9f4', borderWidth: 1, yAxisID: 'y1' },
+                        { type: 'line', label: 'Peak/Off-Peak Ratio', data: ratioSeries, borderColor: '#ffeb3b', borderWidth: 3, tension: 0.2, pointRadius: 2 },
+                        { type: 'line', label: '30d Avg', data: rolling, borderColor: 'white', borderDash: [5,5], borderWidth: 1, pointRadius: 0 }
                     ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    responsive: true,
+                    maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    scales: { y: { suggestedMin: 1.0, suggestedMax: 2.0, title: { display: true, text: 'Ratio' } } }
-                }
+                    scales: {
+                        y: { suggestedMin: 1.0, suggestedMax: 2.0, title: { display: true, text: 'Peak/Off-Peak Ratio' } },
+                        y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Gas Generation (GW)' }, beginAtZero: true }
+                    }
+                },
+                plugins: [{
+                    id: 'peakerThreshold',
+                    afterDraw(chart) {
+                        const y = chart.scales.y;
+                        const yPx = y.getPixelForValue(1.4);
+                        if (yPx < y.top || yPx > y.bottom) return;
+                        const { ctx, chartArea: { left, right } } = chart;
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(244, 67, 54, 0.55)';
+                        ctx.setLineDash([4, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(left, yPx);
+                        ctx.lineTo(right, yPx);
+                        ctx.stroke();
+                        ctx.fillStyle = 'rgba(244, 67, 54, 0.8)';
+                        ctx.font = '10px monospace';
+                        ctx.textAlign = 'right';
+                        ctx.fillText('Heavy Dispatch 1.4×', right - 5, yPx - 4);
+                        ctx.restore();
+                    }
+                }]
             });
         }
 
         async function loadDashboard() {
             try {
-                // Load Live Grid (for ISO Bar and summary)
+                // Load Live Grid — SINGLE fetch drives the summary cards, the
+                // as-of stamps and the ISO fuel-mix bar (previously the CSV was
+                // downloaded twice and one card kept a month-old value).
                 try {
                     let gridRes = await fetch(basePath + "live_grid_generation.csv?t=" + Date.now());
                     if (gridRes.ok) {
                         let text = await gridRes.text();
                         let gridData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
-                        
-                        let nat = gridData.find(r => r.iso === 'NATIONAL');
-                        if (nat) {
+
+                        let nationalGrid = gridData.filter(r => r.iso === 'NATIONAL');
+                        if (nationalGrid.length > 0) {
+                            let nat = nationalGrid[nationalGrid.length - 1];
                             document.getElementById('national-gas-burn').innerText = formatNum(nat.natural_gas_mw, 0);
                             document.getElementById('national-wind-gen').innerText = formatNum(nat.wind_mw, 0);
                             document.getElementById('national-load').innerText = formatNum(nat.load_mw, 0);
                             let anomEl = document.getElementById('national-wind-anomaly');
                             anomEl.innerText = formatNum(nat.wind_anomaly_mw, 0, true);
-                            if (nat.wind_anomaly_mw < 0) anomEl.classList.add('bullish-text');
-                            else if (nat.wind_anomaly_mw > 0) anomEl.classList.add('bearish-text');
+                            setDeltaClass(anomEl, nat.wind_anomaly_mw);
+                            document.getElementById('national-asof').innerText = nat.date;
                         }
 
-                        // ISO Bar — find the most recent date in the file (CSV is not guaranteed sorted)
+                        let ercotGrid = gridData.filter(r => r.iso === 'ERCOT');
+                        if (ercotGrid.length > 0) {
+                            let latestErcot = ercotGrid[ercotGrid.length - 1];
+                            document.getElementById('live-gas-burn').innerText = formatNum(latestErcot.natural_gas_mw, 0);
+                            document.getElementById('live-wind-gen').innerText = formatNum(latestErcot.wind_mw, 0);
+                            let anomalyEl = document.getElementById('live-wind-anomaly');
+                            anomalyEl.innerText = formatNum(latestErcot.wind_anomaly_mw, 0, true);
+                            setDeltaClass(anomalyEl, latestErcot.wind_anomaly_mw);
+                            let impactEl = document.getElementById('live-grid-impact');
+                            let impactStr = String(latestErcot.gas_burn_impact || 'NEUTRAL');
+                            impactEl.innerText = impactStr;
+                            impactEl.classList.remove('bullish-text', 'bearish-text');
+                            if (impactStr.includes('BULL')) impactEl.classList.add('bullish-text');
+                            if (impactStr.includes('BEAR')) impactEl.classList.add('bearish-text');
+                            // This card is the ERCOT system load (not national)
+                            document.getElementById('national-load-ercot').innerText = formatNum(latestErcot.load_mw, 0);
+                            document.getElementById('ercot-asof').innerText = latestErcot.date;
+                        }
+
+                        // ISO Fuel Mix — most recent date in the file (CSV is not
+                        // guaranteed sorted), stacked per-fuel MW so regional gas,
+                        // coal, nuclear, solar and wind are directly comparable.
                         const latestDate = gridData.reduce((max, r) => (r.date > max ? r.date : max), '');
                         const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL' && r.natural_gas_mw != null);
-                        
+
                         if (isos.length > 0) {
                             document.getElementById("iso-bar-msg").style.display = 'none';
                             document.getElementById("iso-bar-date").textContent = latestDate;
+                            const mw = (col) => isos.map(r => (r[col] != null && !isNaN(r[col])) ? r[col] : null);
                             let ctx = document.getElementById('isoBarChart').getContext('2d');
                             if (isoBarChart) isoBarChart.destroy();
                             isoBarChart = new Chart(ctx, {
                                 type: 'bar',
                                 data: {
                                     labels: isos.map(r => r.iso),
-                                    datasets: [{ label: 'Gas MW', data: isos.map(r => r.natural_gas_mw), backgroundColor: ['#ff9800', '#2196f3', '#4caf50', '#9c27b0', '#f44336', '#ffeb3b', '#00bcd4'] }]
+                                    datasets: [
+                                        { label: 'Gas',     data: mw('natural_gas_mw'), backgroundColor: '#ff9800' },
+                                        { label: 'Coal',    data: mw('coal_mw'),        backgroundColor: '#795548' },
+                                        { label: 'Nuclear', data: mw('nuclear_mw'),     backgroundColor: '#00bcd4' },
+                                        { label: 'Solar',   data: mw('solar_mw'),       backgroundColor: '#ffeb3b' },
+                                        { label: 'Wind',    data: mw('wind_mw'),        backgroundColor: '#4caf50' }
+                                    ]
                                 },
-                                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+                                options: {
+                                    indexAxis: 'y',
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    interaction: { mode: 'index', intersect: false },
+                                    scales: {
+                                        x: { stacked: true, title: { display: true, text: 'Generation (MW)' } },
+                                        y: { stacked: true }
+                                    }
+                                }
                             });
                         } else {
                             document.getElementById("iso-bar-msg").textContent = "Awaiting regional ISO data — check back after next pipeline run.";
@@ -1608,8 +1768,8 @@
                         document.getElementById("iso-bar-msg").textContent = "Awaiting first pipeline run — check back soon.";
                         document.getElementById("iso-bar-msg").style.display = 'block';
                     }
-                } catch(e) { 
-                    console.warn("Live grid load failed", e); 
+                } catch(e) {
+                    console.warn("Live grid load failed", e);
                     document.getElementById("iso-bar-msg").textContent = "Data unavailable.";
                     document.getElementById("iso-bar-msg").style.display = 'block';
                 }
@@ -1664,7 +1824,8 @@
                     document.getElementById("peaker-msg").style.display = 'block';
                 }
 
-                // Load Gas Burn History
+                // Load Gas Burn History (drives both the temp scatter and the
+                // Power Burn Trend chart)
                 try {
                     let scatterRes = await fetch(basePath + "gas_burn_history.csv?t=" + Date.now());
                     if (scatterRes.ok) {
@@ -1674,45 +1835,10 @@
                         let currentMonth = new Date().getMonth() + 1;
                         if (currentMonth >= 10 || currentMonth <= 3) setScatterSeason('heating');
                         else setScatterSeason('cooling');
+                        updateGasBurnTrend();
                     }
                 } catch (err) {
                     console.warn("Gas burn history loading failed", err);
-                }
-
-                const liveGrid = await fetchCSV("live_grid_generation.csv");
-
-                if (liveGrid && liveGrid.length > 0) {
-                    let nationalGrid = liveGrid.filter(r => r.iso === 'NATIONAL');
-                    if (nationalGrid.length > 0) {
-                        let natGrid = nationalGrid[nationalGrid.length - 1];
-                        document.getElementById('national-gas-burn').innerText = formatNum(natGrid.natural_gas_mw, 0);
-                        document.getElementById('national-wind-gen').innerText = formatNum(natGrid.wind_mw, 0);
-                        document.getElementById('national-load-ercot').innerText = formatNum(natGrid.load_mw, 0);
-
-                        let natAnomalyEl = document.getElementById('national-wind-anomaly');
-                        natAnomalyEl.innerText = formatNum(natGrid.wind_anomaly_mw, 0, true);
-                        if (natGrid.wind_anomaly_mw < 0) natAnomalyEl.classList.add('bullish-text');
-                        else if (natGrid.wind_anomaly_mw > 0) natAnomalyEl.classList.add('bearish-text');
-                    }
-
-                    let ercotGrid = liveGrid.filter(r => r.iso === 'ERCOT');
-                    if (ercotGrid.length > 0) {
-                        let latestGrid = ercotGrid[ercotGrid.length - 1];
-
-                        document.getElementById('live-gas-burn').innerText = formatNum(latestGrid.natural_gas_mw, 0);
-                        document.getElementById('live-wind-gen').innerText = formatNum(latestGrid.wind_mw, 0);
-
-                        let anomalyEl = document.getElementById('live-wind-anomaly');
-                        anomalyEl.innerText = formatNum(latestGrid.wind_anomaly_mw, 0, true);
-                        if (latestGrid.wind_anomaly_mw < 0) anomalyEl.classList.add('bullish-text');
-                        else if (latestGrid.wind_anomaly_mw > 0) anomalyEl.classList.add('bearish-text');
-
-                        let impactEl = document.getElementById('live-grid-impact');
-                        let impactStr = String(latestGrid.gas_burn_impact || 'NEUTRAL');
-                        impactEl.innerText = impactStr;
-                        if (impactStr.includes('BULL')) impactEl.classList.add('bullish-text');
-                        if (impactStr.includes('BEAR')) impactEl.classList.add('bearish-text');
-                    }
                 }
 
                 document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
@@ -1761,8 +1887,8 @@
                 body: "Real-time load demand plotted against total natural gas power burn across major ISO networks to visualize gas displacement."
             },
             "Gas Burn by ISO": {
-                title: "Gas Burn by ISO",
-                body: "Bar chart displaying power-sector natural gas burn across individual ISO regions to pinpoint regional demand shifts."
+                title: "ISO Generation Mix & Gas Burn",
+                body: "Stacked per-fuel generation (gas, coal, nuclear, solar, wind) for each ISO region on the most recent day with data. Regional gas burn pinpoints where power-sector demand is concentrated; rising gas share vs coal signals fuel-switching."
             },
             "Total NatGas Burn": {
                 title: "Total National Gas Burn",
@@ -1805,8 +1931,8 @@
                 body: "The proportion of fossil-fuel thermal generation (Gas + Coal) supplied by natural gas. High percentages reflect coal-to-gas switching or coal plant retirements."
             },
             "Gas Peaker Proxy": {
-                title: "Gas Peaker Proxy",
-                body: "The ratio of peak-hour gas generation to off-peak gas generation. Ratios <strong>above 1.4</strong> indicate heavy dispatch of expensive peaker units."
+                title: "Gas Peaker Utilization Proxy",
+                body: "Peak vs off-peak natural gas generation. The yellow ratio line compares dispatch during 07-22h against overnight hours; bars show absolute gas burn in each window (GW). Ratios above the red 1.4× line indicate heavy peaker plant dispatch — a sign of tight capacity or renewable shortfalls."
             },
             "Nuclear Fleet Availability": {
                 title: "Nuclear Fleet Availability",
@@ -1823,6 +1949,10 @@
             "Combined Renewable Drought": {
                 title: "Combined Renewable Drought",
                 body: "Occurs when both wind and solar output fall significantly below normal simultaneously. Dramatically increases the grid's reliance on natural gas."
+            },
+            "Power Burn Trend": {
+                title: "National Power Burn Trend",
+                body: "Daily power-sector natural gas burn (Bcf/d, converted from EIA generation data via a seasonal heat rate) over the full retained history. The red overlay shows gas-weighted degree days — burn and degree days move together, so divergences flag fuel-switching, nuclear outages or renewable effects."
             },
             "Gas-Temp Relationship": {
                 title: "Gas Burn vs Temperature",

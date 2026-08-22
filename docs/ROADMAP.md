@@ -105,6 +105,8 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 *   **Wind/Solar Generation Proxy** (Wind dropout → physical spot gas signal) — ✅ Active
 *   **Storage Draw/Injection Weekly Estimate** — ❌ Pending
 *   **Implied Volatility Signal** (Ensemble spread + model disagreement index) — ❌ Pending
+*   **Composite wind-dropout input wiring:** `composite_score.py` expects `outputs/wind_generation_anomaly_proxy.csv` (never produced by any script — the wind modifier silently no-ops). Wiring it requires deciding the anomaly unit the thresholds (`-1.0` / `+1.5`) were calibrated for; `live_grid_generation.csv` already carries MW-scale `wind_anomaly_mw`. — ❌ Pending
+*   **Grid data retention:** ✅ Done. Hourly grid mix now accumulates (180-day window); daily ISO generation retains 365 days; gas-burn history uses per-row seasonal heat rates so stored values are season-stable.
 
 ---
 

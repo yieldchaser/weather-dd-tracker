@@ -102,12 +102,15 @@ def fetch_gas_burn_history():
         print("  [WARN] No overlapping dates found between grid and temperature data.")
         return
 
-    # Convert MW to Bcf/d
-    current_month = datetime.datetime.now().month
-    combined['gas_burn_bcfd'] = combined['natural_gas_mw'].apply(lambda x: mw_to_bcfd(x, current_month))
-    
-    # Add Year and DayOfYear
+    # Convert MW to Bcf/d using the heat rate of each ROW'S OWN month.
+    # (The previous behavior applied the current month's heat rate to all of
+    # history, so stored Bcf/d values churned every rerun as seasons changed.)
     combined['date_dt'] = pd.to_datetime(combined['date'])
+    combined['gas_burn_bcfd'] = combined.apply(
+        lambda r: mw_to_bcfd(r['natural_gas_mw'], r['date_dt'].month), axis=1
+    )
+
+    # Add Year and DayOfYear
     combined['year'] = combined['date_dt'].dt.year
     combined['day_of_year'] = combined['date_dt'].dt.dayofyear
     

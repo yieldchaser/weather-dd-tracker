@@ -47,38 +47,26 @@ def fetch_thermal_history():
         print("  [ERR] No NATIONAL row found in grid generation file.")
         return
 
-    # Process all available NATIONAL rows
+    # Process all available NATIONAL rows (upsert: fresh rows replace stored
+    # rows for the same date so early partial-day captures self-heal)
     all_rows = []
     required = ["natural_gas_mw", "coal_mw", "nuclear_mw", "total_thermal_mw", "gas_pct_thermal", "load_mw", "gas_pct_load", "wind_mw"]
-    
-    # Read existing history if any
-    existing_dates = set()
-    if OUTPUT_FILE.exists():
-        existing_dates = set(pd.read_csv(OUTPUT_FILE)['date'].astype(str))
 
     for _, row in national_grid.iterrows():
         d_str = str(row["date"])
-        if d_str in existing_dates:
-            continue
-            
-        # Ensure columns exist in this row
         row_dict = {"date": d_str}
         for col in required:
             row_dict[col] = row.get(col)
-            
         all_rows.append(row_dict)
-    
-    if not all_rows:
-        print(f"  [INFO] No new dates to append to {OUTPUT_FILE}")
-        return
 
     new_df = pd.DataFrame(all_rows)
-    
+
     if OUTPUT_FILE.exists():
         existing_df = pd.read_csv(OUTPUT_FILE)
-        final_df = pd.concat([existing_df, new_df], ignore_index=True)
+        existing_df = existing_df[~existing_df['date'].astype(str).isin(new_df['date'].astype(str))]
+        final_df = pd.concat([existing_df, new_df], ignore_index=True).sort_values('date')
         safe_write_csv(final_df, OUTPUT_FILE)
-        print(f"  [OK] Appended {len(all_rows)} new rows to {OUTPUT_FILE}")
+        print(f"  [OK] Upserted {len(all_rows)} rows into {OUTPUT_FILE} ({len(final_df)} total)")
     else:
         Path("outputs").mkdir(parents=True, exist_ok=True)
         safe_write_csv(new_df, OUTPUT_FILE)

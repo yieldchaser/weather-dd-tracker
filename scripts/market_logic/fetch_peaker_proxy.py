@@ -86,7 +86,7 @@ def calculate_peaker_proxy():
         
         if OUTPUT_FILE.exists():
             old_df = pd.read_csv(OUTPUT_FILE)
-            combined = pd.concat([old_df, new_df]).drop_duplicates(subset=["date"], keep="first")
+            combined = pd.concat([old_df, new_df]).drop_duplicates(subset=["date"], keep="last")
             combined.sort_values("date", inplace=True)
             safe_write_csv(combined, OUTPUT_FILE)
         else:

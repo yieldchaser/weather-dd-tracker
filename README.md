@@ -133,6 +133,9 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
 *   **Incremental Gas Burn:** Converts hourly electrical generation anomalies (relative to a 30-day baseline) into implied gas burn using ISO-specific heat rates:
     $$\text{Gas Burn (Bcf/d)} = \text{Generation (MW)} \times 24 \times \text{Heat Rate (BTU/kWh)} \times 10^{-9}$$
     *   *Seasonal Heat Rates:* Adjusts from 7,000 BTU/kWh in winter to 8,200 BTU/kWh in summer to account for peaker efficiency decay.
+*   **Data Retention:** `hourly_grid_data.csv` accumulates as a deduplicated history (180-day window, keyed on `period`+`iso`) instead of being overwritten each run; `live_grid_generation.csv` retains a 365-day rolling window (previously 35 days). Daily histories (`gas_burn`, `thermal`, `peaker`, `outages`, `wind_actuals`) append indefinitely and are excluded from cleanup pruning.
+*   **Historical Integrity:** Stored gas-burn values are converted with each row's *own* month heat rate (not the current month), so the year-over-year scatter no longer churns between seasons. Thermal and peaker histories upsert (keep-last), letting partial-day captures self-heal on later runs.
+*   **Dashboard (grid.html):** ISO fuel-mix stacked bars (gas/coal/nuclear/solar/wind per region), national power-burn trend with degree-day overlay, peaker chart with peak/off-peak GW bars and a 1.4× heavy-dispatch threshold line, and as-of stamps on all summary cards.
 
 ### 7. Composite Weather Signal
 *   **Accumulator Score ($S$):**

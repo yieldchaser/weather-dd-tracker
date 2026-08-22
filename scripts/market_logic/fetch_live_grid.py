@@ -43,7 +43,12 @@ from pathlib import Path
 # Outputs
 OUTPUT_DIR = Path("outputs")
 OUTPUT_FILE = OUTPUT_DIR / "live_grid_generation.csv"
+HOURLY_FILE = OUTPUT_DIR / "hourly_grid_data.csv"
 HISTORY_FILE = Path("outputs/wind/wind_actuals_history.csv")
+
+# Retention windows (days)
+LIVE_GRID_RETENTION_DAYS = 365
+HOURLY_GRID_RETENTION_DAYS = 180
 
 # Constants
 TOTAL_INSTALLED_GW = 110.0
@@ -180,6 +185,13 @@ def fetch_live_grid():
             "wind_anomaly_mw": round(anomaly) if pd.notna(hist_wind) else None,
             "gas_burn_impact": impact
         }
+
+        # Thermal & load share metrics (mirrors the NATIONAL row so regional
+        # fuel-mix and gas-vs-coal switching can be charted per ISO)
+        out_row["total_thermal_mw"] = (out_row["natural_gas_mw"] or 0) + (out_row["coal_mw"] or 0) + (out_row["nuclear_mw"] or 0)
+        out_row["gas_pct_thermal"] = round(out_row["natural_gas_mw"] / out_row["total_thermal_mw"] * 100, 1) if out_row["total_thermal_mw"] > 0 else None
+        out_row["gas_pct_load"] = round(out_row["natural_gas_mw"] / out_row["load_mw"] * 100, 1) if out_row["load_mw"] and out_row["load_mw"] > 0 else None
+
         all_iso_output_rows.append(out_row)
 
     if not all_iso_output_rows:
@@ -191,7 +203,22 @@ def fetch_live_grid():
     national_hourly = hourly_all.groupby("period").sum(numeric_only=True).reset_index()
     national_hourly["date_only"] = pd.to_datetime(national_hourly["period"]).dt.strftime("%Y-%m-%d")
     
-    # Save hourly data for peaker script
+    # Save hourly data for peaker script.
+    # CUMULATIVE RETENTION: merge with existing snapshot so hourly history
+    # accumulates (the old behavior overwrote the file every run, capping
+    # history at the 35-day fetch window forever). Dedupe on (period, iso)
+    # keep-last so corrections propagate, then prune to a bounded window.
+    if HOURLY_FILE.exists():
+        try:
+            old_hourly = pd.read_csv(HOURLY_FILE)
+            hourly_all = pd.concat([old_hourly, hourly_all], ignore_index=True)
+            hourly_all = hourly_all.drop_duplicates(subset=["period", "iso"], keep="last")
+            hourly_all["_pdt"] = pd.to_datetime(hourly_all["period"])
+            h_cutoff = hourly_all["_pdt"].max() - datetime.timedelta(days=HOURLY_GRID_RETENTION_DAYS)
+            hourly_all = hourly_all[hourly_all["_pdt"] > h_cutoff].drop(columns=["_pdt"])
+            print(f"[OK] Hourly grid history retained ({len(hourly_all)} rows, {HOURLY_GRID_RETENTION_DAYS}-day window)")
+        except Exception as e:
+            print(f"[WARN] Hourly history merge failed, writing fresh snapshot: {e}")
     safe_write_csv(hourly_all, "outputs/hourly_grid_data.csv")
     
     nat_daily = national_hourly.groupby("date_only").mean(numeric_only=True).reset_index()
@@ -245,15 +272,17 @@ def fetch_live_grid():
             combined = pd.concat([old_df, new_df], ignore_index=True)
             combined = combined.drop_duplicates(subset=["date", "iso"], keep="last")
             
-            # Rolling 35-day window per ISO (National included)
+            # Rolling window per ISO (National included).
+            # 365 days retained so seasonal gas-burn and fuel-mix trends
+            # remain chartable; the dashboard only reads the latest rows.
             # Convert to datetime for sorting and filtering
             combined["date_dt"] = pd.to_datetime(combined["date"])
-            cutoff = combined["date_dt"].max() - datetime.timedelta(days=35)
+            cutoff = combined["date_dt"].max() - datetime.timedelta(days=LIVE_GRID_RETENTION_DAYS)
             combined = combined[combined["date_dt"] > cutoff].sort_values(["date_dt", "iso"])
-            
+
             # Drop helper column and save
             safe_write_csv(combined.drop(columns=["date_dt"]), OUTPUT_FILE)
-            print(f"[OK] Appended/Cleaned {OUTPUT_FILE} (35-day rolling window)")
+            print(f"[OK] Appended/Cleaned {OUTPUT_FILE} ({LIVE_GRID_RETENTION_DAYS}-day rolling window)")
         except Exception as e:
             print(f"[ERR] Grid append failed: {e}")
             new_df.to_csv(OUTPUT_FILE, index=False)
