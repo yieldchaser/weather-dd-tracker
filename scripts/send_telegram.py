@@ -472,6 +472,12 @@ def _fmt_teleconnections():
                     f"PNA {_arr(pna)}{_sig(pna)}  EPO {_arr(epo)}{_sig(epo)}")
         lines = [f"<b>📡 TELECONNECTIONS</b>: {idx_line}",
                  f"  Cold Risk: {cold_risk}/100 {risk_emoji}"]
+        as_of = td.get("as_of") or {}
+        if as_of:
+            latest = max(str(d) for d in as_of.values())
+            stale = td.get("stale_indices") or []
+            stale_note = f" · ⚠️ stale: {', '.join(stale)}" if stale else ""
+            lines.append(f"  <i>through {latest}{stale_note}</i>")
 
         # Analog years are matched from real teleconnection distances;
         # their March/April HDD outcomes are real ERA5-derived anomalies

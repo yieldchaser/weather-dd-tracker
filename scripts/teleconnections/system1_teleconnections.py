@@ -1,5 +1,8 @@
 import os
+import io
+import re
 import json
+import time
 import pandas as pd
 import numpy as np
 from datetime import datetime, UTC
@@ -7,6 +10,11 @@ import urllib.request
 import logging
 
 logging.basicConfig(level=logging.INFO)
+
+# A feed older than this is treated as dead for CURRENT-state purposes
+# (its history remains valid for analogs). CPC CDAS lags ~3-4 days in
+# practice; 10 catches multi-week stalls like PSL files that silently stop.
+STALE_INDEX_DAYS = 10
 
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
@@ -32,18 +40,46 @@ def safe_write_json(data, path, required_keys=None):
     print(f"[OK] Written {path}")
     return True
 
-def fetch_cpc_csv(index_name, url):
-    try:
-        if url.endswith('.txt'):
-            df = pd.read_csv(url, sep=r'\s+', header=None, names=['year', 'month', 'day', 'value'])
-        else:
-            df = pd.read_csv(url, skiprows=1, header=None, names=['year', 'month', 'day', 'value'])
-            
-        df['date'] = pd.to_datetime(df[['year', 'month', 'day']]).dt.strftime('%Y-%m-%d')
-        return df
-    except Exception as e:
-        logging.error(f"Error fetching {index_name} from {url}: {e}")
-        return pd.DataFrame()
+def _http_get(url, attempts=3, delay=5):
+    last = None
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return r.read().decode("utf-8", errors="replace")
+        except Exception as e:
+            last = e
+            logging.warning(f"Fetch {i+1}/{attempts} failed for {url}: {e}")
+            if i < attempts - 1:
+                time.sleep(delay)
+    raise RuntimeError(f"all attempts failed: {last}")
+
+def _parse_index_payload(raw):
+    """Sniff header/delimiter (CPC ships CSV with header; PSL ships
+    whitespace-separated headerless) and return a clean 4-column frame."""
+    first = next(l for l in raw.splitlines() if l.strip())
+    has_header = bool(re.match(r"\s*[A-Za-z]", first))
+    delim = "," if "," in first else r"\s+"
+    df = pd.read_csv(io.StringIO(raw), sep=delim, skiprows=1 if has_header else 0,
+                     header=None, names=["year", "month", "day", "value"])
+    df["date"] = pd.to_datetime(df[["year", "month", "day"]], errors="coerce")
+    df = df.dropna(subset=["date", "value"])
+    return df
+
+def fetch_cpc_csv(index_name, urls):
+    """urls: candidate URLs tried in order. Returns empty frame on total failure."""
+    if isinstance(urls, str):
+        urls = [urls]
+    for url in urls:
+        try:
+            raw = _http_get(url)
+            df = _parse_index_payload(raw)
+            if len(df) < 100:
+                raise ValueError(f"only {len(df)} usable rows")
+            return df
+        except Exception as e:
+            logging.error(f"Error fetching {index_name} from {url}: {e}")
+    return pd.DataFrame()
 
 # The old ANALOG_OUTCOMES dict hardcoded invented March/April HDD anomalies
 # and narrative strings for 12 cherry-picked years; whichever years the real
@@ -136,32 +172,47 @@ def _compute_real_outcomes(years):
     return out
 
 def run_system1():
+    PSL = "https://downloads.psl.noaa.gov/Public/map/teleconnections/"
+    CPC = "https://ftp.cpc.ncep.noaa.gov/cwlinks/"
     URLS = {
-        'AO': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.ao.cdas.z1000.19500101_current.csv',
-        'NAO': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv',
-        'PNA': 'https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.pna.cdas.z500.19500101_current.csv',
-        'EPO': 'https://downloads.psl.noaa.gov/Public/map/teleconnections/epo.reanalysis.t10trunc.1948-present.txt'
+        'AO':  [CPC + 'norm.daily.ao.cdas.z1000.19500101_current.csv'],
+        'NAO': [CPC + 'norm.daily.nao.cdas.z500.19500101_current.csv'],
+        'PNA': [CPC + 'norm.daily.pna.cdas.z500.19500101_current.csv'],
+        # The legacy R1-based EPO file silently stopped updating in Mar 2026;
+        # the 20CR-based core file tracks live (~4d lag). Legacy kept as fallback.
+        'EPO': [PSL + 'epo.core.reanalysis.t10trunc.1950-present.txt',
+                PSL + 'epo.reanalysis.t10trunc.1948-present.txt'],
     }
 
     data = {}
     historical_data = {}
-    
-    for idx, url in URLS.items():
+
+    for idx, urls in URLS.items():
         logging.info(f"Fetching {idx}...")
-        df = fetch_cpc_csv(idx, url)
-        
+        df = fetch_cpc_csv(idx, urls)
+
         if not df.empty:
             df = df.dropna(subset=['value'])
             historical_data[idx] = df
+            last_date = df['date'].max()
+            age_days = (datetime.now(UTC).date() - last_date.date()).days
+            if age_days > STALE_INDEX_DAYS:
+                logging.warning(
+                    f"[{idx}] feed stale: last obs {last_date.date()} ({age_days}d old "
+                    f"> {STALE_INDEX_DAYS}d). Excluded from current state; history kept for analogs."
+                )
+                data[idx] = {'current': None, 'roc': None, 'history': [],
+                             'as_of': str(last_date.date()), 'stale': True}
+                continue
             recent = df.tail(30).reset_index(drop=True)
-            
+
             if len(recent) > 0:
                 current_val = recent['value'].iloc[-1] if not recent.empty else None
                 prev_val = recent['value'].iloc[-7] if len(recent) >= 7 else recent['value'].iloc[0] if not recent.empty else None
-                
+
                 if current_val is None:
                     continue
-                
+
                 # Z-score normalize against full history so all indices are on the same scale.
                 # AO/NAO/PNA from CPC are already ~normalized, but EPO from PSL is raw
                 # geopotential height anomaly (dam) — this brings it onto the same unit as the others.
@@ -179,7 +230,10 @@ def run_system1():
                 data[idx] = {
                     'current': float(round(current_norm, 3)),
                     'roc':     float(round(roc, 3)),
-                    'history': recent['value'].tail(15).tolist()
+                    'history': recent['value'].tail(15).tolist(),
+                    'as_of':   str(last_date.date()),
+                    'hist_mean': float(hist_mean),
+                    'hist_std':  float(hist_std),
                 }
 
     # Compute composite cold risk score
@@ -193,22 +247,23 @@ def run_system1():
     
     current_vec = {}
     for idx, w in weights.items():
-        if idx in data:
-            val = data[idx]['current']
-            roc = data[idx]['roc']
-            current_vec[idx] = val
-            
-            # Base value contribution
-            if w < 0 and val < -0.5:
-                score += abs(w) * abs(val) * 10 
-            elif w > 0 and val > 0.5:
-                score += w * val * 10
-                
-            # Rate of change contribution
-            if w < 0 and roc < -0.5:
-                score += 5
-            elif w > 0 and roc > 0.5:
-                score += 5
+        val = data.get(idx, {}).get('current')
+        if val is None:
+            continue  # missing or stale feed contributes nothing
+        roc = data[idx]['roc'] or 0.0
+        current_vec[idx] = val
+
+        # Base value contribution
+        if w < 0 and val < -0.5:
+            score += abs(w) * abs(val) * 10
+        elif w > 0 and val > 0.5:
+            score += w * val * 10
+
+        # Rate of change contribution
+        if w < 0 and roc < -0.5:
+            score += 5
+        elif w > 0 and roc > 0.5:
+            score += 5
 
     score = min(max(int(score), 0), 100)
 
@@ -237,9 +292,22 @@ def run_system1():
             # Current state vector
             present_keys = [k for k in ['AO', 'NAO', 'PNA', 'EPO'] if k in current_vec]
             curr_arr = np.array([current_vec[k] for k in present_keys])
-            
+
+            # Distance must be computed in sigma-space on BOTH sides. The old
+            # code compared z-scored current values against RAW historical
+            # values; raw EPO spans ~-90..+200 dam while z-scores span +-3,
+            # so EPO noise flooded the Euclidean distance.
+            norm_stats = {k: (data[k]['hist_mean'], data[k]['hist_std'])
+                          for k in present_keys if k in data and 'hist_mean' in data[k]}
+            winter_data = winter_data.dropna(subset=present_keys)
+            for k in present_keys:
+                if k in norm_stats:
+                    m, s = norm_stats[k]
+                    if s and s > 0:
+                        winter_data[k] = (winter_data[k] - m) / s
+
             def calc_dist(row):
-                r_arr = np.array([row.get(k, 0) for k in present_keys])
+                r_arr = np.array([row[k] for k in present_keys])
                 return np.linalg.norm(r_arr - curr_arr)
                 
             winter_data['dist'] = winter_data.apply(calc_dist, axis=1)
@@ -278,6 +346,8 @@ def run_system1():
         'pna': _idx('PNA'),
         'epo': _idx('EPO'),
         'composite_score': score,
+        'as_of': {k: v.get('as_of') for k, v in data.items() if isinstance(v, dict) and v.get('as_of')},
+        'stale_indices': sorted(k for k, v in data.items() if isinstance(v, dict) and v.get('stale')),
         'analogs': enriched_analogs,
         'status': 'success'
     }

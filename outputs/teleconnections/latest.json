@@ -1,1 +1,27 @@
-{"timestamp": "2026-08-22T07:54:20.457440Z", "ao": 0.142, "nao": -0.837, "pna": -1.027, "epo": null, "composite_score": 12, "analogs": [{"year": 1992}, {"year": 1966}, {"year": 2025}], "status": "success"}
+{
+  "timestamp": "2026-08-22T08:23:01.427452Z",
+  "ao": 0.142,
+  "nao": -0.837,
+  "pna": -1.027,
+  "epo": -0.709,
+  "composite_score": 26,
+  "as_of": {
+    "AO": "2026-08-19",
+    "NAO": "2026-08-19",
+    "PNA": "2026-08-19",
+    "EPO": "2026-08-18"
+  },
+  "stale_indices": [],
+  "analogs": [
+    {
+      "year": 1955
+    },
+    {
+      "year": 1950
+    },
+    {
+      "year": 1971
+    }
+  ],
+  "status": "success"
+}
