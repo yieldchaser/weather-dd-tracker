@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-08-22T08:01:13.794Z",
-  "composite_score": 0.26,
+  "timestamp": "2026-08-22T08:57:24.750Z",
+  "composite_score": 1.12,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 77.5,
+  "confidence": 100.0,
   "components": [
     {
-      "name": "Teleconnections Warm/Neutral (off-season, damped)",
-      "score": -0.12
+      "name": "Teleconnections Neutral Band",
+      "score": 0.0
     },
     {
-      "name": "Low Weather Sensitivity (dampens anomalies)",
-      "score": -0.75
+      "name": "Weather Sensitivity Neutral",
+      "score": 0.0
     },
     {
       "name": "Wind Drought (Moderate)",
@@ -32,7 +32,7 @@
   "divergence_note": null,
   "detail": {
     "bull_accumulator": 1.12,
-    "bear_accumulator": 0.87
+    "bear_accumulator": 0.0
   },
   "system_status": {
     "teleconnections_connected": true,
