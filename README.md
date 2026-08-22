@@ -8,7 +8,7 @@
 
 > **Live Dashboard:** [yieldchaser.github.io/weather-dd-tracker](https://yieldchaser.github.io/weather-dd-tracker)
 
-An automated, production-hardened weather analytics platform purpose-built for **natural gas market analysis and electrical grid monitoring**. The system ingests global atmospheric model data, computes population-weighted Degree Days (HDD/CDD/TDD), monitors multi-model consensus, classifies weather regimes, forecasts wind/solar droughts, tracks ISO power burn, and dispatches automated alerts — updated automatically 4× per day via GitHub Actions.
+An automated, production-hardened weather analytics platform purpose-built for **natural gas market analysis and electrical grid monitoring**. The system ingests global atmospheric model data, computes population-weighted Degree Days (HDD/CDD/TDD), monitors multi-model consensus, classifies weather regimes, forecasts wind/solar droughts, tracks ISO power burn, and dispatches automated alerts — refreshed up to 6× per day via publication-aligned GitHub Actions polling (slots sit ~1h after each model cycle completes, so fresh runs display within ~1–2.5h of publication).
 
 ---
 
@@ -89,8 +89,8 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
 *   **Indices Monitored:** Arctic Oscillation (AO), North Atlantic Oscillation (NAO), Pacific-North American pattern (PNA), East Pacific Oscillation (EPO).
 *   **Z-Score Normalization:**
     $$Z_t = \frac{x_t - \mu}{\sigma}$$
-    where $\mu$ and $\sigma$ are the historical daily means and standard deviations computed since 1950.
-*   **Analog Matcher:** Evaluates the Euclidean distance of current index trajectories against all historical years. It identifies the top 3 closest years and returns enriched context (e.g., winter HDD totals, realised market shocks).
+    where $\mu$ and $\sigma$ are the historical daily means and standard deviations computed since 1950. EPO is read from the live 20CR core-reanalysis file (the legacy R1 file stopped updating in Mar 2026); any feed older than 10 days is excluded from the current state and emitted as `null` rather than masquerading as neutral.
+*   **Analog Matcher:** Computes the Euclidean distance of today's z-scored index vector against every historical winter day in σ-space on both sides, averages by year, and returns the top-3 closest winters. Their March/April outcomes are **real**: gas-weighted HDD anomalies vs the 1991â€“2020 normals, computed from the same ERA5 archive that builds the normals (cached per year in `data/analog_outcomes.csv`, heating-season fetching only). Years without archive coverage ship without outcome numbers instead of invented ones.
 
 ### 2. Weather Regime Classifier
 *   **Mathematical Base:** Empirical Orthogonal Functions (EOF) / Principal Component Analysis (PCA) combined with KMeans.
@@ -111,8 +111,9 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
 
 ### 4. Dynamic Sensitivity Coefficient
 *   **OLS Regression Model:**
-    $$Withdrawal_t = \beta \cdot \text{HDD}_t + \alpha + \epsilon_t$$
-*   **Mechanism:** Runs a rolling 30-day OLS regression utilizing weekly EIA storage withdrawal data (converted to daily Bcf/d equivalents) as the dependent variable and population-weighted HDDs as the independent variable. The slope ($\beta$) represents the Bcf/d gas demand change per HDD.
+    $$\text{PowerBurn}_t = \beta \cdot \text{DD}_t + \alpha + \epsilon_t$$
+*   **Mechanism:** Runs a fixed 90-day OLS regression of **realized national power burn** (from `gas_burn_history.csv`, rows gated to ≥18h-complete sample days) on the burn file's own realized degree days. The slope ($\beta$) is Bcf/day per degree day; 30-day windows are too short for a stable fit (live Aug-2026 check: R²=0.04 at 30d vs 0.31 at 90d).
+*   **Season-Banded Percentiles:** Because fleet heating sensitivity (Bcf/HDD) and cooling sensitivity (Bcf/CDD) differ physically, reference ranges are banded by season (winter HDD ~1.5–3.0, summer CDD ~0.6–1.5 Bcf/deg). The Weather Intelligence Signal consumes the *percentile* of today's coefficient within its seasonal band rather than raw winter-calibrated coefficients — so "Low/High Weather Sensitivity" verdicts are measurement-backed in both seasons.
 
 ### 5. Wind & Solar Renewable Power Forecast
 *   **Wind Power Curve Modelling:** Maps wind speed ($v$ in m/s) at 100m to Capacity Factor ($CF$) using a modeled IEC Class II power curve:
@@ -126,7 +127,7 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
 *   **Solar Power Modelling:** Converts Global Horizontal Irradiance ($GHI$ in W/m²) to PV capacity factor using a temperature-adjusted PVWatts model:
     $$CF_{solar} = \frac{GHI}{1000} \cdot \eta_{temp} \cdot PR$$
     where $PR = 0.75$ (Performance Ratio) and $\eta_{temp}$ is the temperature loss coefficient.
-*   **Drought Consensus:** Identifies "Renewable Droughts" when Wind CF < 35% and Solar Consensus < 25% (requires both GFS and ECMWF solar forecasts below threshold).
+*   **Drought Consensus:** Identifies "Renewable Droughts" against season-moving thresholds (wind national CF: 35% winter / 30% shoulder / 25% summer; solar peak-hour CF: 35% summer / 25% shoulder / 15% winter), with climatology built from multi-year GFS hindcasts per calendar window. A solar drought requires consensus (2-of-active models below threshold); the combined wind+solar signal reads both thresholds from the same seasonal functions that set the flags.
 
 ### 6. Live Grid Monitor
 *   **Data Aggregation:** Collects generation by fuel type (Natural Gas, Coal, Nuclear, Wind, Solar) and total load across 7 ISOs.
@@ -134,7 +135,7 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
     $$\text{Gas Burn (Bcf/d)} = \text{Generation (MW)} \times 24 \times \text{Heat Rate (BTU/kWh)} \times 10^{-9}$$
     *   *Seasonal Heat Rates:* Adjusts from 7,000 BTU/kWh in winter to 8,200 BTU/kWh in summer to account for peaker efficiency decay.
 *   **Data Retention:** `hourly_grid_data.csv` accumulates as a deduplicated history (180-day window, keyed on `period`+`iso`) instead of being overwritten each run; `live_grid_generation.csv` retains a 365-day rolling window (previously 35 days). Daily histories (`gas_burn`, `thermal`, `peaker`, `outages`, `wind_actuals`) append indefinitely and are excluded from cleanup pruning.
-*   **Historical Integrity:** Stored gas-burn values are converted with each row's *own* month heat rate (not the current month), so the year-over-year scatter no longer churns between seasons. Thermal and peaker histories upsert (keep-last), letting partial-day captures self-heal on later runs.
+*   **Historical Integrity:** Stored gas-burn values are converted with each row's *own* month heat rate (not the current month), so the year-over-year scatter no longer churns between seasons. Thermal and peaker histories upsert **completeness-aware** (richest sample-day wins, ties go to the newest capture), so an early partial-day capture can never permanently overwrite a complete stored day.
 *   **Dashboard (grid.html):** ISO fuel-mix stacked bars (gas/coal/nuclear/solar/wind per region), national power-burn trend with degree-day overlay, peaker chart with peak/off-peak GW bars and a 1.4× heavy-dispatch threshold line, and as-of stamps on all summary cards.
 *   **Burn Sensitivity Analytics** (`build_burn_sensitivity.py` → `outputs/burn_sensitivity.json`): fits a quadratic temp-response curve $\text{Bcf/d} = aT^2 + bT + c$ over the trailing 180-day burn×temperature window and derives:
     *   *Sensitivity arms:* dB/dT at the current temperature plus separate heating (Bcf/HDD) and cooling (Bcf/CDD) regressions — the empirical "Bcf per degree" numbers behind the scatter's fitted curve.
@@ -145,17 +146,21 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
 
 ### 7. Composite Weather Signal
 *   **Accumulator Score ($S$):**
-    $$S = w_{tele} \cdot S_{tele} + w_{freeze} \cdot S_{freeze} + w_{wind} \cdot S_{wind} + w_{regime} \cdot S_{regime}$$
-*   The final score determines the directional weather bias: **Bearish** ($S \le -1.5$), **Neutral** ($-1.5 < S < 1.5$), or **Bullish** ($S \ge 1.5$).
+    $$S = w_{season} \cdot (S_{tele} + S_{freeze} + S_{sensitivity} + S_{wind} + S_{regime})$$
+    where $w_{season}$ is the seasonal weight (1.0 Dec–Mar tapering to 0.15 Jun–Aug) and flow-regime polarity flips with the season (a ridge *is* the heat in cooling season; a trough is cold delivery in heating season).
+*   The final score determines the directional weather bias: **Strong Bull** ($S \ge 5$), **Bullish** ($S \ge 1.5$), **Bearish** ($S \le -1.5$), **Strong Bear** ($S \le -5$), else Neutral. Confidence blends system connectivity (stale systems drop out rather than count as neutral) with agreement among signed components.
 
 ### 8. Physics vs. AI Disagreement Index
-*   **Volatility Risk Score:** Computes the standard deviation between the physics ensemble (GFS, ECMWF) and the AI ensemble (AIFS, GraphCast, Pangu, FourCastNet) across the forecast horizon:
-    $$\text{Volatility Score} = \sqrt{\frac{1}{N} \sum_{i=1}^N (TDD_{phys, i} - TDD_{AI, i})^2}$$
-    A volatility score > 2.0 TDD indicates elevated risk of large forecast revisions.
+*   **Volatility Risk Score:** Per forecast day, computes the absolute TDD spread between the physics-family consensus and the AI-family consensus, scaled to 0–100 (a 5 TDD spread = full score):
+    $$\text{Volatility Score}_d = \min\left(\frac{|TDD_{AI,d} - TDD_{phys,d}|}{5},\ 1\right) \times 100$$
+    Runs older than 4 days are excluded per family — a stale vintage diverges because weather evolved, not because models disagree. When either family has no fresh runs the score is `NaN` (unknown), never zero.
 
-### 9. Market Bias Composite
-*   **Premium Calculation:** Integrates the OLS sensitivity coefficient ($\beta$), the HDD anomaly, the renewable drought premium, and peaker multipliers:
-    $$\text{Bias Score} = \text{Clip}\left(\frac{\beta \cdot \text{Anomaly}_{HDD} + \text{Drought Premium}}{\text{Market Cap Limit}}, -1.0, 1.0\right)$$
+### 9. Market Bias Composite (Algorithmic Market Bias)
+*   **Bias Score:** A directional score from −1.0 (max bearish) to +1.0 (max bullish), blending:
+    *   *Consensus anomaly:* season-polarity-aware TDD anomaly vs normals (colder = bullish in HDD season, hotter = bullish in CDD season), discounted by ensemble volatility.
+    *   *Live wind anomaly:* national wind-generation deviation from seasonal climatology, drought side weighted above surplus side (0.15 vs 0.10 per GW).
+    *   *Non-weather burn strength:* the 28-day realized-vs-weather-normal power-burn bias from the burn engine, applied with a symmetric ±1 Bcf/d deadband (×0.03/Bcf) so structural load growth counts both ways.
+*   Verdicts flip to **BULLISH/BEARISH** beyond ±0.10; inside that band the signal reads NEUTRAL.
 
 ---
 
@@ -196,17 +201,24 @@ date,mean_temp,hdd,cdd,tdd,mean_temp_gw,hdd_gw,cdd_gw,tdd_gw,model,run_id
 *   `run_id`: Nominal initialization cycle (e.g., `20260605_00`).
 
 ### 2. `outputs/wind/combined_drought.json`
-Stores the renewable drought flag and confidence scoring.
+Stores the renewable drought state and combined wind+solar signal.
 ```json
 {
-  "wind_cf": 0.28,
-  "solar_cf": 0.18,
-  "is_drought": true,
-  "season": "summer",
-  "drought_premium_bcf": 1.25,
-  "model_agreement_score": 0.85
+  "wind_drought_prob_16d": 0.5,
+  "solar_drought_prob_10d": 1.0,
+  "combined_drought_today": false,
+  "combined_drought_prob_7d": 1.0,
+  "combined_drought_days_7d": 7,
+  "worst_combined_day": "2026-08-28",
+  "worst_combined_renewable_cf_pct": 8.4,
+  "gas_displacement_loss_gw": 6.1,
+  "signal": "STRONG BULL",
+  "solar_drought_threshold_cf_pct": 35.0,
+  "timestamp": "2026-08-22T09:12:40Z"
 }
 ```
+*   `signal`: NEUTRAL / MODERATE BULL / MODERATE BEAR / STRONG BULL — a renewable drought (underperforming wind + solar vs seasonal climatology) forces gas-fired generation to backfill, which is demand-bullish.
+*   `gas_displacement_loss_gw`: today's renewable shortfall vs climatology in GW — negative values mean a renewable surplus (bearish gas).
 
 ---
 

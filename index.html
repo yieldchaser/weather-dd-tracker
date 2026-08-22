@@ -2031,10 +2031,10 @@
 
                     if (label.includes("Sensitivity")) {
                         dynTitle = "Grid Weather Sensitivity";
-                        dynBody = "Quantifies how changes in temperature affect electrical grid load and gas consumption. High sensitivity means small temperature anomalies cause large shifts in power burn.";
+                        dynBody = "Measured, not assumed: a trailing 90-day regression of realized national power burn on realized degree days (Bcf per degree), scored against season-banded reference ranges. The heating arm (Bcf/HDD) and cooling arm (Bcf/CDD) differ physically and are scored separately. High percentile means temperature anomalies are translating into large burn shifts right now.";
                     } else if (label.includes("Wind")) {
                         dynTitle = "Wind Generation Drought";
-                        dynBody = "Indicates whether wind speeds are forecasted to remain low, depressing wind power output below the historical 30-day average.";
+                        dynBody = "Indicates whether wind generation is forecast to run below the seasonal climatology for this calendar window (multi-year GFS hindcast of the node fleet), with drought thresholds that move by season \u2014 winter fleet runs stronger, summer fleet weaker.";
                     } else if (label.includes("Ridge") || label.includes("Trough") || label.includes("Block") || label.includes("Pattern") || label.includes("PV ") || label.includes("Polar Vortex")) {
                         dynTitle = "Atmospheric Flow Regime";
                         dynBody = "The current large-scale 500mb flow pattern, scored with season-correct polarity: in heating season a block/trough means cold delivery (bullish); in cooling season a ridge means heat demand (bullish). Off-season signals are damped.";
@@ -2156,7 +2156,7 @@
             },
             "Algorithmic Market Bias": {
                 title: "Algorithmic Market Bias",
-                body: "Calculated composite market bias across all physical and machine learning models. Evaluation threshold is <strong>+/- 0.5 DD</strong>."
+                body: "Directional bias score from \u22121.0 (max bearish) to +1.0 (max bullish), blending: season-polarity-aware TDD consensus anomaly, physics-vs-AI ensemble volatility discount, live wind-generation anomaly, and non-weather power-burn strength (symmetric \u00B11 Bcf/d deadband). Verdicts flip to BULLISH/BEARISH beyond \u00B10.10; inside that band it reads NEUTRAL."
             },
             "Total Forecast DDs (Gas-Weighted)": {
                 title: "Total Forecast DDs",
