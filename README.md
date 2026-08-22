@@ -141,6 +141,7 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
     *   *Weather-normal baseline & performance:* what the curve implies at normal seasonal temperatures (1991–2020 climatology) vs realized burn; rolling 7/28-day bias and MAE isolate non-weather drivers (load growth, outages).
     *   *Forward projection:* the next 15 days' ensemble-consensus temperature mapped through the curve onto the dashboard scatter ("Next 15d Implied") and the forecast-performance chart.
 *   **ERCOT Load-Temp Fit:** daily-average ERCOT load regressed on population-weighted Texas temperature (10-metro archive fetch cached in `ercot_temp_history.csv`), reporting GW/°F slope, R², and the latest day's actual-vs-weather-implied load residual.
+*   **Vintage Comparison (self-activating):** national wind and nuclear generation panels plus the peak/off-peak peaker-dispatch-ratio trend render immediately from retained history; the prior-year (LY) overlay switches on automatically once the archive spans a second calendar year — series are aligned by month-day across vintages, so fleet drift, capacity growth and efficiency decay become visible without any config change.
 
 ### 7. Composite Weather Signal
 *   **Accumulator Score ($S$):**

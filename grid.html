@@ -656,6 +656,35 @@
                 </div>
             </div>
 
+            <!-- VINTAGE COMPARISON (SELF-ACTIVATING) -->
+            <div id="vintage-section" style="margin-bottom: 30px;">
+                <h2 class="section-title has-tooltip" data-tooltip-key="Vintage Comparison" style="margin-top: 25px;">Vintage Comparison — Wind / Nuclear / Peaker Drift</h2>
+                <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
+                    These render from day one and upgrade themselves: as soon as the retained archive spans a second calendar year, the prior-year overlay appears automatically (first full overlays land early 2027)
+                </div>
+
+                <h3 style="font-size: 1rem; margin-bottom: -8px;">Wind Generation</h3>
+                <div id="wind-vintage-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
+                <div id="wind-vintage-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="wind-vintage-msg" class="loader">Loading wind history...</div>
+                    <canvas id="windVintageChart"></canvas>
+                </div>
+
+                <h3 style="font-size: 1rem; margin-top: 20px; margin-bottom: -8px;">Nuclear Generation</h3>
+                <div id="nuclear-vintage-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
+                <div id="nuclear-vintage-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="nuclear-vintage-msg" class="loader">Loading nuclear history...</div>
+                    <canvas id="nuclearVintageChart"></canvas>
+                </div>
+
+                <h3 style="font-size: 1rem; margin-top: 20px; margin-bottom: -8px;">Peaker Dispatch Ratio Trend</h3>
+                <div id="peaker-drift-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
+                <div id="peaker-drift-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="peaker-drift-msg" class="loader">Loading peaker trend...</div>
+                    <canvas id="peakerDriftChart"></canvas>
+                </div>
+            </div>
+
             <!-- THERMAL GENERATION CHARTS -->
             <div id="thermal-section" style="margin-bottom: 30px;">
                 <h2 class="section-title has-tooltip" data-tooltip-key="Gas % of Thermal" style="margin-top: 25px;">Gas as % of Thermal Generation</h2>
@@ -751,6 +780,152 @@
         let burnSensJSON = null;
         let burnPerfChart = null;
         let ercotFitChart = null;
+
+        let rawLiveGridData = [];
+        let windVintageChart = null;
+        let nuclearVintageChart = null;
+        let peakerDriftChart = null;
+
+        // Aligns daily series by month-day across calendar years so a prior-
+        // year overlay can be drawn on the current-year axis. Returns null
+        // overlays until the archive actually spans two years — callers show
+        // a coverage note meanwhile, and the overlay appears on its own the
+        // day the data exists (no config change needed).
+        function buildYearAlignedSeries(rows, field, scale) {
+            const byMd = {};
+            const years = new Set();
+            rows.forEach(r => {
+                if (!r.date || r[field] == null || isNaN(r[field])) return;
+                const d = String(r.date);
+                const year = d.substring(0, 4);
+                const md = d.substring(5, 10);
+                years.add(year);
+                if (!byMd[md]) byMd[md] = {};
+                byMd[md][year] = r[field] / scale;
+            });
+            const sortedYears = [...years].sort();
+            if (sortedYears.length === 0) return null;
+            const curYear = sortedYears[sortedYears.length - 1];
+            const prevYear = String(Number(curYear) - 1);
+            const labels = Object.keys(byMd).sort();
+            return {
+                labels: labels,
+                curYear: curYear,
+                prevYear: years.has(prevYear) ? prevYear : null,
+                cur: labels.map(md => (byMd[md][curYear] != null ? byMd[md][curYear] : null)),
+                prev: labels.map(md => (byMd[md][prevYear] != null ? byMd[md][prevYear] : null)),
+                nPoints: labels.length,
+                span: `${sortedYears[0]} → ${curYear}`
+            };
+        }
+
+        function rollingMean(arr, n) {
+            return arr.map((_, i) => {
+                if (i + 1 < n) return null;
+                let sum = 0;
+                for (let k = i - n + 1; k <= i; k++) {
+                    if (arr[k] == null) return null;
+                    sum += arr[k];
+                }
+                return sum / n;
+            });
+        }
+
+        function updateVintageLineChart(cfg) {
+            const msg = document.getElementById(cfg.msgId);
+            const stats = document.getElementById(cfg.statsId);
+            const rows = [...cfg.rows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+            const s = buildYearAlignedSeries(rows, cfg.field, cfg.scale);
+
+            if (!s || s.nPoints < 10) {
+                msg.textContent = `Accumulating history — ${s ? s.nPoints : 0} days retained so far. The prior-year overlay switches on automatically once the archive spans two calendar years.`;
+                msg.style.display = 'block';
+                stats.innerHTML = '';
+                return;
+            }
+            msg.style.display = 'none';
+
+            const overlayActive = s.prevYear != null && s.nPoints >= 60;
+            const datasets = [
+                { label: `${s.curYear}`, data: s.cur, borderColor: cfg.color, backgroundColor: 'rgba(255,152,0,0.06)', borderWidth: 2, pointRadius: 1, tension: 0.25, fill: true }
+            ];
+            const curRoll = rollingMean(s.cur, 30);
+            if (curRoll.some(v => v != null)) {
+                datasets.push({ label: `${s.curYear} 30d avg`, data: curRoll, borderColor: '#ffffff', borderWidth: 1.5, pointRadius: 0, tension: 0.25, fill: false });
+            }
+
+            let statsHtml = `<strong>${cfg.statLabel}:</strong> ${formatNum(s.cur[s.cur.length - 1], 1)} ${cfg.unit} | 30d avg: ${formatNum(curRoll[curRoll.length - 1], 1)} ${cfg.unit} | coverage: ${s.span}`;
+            if (overlayActive) {
+                datasets.push({ label: `${s.prevYear} (LY)`, data: s.prev, borderColor: '#b71c1c', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0.25, fill: false });
+                const prevVals = s.prev.filter(v => v != null);
+                const prevAvg = prevVals.length ? prevVals.reduce((a, b) => a + b, 0) / prevVals.length : null;
+                statsHtml += ` | <span style="color:#ef9a9a">LY overlay ACTIVE</span> (${s.prevYear}, avg ${formatNum(prevAvg, 1)} ${cfg.unit})`;
+            } else {
+                statsHtml += ` | <span style="color:#888">prior-year overlay pending (needs second calendar year)</span>`;
+            }
+            stats.innerHTML = statsHtml;
+
+            let ctx = document.getElementById(cfg.canvasId).getContext('2d');
+            if (cfg.chartVar) cfg.chartVar.destroy();
+            cfg.chartVar = new Chart(ctx, {
+                type: 'line',
+                data: { labels: s.labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { title: { display: true, text: cfg.yLabel, color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title: items => `${items[0].label} (${items[0].dataset.label})`,
+                                label: c => ` ${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(1) : '-'} ${cfg.unit}`
+                            }
+                        }
+                    }
+                }
+            });
+            return cfg.chartVar;
+        }
+
+        function updateVintageCharts() {
+            windVintageChart = updateVintageLineChart({
+                rows: rawLiveGridData, field: 'wind_mw', scale: 1000,
+                canvasId: 'windVintageChart', msgId: 'wind-vintage-msg', statsId: 'wind-vintage-stats',
+                chartVar: windVintageChart, yLabel: 'National Wind Gen (GW)',
+                statLabel: 'Latest', unit: 'GW', color: '#4caf50'
+            }) || windVintageChart;
+            nuclearVintageChart = updateVintageLineChart({
+                rows: rawLiveGridData, field: 'nuclear_mw', scale: 1000,
+                canvasId: 'nuclearVintageChart', msgId: 'nuclear-vintage-msg', statsId: 'nuclear-vintage-stats',
+                chartVar: nuclearVintageChart, yLabel: 'National Nuclear Gen (GW)',
+                statLabel: 'Latest', unit: 'GW', color: '#00bcd4'
+            }) || nuclearVintageChart;
+
+            // Peaker dispatch drift: peak/off-peak gas ratio over time. A
+            // rising trend at equal load means more high-heat-rate peaker
+            // dispatch; the LY overlay activates with the archive.
+            const driftCfg = {
+                rows: rawPeakerData, field: 'peak_offpeak_ratio', scale: 1,
+                canvasId: 'peakerDriftChart', msgId: 'peaker-drift-msg', statsId: 'peaker-drift-stats',
+                chartVar: peakerDriftChart, yLabel: 'Peak / Off-Peak Gas Ratio',
+                statLabel: 'Ratio', unit: '', color: '#ff9800'
+            };
+            peakerDriftChart = updateVintageLineChart(driftCfg) || peakerDriftChart;
+            if (peakerDriftChart && peakerDriftChart.data && peakerDriftChart.data.datasets.length > 0) {
+                const labels = peakerDriftChart.data.labels;
+                peakerDriftChart.data.datasets.push({
+                    label: 'Heavy Dispatch 1.4×',
+                    data: labels.map(() => 1.4),
+                    borderColor: 'rgba(255, 60, 60, 0.55)', borderWidth: 1.5, borderDash: [4, 6],
+                    pointRadius: 0, fill: false
+                });
+                peakerDriftChart.update('none');
+            }
+        }
 
         // Applies the correct signed-delta color class, clearing any stale
         // opposite class first (prevents CSS-order-dependent coloring when a
@@ -1373,7 +1548,7 @@
             if (me.mae_28d != null) chips.push(`<span>28d MAE: <strong>${me.mae_28d.toFixed(2)}</strong> Bcf/d</span>`);
             if (me.bias_7d != null) chips.push(`<span>7d bias: <strong>${me.bias_7d > 0 ? '+' : ''}${me.bias_7d.toFixed(2)}</strong> Bcf/d</span>`);
             document.getElementById('burn-perf-stats').innerHTML =
-                chips.join(' &nbsp;•&nbsp; ') + ' <span style="color:#888">(positive bias = realized burn running above weather-implied)</span>';
+                chips.join(' &nbsp;•&nbsp; ') + ' <span style="color:#888">(positive = realized burn above its fitted temp-response at the actual weather — i.e. strength beyond what temperature explains)</span>';
 
             let ctx = document.getElementById('burnPerfChart').getContext('2d');
             if (burnPerfChart) burnPerfChart.destroy();
@@ -1412,14 +1587,14 @@
             const msg = document.getElementById('ercot-fit-msg');
             const stats = document.getElementById('ercot-fit-stats');
             const ef = burnSensJSON ? burnSensJSON.ercot_fit : null;
-            if (!ef || ef.points == null || !Array.isArray(ef.points)) {
+            if (!ef) {
                 msg.textContent = "ERCOT load-temperature fit pending — accumulating hourly archive.";
                 msg.style.display = 'block';
                 stats.innerHTML = '';
                 return;
             }
-            if (ef.points.length === 0) {
-                msg.textContent = `Accumulating ERCOT daily coverage: ${ef.coverage_days}/${ef.min_required} days (the hourly archive now retains 180 days).`;
+            if (!Array.isArray(ef.points) || ef.points.length === 0) {
+                msg.textContent = `Accumulating ERCOT daily coverage: ${ef.coverage_days != null ? ef.coverage_days : 0}/${ef.min_required != null ? ef.min_required : 30} days (the hourly archive now retains 180 days).`;
                 msg.style.display = 'block';
                 stats.innerHTML = '';
                 return;
@@ -1874,6 +2049,8 @@
                         let gridData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
 
                         let nationalGrid = gridData.filter(r => r.iso === 'NATIONAL');
+                        // Retained for the vintage comparison charts below
+                        rawLiveGridData = nationalGrid;
                         if (nationalGrid.length > 0) {
                             let nat = nationalGrid[nationalGrid.length - 1];
                             document.getElementById('national-gas-burn').innerText = formatNum(nat.natural_gas_mw, 0);
@@ -2034,6 +2211,7 @@
                 }
                 updateBurnPerfChart();
                 updateErcotFitChart();
+                updateVintageCharts();
 
                 document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
                 document.getElementById('loading').style.display = 'none';
@@ -2154,11 +2332,15 @@
             },
             "Power Burn Forecast Performance": {
                 title: "Power Burn Forecast Performance",
-                body: "Scores realized power burn against the weather-explained baseline: the gray line is what the fitted curve would produce at NORMAL seasonal temperatures, so the gap to realized burn isolates non-weather drivers (economic load growth, outages, renewables). The blue dashed segment projects the next 15 days from the live ensemble forecast. Bias/MAE chips quantify how far realized burn runs above or below the weather-implied level."
+                body: "Scores realized power burn against the weather-explained baseline: the gray line is what the fitted temp-response curve would produce at NORMAL seasonal temperatures, so the gap to realized burn mixes non-weather drivers with the season's actual weather. The bias/MAE chips are stricter — they compare realized burn against the curve at each day's ACTUAL temperature, isolating pure non-weather strength (load growth, outages, renewables). The blue dashed segment projects the next 15 days from the live ensemble forecast."
             },
             "ERCOT Load-Temp Fit": {
                 title: "ERCOT Load vs Temperature Fit",
                 body: "Linear regression of daily-average ERCOT load on population-weighted Texas temperature, built from the 180-day hourly archive. The slope is ERCOT's demand response in GW per °F; a large positive residual on the latest day means actual load is running hotter than weather alone justifies (e.g. data-center/load growth). Coverage builds daily until the minimum sample is reached."
+            },
+            "Vintage Comparison": {
+                title: "Vintage Comparison (Self-Activating)",
+                body: "Year-over-year views of national wind generation, nuclear output, and the peak/off-peak peaker dispatch ratio. Each panel renders from day one of retained history; the moment the archive spans a second calendar year (first full window lands early 2027), the red prior-year overlay and its average switch on automatically — the same per-vintage curves used on professional gas desks to spot fleet drift, capacity growth, or efficiency decay."
             },
             "ECMWF": {
                 title: "ECMWF (Deterministic)",

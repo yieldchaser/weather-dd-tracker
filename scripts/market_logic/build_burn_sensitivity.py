@@ -75,9 +75,12 @@ def slope_at(fit, x):
     return 2 * fit["a"] * x + fit["b"]
 
 
-def arm_sensitivity(df, dd_col):
-    sub = df[[dd_col, "gas_burn_bcfd"]].dropna()
-    sub = sub[sub[dd_col] > 0]
+def arm_sensitivity(df, dd_col, months):
+    # Season-gated: a heating slope fitted on off-season HDD stragglers
+    # (shoulder-month noise) produces a sign-flipped, meaningless Bcf/HDD.
+    sub = df[["date", dd_col, "gas_burn_bcfd"]].dropna()
+    month = pd.to_datetime(sub["date"]).dt.month
+    sub = sub[(sub[dd_col] > 0) & (month.isin(months))]
     if len(sub) < 10:
         return None
     s, i = np.polyfit(sub[dd_col], sub["gas_burn_bcfd"], 1)
@@ -218,6 +221,7 @@ def build_burn_sensitivity():
         return
     burn_df = pd.read_csv(BURN_FILE)
     burn_df = burn_df.dropna(subset=["gas_burn_bcfd", "mean_temp_gw"]).sort_values("date").tail(FIT_WINDOW_DAYS)
+    burn_df["month"] = pd.to_datetime(burn_df["date"]).dt.month
 
     fit = fit_quadratic(burn_df["mean_temp_gw"], burn_df["gas_burn_bcfd"])
 
@@ -227,8 +231,8 @@ def build_burn_sensitivity():
     forecast_series = []
     if fit:
         cur_temp = float(burn_df["mean_temp_gw"].iloc[-1])
-        hdd_arm = arm_sensitivity(burn_df, "hdd_gw")
-        cdd_arm = arm_sensitivity(burn_df, "cdd_gw")
+        hdd_arm = arm_sensitivity(burn_df, "hdd_gw", (10, 11, 12, 1, 2, 3))
+        cdd_arm = arm_sensitivity(burn_df, "cdd_gw", (4, 5, 6, 7, 8, 9))
         sensitivity = {
             "current_temp_f": round(cur_temp, 1),
             "bcf_per_f_at_current": round(slope_at(fit, cur_temp), 4),
