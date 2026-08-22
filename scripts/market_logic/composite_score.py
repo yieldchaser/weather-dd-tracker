@@ -23,10 +23,72 @@ OUTPUT_DIR = Path("outputs")
 DISAGREEMENT_FILE = OUTPUT_DIR / "physics_vs_ai_disagreement.csv"
 POWER_BURN_FILE = OUTPUT_DIR / "power_burn_cdd_proxy.csv"
 
-# Load the daily gas-weighted normal baseline 
+# Load the daily gas-weighted normal baseline
 NORMALS_FILE = Path("data/normals/us_daily_normals.csv")
 
 WIND_FILE = OUTPUT_DIR / "wind_generation_anomaly_proxy.csv"
+
+GRID_FILE = OUTPUT_DIR / "live_grid_generation.csv"
+BURN_SENS_FILE = OUTPUT_DIR / "burn_sensitivity.json"
+
+
+def _load_fresh_wind_anomaly_gw(max_age_days=7):
+    """
+    Latest complete-day national wind anomaly in GW from the live grid
+    pipeline (like-for-like baseline). Replaces the fossilized
+    wind_generation_anomaly_proxy.csv, whose last row is March 2026.
+    Returns (anomaly_gw, date_str) or (None, None).
+    """
+    try:
+        if not GRID_FILE.exists():
+            return None, None
+        lg = pd.read_csv(GRID_FILE)
+        nat = lg[lg["iso"] == "NATIONAL"]
+        if nat.empty:
+            return None, None
+        # FORMAT HANDSHAKE: only files written by the completeness-aware
+        # pipeline carry sample_hours. Older formats baked in the partial-
+        # day phantom anomaly (-12 GW), so they must not be trusted here.
+        if "sample_hours" not in nat.columns:
+            return None, None
+        h = pd.to_numeric(nat["sample_hours"], errors="coerce").fillna(0)
+        nat = nat[h >= 18]
+        if nat.empty:
+            return None, None
+        nat = nat.sort_values("date")
+        last = nat.iloc[-1]
+        v = last.get("wind_anomaly_mw")
+        age = (pd.Timestamp.now().normalize()
+               - pd.to_datetime(last["date"]).normalize()).days
+        if pd.isna(v) or age > max_age_days or nat["sample_hours"].astype(float).max() < 18:
+            return None, None
+        return float(v) / 1000.0, str(last["date"])
+    except Exception:
+        return None, None
+
+
+def _load_fresh_power_burn_bias(max_age_days=3):
+    """
+    28-day realized-burn-vs-weather bias (Bcf/d) from the burn sensitivity
+    engine. Positive = burn running above what temperature explains
+    (non-weather strength). Replaces the fossilized power_burn_cdd_proxy.
+    Returns (bias_bcfd, generated_at_str) or (None, None).
+    """
+    try:
+        if not BURN_SENS_FILE.exists():
+            return None, None
+        with open(BURN_SENS_FILE) as f:
+            bs = json.load(f)
+        b = bs.get("model_error", {}).get("bias_28d")
+        ts = bs.get("generated_at_utc")
+        if b is None or not ts:
+            return None, None
+        ts = pd.to_datetime(ts, utc=True)
+        if (pd.Timestamp.now(tz="UTC") - ts).days > max_age_days:
+            return None, None
+        return float(b), ts.strftime("%Y-%m-%d")
+    except Exception:
+        return None, None
 
 def load_normals():
     gw_file = Path("data/normals/us_gas_weighted_normals.csv")
@@ -47,35 +109,36 @@ def compute_composite():
         return
         
     df_models = pd.read_csv(DISAGREEMENT_FILE)
-    
-    df_pb = None
-    if POWER_BURN_FILE.exists():
-        df_pb = pd.read_csv(POWER_BURN_FILE)
-        df_pb["date"] = df_pb["date"].astype(str).str.replace("-", "")
-        
-    df_wind = None
-    if WIND_FILE.exists():
-        df_wind = pd.read_csv(WIND_FILE)
-        df_wind["date"] = df_wind["date"].astype(str).str.replace("-", "")
-        
     df_models["date"] = df_models["date"].astype(str).str.replace("-", "")
-    
-    if df_pb is not None and not df_pb.empty and df_models.empty:
-        merged = df_pb.copy()
-        merged["ai_mean"] = pd.NA
-        merged["physics_mean"] = pd.NA
-        merged["disagreement_abs"] = 0.0
-        merged["volatility_risk_score"] = 0.0
-    elif df_pb is not None:
-        merged = pd.merge(df_models, df_pb, on="date", how="outer")
-    else:
-        merged = df_models
-        merged["power_burn_cdd"] = 0.0
 
-    if df_wind is not None:
-        merged = pd.merge(merged, df_wind, on="date", how="left")
-    else:
-        merged["wind_anomaly"] = 0.0
+    # The legacy proxy CSVs (power_burn_cdd_proxy / wind_generation_anomaly)
+    # stopped updating in March 2026 and their hardcoded trigger levels were
+    # never valid for the series they held. Fresh values now come straight
+    # from the live grid pipeline and the burn-sensitivity engine.
+    fresh_wind, wind_date = _load_fresh_wind_anomaly_gw()
+    fresh_pb, pb_date = _load_fresh_power_burn_bias()
+
+    merged = df_models.copy()
+    # Inject fresh fundamentals on TODAY'S row only — the frame spans the
+    # 15-day forecast horizon, and stamping a future date would let the
+    # tactical read pick up values for the wrong day.
+    today_key = _date.today().strftime("%Y%m%d")
+    if not merged.empty:
+        target = today_key if (merged["date"] == today_key).any() else merged["date"].min()
+        if fresh_pb is None and fresh_wind is None:
+            print("[Composite] Fresh fundamentals unavailable — running on consensus/volatility only.")
+        else:
+            merged["power_burn_cdd"] = 0.0
+            merged["wind_anomaly"] = 0.0
+            mask = merged["date"] == target
+            if fresh_pb is not None:
+                merged.loc[mask, "power_burn_cdd"] = round(fresh_pb, 2)
+            if fresh_wind is not None:
+                merged.loc[mask, "wind_anomaly"] = round(fresh_wind, 2)
+            notes = []
+            notes.append(f"power_burn_bias28d={'+' if (fresh_pb or 0) >= 0 else ''}{fresh_pb:.2f} Bcf/d" if fresh_pb is not None else "power_burn_bias=unavailable")
+            notes.append(f"wind_anomaly={fresh_wind:+.1f} GW" if fresh_wind is not None else "wind_anomaly=unavailable")
+            print(f"[Composite] Fresh fundamentals on {target}: " + " | ".join(notes))
         
     # Baseline for normal degree days (Placeholder if normal file isn't formatted properly yet)
     # Ideally, we calculate difference vs 30-year normal here.
@@ -187,27 +250,37 @@ def compute_composite():
         bcf_anomaly = weight_adjusted_hdd_signal(tdd_anomaly, rolling_coeff)
 
         bull_signal = 0.0
-        if bcf_anomaly > 0:
-            bull_signal += bcf_anomaly * 0.03  # half standard scaling since BCF is ~2x HDD
-        elif bcf_anomaly < -4:
-            bull_signal += bcf_anomaly * 0.02
+        # Symmetric ±1 Bcf/d deadband with equal scalers. The old code
+        # counted every positive Bcf at 0.03 but ignored bearish anomalies
+        # down to -4 and then scaled them at only 0.02 — a structural long
+        # tilt of up to +0.12/day baked into the signal.
+        if bcf_anomaly > 1.0:
+            bull_signal += (bcf_anomaly - 1.0) * 0.03
+        elif bcf_anomaly < -1.0:
+            bull_signal += (bcf_anomaly + 1.0) * 0.03
             
-        # Add Power Burn weight
+        # Power-burn strength: 28d realized-vs-weather-implied bias (Bcf/d),
+        # already centered at zero by construction. The old hardcoded '10'
+        # center sat far above the legacy series' actual range (0.7–4.9),
+        # so the trigger never fired once in its life.
         pb_val = row.get("power_burn_cdd", 0)
-        if not pd.isna(pb_val) and pb_val > 10:
-            bull_signal += (pb_val - 10) * 0.1
-            
+        if "power_burn_cdd" in row.index and not pd.isna(pb_val):
+            bull_signal += pb_val * 0.1
+
         # Volatility Discount (Uncertainty restricts taking heavy positions)
         vol_score = row.get("volatility_risk_score", 0)
         if pd.isna(vol_score): vol_score = 0.0
         confidence_multiplier = max(0.2, 1.0 - (vol_score / 100.0))
-        
-        # Wind Dropout Premium (Negative anomaly is a wind dropout requiring gas)
+
+        # Wind Dropout Premium, in GW from the live grid pipeline. Triggers
+        # symmetrized at ±1.0 GW; the drought side keeps a larger slope
+        # deliberately — a wind drought forces scarce gas-fired coverage,
+        # while surplus merely displaces it cheaply.
         wind_anom = row.get("wind_anomaly", 0)
         if not pd.isna(wind_anom) and wind_anom < -1.0:
-            bull_signal += abs(wind_anom) * 0.15 # Bullish modifier
+            bull_signal += abs(wind_anom) * 0.15
         elif not pd.isna(wind_anom) and wind_anom > 1.5:
-            bull_signal -= abs(wind_anom) * 0.10 # Bearish modifier (High wind crushing gas spot)
+            bull_signal -= abs(wind_anom) * 0.10
         
         final_score = bull_signal * confidence_multiplier
         

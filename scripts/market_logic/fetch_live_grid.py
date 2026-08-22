@@ -55,7 +55,12 @@ HOURLY_GRID_RETENTION_DAYS = 180
 COMPLETE_DAY_HOURS = 18
 
 # Constants
-TOTAL_INSTALLED_GW = 110.0
+# Installed utility-scale wind capacity backing REAL EIA930 national
+# generation (all ISOs, full fleet): ~165 GW as of mid-2026 per EIA
+# Electric Power Monthly. The previous 110 GW was inherited from the wind
+# FORECAST node list and overstated CF by ~45%. REFRESH ANNUALLY — this
+# drifts ~5 GW/yr with builds; consider deriving from EIA capacity data.
+TOTAL_INSTALLED_GW = 165.0
 EIA_API_KEY = os.environ.get("EIA_KEY")
 
 ISO_LIST = ["ERCO", "PJM", "MISO", "SWPP", "CISO", "ISNE", "NYIS"]

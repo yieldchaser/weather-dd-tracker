@@ -869,7 +869,10 @@ def main():
 
     short_df = latest[latest["category"] == "SHORT"]
     if not short_df.empty:
-        short_lines = [f"\n<b>⏱ SHORT-TERM</b> (0–5 Day)"]
+        # Header horizon follows the actual models listed (NBM runs 8d, so
+        # the old hardcoded '0–5 Day' mislabeled its own table).
+        short_max = int(short_df["days"].max())
+        short_lines = [f"\n<b>⏱ SHORT-TERM</b> (0–{short_max} Day)"]
         for _, row in short_df.iterrows():
             fa = row["fa_gw"]
             vs = row["vs_normal"]

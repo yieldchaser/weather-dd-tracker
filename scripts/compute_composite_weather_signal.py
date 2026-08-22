@@ -175,17 +175,33 @@ def compute_composite_weather_signal():
 
     # ── 3. Dynamic Sensitivity ────────────────────────────────────────────────
     if sens_connected:
-        rolling_coeff = sensitivity.get('sensitivity_bcf_per_hdd', 2.0)
-        if rolling_coeff > 2.5:
-            val = 1.5 * 0.75
-            bull_score += val
-            components.append({"name": "High Weather Sensitivity (amplifies anomalies)", "score": val})
-        elif rolling_coeff < 1.8:
-            val = 1.0 * 0.75
-            bear_score += val
-            components.append({"name": "Low Weather Sensitivity (dampens anomalies)", "score": -val})
+        # Prefer the season-banded percentile (Bcf/CDD in summer cannot be
+        # judged on winter Bcf/HDD thresholds). Fall back to raw-coefficient
+        # thresholds only for legacy files written before the metric field.
+        pct = sensitivity.get('percentile')
+        if pct is not None:
+            if pct >= 70:
+                val = 1.5 * 0.75
+                bull_score += val
+                components.append({"name": f"High Weather Sensitivity ({sensitivity.get('metric','')} arm)", "score": val})
+            elif pct <= 30:
+                val = 1.0 * 0.75
+                bear_score += val
+                components.append({"name": f"Low Weather Sensitivity ({sensitivity.get('metric','')} arm)", "score": -val})
+            else:
+                components.append({"name": "Weather Sensitivity Neutral", "score": 0.0})
         else:
-            components.append({"name": "Weather Sensitivity Neutral", "score": 0.0})
+            rolling_coeff = sensitivity.get('sensitivity_bcf_per_hdd', 2.0)
+            if rolling_coeff > 2.5:
+                val = 1.5 * 0.75
+                bull_score += val
+                components.append({"name": "High Weather Sensitivity (amplifies anomalies)", "score": val})
+            elif rolling_coeff < 1.8:
+                val = 1.0 * 0.75
+                bear_score += val
+                components.append({"name": "Low Weather Sensitivity (dampens anomalies)", "score": -val})
+            else:
+                components.append({"name": "Weather Sensitivity Neutral", "score": 0.0})
     else:
         stale_systems.append(f"sensitivity ({sens_reason})")
 
