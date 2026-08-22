@@ -294,6 +294,28 @@
             padding: 50px;
             font-size: 1.2rem;
             color: var(--accent);
+            animation: loaderPulse 1.6s ease-in-out infinite;
+        }
+
+        @keyframes loaderPulse {
+            0%, 100% { opacity: 0.45; }
+            50% { opacity: 1; }
+        }
+
+        /* Stat rows under analytics charts */
+        .stat-line {
+            font-size: 0.85rem;
+            color: #c5c6c7;
+            line-height: 1.7;
+        }
+        .stat-line strong { color: #fff; }
+
+        html { scroll-behavior: smooth; }
+        [id$="-section"] { scroll-margin-top: 20px; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .loader { animation: none; }
+            html { scroll-behavior: auto; }
         }
 
         /* Navigation Bar */
@@ -636,7 +658,7 @@
                 <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
                     Realized burn vs what the fitted temp-response curve implies at NORMAL seasonal temperatures, plus the forward 15-day weather-implied projection from the live ensemble
                 </div>
-                <div id="burn-perf-stats" style="display:flex; flex-wrap:wrap; gap:18px; font-size:0.85rem; color:#c5c6c7; margin-bottom:8px;"></div>
+                <div id="burn-perf-stats" class="stat-line" style="display:flex; flex-wrap:wrap; gap:18px; font-size:0.85rem; color:#c5c6c7; margin-bottom:8px;"></div>
                 <div id="burn-perf-container" style="min-height: 380px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="burn-perf-msg" class="loader">Loading burn performance data...</div>
                     <canvas id="burnPerfChart"></canvas>
@@ -649,7 +671,7 @@
                 <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
                     Daily average ERCOT load vs population-weighted Texas temperature with a linear fit — quantifies GW per °F demand response and flags load running above or below weather-implied levels
                 </div>
-                <div id="ercot-fit-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:8px;"></div>
+                <div id="ercot-fit-stats" class="stat-line" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:8px;"></div>
                 <div id="ercot-fit-container" style="min-height: 380px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="ercot-fit-msg" class="loader">Loading ERCOT fit data...</div>
                     <canvas id="ercotFitChart"></canvas>
@@ -664,21 +686,21 @@
                 </div>
 
                 <h3 style="font-size: 1rem; margin-bottom: -8px;">Wind Generation</h3>
-                <div id="wind-vintage-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
+                <div id="wind-vintage-stats" class="stat-line" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
                 <div id="wind-vintage-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="wind-vintage-msg" class="loader">Loading wind history...</div>
                     <canvas id="windVintageChart"></canvas>
                 </div>
 
                 <h3 style="font-size: 1rem; margin-top: 20px; margin-bottom: -8px;">Nuclear Generation</h3>
-                <div id="nuclear-vintage-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
+                <div id="nuclear-vintage-stats" class="stat-line" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
                 <div id="nuclear-vintage-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="nuclear-vintage-msg" class="loader">Loading nuclear history...</div>
                     <canvas id="nuclearVintageChart"></canvas>
                 </div>
 
                 <h3 style="font-size: 1rem; margin-top: 20px; margin-bottom: -8px;">Peaker Dispatch Ratio Trend</h3>
-                <div id="peaker-drift-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
+                <div id="peaker-drift-stats" class="stat-line" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:6px;"></div>
                 <div id="peaker-drift-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="peaker-drift-msg" class="loader">Loading peaker trend...</div>
                     <canvas id="peakerDriftChart"></canvas>

@@ -808,6 +808,8 @@ A streak counter for wind CF below seasonal P25, combined with ensemble-based pe
 
 **Step 1: Build Seasonal CF Climatology (`scripts/wind/build_wind_climo.py`)**
 
+> **Status: RETIRED (Aug 2026) — script removed.** Climatology is now built and self-maintained inside `forecast_wind_power.py` (`outputs/wind/wind_climo_30d.json`, auto-rebuilt when stale). The standalone builder was never invoked by any workflow and its output was never consumed.
+
 ```python
 import requests
 import pandas as pd
@@ -882,6 +884,8 @@ ISO_INSTALLED_CAPACITY_GW = {
 ```
 
 **Step 2: Wind Drought Streak Counter (`scripts/wind/drought_tracker.py`)**
+
+> **Status: RETIRED (Aug 2026) — script removed.** `outputs/wind/drought.json` is produced by `scripts/wind/forecast_wind_power.py` (System 5 workflow), whose schema is what every consumer (grid.html, composite signal, Telegram) reads. This earlier EIA-v2 variant was never scheduled and wrote an incompatible schema.
 
 ```python
 import pandas as pd
