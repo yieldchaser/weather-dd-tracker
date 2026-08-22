@@ -470,8 +470,14 @@ def _fmt_teleconnections():
 
         idx_line = (f"AO {_arr(ao)}{_sig(ao)}  NAO {_arr(nao)}{_sig(nao)}  "
                     f"PNA {_arr(pna)}{_sig(pna)}  EPO {_arr(epo)}{_sig(epo)}")
+        # The index arrows use the cold-bullish convention year-round; label
+        # it explicitly in the off-season so green cold-arrows in August are
+        # not read as near-term gas demand signal (the composite already
+        # damps teleconnection weight to 0.15 in summer).
+        off_season = date.today().month in (5, 6, 7, 8, 9)
+        cr_suffix = " <i>(off-season: pattern-seeding only, damped in composite)</i>" if off_season else ""
         lines = [f"<b>📡 TELECONNECTIONS</b>: {idx_line}",
-                 f"  Cold Risk: {cold_risk}/100 {risk_emoji}"]
+                 f"  Cold Risk: {cold_risk}/100 {risk_emoji}{cr_suffix}"]
         as_of = td.get("as_of") or {}
         if as_of:
             latest = max(str(d) for d in as_of.values())
@@ -668,11 +674,16 @@ def _fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s):
     display_run_id = run_id.replace("_AI", "-AI")
     fa = row["fa_gw"]
     vs = row["vs_normal"]
+    if abs(vs) < 0.05:
+        vs = 0.0  # normalize -0.0: anomalies inside the +-0.05 flat band read as zero
     stale_tag = f" ⏳stale({int(row.get('run_age', 0))}d)" if row.get("stale_run", False) else ""
 
     line1 = (f"<b>{_esc(model)}</b>{stale_tag} [{_esc(display_run_id)}] {n_days}d  "
              f"NT:{nt_str}  EX:{ex_str}  Avg:{fa:.1f}({vs:+.1f}{_signal(vs)})")
-    line2 = f"  {run_chg} — {trend_str}"
+    if prev_rows.empty:
+        line2 = "  First run — no prior run to compare"
+    else:
+        line2 = f"  {run_chg} — {trend_str}"
     return line1 + "\n" + line2
 
 
