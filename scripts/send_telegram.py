@@ -4,6 +4,7 @@ import re
 import json
 import requests
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from datetime import date
 import datetime
@@ -58,18 +59,55 @@ def _signal_label(vs_normal):
     return "NEUTRAL ⚪"
 
 
-def _trend(model, sorted_summary):
+def _trend(model, sorted_summary, df=None, tdd_col="tdd_gw"):
+    """
+    Consecutive-direction streak on the run-over-run shift, computed on the
+    SAME common-date basis as the displayed run_chg number. The old version
+    streaked on full-window averages while the line showed the common-date
+    delta — two different metrics that could point opposite ways on one
+    line (e.g. '▼-0.1 — 1st consec bull').
+    """
     runs = sorted_summary[sorted_summary["model"] == model].sort_values("run_id").reset_index(drop=True)
     if len(runs) < 2:
         return "first run"
-    deltas = [runs.loc[i, "fa_gw"] - runs.loc[i-1, "fa_gw"] for i in range(1, len(runs))]
+
+    deltas = []
+    # One groupby pass, then index-aligned lookups per pair — the naive
+    # version re-scanned the whole master frame per pair and stalled on
+    # models with 100+ archived runs.
+    if df is not None and tdd_col in df.columns:
+        means = (df[df["model"] == model]
+                 .groupby(["run_id", "date"])[tdd_col].mean())
+        run_ids = runs["run_id"].tolist()
+        for i in range(1, len(run_ids)):
+            cur, prv = run_ids[i], run_ids[i - 1]
+            d = np.nan
+            try:
+                a = means.loc[cur]
+                b = means.loc[prv]
+            except KeyError:
+                a = b = None
+            if a is not None and b is not None:
+                common = a.index.intersection(b.index)
+                if len(common):
+                    diff = (a[common] - b[common]).dropna()
+                    if len(diff):
+                        d = float(diff.mean())
+            if pd.isna(d):
+                d = runs.loc[i, "fa_gw"] - runs.loc[i - 1, "fa_gw"]
+            deltas.append(d)
+    else:
+        deltas = [runs.loc[i, "fa_gw"] - runs.loc[i - 1, "fa_gw"] for i in range(1, len(runs))]
+
     latest = deltas[-1]
     if pd.isna(latest):
         return "insufficient data"
+    if abs(latest) < 0.05:
+        return "flat"
     direction = "bull" if latest > 0 else "bear"
     count = 1
     for d in reversed(deltas[:-1]):
-        if pd.isna(d):
+        if pd.isna(d) or abs(d) < 0.05:
             break
         if (d > 0) == (latest > 0):
             count += 1
@@ -101,25 +139,63 @@ def _get_classification(model):
     return "AI"
 
 
-def _send_telegram(token, chat_id, text):
-    """Send a message; auto-split if over limit."""
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    chunks = []
-    while len(text) > MAX_MSG_CHARS:
-        split_at = text.rfind("\n", 0, MAX_MSG_CHARS)
-        if split_at == -1:
-            split_at = MAX_MSG_CHARS
-        chunks.append(text[:split_at].strip())
-        text = text[split_at:].strip()
-    chunks.append(text.strip())
+# A run older than its cadence allows is displayed for transparency but
+# must not vote in consensus counts or spreads — a June FOURCASTNET run
+# printed '+2.6 vs normal, 5th consec bull' in August and tipped the AI
+# consensus LEAN BULL on data two months stale.
+MAX_RUN_AGE_DAYS = {"EC46": 12, "GEFS_35D": 5}
 
-    for chunk in chunks:
+
+def _run_age_days(run_id):
+    try:
+        return int((pd.Timestamp.now().normalize()
+                    - pd.to_datetime(str(run_id).split("_")[0], format="%Y%m%d")).days)
+    except Exception:
+        return 0
+
+
+def _max_run_age(model):
+    m = str(model).upper()
+    if "FOURCASTNET" in m:
+        return 10
+    return MAX_RUN_AGE_DAYS.get(m, 3)
+
+
+def _send_telegram(token, chat_id, text):
+    """Send a message; split at SECTION boundaries first so a chunk never
+    cuts a section mid-line (the old newline-rfind split once ended a
+    message mid-sentence inside the freeze block)."""
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+    PACK_LIMIT = MAX_MSG_CHARS - 60  # headroom for the '(cont.)' prefix
+    blocks = [b.strip() for b in text.split("\n\n") if b.strip()]
+
+    chunks, cur = [], ""
+    for b in blocks:
+        cand = f"{cur}\n\n{b}" if cur else b
+        if len(cand) <= PACK_LIMIT:
+            cur = cand
+            continue
+        if cur:
+            chunks.append(cur)
+            cur = ""
+        while len(b) > PACK_LIMIT:
+            cut = b.rfind("\n", 0, PACK_LIMIT)
+            cut = cut if cut != -1 else PACK_LIMIT
+            chunks.append(b[:cut].strip())
+            b = b[cut:].strip()
+        cur = b
+    if cur:
+        chunks.append(cur)
+
+    for i, chunk in enumerate(chunks):
         if not chunk:
             continue
+        body = chunk if i == 0 else f"<i>(cont. {i + 1}/{len(chunks)})</i>\n\n{chunk}"
         try:
             resp = requests.post(
                 url,
-                json={"chat_id": chat_id, "text": chunk, "parse_mode": "HTML"},
+                json={"chat_id": chat_id, "text": body, "parse_mode": "HTML"},
                 timeout=15,
             )
             if not resp.ok:
@@ -130,15 +206,32 @@ def _send_telegram(token, chat_id, text):
 
 # ── Live Grid loader ────────────────────────────────────────────────────────
 
+def _latest_complete(df):
+    """
+    Newest row from a history frame, preferring COMPLETE-day samples. The
+    grid histories now carry partial mid-session captures tagged with
+    sample_hours; a 5-hour mean must not be presented as the day's number.
+    """
+    if df is None or df.empty:
+        return None
+    d = df.copy()
+    if "sample_hours" in d.columns:
+        hours = pd.to_numeric(d["sample_hours"], errors="coerce").fillna(24)
+        full = d[hours >= 18]
+        if not full.empty:
+            d = full
+    return d.sort_values("date").iloc[-1]
+
+
 def _load_live_grid():
     result = {}
 
     thermal = Path("outputs/thermal_history.csv")
     if thermal.exists():
         try:
-            th = pd.read_csv(thermal).sort_values("date")
-            if not th.empty:
-                row = th.iloc[-1]
+            th = pd.read_csv(thermal)
+            row = _latest_complete(th)
+            if row is not None:
                 result["grid_date"]       = row.get("date", "N/A")
                 result["gas_mw"]          = row.get("natural_gas_mw")
                 result["load_mw"]         = row.get("load_mw")
@@ -151,9 +244,9 @@ def _load_live_grid():
     gas_burn = Path("outputs/gas_burn_history.csv")
     if gas_burn.exists():
         try:
-            gb = pd.read_csv(gas_burn).sort_values("date")
-            if not gb.empty:
-                row = gb.iloc[-1]
+            gb = pd.read_csv(gas_burn)
+            row = _latest_complete(gb)
+            if row is not None:
                 result["gas_burn_bcfd"]   = row.get("gas_burn_bcfd")
                 result["gas_burn_date"]   = row.get("date")
                 result["mean_temp_gw"]    = row.get("mean_temp_gw")
@@ -164,9 +257,9 @@ def _load_live_grid():
     peaker = Path("outputs/peaker_history.csv")
     if peaker.exists():
         try:
-            pk = pd.read_csv(peaker).sort_values("date")
-            if not pk.empty:
-                row = pk.iloc[-1]
+            pk = pd.read_csv(peaker)
+            row = _latest_complete(pk)
+            if row is not None:
                 result["peaker_date"] = row.get("date")
                 result["peaker_pct"]  = row.get("peaker_proxy_pct")
                 result["peak_load"]   = row.get("peak_load_mw")
@@ -246,11 +339,32 @@ def _fmt_composite(comp_data):
     confidence = comp_data.get("confidence", 100.0)
     lines.append(f"<b>⚡ COMPOSITE: {_esc(bias_str)}</b>  Score: {score:+.1f}  Confidence: {confidence:.0f}%")
 
+    # Tactical reconciliation: the 0-15d ensemble signal vs this subseasonal
+    # composite. Divergence is structure, not error — surface it, don't hide it.
+    tac = comp_data.get("tactical_signal")
+    if tac and tac.get("bias"):
+        ts = tac.get("score", 0.0) or 0.0
+        agree = comp_data.get("agreement_pct")
+        badge = ""
+        if agree == 100:
+            badge = "  ✅ ALIGNED"
+        elif agree == 0:
+            badge = "  ⚠️ DIVERGENT"
+        lines.append(
+            f"  TACTICAL (0-15d): <b>{_esc(str(tac['bias']))} ({ts:+.2f})</b>{badge}"
+        )
+        note = comp_data.get("divergence_note")
+        if note and agree == 0:
+            lines.append(f"  <i>{_esc(note)}</i>")
+
     components    = comp_data.get("components", [])
     stale_systems = comp_data.get("stale_systems", [])
     if components:
-        bull_items = [(c["name"], c["score"]) for c in components if c.get("score", 0) > 0]
-        bear_items = [(c["name"], c["score"]) for c in components if c.get("score", 0) < 0]
+        def _short(n):
+            # 'Summer Ridge Heat (Regime 5 (Arctic Block / ...))' -> 'Summer Ridge Heat'
+            return re.sub(r"\s*\(Regime\s+\d+.*$", "", n).strip()
+        bull_items = [(_short(c["name"]), c["score"]) for c in components if c.get("score", 0) > 0]
+        bear_items = [(_short(c["name"]), c["score"]) for c in components if c.get("score", 0) < 0]
         if bull_items:
             bulls = "  │  ".join(f"{_esc(n)} (+{s:.1f})" for n, s in sorted(bull_items, key=lambda x: -x[1]))
             lines.append(f"  🟢 {bulls}")
@@ -280,12 +394,32 @@ def _fmt_regime():
         in_dom   = regime_data.get("in_training_domain", True)
 
         lbl_lower = clean_label.lower()
-        if any(w in lbl_lower for w in ["trough", "arctic", "polar", "vortex"]):
-            bias = "🟢 Bullish"
-        elif any(w in lbl_lower for w in ["ridge", "zonal"]):
-            bias = "🔴 Bearish"
+        # Season-correct polarity, mirroring compute_composite_weather_signal:
+        # the same pattern is bullish in heating season and INVERTED in deep
+        # summer (a ridge IS the cooling-demand heat). The old unconditional
+        # mapping printed 'Arctic Block / Trough East 🟢 Bullish' in August,
+        # contradicting the composite line above it.
+        month_now = date.today().month
+        has_block = "Arctic Block" in clean_label
+        has_pv    = "Polar Vortex" in clean_label
+        ridge     = ("Ridge East" in clean_label) or ("Ridge West" in clean_label)
+        trough    = ("Trough East" in clean_label) or ("Trough West" in clean_label)
+        zonal     = "Zonal Flow" in clean_label
+
+        if month_now in (6, 7, 8):
+            if ridge:
+                bias = "🟢 Bullish (summer heat)"
+            elif trough or has_pv or zonal:
+                bias = "🔴 Bearish (summer cool)"
+            else:
+                bias = "⚪ Neutral off-season"
         else:
-            bias = "⚪ Neutral"
+            if has_block or trough:
+                bias = "🟢 Bullish (cold delivery)"
+            elif has_pv or ridge or zonal:
+                bias = "🔴 Bearish (mild pattern)"
+            else:
+                bias = "⚪ Neutral"
 
         stale_note = " ⚠️stale" if stale else ""
         dom_note   = " ⚠️extrapolated" if not in_dom else ""
@@ -339,13 +473,17 @@ def _fmt_teleconnections():
         lines = [f"<b>📡 TELECONNECTIONS</b>: {idx_line}",
                  f"  Cold Risk: {cold_risk}/100 {risk_emoji}"]
 
+        # The analog library maps teleconnection phases to historical
+        # March/April HDD outcomes — demand-relevant only in heating season.
+        # Printing 'Warm March → Cold April snap' in August is noise.
         analogs = td.get("analogs", [])
-        for a in analogs[:2]:
-            if isinstance(a, dict):
-                year    = a.get("year")
-                anom    = a.get("mar_hdd_anomaly", 0.0)
-                outcome = a.get("outcome", "N/A")
-                lines.append(f"  Analog {year}: {anom:+.1f} HDD → {_esc(str(outcome))}")
+        if date.today().month in (11, 12, 1, 2, 3):
+            for a in analogs[:2]:
+                if isinstance(a, dict):
+                    year    = a.get("year")
+                    anom    = a.get("mar_hdd_anomaly", 0.0)
+                    outcome = a.get("outcome", "N/A")
+                    lines.append(f"  Analog {year}: {anom:+.1f} HDD → {_esc(str(outcome))}")
         return "\n".join(lines)
     except Exception as e:
         print(f"[WARN] Teleconnection block failed: {e}")
@@ -509,15 +647,19 @@ def _fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s):
             if pd.isna(f_lat) or pd.isna(f_prv) or is_polluted:
                 f_lat, f_prv = lat_si, prv_si
             delta = f_lat - f_prv
-            arrow = "▲" if delta > 0 else "▼"
-            run_chg = f"{arrow}{delta:+.1f} {run_chg_lbl}"
+            if abs(delta) < 0.05:
+                run_chg = f"±0.0 {run_chg_lbl} (flat)"
+            else:
+                arrow = "▲" if delta > 0 else "▼"
+                run_chg = f"{arrow}{delta:+.1f} {run_chg_lbl}"
 
-    trend_str = _trend(model, sorted_s)
+    trend_str = _trend(model, sorted_s, df=df, tdd_col=tdd_col)
     display_run_id = run_id.replace("_AI", "-AI")
     fa = row["fa_gw"]
     vs = row["vs_normal"]
+    stale_tag = f" ⏳stale({int(row.get('run_age', 0))}d)" if row.get("stale_run", False) else ""
 
-    line1 = (f"<b>{_esc(model)}</b> [{_esc(display_run_id)}] {n_days}d  "
+    line1 = (f"<b>{_esc(model)}</b>{stale_tag} [{_esc(display_run_id)}] {n_days}d  "
              f"NT:{nt_str}  EX:{ex_str}  Avg:{fa:.1f}({vs:+.1f}{_signal(vs)})")
     line2 = f"  {run_chg} — {trend_str}"
     return line1 + "\n" + line2
@@ -581,6 +723,8 @@ def main():
     summary["vs_normal"] = summary["fa_gw"] - summary["na_avg"]
     summary["signal"]    = summary["vs_normal"].apply(_signal_label)
     summary["category"]  = summary["model"].apply(_get_classification)
+    summary["run_age"]   = summary["run_id"].apply(_run_age_days)
+    summary["stale_run"] = summary["run_age"] > summary["model"].apply(_max_run_age)
 
     sorted_s = summary.sort_values("run_id")
     latest   = sorted_s.groupby("model").last().reset_index()
@@ -691,7 +835,8 @@ def main():
         primary_avgs = {}
         for _, row in primaries.iterrows():
             primary_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
-            primary_avgs[row["model"]] = row["fa_gw"]
+            if not row.get("stale_run", False):
+                primary_avgs[row["model"]] = row["fa_gw"]
         model_sections.append("\n".join(primary_lines))
 
         if len(primary_avgs) >= 2:
@@ -706,16 +851,20 @@ def main():
         ai_lines = [f"\n<b>🤖 AI BASE SPACE</b> (10–15 Day)"]
         for _, row in ai_models_df.iterrows():
             ai_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
-        ai_signals = ai_models_df["signal"].tolist()
+        ai_signals = ai_models_df[~ai_models_df["stale_run"]]["signal"].tolist()
         bull_ai    = sum("BULLISH" in s for s in ai_signals)
         bear_ai    = sum("BEARISH" in s for s in ai_signals)
         ai_total   = len(ai_signals)
-        if bull_ai == ai_total:        cons = f"BULLISH 🟢 ({bull_ai}/{ai_total})"
-        elif bear_ai == ai_total:      cons = f"BEARISH 🔴 ({bear_ai}/{ai_total})"
-        elif bull_ai > bear_ai:        cons = f"LEAN BULL 🟢 ({bull_ai}/{ai_total})"
-        elif bear_ai > bull_ai:        cons = f"LEAN BEAR 🔴 ({bear_ai}/{ai_total})"
-        else:                          cons = f"MIXED ⚪ ({ai_total} models)"
-        ai_lines.append(f"  <b>AI Consensus: {cons}</b>")
+        n_stale    = int(ai_models_df["stale_run"].sum())
+        stale_note = f"  <i>({n_stale} stale run(s) excluded)</i>" if n_stale else ""
+        if ai_total == 0:
+            cons = f"N/A — no fresh runs ⏳"
+        elif bull_ai == ai_total:        cons = f"BULLISH 🟢 ({bull_ai}/{ai_total})"
+        elif bear_ai == ai_total:        cons = f"BEARISH 🔴 ({bear_ai}/{ai_total})"
+        elif bull_ai > bear_ai:          cons = f"LEAN BULL 🟢 ({bull_ai}/{ai_total})"
+        elif bear_ai > bull_ai:          cons = f"LEAN BEAR 🔴 ({bear_ai}/{ai_total})"
+        else:                            cons = f"MIXED ⚪ ({ai_total} models)"
+        ai_lines.append(f"  <b>AI Consensus: {cons}</b>{stale_note}")
         model_sections.append("\n".join(ai_lines))
 
     short_df = latest[latest["category"] == "SHORT"]
