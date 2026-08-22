@@ -99,6 +99,39 @@ def get_eia_data(endpoint, iso_code, start_dt, today, data_type=None):
         print(f"  [ERR] EIA Fetch failed ({iso_code}, {data_type}): {e}")
     return pd.DataFrame()
 
+def _like_for_like_wind_anomaly(hourly_df, latest_date, min_hours=3):
+    """
+    Compare the latest (often PARTIAL) day's wind output against history
+    restricted to the SAME UTC hours-of-day.
+
+    A raw partial-day mean vs a full-day baseline injects diurnal bias:
+    on 2026-08-21 a ~5-hour overnight sample read -12.1 GW of phantom
+    national wind drought against 24h baselines while per-ISO anomalies
+    summed to only -4.7 GW, firing a false BULLISH flag.
+
+    Returns (anomaly, same_hours_baseline, n_hours); (None, None, n) if
+    the sample is too thin to score.
+    """
+    if hourly_df is None or hourly_df.empty or "period" not in hourly_df.columns:
+        return None, None, 0
+    hh = hourly_df.copy()
+    hh["_dt"] = pd.to_datetime(hh["period"])
+    hh["_hour"] = hh["_dt"].dt.hour
+    if "date_only" not in hh.columns:
+        hh["date_only"] = hh["_dt"].dt.strftime("%Y-%m-%d")
+    today = hh[hh["date_only"] == str(latest_date)]
+    hours = sorted(today["_hour"].unique())
+    if len(hours) < min_hours or "wind_mw" not in hh.columns:
+        return None, None, len(hours)
+    hist = hh[(hh["date_only"] != str(latest_date)) & (hh["_hour"].isin(hours))]
+    if hist.empty:
+        return None, None, len(hours)
+    hist_daily_means = hist.groupby("date_only")["wind_mw"].mean()
+    baseline = float(hist_daily_means.mean())
+    today_mean = float(today["wind_mw"].mean())
+    return today_mean - baseline, baseline, len(hours)
+
+
 def fetch_live_grid():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if not EIA_API_KEY:
@@ -163,14 +196,18 @@ def fetch_live_grid():
             continue
         today_row = matching_rows.iloc[0].to_dict()
         
-        # Anomaly logic (30d trailing)
-        hist_wind = daily[daily["date_only"] != latest_date]["wind_mw"].mean()
-        
-        # Per-ISO impact logic
-        anomaly = today_row.get("wind_mw", 0) - hist_wind if pd.notna(hist_wind) else 0
-        if anomaly < -1000: impact = "BULLISH (Wind Drought)"
-        elif anomaly > 1500: impact = "BEARISH (Strong Wind)"
-        else: impact = "NEUTRAL"
+        # Anomaly logic — like-for-like on UTC hours (partial days happen
+        # whenever EIA publishes mid-day; a raw partial mean vs full-day
+        # baseline fabricates drought/surplus signals).
+        anomaly, hist_wind, n_hours = _like_for_like_wind_anomaly(merged_hourly, latest_date)
+        if anomaly is None:
+            impact = "NEUTRAL"
+        else:
+            if anomaly < -1000: impact = "BULLISH (Wind Drought)"
+            elif anomaly > 1500: impact = "BEARISH (Strong Wind)"
+            else: impact = "NEUTRAL"
+            if n_hours < 20:
+                impact += f" [partial {n_hours}h]"
 
         out_row = {
             "date": latest_date,
@@ -181,8 +218,8 @@ def fetch_live_grid():
             "coal_mw": round(today_row.get("coal_mw", 0)) if pd.notna(today_row.get("coal_mw")) else None,
             "nuclear_mw": round(today_row.get("nuclear_mw", 0)) if pd.notna(today_row.get("nuclear_mw")) else None,
             "load_mw": round(today_row.get("load_mw", 0)) if pd.notna(today_row.get("load_mw")) else None,
-            "wind_30d_avg_mw": round(hist_wind) if pd.notna(hist_wind) else None,
-            "wind_anomaly_mw": round(anomaly) if pd.notna(hist_wind) else None,
+            "wind_30d_avg_mw": round(hist_wind) if hist_wind is not None else None,
+            "wind_anomaly_mw": round(anomaly) if anomaly is not None else None,
             "gas_burn_impact": impact
         }
 
@@ -229,9 +266,10 @@ def fetch_live_grid():
         return len(all_iso_output_rows)
     nat_today = matching_nat.iloc[0].to_dict()
     
-    # Trailing 30d for NATIONAL anomaly
-    hist_wind_nat = nat_daily[nat_daily["date_only"] != latest_date_nat]["wind_mw"].mean()
-    
+    # Like-for-like wind baseline for NATIONAL (same UTC hours as today's
+    # partial sample — see _like_for_like_wind_anomaly).
+    nat_anomaly, hist_wind_nat, nat_hours = _like_for_like_wind_anomaly(national_hourly, latest_date_nat)
+
     nat_row = {
         "date": latest_date_nat,
         "iso": "NATIONAL",
@@ -241,15 +279,19 @@ def fetch_live_grid():
         "coal_mw": round(nat_today["coal_mw"]),
         "nuclear_mw": round(nat_today["nuclear_mw"]),
         "load_mw": round(nat_today["load_mw"]),
-        "wind_30d_avg_mw": round(hist_wind_nat) if pd.notna(hist_wind_nat) else None,
-        "wind_anomaly_mw": round(nat_today["wind_mw"] - hist_wind_nat) if pd.notna(hist_wind_nat) else None
+        "wind_30d_avg_mw": round(hist_wind_nat) if hist_wind_nat is not None else None,
+        "wind_anomaly_mw": round(nat_anomaly) if nat_anomaly is not None else None
     }
-    
+
     # Impact logic
     anom = nat_row["wind_anomaly_mw"] or 0
-    if anom < -3000: impact_nat = "BULLISH (Wind Drought)"
+    if nat_row["wind_anomaly_mw"] is None:
+        impact_nat = "NEUTRAL"
+    elif anom < -3000: impact_nat = "BULLISH (Wind Drought)"
     elif anom > 4000: impact_nat = "BEARISH (Strong Wind)"
     else: impact_nat = "NEUTRAL"
+    if impact_nat != "NEUTRAL" and nat_hours < 20:
+        impact_nat += f" [partial {nat_hours}h]"
     nat_row["gas_burn_impact"] = impact_nat
 
     # Thermal & Load Metrics
