@@ -1964,6 +1964,11 @@
         }
 
         function setTcCard(valEl, value) {
+            if (value === null || value === undefined || Number.isNaN(Number(value))) {
+                valEl.textContent = 'N/A';
+                valEl.className = 'tc-val tc-zero';
+                return;
+            }
             valEl.textContent = Number(value).toFixed(1);
             valEl.className = 'tc-val ' + (value < 0 ? 'tc-cold' : value > 0 ? 'tc-warm' : 'tc-zero');
         }
@@ -2454,6 +2459,10 @@
                 "PNA": "The Pacific-North American index. A <strong>positive phase</strong> correlates with warmer western US and colder eastern US temperatures, whereas a <strong>negative phase</strong> is the reverse.",
                 "EPO": "The East Pacific Oscillation index. A <strong>negative phase</strong> blocks warm Pacific air and drives cold arctic air down into the central and eastern US, whereas a <strong>positive phase</strong> leads to zonal flow and mild weather."
             };
+            if (val === null || val === undefined || Number.isNaN(Number(val))) {
+                TOOLTIPS[keyUpper].body = "Today's value unavailable (feed gap).<br><br>" + descMap[keyUpper];
+                return;
+            }
                 // Per-index risk hints: AO-/NAO-/EPO- favor cold delivery into
                 // the US; PNA+ does too via an East trough (its West warms).
                 const riskHint = {

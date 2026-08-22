@@ -473,17 +473,22 @@ def _fmt_teleconnections():
         lines = [f"<b>📡 TELECONNECTIONS</b>: {idx_line}",
                  f"  Cold Risk: {cold_risk}/100 {risk_emoji}"]
 
-        # The analog library maps teleconnection phases to historical
-        # March/April HDD outcomes — demand-relevant only in heating season.
-        # Printing 'Warm March → Cold April snap' in August is noise.
+        # Analog years are matched from real teleconnection distances;
+        # their March/April HDD outcomes are real ERA5-derived anomalies
+        # vs the 1991-2020 normals (absent when coverage is missing).
+        # Demand-relevant only in heating season.
         analogs = td.get("analogs", [])
         if date.today().month in (11, 12, 1, 2, 3):
             for a in analogs[:2]:
                 if isinstance(a, dict):
-                    year    = a.get("year")
-                    anom    = a.get("mar_hdd_anomaly", 0.0)
-                    outcome = a.get("outcome", "N/A")
-                    lines.append(f"  Analog {year}: {anom:+.1f} HDD → {_esc(str(outcome))}")
+                    year = a.get("year")
+                    anom = a.get("mar_hdd_anomaly")
+                    apr  = a.get("apr_hdd_anomaly")
+                    if anom is None:
+                        lines.append(f"  Analog {year}: outcome data unavailable")
+                    else:
+                        tail = f" · Apr {apr:+.1f}" if apr is not None else ""
+                        lines.append(f"  Analog {year}: Mar {anom:+.1f} HDD vs 30yr normal{tail}")
         return "\n".join(lines)
     except Exception as e:
         print(f"[WARN] Teleconnection block failed: {e}")

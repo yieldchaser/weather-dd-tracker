@@ -45,20 +45,95 @@ def fetch_cpc_csv(index_name, url):
         logging.error(f"Error fetching {index_name} from {url}: {e}")
         return pd.DataFrame()
 
-ANALOG_OUTCOMES = {
-    1992: {"mar_hdd_anomaly": -8.2, "apr_hdd_anomaly": +3.1, "outcome": "Warm March → Cold April snap"},
-    1966: {"mar_hdd_anomaly": +5.1, "apr_hdd_anomaly": -2.0, "outcome": "Cold March, mild spring"},
-    2025: {"mar_hdd_anomaly": -6.3, "apr_hdd_anomaly": +1.2, "outcome": "Record warm March"},
-    2012: {"mar_hdd_anomaly": -12.1, "apr_hdd_anomaly": -3.0, "outcome": "Warmest March on record"},
-    2016: {"mar_hdd_anomaly": -7.4, "apr_hdd_anomaly": +2.1, "outcome": "Strong El Nino warmth"},
-    2002: {"mar_hdd_anomaly": -4.2, "apr_hdd_anomaly": -1.5, "outcome": "Moderate warm bias"},
-    1998: {"mar_hdd_anomaly": -9.1, "apr_hdd_anomaly": +0.8, "outcome": "El Nino peak warmth"},
-    2010: {"mar_hdd_anomaly": +3.2, "apr_hdd_anomaly": -4.1, "outcome": "Cold March, warm spring"},
-    2020: {"mar_hdd_anomaly": -5.5, "apr_hdd_anomaly": -2.3, "outcome": "Warm winter continuation"},
-    1990: {"mar_hdd_anomaly": -2.0, "apr_hdd_anomaly": -1.5, "outcome": "Mild winter end"},
-    2015: {"mar_hdd_anomaly": -4.5, "apr_hdd_anomaly": -2.0, "outcome": "Warm March transition"},
-    1989: {"mar_hdd_anomaly": +1.5, "apr_hdd_anomaly": -3.0, "outcome": "Cold start, early spring"},
-}
+# The old ANALOG_OUTCOMES dict hardcoded invented March/April HDD anomalies
+# and narrative strings for 12 cherry-picked years; whichever years the real
+# distance matching surfaced, fabricated numbers were stapled onto them in
+# production alerts. Outcomes are now computed from the same ERA5 archive
+# that builds the normals, cached per year, and omitted entirely when a year
+# has no coverage.
+_ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
+ANALOG_OUTCOMES_CACHE = os.path.join(_ROOT, 'data', 'analog_outcomes.csv')
+NORMALS_FILE = os.path.join(_ROOT, 'data', 'normals', 'us_gas_weighted_normals.csv')
+
+def _load_outcome_cache():
+    if os.path.exists(ANALOG_OUTCOMES_CACHE):
+        try:
+            df = pd.read_csv(ANALOG_OUTCOMES_CACHE)
+            return {int(r.year): (float(r.mar_hdd_anomaly), float(r.apr_hdd_anomaly)) for r in df.itertuples()}
+        except Exception as e:
+            logging.warning(f"Analog outcome cache unreadable ({e}); recomputing.")
+    return {}
+
+def _append_outcome_cache(year, mar_anom, apr_anom):
+    row = pd.DataFrame([{"year": int(year), "mar_hdd_anomaly": round(mar_anom, 2), "apr_hdd_anomaly": round(apr_anom, 2)}])
+    os.makedirs(os.path.dirname(ANALOG_OUTCOMES_CACHE), exist_ok=True)
+    header = not os.path.exists(ANALOG_OUTCOMES_CACHE)
+    row.to_csv(ANALOG_OUTCOMES_CACHE, mode='a', header=header, index=False)
+
+def _compute_real_outcomes(years):
+    """
+    Real March/April gas-weighted HDD anomalies (base 65F vs 1991-2020
+    normals) for analog years. Methodology matches build_historical_normals:
+    weight-average city temps first, then apply max(65 - T, 0). Years
+    without archive coverage get NO anomaly keys rather than made-up ones.
+    """
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    try:
+        from om_batch_fetch import fetch_era5_cities_batch
+    except ImportError as e:
+        logging.error(f"[Analog] helpers unavailable: {e}")
+        return {}
+
+    cache = _load_outcome_cache()
+    normals = None
+    if os.path.exists(NORMALS_FILE):
+        normals = pd.read_csv(NORMALS_FILE)
+    else:
+        logging.warning(f"[Analog] normals file missing: {NORMALS_FILE}")
+
+    URL = "https://archive-api.open-meteo.com/v1/archive"
+    current_year = datetime.now().year
+    out = {}
+    for y in years:
+        if y in cache:
+            mar_a, apr_a = cache[y]
+            out[int(y)] = {"mar_hdd_anomaly": round(mar_a, 1), "apr_hdd_anomaly": round(apr_a, 1)}
+            continue
+        if y >= current_year or normals is None:
+            continue  # incomplete season or no baseline — never fabricate
+        try:
+            city_data = fetch_era5_cities_batch(URL, f"{y}-03-01", f"{y}-04-30", ["temperature_2m_mean"])
+            if not city_data:
+                logging.warning(f"[Analog] ERA5 coverage insufficient for {y}; outcome omitted.")
+                continue
+            temp_sums = {}
+            w_total = 0.0
+            for _city, (w, series) in city_data.items():
+                w_total += float(w)
+                for d, t in series.items():
+                    if t is None:
+                        continue
+                    t_f = float(t) * 9.0 / 5.0 + 32.0  # archive API returns Celsius
+                    temp_sums[d] = temp_sums.get(d, 0.0) + float(w) * t_f
+            if w_total <= 0 or not temp_sums:
+                continue
+            daily_t = pd.Series({d: v / w_total for d, v in temp_sums.items()})
+            daily_t.index = pd.to_datetime(daily_t.index)
+            daily_hdd = np.maximum(65.0 - daily_t, 0.0)
+            mar = daily_hdd[daily_hdd.index.month == 3].mean()
+            apr = daily_hdd[daily_hdd.index.month == 4].mean()
+            n_mar = float(normals[normals["month"] == 3]["hdd_normal_gw"].mean())
+            n_apr = float(normals[normals["month"] == 4]["hdd_normal_gw"].mean())
+            if pd.isna(mar) or pd.isna(apr):
+                continue
+            mar_a, apr_a = float(mar) - n_mar, float(apr) - n_apr
+            out[int(y)] = {"mar_hdd_anomaly": round(mar_a, 1), "apr_hdd_anomaly": round(apr_a, 1)}
+            _append_outcome_cache(y, mar_a, apr_a)
+            logging.info(f"[Analog] Computed real outcomes for {y}: Mar {mar_a:+.1f}, Apr {apr_a:+.1f} HDD")
+        except Exception as e:
+            logging.error(f"[Analog] Outcome computation failed for {y}: {e}")
+    return out
 
 def run_system1():
     URLS = {
@@ -178,20 +253,30 @@ def run_system1():
     except Exception as e:
         logging.error(f"Analog matching error: {e}")
 
-    # Enrich analogs with historical outcomes
+    # Enrich analogs with REAL historical outcomes (ERA5-derived, cached).
+    # Analogs are only meaningful for demand in the heating season; outside
+    # Nov-Mar the archive fetch is skipped and years ship bare.
     enriched_analogs = []
-    for y in analog_years:
-        entry = {"year": y}
-        if y in ANALOG_OUTCOMES:
-            entry.update(ANALOG_OUTCOMES[y])
-        enriched_analogs.append(entry)
+    if analog_years:
+        if datetime.now().month in (11, 12, 1, 2, 3):
+            real_outcomes = _compute_real_outcomes(analog_years)
+        else:
+            real_outcomes = _load_outcome_cache()
+        for y in analog_years:
+            entry = {"year": int(y)}
+            entry.update(real_outcomes.get(int(y), {}))
+            enriched_analogs.append(entry)
+
+    def _idx(key):
+        v = data.get(key, {}).get('current')
+        return float(round(v, 3)) if v is not None else None
 
     output = {
         'timestamp': datetime.now(UTC).isoformat().replace('+00:00', 'Z') if '+00:00' in datetime.now(UTC).isoformat() else datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
-        'ao': data.get('AO', {}).get('current', 0.0),
-        'nao': data.get('NAO', {}).get('current', 0.0),
-        'pna': data.get('PNA', {}).get('current', 0.0),
-        'epo': data.get('EPO', {}).get('current', 0.0),
+        'ao':  _idx('AO'),
+        'nao': _idx('NAO'),
+        'pna': _idx('PNA'),
+        'epo': _idx('EPO'),
         'composite_score': score,
         'analogs': enriched_analogs,
         'status': 'success'
