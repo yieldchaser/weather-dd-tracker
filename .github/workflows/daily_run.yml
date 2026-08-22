@@ -68,6 +68,7 @@ jobs:
           python scripts/market_logic/fetch_thermal_history.py || echo "[WARN] Thermal history failed."
           python scripts/market_logic/fetch_outages.py || echo "[WARN] Outage fetch failed."
           python scripts/market_logic/fetch_peaker_proxy.py || echo "[WARN] Peaker proxy failed."
+          python scripts/market_logic/build_burn_sensitivity.py || echo "[WARN] Burn sensitivity analytics failed."
 
       - name: Trigger Kaggle AI Inference Kernel (00z/12z Major Cycles Only)
         if: env.NEW_DATA_FOUND == 'true'

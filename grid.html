@@ -630,6 +630,32 @@
                 </div>
             </div>
 
+            <!-- POWER BURN FORECAST PERFORMANCE -->
+            <div id="burn-perf-section" style="margin-bottom: 30px;">
+                <h2 class="section-title has-tooltip" data-tooltip-key="Power Burn Forecast Performance" style="margin-top: 25px;">Power Burn Forecast Performance</h2>
+                <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
+                    Realized burn vs what the fitted temp-response curve implies at NORMAL seasonal temperatures, plus the forward 15-day weather-implied projection from the live ensemble
+                </div>
+                <div id="burn-perf-stats" style="display:flex; flex-wrap:wrap; gap:18px; font-size:0.85rem; color:#c5c6c7; margin-bottom:8px;"></div>
+                <div id="burn-perf-container" style="min-height: 380px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="burn-perf-msg" class="loader">Loading burn performance data...</div>
+                    <canvas id="burnPerfChart"></canvas>
+                </div>
+            </div>
+
+            <!-- ERCOT LOAD VS TEMPERATURE FIT -->
+            <div id="ercot-fit-section" style="margin-bottom: 30px;">
+                <h2 class="section-title has-tooltip" data-tooltip-key="ERCOT Load-Temp Fit" style="margin-top: 25px;">ERCOT Load vs Temperature Fit</h2>
+                <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
+                    Daily average ERCOT load vs population-weighted Texas temperature with a linear fit — quantifies GW per °F demand response and flags load running above or below weather-implied levels
+                </div>
+                <div id="ercot-fit-stats" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:8px;"></div>
+                <div id="ercot-fit-container" style="min-height: 380px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
+                    <div id="ercot-fit-msg" class="loader">Loading ERCOT fit data...</div>
+                    <canvas id="ercotFitChart"></canvas>
+                </div>
+            </div>
+
             <!-- THERMAL GENERATION CHARTS -->
             <div id="thermal-section" style="margin-bottom: 30px;">
                 <h2 class="section-title has-tooltip" data-tooltip-key="Gas % of Thermal" style="margin-top: 25px;">Gas as % of Thermal Generation</h2>
@@ -721,6 +747,10 @@
         let loadGasChart = null;
         let isoBarChart = null;
         let gasBurnTrendChart = null;
+
+        let burnSensJSON = null;
+        let burnPerfChart = null;
+        let ercotFitChart = null;
 
         // Applies the correct signed-delta color class, clearing any stale
         // opposite class first (prevents CSS-order-dependent coloring when a
@@ -1235,9 +1265,35 @@
                 };
             });
 
-            // Add Forecast Point if today's data is available in tdd_master or use latest from scatter
-            // For now, if we have today's row with null gas_burn, we could still plot it as a special point 
-            // if we had a forecast for it. But let's stick to the historical points first.
+            // Fitted temp-response curve + forward forecast overlay from
+            // burn_sensitivity.json (quadratic Bcf/d = a·T²+b·T+c over the
+            // trailing window). The cyan curve is the season's weather
+            // response; triangles show burn implied by the live ensemble.
+            if (burnSensJSON && burnSensJSON.fit) {
+                const f = burnSensJSON.fit;
+                const curve = [];
+                for (let t = 20; t <= 95; t += 1) {
+                    curve.push({ x: t, y: f.a * t * t + f.b * t + f.c });
+                }
+                datasets.push({ label: 'Season Fit', data: curve, borderColor: '#00e5ff', borderWidth: 2, borderDash: [8, 4], pointRadius: 0, showLine: true, fill: false, tension: 0 });
+                if (burnSensJSON.forecast_series && burnSensJSON.forecast_series.length > 0) {
+                    datasets.push({
+                        label: 'Next 15d Implied',
+                        data: burnSensJSON.forecast_series.map(p => ({ x: p.temp, y: p.burn_implied, date: p.date })),
+                        backgroundColor: '#00bcd4', borderColor: '#00bcd4',
+                        pointStyle: 'triangle', radius: 6, hoverRadius: 8, showLine: false
+                    });
+                }
+                const sens = burnSensJSON.sensitivity || {};
+                const info = document.getElementById('scatter-info');
+                if (info && sens.current_temp_f != null) {
+                    let parts = [`Fit R&sup2;=${f.r2} (n=${f.n})`,
+                                 `dB/dT @${sens.current_temp_f}&deg;F: ${formatNum(sens.bcf_per_f_at_current, 2, true)} Bcf/&deg;F`];
+                    if (sens.heating_arm) parts.push(`Heating arm: ${sens.heating_arm.bcf_per_dd.toFixed(2)} Bcf/HDD`);
+                    if (sens.cooling_arm) parts.push(`Cooling arm: +${sens.cooling_arm.bcf_per_dd.toFixed(2)} Bcf/CDD`);
+                    info.innerHTML = parts.join(' &nbsp;|&nbsp; ');
+                }
+            }
 
             let ctx = document.getElementById('gasBurnScatterChart').getContext('2d');
             if (gasBurnScatterChart) gasBurnScatterChart.destroy();
@@ -1267,6 +1323,17 @@
                         tooltip: {
                             callbacks: {
                                 label: function(ctx) {
+                                    if (ctx.dataset.label === 'Season Fit') return null;
+                                    if (ctx.dataset.label === 'Next 15d Implied') {
+                                        const fc = (burnSensJSON && burnSensJSON.forecast_series || [])
+                                            .find(p => p.date === ctx.raw.date);
+                                        return [
+                                            `Date: ${ctx.raw.date}`,
+                                            `Forecast temp: ${ctx.raw.x.toFixed(1)}°F`,
+                                            `Implied burn: ${ctx.raw.y.toFixed(2)} Bcf/d`,
+                                            fc && fc.burn_normal_delta != null ? `vs normal-wx: ${fc.burn_normal_delta > 0 ? '+' : ''}${fc.burn_normal_delta.toFixed(2)} Bcf/d` : ''
+                                        ].filter(Boolean);
+                                    }
                                     return [
                                         `Date: ${ctx.raw.date}`,
                                         `Temp: ${ctx.raw.x.toFixed(1)}°F`,
@@ -1274,6 +1341,118 @@
                                         `Year: ${ctx.dataset.label}`
                                     ];
                                 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Realized power burn vs the burn the same fitted temp-response curve
+        // implies at NORMAL seasonal temperatures, with the forward 15-day
+        // weather-implied projection appended on the date axis.
+        function updateBurnPerfChart() {
+            const msg = document.getElementById('burn-perf-msg');
+            if (!burnSensJSON || !burnSensJSON.performance_series || burnSensJSON.performance_series.length < 5) {
+                msg.textContent = "Accumulating burn analytics — this section builds daily from the grid + temperature archives.";
+                msg.style.display = 'block';
+                return;
+            }
+            msg.style.display = 'none';
+
+            const perf = burnSensJSON.performance_series;
+            const fc = burnSensJSON.forecast_series || [];
+            const labels = perf.map(r => r.date).concat(fc.map(p => p.date));
+            const realized = perf.map(r => r.realized);
+            const normalWx = perf.map(r => r.normal_wx_implied);
+            const implied = labels.map((_, i) => i >= perf.length ? fc[i - perf.length].burn_implied : null);
+
+            const me = burnSensJSON.model_error || {};
+            let chips = [];
+            if (me.bias_28d != null) chips.push(`<span>28d bias: <strong>${me.bias_28d > 0 ? '+' : ''}${me.bias_28d.toFixed(2)}</strong> Bcf/d</span>`);
+            if (me.mae_28d != null) chips.push(`<span>28d MAE: <strong>${me.mae_28d.toFixed(2)}</strong> Bcf/d</span>`);
+            if (me.bias_7d != null) chips.push(`<span>7d bias: <strong>${me.bias_7d > 0 ? '+' : ''}${me.bias_7d.toFixed(2)}</strong> Bcf/d</span>`);
+            document.getElementById('burn-perf-stats').innerHTML =
+                chips.join(' &nbsp;•&nbsp; ') + ' <span style="color:#888">(positive bias = realized burn running above weather-implied)</span>';
+
+            let ctx = document.getElementById('burnPerfChart').getContext('2d');
+            if (burnPerfChart) burnPerfChart.destroy();
+            burnPerfChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Realized Burn', data: realized, borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.06)', borderWidth: 2, pointRadius: 1, tension: 0.25, fill: true },
+                        { label: 'Normal-WX Implied', data: normalWx, borderColor: '#9e9e9e', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0.25 },
+                        { label: '15d Forecast Implied', data: implied, borderColor: '#00bcd4', borderDash: [4, 4], borderWidth: 2, pointRadius: 2, tension: 0.25, spanGaps: true }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { title: { display: true, text: 'Bcf/d', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: c => `${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(2) : '-'} Bcf/d`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ERCOT daily-average load vs population-weighted Texas temperature,
+        // linear fit — the "GW per °F" demand-response regression.
+        function updateErcotFitChart() {
+            const msg = document.getElementById('ercot-fit-msg');
+            const stats = document.getElementById('ercot-fit-stats');
+            const ef = burnSensJSON ? burnSensJSON.ercot_fit : null;
+            if (!ef || ef.points == null || !Array.isArray(ef.points)) {
+                msg.textContent = "ERCOT load-temperature fit pending — accumulating hourly archive.";
+                msg.style.display = 'block';
+                stats.innerHTML = '';
+                return;
+            }
+            if (ef.points.length === 0) {
+                msg.textContent = `Accumulating ERCOT daily coverage: ${ef.coverage_days}/${ef.min_required} days (the hourly archive now retains 180 days).`;
+                msg.style.display = 'block';
+                stats.innerHTML = '';
+                return;
+            }
+            msg.style.display = 'none';
+            stats.innerHTML = `Slope: <strong>${ef.slope_gw_per_f}</strong> GW/&deg;F &nbsp;|&nbsp; R&sup2;=<strong>${ef.r2}</strong> (n=${ef.n}, ${ef.first_date} &rarr; ${ef.last_date}) &nbsp;|&nbsp; Latest: ${ef.current_load_gw} GW actual vs ${ef.implied_load_gw} GW weather-implied (<strong>${ef.residual_gw > 0 ? '+' : ''}${ef.residual_gw}</strong> GW)`;
+
+            let ctx = document.getElementById('ercotFitChart').getContext('2d');
+            if (ercotFitChart) ercotFitChart.destroy();
+            ercotFitChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        { label: 'Daily Avg Load', data: ef.points.map(p => ({ x: p.t, y: p.load_gw, date: p.date })), backgroundColor: '#ff9800', pointRadius: 3, hoverRadius: 5, showLine: false },
+                        { label: 'Linear Fit', data: ef.fit_line.map(p => ({ x: p.t, y: p.load_gw })), borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0, showLine: true, fill: false, tension: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'linear', title: { display: true, text: 'Population-Weighted TX Temp (°F)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { title: { display: true, text: 'ERCOT Load (GW)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: {
+                        legend: { filter: item => item.text !== 'Linear Fit' },
+                        tooltip: {
+                            callbacks: {
+                                label: c => c.dataset.label === 'Linear Fit' ? null : [
+                                    `Date: ${c.raw.date}`,
+                                    `Temp: ${c.raw.x.toFixed(1)}°F`,
+                                    `Load: ${c.raw.y.toFixed(1)} GW`
+                                ]
                             }
                         }
                     }
@@ -1841,6 +2020,21 @@
                     console.warn("Gas burn history loading failed", err);
                 }
 
+                // Load Burn Sensitivity Analytics — fitted temp-response curve,
+                // forward weather-implied burn, performance vs normal weather,
+                // and the ERCOT load-temperature regression.
+                try {
+                    let bsRes = await fetch(basePath + "burn_sensitivity.json?t=" + Date.now());
+                    if (bsRes.ok) {
+                        burnSensJSON = await bsRes.json();
+                        updateGasBurnScatterChart();
+                    }
+                } catch (e) {
+                    console.warn("Burn sensitivity loading failed", e);
+                }
+                updateBurnPerfChart();
+                updateErcotFitChart();
+
                 document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('app').style.display = 'block';
@@ -1956,7 +2150,15 @@
             },
             "Gas-Temp Relationship": {
                 title: "Gas Burn vs Temperature",
-                body: "Demand curve showing the non-linear relationship between temperature and natural gas burn. Formulates the classic U-shape (high burn during winter cold and summer heat, minimum around 55°F)."
+                body: "Demand curve showing the non-linear relationship between temperature and natural gas burn. Formulates the classic U-shape (high burn during winter cold and summer heat, minimum around 55°F). The cyan dashed curve is the fitted quadratic temp-response over the trailing window (R² shown above), and cyan triangles mark the burn the live ensemble forecast implies for the next 15 days — days sitting above the curve signal burn strength beyond what weather alone explains."
+            },
+            "Power Burn Forecast Performance": {
+                title: "Power Burn Forecast Performance",
+                body: "Scores realized power burn against the weather-explained baseline: the gray line is what the fitted curve would produce at NORMAL seasonal temperatures, so the gap to realized burn isolates non-weather drivers (economic load growth, outages, renewables). The blue dashed segment projects the next 15 days from the live ensemble forecast. Bias/MAE chips quantify how far realized burn runs above or below the weather-implied level."
+            },
+            "ERCOT Load-Temp Fit": {
+                title: "ERCOT Load vs Temperature Fit",
+                body: "Linear regression of daily-average ERCOT load on population-weighted Texas temperature, built from the 180-day hourly archive. The slope is ERCOT's demand response in GW per °F; a large positive residual on the latest day means actual load is running hotter than weather alone justifies (e.g. data-center/load growth). Coverage builds daily until the minimum sample is reached."
             },
             "ECMWF": {
                 title: "ECMWF (Deterministic)",

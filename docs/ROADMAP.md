@@ -107,6 +107,9 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 *   **Implied Volatility Signal** (Ensemble spread + model disagreement index) — ❌ Pending
 *   **Composite wind-dropout input wiring:** `composite_score.py` expects `outputs/wind_generation_anomaly_proxy.csv` (never produced by any script — the wind modifier silently no-ops). Wiring it requires deciding the anomaly unit the thresholds (`-1.0` / `+1.5`) were calibrated for; `live_grid_generation.csv` already carries MW-scale `wind_anomaly_mw`. — ❌ Pending
 *   **Grid data retention:** ✅ Done. Hourly grid mix now accumulates (180-day window); daily ISO generation retains 365 days; gas-burn history uses per-row seasonal heat rates so stored values are season-stable.
+*   **Burn sensitivity analytics** (`build_burn_sensitivity.py`): ✅ Active. Quadratic burn-vs-temperature fit with heating/cooling arm slopes (Bcf/HDD, Bcf/CDD), weather-normal baseline + 7/28-day bias/MAE performance scoring, 15-day forward weather-implied burn overlay, and the ERCOT load-vs-T linear fit (GW/°F, R², latest residual) from the hourly archive + cached metro-temperature climatology.
+*   **Vintage (YoY) burn/wind/nuclear curves:** ❌ Pending data. The Perkins-style per-vintage U-curves (current yr vs Yr-1 vs Yr-2) for burn-vs-temp, wind generation and nuclear output auto-unlock as retention accumulates: burn history needs a full year (first winter data lands Dec 2026), per-ISO wind/nuclear YoY needs >1 year of the 365-day `live_grid_generation.csv` window. No code change required — the scatter already groups by year.
+*   **Peaker efficiency drift (peaker share of burn by vintage):** ❌ Pending data. Needs ≥2 years of `peaker_history.csv` before a declining-share trend is meaningful.
 
 ---
 

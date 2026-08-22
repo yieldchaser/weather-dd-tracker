@@ -136,6 +136,11 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
 *   **Data Retention:** `hourly_grid_data.csv` accumulates as a deduplicated history (180-day window, keyed on `period`+`iso`) instead of being overwritten each run; `live_grid_generation.csv` retains a 365-day rolling window (previously 35 days). Daily histories (`gas_burn`, `thermal`, `peaker`, `outages`, `wind_actuals`) append indefinitely and are excluded from cleanup pruning.
 *   **Historical Integrity:** Stored gas-burn values are converted with each row's *own* month heat rate (not the current month), so the year-over-year scatter no longer churns between seasons. Thermal and peaker histories upsert (keep-last), letting partial-day captures self-heal on later runs.
 *   **Dashboard (grid.html):** ISO fuel-mix stacked bars (gas/coal/nuclear/solar/wind per region), national power-burn trend with degree-day overlay, peaker chart with peak/off-peak GW bars and a 1.4× heavy-dispatch threshold line, and as-of stamps on all summary cards.
+*   **Burn Sensitivity Analytics** (`build_burn_sensitivity.py` → `outputs/burn_sensitivity.json`): fits a quadratic temp-response curve $\text{Bcf/d} = aT^2 + bT + c$ over the trailing 180-day burn×temperature window and derives:
+    *   *Sensitivity arms:* dB/dT at the current temperature plus separate heating (Bcf/HDD) and cooling (Bcf/CDD) regressions — the empirical "Bcf per degree" numbers behind the scatter's fitted curve.
+    *   *Weather-normal baseline & performance:* what the curve implies at normal seasonal temperatures (1991–2020 climatology) vs realized burn; rolling 7/28-day bias and MAE isolate non-weather drivers (load growth, outages).
+    *   *Forward projection:* the next 15 days' ensemble-consensus temperature mapped through the curve onto the dashboard scatter ("Next 15d Implied") and the forecast-performance chart.
+*   **ERCOT Load-Temp Fit:** daily-average ERCOT load regressed on population-weighted Texas temperature (10-metro archive fetch cached in `ercot_temp_history.csv`), reporting GW/°F slope, R², and the latest day's actual-vs-weather-implied load residual.
 
 ### 7. Composite Weather Signal
 *   **Accumulator Score ($S$):**
