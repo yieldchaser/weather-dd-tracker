@@ -1,10 +1,12 @@
 {
-  "timestamp": "2026-08-21T08:36:34.177Z",
-  "sensitivity_bcf_per_hdd": 1.772,
-  "r_squared": 0.23,
-  "percentile": 18,
-  "base_demand": 428.9,
-  "n_observations": 26,
-  "data_source": "real_eia",
+  "timestamp": "2026-08-22T08:25:07.327Z",
+  "metric": "CDD",
+  "sensitivity_bcf_per_hdd": 1.033,
+  "r_squared": 0.267,
+  "percentile": 48,
+  "base_demand": 16.4,
+  "n_observations": 90,
+  "window_days": 30,
+  "data_source": "national_power_burn_history",
   "connected": true
 }
