@@ -1,30 +1,38 @@
 {
-  "timestamp": "2026-08-22T04:56:19.795Z",
-  "composite_score": 1.6,
-  "signal": "BULLISH",
-  "confidence": 100.0,
+  "timestamp": "2026-08-22T06:21:58.032Z",
+  "composite_score": 0.26,
+  "signal": "NEUTRAL",
+  "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
+  "confidence": 77.5,
   "components": [
     {
-      "name": "Teleconnections Warm/Neutral",
-      "score": -0.8
+      "name": "Teleconnections Warm/Neutral (off-season, damped)",
+      "score": -0.12
     },
     {
-      "name": "Low Weather Sensitivity",
-      "score": -1.0
+      "name": "Low Weather Sensitivity (dampens anomalies)",
+      "score": -0.75
     },
     {
       "name": "Wind Drought (Moderate)",
-      "score": 0.8999999999999999
+      "score": 0.9
     },
     {
-      "name": "Blocking/Trough (Regime 5 (Arctic Block / Trough East / Ridge West))",
-      "score": 2.5
+      "name": "Summer Ridge Heat (Regime 5 (Arctic Block / Trough East / Ridge West))",
+      "score": 0.22
     }
   ],
   "stale_systems": [],
+  "tactical_signal": {
+    "score": -0.95,
+    "bias": "STRONG BEAR",
+    "horizon": "Days 0-15 (model consensus vs normals)"
+  },
+  "agreement_pct": null,
+  "divergence_note": null,
   "detail": {
-    "bull_accumulator": 3.4,
-    "bear_accumulator": 1.8
+    "bull_accumulator": 1.12,
+    "bear_accumulator": 0.87
   },
   "system_status": {
     "teleconnections_connected": true,
