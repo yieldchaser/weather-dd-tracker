@@ -19,12 +19,14 @@ ECMWF_CYCLES = ["00", "12"]
 def load_state():
     if not os.path.exists(STATE_FILE):
         os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": ""}
+        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": "",
+            "GOOGLE_WN2": "", "AIGEFS": "", "AIFS_ENS": "", "UKMO_ENS": "", "EC46": ""}
     try:
         with open(STATE_FILE, "r") as f:
             return json.load(f)
     except Exception:
-        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": ""}
+        return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": "",
+                "GOOGLE_WN2": "", "AIGEFS": "", "AIFS_ENS": "", "UKMO_ENS": "", "EC46": ""}
 
 def save_state(state):
     with open(STATE_FILE, "w") as f:
@@ -164,6 +166,111 @@ def check_cmc_ens_complete(date_str, cycle):
         return False
     except: return False
 
+def check_google_wn2_complete(date_str, cycle):
+    """
+    Checks if Google WeatherNext 2 (google_weathernext2_ensemble_mean) is
+    available on Open-Meteo. Open-Meteo mirrors the 00Z and 12Z runs only,
+    ingesting each ~7-8 hours after Google's dissemination.
+    """
+    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    params = {
+        "latitude": 40, "longitude": -100, "daily": "temperature_2m_mean",
+        "models": "google_weathernext2_ensemble_mean", "timezone": "UTC", "forecast_days": 1
+    }
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
+            return om_date == date_str
+        return False
+    except: return False
+
+def check_aigefs_complete(date_str, cycle):
+    """
+    Checks if NOAA AIGEFS (ncep_aigefs025) is available on Open-Meteo.
+    NOAA AI models land ~3-4 hours after each 6-hourly init.
+    """
+    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    params = {
+        "latitude": 40, "longitude": -100, "daily": "temperature_2m_mean",
+        "models": "ncep_aigefs025", "timezone": "UTC", "forecast_days": 1
+    }
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
+            return om_date == date_str
+        return False
+    except: return False
+
+def check_aifs_ens_complete(date_str, cycle):
+    """
+    Checks if ECMWF AIFS ENS v2 (ecmwf_aifs025_ensemble) is available on
+    Open-Meteo. ECMWF dissemination lands ~4-6 hours after init.
+    """
+    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    params = {
+        "latitude": 40, "longitude": -100, "daily": "temperature_2m_mean",
+        "models": "ecmwf_aifs025_ensemble", "timezone": "UTC", "forecast_days": 1
+    }
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
+            return om_date == date_str
+        return False
+    except: return False
+
+def check_ukmo_ens_complete(date_str, cycle):
+    """
+    Checks if UKMO MOGREPS-G (ukmo_global_ensemble_20km) is available on
+    Open-Meteo. UKMO open-data lands ~4-6 hours after init.
+    """
+    url = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    params = {
+        "latitude": 40, "longitude": -100, "daily": "temperature_2m_mean",
+        "models": "ukmo_global_ensemble_20km", "timezone": "UTC", "forecast_days": 1
+    }
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
+            return om_date == date_str
+        return False
+    except: return False
+
+def check_ec46_complete(date_str):
+    """
+    Checks if ECMWF EC46 sub-seasonal data is available on Open-Meteo's
+    Seasonal API for the given date. EC46 publishes once daily ~20:30 UTC;
+    the endpoint returns the full 46-day horizon, so we accept when the
+    target date or one of the two prior days carries a non-null value.
+    """
+    url = "https://seasonal-api.open-meteo.com/v1/seasonal"
+    params = {
+        "latitude": 40, "longitude": -100, "daily": "temperature_2m_mean",
+        "models": "ecmwf_ec46", "timezone": "UTC", "forecast_days": 46
+    }
+    try:
+        r = requests.get(url, params=params, timeout=15)
+        if r.status_code == 200:
+            data = r.json()
+            times = data.get("daily", {}).get("time", [])
+            temps = data.get("daily", {}).get("temperature_2m_mean", [])
+            val_map = dict(zip(times, temps))
+            target = datetime.datetime.strptime(date_str, "%Y%m%d").date()
+            for back in range(3):
+                d = (target - datetime.timedelta(days=back)).isoformat()
+                if val_map.get(d) is not None:
+                    return True
+            return False
+        return False
+    except: return False
+
 def poll():
     state = load_state()
     ts = datetime.datetime.now(datetime.UTC).isoformat()
@@ -272,6 +379,71 @@ def poll():
         print(f"  >>> [NEW] CMC Ensemble Run Detected: {latest_cmc_avail} <<<")
         new_state["CMC_ENS"] = latest_cmc_avail
         triggered = True
+
+    # 7. Check Google WeatherNext 2
+    latest_wn2_avail = None
+    for d in dates_to_check:
+        for c in ["00", "12"]:
+            run_id = f"{d}_{c}"
+            if run_id > state.get("GOOGLE_WN2", ""):
+                print(f"  [PING] Checking GOOGLE_WN2 {run_id} availability...")
+                if check_google_wn2_complete(d, c):
+                    latest_wn2_avail = run_id
+    if latest_wn2_avail and latest_wn2_avail > state.get("GOOGLE_WN2", ""):
+        print(f"  >>> [NEW] Google WeatherNext 2 Run Detected: {latest_wn2_avail} <<<")
+        new_state["GOOGLE_WN2"] = latest_wn2_avail
+        triggered = True
+
+    # 8. Check NOAA AIGEFS
+    latest_aigefs_avail = None
+    for d in dates_to_check:
+        for c in ["00", "06", "12", "18"]:
+            run_id = f"{d}_{c}"
+            if run_id > state.get("AIGEFS", ""):
+                print(f"  [PING] Checking AIGEFS {run_id} availability...")
+                if check_aigefs_complete(d, c):
+                    latest_aigefs_avail = run_id
+    if latest_aigefs_avail and latest_aigefs_avail > state.get("AIGEFS", ""):
+        print(f"  >>> [NEW] NOAA AIGEFS Run Detected: {latest_aigefs_avail} <<<")
+        new_state["AIGEFS"] = latest_aigefs_avail
+        triggered = True
+
+    # 9. Check ECMWF AIFS ENS
+    latest_aifs_ens_avail = None
+    for d in dates_to_check:
+        for c in ["00", "12"]:
+            run_id = f"{d}_{c}"
+            if run_id > state.get("AIFS_ENS", ""):
+                print(f"  [PING] Checking AIFS_ENS {run_id} availability...")
+                if check_aifs_ens_complete(d, c):
+                    latest_aifs_ens_avail = run_id
+    if latest_aifs_ens_avail and latest_aifs_ens_avail > state.get("AIFS_ENS", ""):
+        print(f"  >>> [NEW] ECMWF AIFS ENS Run Detected: {latest_aifs_ens_avail} <<<")
+        new_state["AIFS_ENS"] = latest_aifs_ens_avail
+        triggered = True
+
+    # 10. Check UK Met Office Ensemble
+    latest_ukmo_avail = None
+    for d in dates_to_check:
+        for c in ["00", "12"]:
+            run_id = f"{d}_{c}"
+            if run_id > state.get("UKMO_ENS", ""):
+                print(f"  [PING] Checking UKMO_ENS {run_id} availability...")
+                if check_ukmo_ens_complete(d, c):
+                    latest_ukmo_avail = run_id
+    if latest_ukmo_avail and latest_ukmo_avail > state.get("UKMO_ENS", ""):
+        print(f"  >>> [NEW] UKMO Ensemble Run Detected: {latest_ukmo_avail} <<<")
+        new_state["UKMO_ENS"] = latest_ukmo_avail
+        triggered = True
+
+    # 11. Check ECMWF EC46 Sub-Seasonal
+    for d in dates_to_check:
+        if d > state.get("EC46", ""):
+            print(f"  [PING] Checking EC46 {d} availability...")
+            if check_ec46_complete(d):
+                print(f"  >>> [NEW] EC46 Sub-Seasonal Run Detected: {d} <<<")
+                new_state["EC46"] = d
+                triggered = True
         
     if triggered:
         print("\n[ACTION] Triggering pipeline via daily_update.py...")

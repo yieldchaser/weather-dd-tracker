@@ -22,10 +22,11 @@ GW_NORMALS          = Path("data/normals/us_gas_weighted_normals.csv")
 STD_NORMALS         = Path("data/normals/us_daily_normals.csv")
 COMBINED_DROUGHT_PATH = Path("outputs/wind/combined_drought.json")
 
-PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "CMC_ENS"]
+PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "CMC_ENS", "UKMO_ENS"]
 SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
 AI_MODELS         = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL",
-                     "FOURCASTNETV2", "AURORA", "ECMWF_AIFS"]
+                     "FOURCASTNETV2", "AURORA", "ECMWF_AIFS", "GOOGLE_WN2",
+                     "AIGEFS", "AIFS_ENS"]
 
 MAX_MSG_CHARS = 4000  # Telegram hard limit is 4096; leave margin
 

@@ -78,16 +78,20 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 *The most significant upgrade. Split to maximize free hardware limits.*
 
 **Track A — No GPU Needed (GitHub Actions Native)**
-*   **ECMWF AIFS** (30km, deterministic + ensemble): ❌ Highest Priority AI Addition. ECMWF pre-computes this. It requires zero extra infrastructure, no Colab, no Kaggle. We pull it via the exact same `ecmwf-opendata` SDK used for HRES.
+*   **ECMWF AIFS (Single + ENS v2):** ✅ Active. Deterministic (`ECMWF_AIFS`) plus the 51-member CRPS-trained ensemble (`AIFS_ENS`), both via Open-Meteo.
+*   **NOAA AI Family (AIGFS / AIGEFS / HGEFS):** ✅ Active. Deterministic GraphCast-GFS, the 31-member AIGEFS AI ensemble, and the 62-member hybrid grand ensemble, operational since Dec 2025.
+*   **Google DeepMind WeatherNext 2:** ✅ Active. 64-member FGN ensemble (`GOOGLE_WN2`), successor to the deprecated GenCast/WeatherNext Gen, mirrored by Open-Meteo since Jul 2026.
+*   **UK Met Office MOGREPS-G:** ✅ Active. 18-member global ensemble (`UKMO_ENS`) for independent physics diversification.
+*   **ECMWF EC46 Sub-Seasonal:** ✅ Active. 51-member 46-day ensemble via the Seasonal API, filling the weeks 3-6 gap beyond GEFS 35-day.
 
 **Track B — GPU Required (The Kaggle API Hijack)**
 *GitHub Actions pings the Kaggle API. Kaggle spins up a 16GB VRAM T4 GPU, runs the inference, and pushes the CSV back to your repo. All models below are managed via the unified `earth2studio` and `ai-models` libraries.*
 *   **NVIDIA Earth-2 Medium Range (Atlas):** 15-day forecast. Crucial Hack: We must subset this 2.5B parameter model in `earth2studio` to only output `t2m` (temperature) and `u10m/v10m` (wind) to prevent Kaggle's 16GB VRAM from crashing.
 *   **NVIDIA Earth-2 Nowcasting (StormScope):** 0 to 6-hour hyper-local storm prediction. Outperforms traditional physics on short-term horizons; critical for sudden intraday generation drops.
-*   **Pangu-Weather (Huawei):** 1.4 seconds per step, natively supported by `ai-models`. — ✅ Active
+*   **Pangu-Weather (Huawei):** ❌ Retired. ECMWF discontinued real-time external ML model runs (May 2026) and the research-only licence is unsuitable for production.
 *   **FourCastNetV2 (NVIDIA):** Handled cleanly within `earth2studio`. — ✅ Active
-*   **Aurora (Microsoft):** Outstanding for extreme temperature events.
-*   **GraphCast (Google DeepMind):** Will be run at a slightly downscaled resolution to prevent Kaggle OOM errors. — ✅ Active
+*   **Aurora (Microsoft):** ❌ Deprioritized. ECMWF external runs ended May 2026; Microsoft Research licence is non-commercial only.
+*   **GraphCast (Google DeepMind):** ❌ Retired from Kaggle track. Superseded by WeatherNext 2 (Track A); NOAA AIGFS already carries GraphCast operationally.
 
 ---
 

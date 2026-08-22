@@ -84,6 +84,11 @@ def cleanup_maps():
         "ECMWF_AIFS_shift",
         "ICON_shift",
         "CMC_ENS_shift",
+        "GOOGLE_WN2_shift",
+        "AIGEFS_shift",
+        "AIFS_ENS_shift",
+        "UKMO_ENS_shift",
+        "EC46_shift",
         "NBM_shift",
         "HRRR_shift",
         "NAM_shift",
@@ -123,6 +128,8 @@ def cleanup_other_data():
     data_dirs = [
         "data/ecmwf", "data/ecmwf_ens", "data/ecmwf_aifs",
         "data/gefs", "data/hrrr", "data/nam", "data/nbm", "data/cmc_ens",
+        "data/google_wn2", "data/aigefs", "data/aifs_ens", "data/ukmo_ens",
+        "data/ec46",
         "data/gefs_subseasonal"
     ]
     

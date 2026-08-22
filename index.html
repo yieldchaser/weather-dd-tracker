@@ -1078,6 +1078,11 @@
                             'GEFS': 16,
                             'GEFS_35D': 35,
                             'CMC_ENS': 15,
+                            'GOOGLE_WN2': 15,
+                            'AIGEFS': 16,
+                            'AIFS_ENS': 15,
+                            'UKMO_ENS': 8,
+                            'EC46': 46,
                             'ICON': 16,
                             'FOURCASTNETV2-SMALL': 10,
                             'FOURCASTNETV2': 10,
@@ -1728,7 +1733,7 @@
             let err = document.getElementById('mapError');
             let mapSelect = document.getElementById('mapRunSelect');
 
-            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'GEFS_35D', 'ECMWF_ENS', 'ECMWF_AIFS', 'AIGFS', 'HGEFS', 'CMC_ENS', 'HRRR', 'NAM', 'NBM', 'ICON', 'FOURCASTNETV2-SMALL'];
+            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'GEFS_35D', 'ECMWF_ENS', 'ECMWF_AIFS', 'AIGFS', 'HGEFS', 'CMC_ENS', 'GOOGLE_WN2', 'AIGEFS', 'AIFS_ENS', 'UKMO_ENS', 'EC46', 'HRRR', 'NAM', 'NBM', 'ICON', 'FOURCASTNETV2-SMALL'];
             if (mapModels.includes(selectedModel) && manifest[selectedModel] && manifest[selectedModel].length > 0) {
                 img.style.display = 'block';
                 err.style.display = 'none';
@@ -2217,6 +2222,26 @@
                 title: "HGEFS (NOAA Project EAGLE Ensemble AI)",
                 body: "NOAA's Hybrid Global Ensemble Forecast System. An AI-enhanced ensemble system combining machine learning and numerical physics to provide probabilistic forecast spreads."
             },
+            "GOOGLE_WN2": {
+                title: "WeatherNext 2 (Google DeepMind)",
+                body: "Google DeepMind's latest operational AI ensemble: a 64-member Functional Generative Network model at 0.25° resolution out to 15 days. Successor to GenCast/WeatherNext Gen, it beats ECMWF ENS on the majority of variables and lead times. Values shown are the ensemble mean."
+            },
+            "AIGEFS": {
+                title: "AIGEFS (NOAA AI Ensemble)",
+                body: "NOAA's Artificial Intelligence Global Ensemble Forecast System: a 31-member GraphCast-based AI ensemble out to 16 days, operational since December 2025. Extends useful forecast skill 18-24 hours beyond the physics GEFS. Values shown are the ensemble mean."
+            },
+            "AIFS_ENS": {
+                title: "AIFS ENS v2 (ECMWF AI Ensemble)",
+                body: "ECMWF's Artificial Intelligence Forecasting System ensemble: a 51-member CRPS-trained model at ~0.25° resolution out to 15 days, operational since May 2026. Matches or beats the physics ENS on most verification metrics. Values shown are the ensemble mean."
+            },
+            "UKMO_ENS": {
+                title: "UKMO MOGREPS-G (Met Office Ensemble)",
+                body: "The UK Met Office's global ensemble: 18 perturbed members at ~20 km resolution out to 8 days. An independent non-US, non-ECMWF modeling chain that diversifies the physics consensus. Values shown are the ensemble mean."
+            },
+            "EC46": {
+                title: "ECMWF EC46 (Sub-Seasonal)",
+                body: "ECMWF's 46-day coupled sub-seasonal ensemble: 51 members updated daily. Bridges the weeks 3-6 gap beyond GEFS 35-day. Bias-corrected anomaly guidance — treat as a directional signal rather than absolute temperature truth."
+            },
             "ICON": {
                 title: "ICON (German Global)",
                 body: "Icosahedral Non-hydrostatic. Germany's (DWD) global forecast model. Runs on a triangular grid, offering 13km resolution with strong performance in European and transatlantic weather pattern tracking."
@@ -2286,6 +2311,11 @@
                         "EURO AI CHG": "ECMWF_AIFS",
                         "NOAA AI CHG": "AIGFS",
                         "NOAA AI ENS CHG": "HGEFS",
+                        "GOOGLE AI CHG": "GOOGLE_WN2",
+                        "AIGEFS CHG": "AIGEFS",
+                        "AIFS ENS CHG": "AIFS_ENS",
+                        "UKMO ENS CHG": "UKMO_ENS",
+                        "EC46 CHG": "EC46",
                         "HRRR CHG": "HRRR",
                         "NAM CHG": "NAM",
                         "NBM CHG": "NBM"

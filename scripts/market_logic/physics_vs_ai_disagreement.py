@@ -121,8 +121,8 @@ def compute_disagreement():
     pivot = df.pivot_table(index="date", columns="model", values="tdd", aggfunc="last")
     
     # Categorize
-    physics_cols = [c for c in pivot.columns if c in ["ECMWF_HRES", "GFS_HRES", "NAM", "HRRR", "ICON", "CMC_ENS", "GFS", "ECMWF"]]
-    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL"]]
+    physics_cols = [c for c in pivot.columns if c in ["ECMWF_HRES", "GFS_HRES", "NAM", "HRRR", "ICON", "CMC_ENS", "GFS", "ECMWF", "UKMO_ENS"]]
+    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "GOOGLE_WN2", "AIGEFS", "AIFS_ENS"]]
     
     # Calculate means where possible
     if physics_cols:

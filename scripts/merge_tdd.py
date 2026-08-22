@@ -13,6 +13,11 @@ def load_all():
         "data/ecmwf_aifs/*_tdd.csv",
         "data/ecmwf_ens/*_tdd.csv",
         "data/cmc_ens/*_tdd.csv",
+        "data/google_wn2/*_tdd.csv",
+        "data/aigefs/*_tdd.csv",
+        "data/aifs_ens/*_tdd.csv",
+        "data/ukmo_ens/*_tdd.csv",
+        "data/ec46/*_tdd.csv",
         "data/aigfs/*_tdd.csv",
         "data/hgefs/*_tdd.csv",
         "data/nbm/*_tdd.csv",
@@ -48,7 +53,12 @@ def load_all():
             # Critical: Ensure model column exists
             if "model" not in df.columns:
                 f_lower = f.lower()
-                if "ecmwf_aifs" in f_lower: df["model"] = "ECMWF_AIFS"
+                if "aigefs" in f_lower: df["model"] = "AIGEFS"
+                elif "aifs_ens" in f_lower: df["model"] = "AIFS_ENS"
+                elif "ukmo" in f_lower: df["model"] = "UKMO_ENS"
+                elif "ec46" in f_lower: df["model"] = "EC46"
+                elif "google_wn2" in f_lower: df["model"] = "GOOGLE_WN2"
+                elif "ecmwf_aifs" in f_lower: df["model"] = "ECMWF_AIFS"
                 elif "aigfs" in f_lower: df["model"] = "AIGFS"
                 elif "hgefs" in f_lower: df["model"] = "HGEFS"
                 elif "ecmwf_ens" in f_lower: df["model"] = "ECMWF_ENS"

@@ -157,6 +157,11 @@ At the end of each pipeline run, `generate_maps.py` runs a parallel process to c
 *   [fetch_gefs.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_gefs.py): Syncs GEFS ensemble members and averages them.
 *   [fetch_ecmwf_ifs.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_ecmwf_ifs.py): Ingests ECMWF Open Data GRIB2 forecasts.
 *   [fetch_cmc_ens.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_cmc_ens.py): Connects to the Open-Meteo Ensemble API. Contains the **Active Cycle Constraint** to prevent overwriting past data with today's live forecast.
+*   [fetch_wn2.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_wn2.py): Pulls Google DeepMind WeatherNext 2 (64-member AI ensemble) ensemble mean via Open-Meteo, 00Z/12Z cycles only.
+*   [fetch_aigefs.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_aigefs.py): Pulls NOAA's AIGEFS 31-member AI ensemble (`ncep_aigefs025`) on a 6-hourly active-cycle schedule.
+*   [fetch_aifs_ens.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_aifs_ens.py): Pulls ECMWF AIFS ENS v2 (51-member AI ensemble) ensemble mean, 00Z/12Z cycles.
+*   [fetch_ukmo_ens.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_ukmo_ens.py): Pulls the UK Met Office MOGREPS-G global ensemble (18 members) ensemble mean.
+*   [fetch_ec46.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_ec46.py): Syncs the ECMWF EC46 sub-seasonal ensemble (46 days) daily from the Open-Meteo Seasonal API for the weeks 3-6 gap.
 *   [fetch_open_meteo_ai.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_open_meteo_ai.py): Pulls NOAA AIGFS and HGEFS runs from the Single Runs API.
 *   [fetch_aigfs_grib.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_aigfs_grib.py) & [fetch_hgefs_grib.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/fetch_hgefs_grib.py): Run byte-range downloads of AIGFS and HGEFS models for CONUS mapping.
 *   [poll_kaggle_robust.py](file:///c:/Users/Dell/Github/weather-dd-tracker/scripts/poll_kaggle_robust.py): Manages Kaggle kernel execution, status polling, and output staging.
