@@ -192,17 +192,20 @@ def build_wind_climatology():
         
         df["cf"] = df["ws"].apply(wind_power_curve)
         df["gw"] = df["cf"] * node[4]
+        df["inst"] = node[4]  # carried through so partial-node hours renormalize
         df["date"] = df["time"].dt.date
         
-        dfs.append(df[["time", "gw"]])
+        dfs.append(df[["time", "gw", "inst"]])
         
     if not dfs:
-        logging.error("No valid ERA5 data parsed.")
+        logging.error("No valid GFS hindcast data parsed.")
         return {}
         
     all_daily = pd.concat(dfs, ignore_index=True)
-    national = all_daily.groupby("time")["gw"].sum().reset_index()
-    national["cf"] = national["gw"] / TOTAL_INSTALLED_GW
+    # Renormalize by the capacity ACTUALLY reporting at each hour: summing
+    # fewer nodes against full fleet capacity fabricates CF dips.
+    national = all_daily.groupby("time").agg(gw=("gw", "sum"), inst=("inst", "sum")).reset_index()
+    national["cf"] = national["gw"] / national["inst"].replace(0, float("nan"))
     
     national["date"] = national["time"].dt.date
     national["hour"] = national["time"].dt.hour
@@ -225,12 +228,10 @@ def build_wind_climatology():
     try:
         with open(CLIMO_PATH, "w") as f:
             json.dump(doy_climo, f, indent=2)
-        logging.info(f"Successfully wrote ERA5 Climatology to {CLIMO_PATH}")
+        logging.info(f"Successfully wrote GFS Climatology to {CLIMO_PATH}")
     except Exception as e:
         logging.error(f"Failed to write Climatology file: {e}")
         
-    return doy_climo
-
     return doy_climo
 
 def fetch_forecasts():
@@ -319,7 +320,8 @@ def main_logic():
                 
             df["cf"] = df["ws"].apply(wind_power_curve)
             df["gw"] = df["cf"] * node[4]
-            
+            df["inst"] = node[4]  # carried through so partial-node hours renormalize
+
             # PART 1: GFS Ensemble Spread Calculation
             if model == "GFS_CFS":
                 try:
@@ -366,13 +368,27 @@ def main_logic():
         logging.info(f"Model {model} successfully parsed for {len(node_dfs)} nodes.")
             
         all_model_data = pd.concat(node_dfs, ignore_index=True)
-        national_hourly = all_model_data.groupby("time")["gw"].sum().reset_index()
-        national_hourly["cf"] = national_hourly["gw"] / TOTAL_INSTALLED_GW
+        # Renormalize by capacity ACTUALLY reporting at each hour — dividing
+        # partial-node sums by full fleet capacity fabricates CF dips.
+        national_hourly = all_model_data.groupby("time").agg(
+            gw=("gw", "sum"), inst=("inst", "sum")
+        ).reset_index()
+        national_hourly["cf"] = national_hourly["gw"] / national_hourly["inst"].replace(0, float("nan"))
+        national_hourly = national_hourly.dropna(subset=["cf"])
         national_hourly["date"] = national_hourly["time"].dt.date
         national_hourly["hour"] = national_hourly["time"].dt.hour
         national_hourly["period"] = national_hourly["hour"].apply(
             lambda h: "peak" if h in PEAK_HOURS else ("offpeak" if h in OFFPEAK_HOURS else "shoulder")
         )
+
+        # Complete-day gate: a truncated final forecast day biases its own
+        # daily mean, worst-day selection, and drought-day counts.
+        day_hours = national_hourly.groupby("date").size()
+        full_days = day_hours[day_hours >= 18].index
+        if len(full_days) < len(day_hours):
+            dropped = sorted(set(day_hours.index) - set(full_days))
+            logging.info(f"Dropped partial days (<18h): {dropped}")
+        national_hourly = national_hourly[national_hourly["date"].isin(full_days)]
 
         # Aggregate metrics
         agg_dict = {"gw": "mean", "cf": "mean"}

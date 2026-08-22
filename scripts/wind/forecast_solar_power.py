@@ -152,13 +152,18 @@ def build_solar_climatology():
         df = pd.DataFrame({"time": times, "ghi": ghi})
         df["cf"] = df["ghi"].apply(irradiance_to_cf)
         df["gw"] = df["cf"] * node[4]
-        dfs.append(df[["time", "gw"]])
+        # inst is zeroed where this node has no data so hourly sums exclude
+        # missing nodes from BOTH numerator and denominator — otherwise a
+        # short series fabricates CF dips for the whole fleet.
+        df["inst"] = df["ghi"].notna() * node[4]
+        dfs.append(df[["time", "gw", "inst"]])
 
     if not dfs: return {}
     
     all_data = pd.concat(dfs, ignore_index=True)
-    national = all_data.groupby("time")["gw"].sum().reset_index()
-    national["cf"] = national["gw"] / TOTAL_SOLAR_GW
+    national = all_data.groupby("time").agg(gw=("gw", "sum"), inst=("inst", "sum")).reset_index()
+    national["cf"] = national["gw"] / national["inst"].replace(0, float("nan"))
+    national = national.dropna(subset=["cf"])
     national["mm_dd"] = national["time"].dt.strftime("%m-%d")
     national["hour"] = national["time"].dt.hour
     
@@ -226,13 +231,15 @@ def main_logic():
             df = pd.DataFrame({"time": times, "ghi": ghi})
             df["cf"] = df["ghi"].apply(irradiance_to_cf)
             df["gw"] = df["cf"] * node[4]
+            df["inst"] = df["ghi"].notna() * node[4]
             node_dfs.append(df)
             
         if not node_dfs: continue
         
         all_model = pd.concat(node_dfs, ignore_index=True)
-        national = all_model.groupby("time")["gw"].sum().reset_index()
-        national["cf"] = national["gw"] / TOTAL_SOLAR_GW
+        national = all_model.groupby("time").agg(gw=("gw", "sum"), inst=("inst", "sum")).reset_index()
+        national["cf"] = national["gw"] / national["inst"].replace(0, float("nan"))
+        national = national.dropna(subset=["cf"])
 
         # Validation: Check if national generation is mostly zero (e.g. AIFS outage)
         if not is_valid_model_data(national, "gw"):
@@ -241,6 +248,14 @@ def main_logic():
 
         national["date"] = national["time"].dt.date
         national["hour"] = national["time"].dt.hour
+
+        # Complete-day gate: truncated final forecast days bias daily means,
+        # peak-hour means, and drought flags.
+        day_hours = national.groupby("date").size()
+        full_days = day_hours[day_hours >= 18].index
+        if len(full_days) < len(day_hours):
+            logging.info(f"Solar dropped partial days (<18h): {sorted(set(day_hours.index) - set(full_days))}")
+        national = national[national["date"].isin(full_days)]
         
         # Daily aggregate
         daily = national.groupby("date").agg({"gw": "mean", "cf": "mean"}).reset_index()
@@ -296,6 +311,11 @@ def generate_combined_drought(solar_df):
     }
 
     try:
+        # The wind fleet's REPRESENTED capacity from its node list — a
+        # hardcoded 110.0 here understated combined CF by ~27% (nodes sum
+        # to ~105.5) and overstated gas displacement.
+        from forecast_wind_power import TOTAL_INSTALLED_GW as WIND_FLEET_GW
+
         with open(WIND_DROUGHT_JSON, "r") as f:
             wind_json = json.load(f)
         
@@ -304,9 +324,13 @@ def generate_combined_drought(solar_df):
         
         solar_gfs = solar_df[solar_df["model"] == "GFS"]
         merged = pd.merge(wind_csv, solar_gfs, on="date", suffixes=('_w', '_s'))
-        merged["combined_cf"] = (merged["total_wind_gw"] + merged["total_solar_gw"]) / (110.0 + TOTAL_SOLAR_GW)
-        
-        # Drought check: Wind < 35% AND Solar consensus < 25% (2 of X models)
+        merged["combined_cf"] = (merged["total_wind_gw"] + merged["total_solar_gw"]) / (WIND_FLEET_GW + TOTAL_SOLAR_GW)
+
+        # Seasonal thresholds from the same functions that set the flags —
+        # the old hardcoded 35%/25% ignored winter/summer recalibration.
+        s_thresh_pct = get_solar_drought_threshold(utc_now.month) * 100
+        w_thresh_pct = float(wind_json.get("drought_threshold_cf_pct", 35.0))
+
         # First, pivot solar to get all models for consensus
         solar_pivoted = solar_df.pivot(index="date", columns="model", values="national_cf_peak_pct")
         
@@ -316,15 +340,14 @@ def generate_combined_drought(solar_df):
         def check_solar_consensus(d):
             if d not in solar_pivoted.index: return False
             row = solar_pivoted.loc[d]
-            # Find active models with non-null values today
             active_models = [m for m in available_models if m in row and pd.notna(row[m])]
             if not active_models: return False
-            mid = sum(1 for m in active_models if row[m] < 25.0)
+            mid = sum(1 for m in active_models if row[m] < s_thresh_pct)
             needed_for_consensus = 2 if len(active_models) >= 2 else 1
             return mid >= needed_for_consensus
 
         merged["solar_consensus"] = merged["date"].apply(check_solar_consensus)
-        merged["both_drought"] = (merged["national_cf_pct_w"] < 35.0) & (merged["solar_consensus"])
+        merged["both_drought"] = (merged["national_cf_pct_w"] < w_thresh_pct) & (merged["solar_consensus"])
         
         near_term = merged[merged["date"] <= (utc_now.date() + timedelta(days=6)).strftime("%Y-%m-%d")]
         prob_7d = near_term["both_drought"].mean() if not near_term.empty else 0.0
@@ -335,7 +358,7 @@ def generate_combined_drought(solar_df):
         gas_loss = 0.0
         if not today_row.empty:
             combined_drought_today = bool(today_row.iloc[0]["both_drought"])
-            w_loss = (today_row.iloc[0]["climo_cf_pct_w"] - today_row.iloc[0]["national_cf_pct_w"]) * 110.0 / 100.0
+            w_loss = (today_row.iloc[0]["climo_cf_pct_w"] - today_row.iloc[0]["national_cf_pct_w"]) * WIND_FLEET_GW / 100.0
             
             with open(CLIMO_PATH, "r") as f: c_full = json.load(f)
             mm_dd = utc_now.strftime("%m-%d")
@@ -355,10 +378,14 @@ def generate_combined_drought(solar_df):
             signal = "MODERATE BULL"
         
         worst = merged.loc[merged["combined_cf"].idxmin()]
+
+        # Label says 10d — compute it over the next 10 days, not whatever
+        # horizon the model happens to carry (GFS solar runs 16d).
+        solar_10d = solar_gfs[solar_gfs["date"] <= (utc_now.date() + timedelta(days=9)).strftime("%Y-%m-%d")]
         
         combined.update({
             "wind_drought_prob_16d": wind_json["drought_prob_16d"],
-            "solar_drought_prob_10d": round(solar_gfs["drought_flag"].mean(), 2),
+            "solar_drought_prob_10d": round(solar_10d["drought_flag"].mean(), 2) if not solar_10d.empty else None,
             "combined_drought_today": combined_drought_today,
             "combined_drought_prob_7d": round(prob_7d, 2),
             "combined_drought_days_7d": days_7d,
