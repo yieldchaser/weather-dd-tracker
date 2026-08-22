@@ -76,6 +76,21 @@ def fetch_gas_burn_history():
         print("  [ERR] No NATIONAL row found in grid generation file.")
         return
 
+    # THIN-SAMPLE GATE: a partial-day MW mean multiplied by 24 understates
+    # the day's energy and the error would be stored permanently. Skip thin
+    # days here — fetch_live_grid's completeness-aware upsert heals them,
+    # and this upsert reprocesses all grid dates on every run, so healed
+    # days convert on a later pass.
+    if 'sample_hours' in national_grid.columns:
+        hours = pd.to_numeric(national_grid['sample_hours'], errors='coerce').fillna(24)
+        thin = national_grid[hours < 18]
+        if len(thin):
+            print(f"  [GATE] Skipping {len(thin)} partial-day row(s) (<18h sample): {thin['date'].tolist()}")
+        national_grid = national_grid[hours >= 18]
+    if national_grid.empty:
+        print("  [WARN] All grid rows are partial-day samples; nothing to convert yet.")
+        return
+
     # Load TDD Data - Filter for GFS (Operational)
     tdd_df = pd.read_csv(TDD_FILE)
     gfs_tdd = tdd_df[tdd_df['model'] == 'GFS'].copy()

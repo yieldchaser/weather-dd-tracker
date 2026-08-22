@@ -46,23 +46,29 @@ def calculate_peaker_proxy():
         df["period"] = pd.to_datetime(df["period"])
         df["hour"] = df["period"].dt.hour
         df["date"] = df["period"].dt.strftime("%Y-%m-%d")
-        
-        # Filter to NATIONAL aggregate (sum of all ISOs for that hour)
-        # Assuming fetch_live_grid already aggregated this or we sum here.
-        # Logic: sum all ISOs per period
+
+        # COVERAGE GATE: summing whatever ISOs reported an hour fabricates
+        # national dips when one is missing (mirrors fetch_live_grid).
+        n_isos = df["iso"].nunique()
+        min_isos = -(-n_isos * 2 // 3)
+        per_period_iso = df.groupby("period")["iso"].nunique()
+        good_periods = per_period_iso[per_period_iso >= min_isos].index
+        df = df[df["period"].isin(good_periods)]
+
+        # Filter to NATIONAL aggregate (sum of all reporting ISOs per hour)
         nat = df.groupby(["period", "date", "hour"]).sum(numeric_only=True).reset_index()
-        
+
         PEAK_HOURS = range(7, 23) # 7am-11pm local (coarse approximation across timezones)
-        
+
         daily_rows = []
         for date, group in nat.groupby("date"):
-            # Need at least some hours to be valid
-            if len(group) < 12: continue
-            
+            # THIN-SAMPLE GATE: a partial day biases whichever bucket
+            # (peak/off-peak) its surviving hours fall into. Require a
+            # near-complete day with real coverage on BOTH sides.
+            if len(group) < 20: continue
             peak = group[group["hour"].isin(PEAK_HOURS)]
             offpeak = group[~group["hour"].isin(PEAK_HOURS)]
-            
-            if peak.empty or offpeak.empty: continue
+            if len(peak) < 6 or len(offpeak) < 3: continue
             
             p_gas = peak["natural_gas_mw"].mean()
             o_gas = offpeak["natural_gas_mw"].mean()
@@ -79,14 +85,19 @@ def calculate_peaker_proxy():
                 "peak_offpeak_ratio": round(ratio, 2),
                 "peak_load_mw": round(p_load),
                 "offpeak_load_mw": round(o_load),
-                "peaker_proxy_pct": round(proxy, 1)
+                "peaker_proxy_pct": round(proxy, 1),
+                "sample_hours": len(group)
             })
-            
+
         new_df = pd.DataFrame(daily_rows)
-        
+
         if OUTPUT_FILE.exists():
             old_df = pd.read_csv(OUTPUT_FILE)
-            combined = pd.concat([old_df, new_df]).drop_duplicates(subset=["date"], keep="last")
+            if "sample_hours" not in old_df.columns:
+                old_df["sample_hours"] = 24
+            combined = pd.concat([old_df, new_df]).sort_values("sample_hours", kind="mergesort")
+            # Completeness-aware: richer samples win; equal -> newest
+            combined = combined.drop_duplicates(subset=["date"], keep="last")
             combined.sort_values("date", inplace=True)
             safe_write_csv(combined, OUTPUT_FILE)
         else:

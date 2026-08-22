@@ -49,6 +49,10 @@ HISTORY_FILE = Path("outputs/wind/wind_actuals_history.csv")
 # Retention windows (days)
 LIVE_GRID_RETENTION_DAYS = 365
 HOURLY_GRID_RETENTION_DAYS = 180
+# A day with fewer hourly observations than this is PARTIAL: EIA publishes
+# mid-session, and treating a 5-hour sample as a full day biased every
+# downstream signal (cards, Bcf conversion, anomalies).
+COMPLETE_DAY_HOURS = 18
 
 # Constants
 TOTAL_INSTALLED_GW = 110.0
@@ -184,60 +188,80 @@ def fetch_live_grid():
         merged_hourly["iso"] = ISO_DISPLAY[iso_code]
         hourly_records.append(merged_hourly)
         
-        # Daily Aggregation
+        # Daily Aggregation + per-day coverage count. EIA publishes partial
+        # days mid-session, so every emitted row records its sample width
+        # and downstream consumers can refuse thin samples.
         merged_hourly["date_only"] = pd.to_datetime(merged_hourly["period"]).dt.strftime("%Y-%m-%d")
         daily = merged_hourly.groupby("date_only").mean(numeric_only=True).reset_index()
-        
-        # Get Latest Date (Anomaly Logic)
-        latest_date = daily["date_only"].max()
-        matching_rows = daily[daily["date_only"] == latest_date]
+        day_counts = merged_hourly.groupby("date_only").size()
+
+        # Representative date for the anomaly/impact call: the latest
+        # COMPLETE day when one exists, else the latest partial day (tagged).
+        complete_days = day_counts[day_counts >= COMPLETE_DAY_HOURS]
+        target_date = complete_days.index.max() if len(complete_days) > 0 else day_counts.index.max()
+        n_hours = int(day_counts.get(target_date, 0))
+        matching_rows = daily[daily["date_only"] == target_date]
         if matching_rows.empty:
-            print(f"  [WARN] No data for {latest_date} in {iso_code} — skipping")
+            print(f"  [WARN] No data for {target_date} in {iso_code} — skipping")
             continue
-        today_row = matching_rows.iloc[0].to_dict()
-        
+
         # Anomaly logic — like-for-like on UTC hours (partial days happen
         # whenever EIA publishes mid-day; a raw partial mean vs full-day
         # baseline fabricates drought/surplus signals).
-        anomaly, hist_wind, n_hours = _like_for_like_wind_anomaly(merged_hourly, latest_date)
+        anomaly, hist_wind, _ = _like_for_like_wind_anomaly(merged_hourly, target_date)
         if anomaly is None:
             impact = "NEUTRAL"
         else:
             if anomaly < -1000: impact = "BULLISH (Wind Drought)"
             elif anomaly > 1500: impact = "BEARISH (Strong Wind)"
             else: impact = "NEUTRAL"
-            if n_hours < 20:
+            if n_hours < COMPLETE_DAY_HOURS:
                 impact += f" [partial {n_hours}h]"
 
-        out_row = {
-            "date": latest_date,
-            "iso": ISO_DISPLAY[iso_code],
-            "natural_gas_mw": round(today_row.get("natural_gas_mw", 0)) if pd.notna(today_row.get("natural_gas_mw")) else None,
-            "wind_mw": round(today_row.get("wind_mw", 0)) if pd.notna(today_row.get("wind_mw")) else None,
-            "solar_mw": round(today_row.get("solar_mw", 0)) if pd.notna(today_row.get("solar_mw")) else None,
-            "coal_mw": round(today_row.get("coal_mw", 0)) if pd.notna(today_row.get("coal_mw")) else None,
-            "nuclear_mw": round(today_row.get("nuclear_mw", 0)) if pd.notna(today_row.get("nuclear_mw")) else None,
-            "load_mw": round(today_row.get("load_mw", 0)) if pd.notna(today_row.get("load_mw")) else None,
-            "wind_30d_avg_mw": round(hist_wind) if hist_wind is not None else None,
-            "wind_anomaly_mw": round(anomaly) if anomaly is not None else None,
-            "gas_burn_impact": impact
-        }
+        # Emit EVERY day in the window so history continuously self-heals:
+        # a date first captured as a partial day is overwritten with its
+        # complete-day values by a later run (completeness-aware upsert).
+        for _, drow in daily.iterrows():
+            d = drow["date_only"]
+            is_target = (d == target_date)
+            out_row = {
+                "date": d,
+                "iso": ISO_DISPLAY[iso_code],
+                "natural_gas_mw": round(drow.get("natural_gas_mw", 0)) if pd.notna(drow.get("natural_gas_mw")) else None,
+                "wind_mw": round(drow.get("wind_mw", 0)) if pd.notna(drow.get("wind_mw")) else None,
+                "solar_mw": round(drow.get("solar_mw", 0)) if pd.notna(drow.get("solar_mw")) else None,
+                "coal_mw": round(drow.get("coal_mw", 0)) if pd.notna(drow.get("coal_mw")) else None,
+                "nuclear_mw": round(drow.get("nuclear_mw", 0)) if pd.notna(drow.get("nuclear_mw")) else None,
+                "load_mw": round(drow.get("load_mw", 0)) if pd.notna(drow.get("load_mw")) else None,
+                "wind_30d_avg_mw": round(hist_wind) if (is_target and hist_wind is not None) else None,
+                "wind_anomaly_mw": round(anomaly) if (is_target and anomaly is not None) else None,
+                "sample_hours": int(day_counts.get(d, 0)),
+                "gas_burn_impact": impact if is_target else "NEUTRAL"
+            }
 
-        # Thermal & load share metrics (mirrors the NATIONAL row so regional
-        # fuel-mix and gas-vs-coal switching can be charted per ISO)
-        out_row["total_thermal_mw"] = (out_row["natural_gas_mw"] or 0) + (out_row["coal_mw"] or 0) + (out_row["nuclear_mw"] or 0)
-        out_row["gas_pct_thermal"] = round(out_row["natural_gas_mw"] / out_row["total_thermal_mw"] * 100, 1) if out_row["total_thermal_mw"] > 0 else None
-        out_row["gas_pct_load"] = round(out_row["natural_gas_mw"] / out_row["load_mw"] * 100, 1) if out_row["load_mw"] and out_row["load_mw"] > 0 else None
+            # Thermal & load share metrics (mirrors the NATIONAL row so regional
+            # fuel-mix and gas-vs-coal switching can be charted per ISO)
+            out_row["total_thermal_mw"] = (out_row["natural_gas_mw"] or 0) + (out_row["coal_mw"] or 0) + (out_row["nuclear_mw"] or 0)
+            out_row["gas_pct_thermal"] = round(out_row["natural_gas_mw"] / out_row["total_thermal_mw"] * 100, 1) if out_row["total_thermal_mw"] > 0 else None
+            out_row["gas_pct_load"] = round(out_row["natural_gas_mw"] / out_row["load_mw"] * 100, 1) if out_row["load_mw"] and out_row["load_mw"] > 0 else None
 
-        all_iso_output_rows.append(out_row)
+            all_iso_output_rows.append(out_row)
 
     if not all_iso_output_rows:
         return 0
 
     # --- NATIONAL AGGREGATION ---
     hourly_all = pd.concat(hourly_records)
-    # Filter to periods where we have majority coverage
-    national_hourly = hourly_all.groupby("period").sum(numeric_only=True).reset_index()
+    # COVERAGE GATE: summing whatever ISOs happened to report a period
+    # fabricates national dips when one is missing. Require a solid
+    # majority of ISOs per period before it counts toward the national row.
+    min_isos = -(-len(ISO_LIST) * 2 // 3)  # ceil(2/3): a true majority, not a bare plurality
+    per_period_iso = hourly_all.groupby("period")["iso"].nunique()
+    good_periods = per_period_iso[per_period_iso >= min_isos].index
+    dropped_periods = len(per_period_iso) - len(good_periods)
+    if dropped_periods:
+        print(f"  [COVERAGE] Dropped {dropped_periods} national periods with <{min_isos}/{len(ISO_LIST)} ISOs reporting")
+    national_hourly = hourly_all[hourly_all["period"].isin(good_periods)].groupby("period").sum(numeric_only=True).reset_index()
     national_hourly["date_only"] = pd.to_datetime(national_hourly["period"]).dt.strftime("%Y-%m-%d")
     
     # Save hourly data for peaker script.
@@ -259,60 +283,81 @@ def fetch_live_grid():
     safe_write_csv(hourly_all, "outputs/hourly_grid_data.csv")
     
     nat_daily = national_hourly.groupby("date_only").mean(numeric_only=True).reset_index()
-    latest_date_nat = nat_daily["date_only"].max()
-    matching_nat = nat_daily[nat_daily["date_only"] == latest_date_nat]
-    if matching_nat.empty:
-        print(f"  [WARN] No national aggregate available for {latest_date_nat}")
+    if nat_daily.empty:
+        print("  [WARN] No national aggregate available")
         return len(all_iso_output_rows)
-    nat_today = matching_nat.iloc[0].to_dict()
-    
+    nat_day_counts = national_hourly.groupby("date_only").size()
+    nat_complete = nat_day_counts[nat_day_counts >= COMPLETE_DAY_HOURS]
+    target_date_nat = nat_complete.index.max() if len(nat_complete) > 0 else nat_day_counts.index.max()
+    nat_hours = int(nat_day_counts.get(target_date_nat, 0))
+    matching_nat = nat_daily[nat_daily["date_only"] == target_date_nat]
+    if matching_nat.empty:
+        print(f"  [WARN] No national aggregate available for {target_date_nat}")
+        return len(all_iso_output_rows)
+
     # Like-for-like wind baseline for NATIONAL (same UTC hours as today's
     # partial sample — see _like_for_like_wind_anomaly).
-    nat_anomaly, hist_wind_nat, nat_hours = _like_for_like_wind_anomaly(national_hourly, latest_date_nat)
+    nat_anomaly, hist_wind_nat, _ = _like_for_like_wind_anomaly(national_hourly, target_date_nat)
 
-    nat_row = {
-        "date": latest_date_nat,
-        "iso": "NATIONAL",
-        "natural_gas_mw": round(nat_today["natural_gas_mw"]),
-        "wind_mw": round(nat_today["wind_mw"]),
-        "solar_mw": round(nat_today["solar_mw"]),
-        "coal_mw": round(nat_today["coal_mw"]),
-        "nuclear_mw": round(nat_today["nuclear_mw"]),
-        "load_mw": round(nat_today["load_mw"]),
-        "wind_30d_avg_mw": round(hist_wind_nat) if hist_wind_nat is not None else None,
-        "wind_anomaly_mw": round(nat_anomaly) if nat_anomaly is not None else None
-    }
-
-    # Impact logic
-    anom = nat_row["wind_anomaly_mw"] or 0
-    if nat_row["wind_anomaly_mw"] is None:
+    # Impact logic (representative date only)
+    if nat_anomaly is None:
         impact_nat = "NEUTRAL"
-    elif anom < -3000: impact_nat = "BULLISH (Wind Drought)"
-    elif anom > 4000: impact_nat = "BEARISH (Strong Wind)"
-    else: impact_nat = "NEUTRAL"
-    if impact_nat != "NEUTRAL" and nat_hours < 20:
-        impact_nat += f" [partial {nat_hours}h]"
-    nat_row["gas_burn_impact"] = impact_nat
+    else:
+        if nat_anomaly < -3000: impact_nat = "BULLISH (Wind Drought)"
+        elif nat_anomaly > 4000: impact_nat = "BEARISH (Strong Wind)"
+        else: impact_nat = "NEUTRAL"
+        if nat_hours < COMPLETE_DAY_HOURS:
+            impact_nat += f" [partial {nat_hours}h]"
 
-    # Thermal & Load Metrics
-    nat_row["total_thermal_mw"] = (nat_row["natural_gas_mw"] or 0) + (nat_row["coal_mw"] or 0) + (nat_row["nuclear_mw"] or 0)
-    nat_row["gas_pct_thermal"] = round(nat_row["natural_gas_mw"] / nat_row["total_thermal_mw"] * 100, 1) if nat_row["total_thermal_mw"] > 0 else None
-    nat_row["gas_pct_load"] = round(nat_row["natural_gas_mw"] / nat_row["load_mw"] * 100, 1) if nat_row["load_mw"] > 0 else None
-    
-    # Add National to top
-    all_iso_output_rows.insert(0, nat_row)
+    for _, drow in nat_daily.iterrows():
+        d = drow["date_only"]
+        is_target = (d == target_date_nat)
+        nat_row = {
+            "date": d,
+            "iso": "NATIONAL",
+            "natural_gas_mw": round(drow.get("natural_gas_mw", 0)) if pd.notna(drow.get("natural_gas_mw")) else None,
+            "wind_mw": round(drow.get("wind_mw", 0)) if pd.notna(drow.get("wind_mw")) else None,
+            "solar_mw": round(drow.get("solar_mw", 0)) if pd.notna(drow.get("solar_mw")) else None,
+            "coal_mw": round(drow.get("coal_mw", 0)) if pd.notna(drow.get("coal_mw")) else None,
+            "nuclear_mw": round(drow.get("nuclear_mw", 0)) if pd.notna(drow.get("nuclear_mw")) else None,
+            "load_mw": round(drow.get("load_mw", 0)) if pd.notna(drow.get("load_mw")) else None,
+            "wind_30d_avg_mw": round(hist_wind_nat) if (is_target and hist_wind_nat is not None) else None,
+            "wind_anomaly_mw": round(nat_anomaly) if (is_target and nat_anomaly is not None) else None,
+            "sample_hours": int(nat_day_counts.get(d, 0)),
+            "gas_burn_impact": impact_nat if is_target else "NEUTRAL"
+        }
+
+        # Thermal & Load Metrics
+        nat_row["total_thermal_mw"] = (nat_row["natural_gas_mw"] or 0) + (nat_row["coal_mw"] or 0) + (nat_row["nuclear_mw"] or 0)
+        nat_row["gas_pct_thermal"] = round(nat_row["natural_gas_mw"] / nat_row["total_thermal_mw"] * 100, 1) if nat_row["total_thermal_mw"] > 0 else None
+        nat_row["gas_pct_load"] = round(nat_row["natural_gas_mw"] / nat_row["load_mw"] * 100, 1) if nat_row["load_mw"] and nat_row["load_mw"] > 0 else None
+
+        all_iso_output_rows.insert(0, nat_row)
+
+    # Representative-date row drives the wind actuals history
+    rep_nat_row = next(r for r in all_iso_output_rows if r["iso"] == "NATIONAL" and r["date"] == target_date_nat)
     
     # --- APPEND AND ROLL ---
     new_df = pd.DataFrame(all_iso_output_rows)
-    cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "nuclear_mw", "load_mw", "total_thermal_mw", "gas_pct_thermal", "gas_pct_load", "wind_30d_avg_mw", "wind_anomaly_mw", "gas_burn_impact"]
+    cols = ["date", "iso", "natural_gas_mw", "wind_mw", "solar_mw", "coal_mw", "nuclear_mw", "load_mw", "total_thermal_mw", "gas_pct_thermal", "gas_pct_load", "wind_30d_avg_mw", "wind_anomaly_mw", "sample_hours", "gas_burn_impact"]
     new_df = new_df[[c for c in cols if c in new_df.columns]]
-    
+
     if OUTPUT_FILE.exists():
         try:
             old_df = pd.read_csv(OUTPUT_FILE)
-            # Merge and Deduplicate by date + iso
+            if "sample_hours" not in old_df.columns:
+                # Legacy rows predate coverage tracking; assume full days so
+                # they only yield to strictly richer incoming samples.
+                old_df["sample_hours"] = COMPLETE_DAY_HOURS
             combined = pd.concat([old_df, new_df], ignore_index=True)
-            combined = combined.drop_duplicates(subset=["date", "iso"], keep="last")
+            # COMPLETENESS-AWARE UPSERT: a partial-day capture must never
+            # overwrite a complete one (and vice versa a complete capture
+            # heals earlier partials). Equal completeness -> newest wins
+            # (incoming rows sort last under mergesort).
+            combined["sample_hours"] = pd.to_numeric(combined["sample_hours"], errors="coerce").fillna(COMPLETE_DAY_HOURS)
+            combined = combined.sort_values("sample_hours", kind="mergesort").drop_duplicates(
+                subset=["date", "iso"], keep="last"
+            )
             
             # Rolling window per ISO (National included).
             # 365 days retained so seasonal gas-burn and fuel-mix trends
@@ -332,29 +377,40 @@ def fetch_live_grid():
         safe_write_csv(new_df, OUTPUT_FILE)
         print(f"[OK] Created initial {OUTPUT_FILE}")
 
-    # Update history CSV
-    update_wind_history(nat_row, all_iso_output_rows)
+    # Update history CSV from the representative (most recent complete) row
+    update_wind_history(rep_nat_row, all_iso_output_rows)
     return len(all_iso_output_rows)
 
 def update_wind_history(nat_row, out_rows):
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    national_mw = nat_row.get("wind_mw", 0)
+    national_mw = nat_row.get("wind_mw", 0) or 0
     nat_cf_pct = (national_mw / (TOTAL_INSTALLED_GW * 1000) * 100) if national_mw else 0.0
     iso_map = {r["iso"]: r["wind_mw"] for r in out_rows}
     new_data = {
         "date": nat_row["date"],
         "national_wind_mw": int(round(national_mw)) if pd.notna(national_mw) else 0,
         "national_wind_cf_pct": round(nat_cf_pct, 1),
-        "ercot_wind_mw": int(round(iso_map.get("ERCOT", 0))) if pd.notna(iso_map.get("ERCOT")) else 0,
-        "pjm_wind_mw": int(round(iso_map.get("PJM", 0))) if pd.notna(iso_map.get("PJM")) else 0,
-        "miso_wind_mw": int(round(iso_map.get("MISO", 0))) if pd.notna(iso_map.get("MISO")) else 0,
-        "spp_wind_mw": int(round(iso_map.get("SPP", 0))) if pd.notna(iso_map.get("SPP")) else 0
+        "ercot_wind_mw": int(round(iso_map.get("ERCOT") or 0)),
+        "pjm_wind_mw": int(round(iso_map.get("PJM") or 0)),
+        "miso_wind_mw": int(round(iso_map.get("MISO") or 0)),
+        "spp_wind_mw": int(round(iso_map.get("SPP") or 0)),
+        "sample_hours": nat_row.get("sample_hours", COMPLETE_DAY_HOURS),
     }
     new_df = pd.DataFrame([new_data])
     if HISTORY_FILE.exists():
         try:
             old_df = pd.read_csv(HISTORY_FILE)
-            if new_data["date"] in old_df["date"].astype(str).values: return
+            if "sample_hours" not in old_df.columns:
+                old_df["sample_hours"] = COMPLETE_DAY_HOURS
+            mask = old_df["date"].astype(str) == str(new_data["date"])
+            if mask.any():
+                # Completeness-aware: only upgrade an existing day's capture
+                existing_hours = int(pd.to_numeric(old_df.loc[mask, "sample_hours"], errors="coerce").fillna(0).iloc[0])
+                if new_data["sample_hours"] >= existing_hours:
+                    for k, v in new_data.items():
+                        old_df.loc[mask, k] = v
+                    safe_write_csv(old_df, HISTORY_FILE)
+                return
             combined = pd.concat([old_df, new_df], ignore_index=True)
             safe_write_csv(combined, HISTORY_FILE)
         except Exception as e: print(f"[ERR] History update failed: {e}")

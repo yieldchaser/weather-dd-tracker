@@ -2070,11 +2070,23 @@
                         let text = await gridRes.text();
                         let gridData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
 
+                        // Completeness-aware row picker: the file now stores a
+                        // rolling window of dates per ISO, each tagged with its
+                        // hourly sample width. Cards must show the newest
+                        // COMPLETE day (>=18h) so partial mid-session captures
+                        // never masquerade as daily generation.
+                        const pickBestRow = (rows) => {
+                            if (!rows || rows.length === 0) return null;
+                            const full = rows.filter(r => r.sample_hours == null || isNaN(Number(r.sample_hours)) || Number(r.sample_hours) >= 18);
+                            const pool = full.length > 0 ? full : rows;
+                            return pool.reduce((a, b) => (String(b.date) > String(a.date) ? b : a));
+                        };
+
                         let nationalGrid = gridData.filter(r => r.iso === 'NATIONAL');
                         // Retained for the vintage comparison charts below
                         rawLiveGridData = nationalGrid;
                         if (nationalGrid.length > 0) {
-                            let nat = nationalGrid[nationalGrid.length - 1];
+                            let nat = pickBestRow(nationalGrid);
                             document.getElementById('national-gas-burn').innerText = formatNum(nat.natural_gas_mw, 0);
                             document.getElementById('national-wind-gen').innerText = formatNum(nat.wind_mw, 0);
                             document.getElementById('national-load').innerText = formatNum(nat.load_mw, 0);
@@ -2086,7 +2098,7 @@
 
                         let ercotGrid = gridData.filter(r => r.iso === 'ERCOT');
                         if (ercotGrid.length > 0) {
-                            let latestErcot = ercotGrid[ercotGrid.length - 1];
+                            let latestErcot = pickBestRow(ercotGrid);
                             document.getElementById('live-gas-burn').innerText = formatNum(latestErcot.natural_gas_mw, 0);
                             document.getElementById('live-wind-gen').innerText = formatNum(latestErcot.wind_mw, 0);
                             let anomalyEl = document.getElementById('live-wind-anomaly');
@@ -2103,10 +2115,22 @@
                             document.getElementById('ercot-asof').innerText = latestErcot.date;
                         }
 
-                        // ISO Fuel Mix — most recent date in the file (CSV is not
-                        // guaranteed sorted), stacked per-fuel MW so regional gas,
-                        // coal, nuclear, solar and wind are directly comparable.
-                        const latestDate = gridData.reduce((max, r) => (r.date > max ? r.date : max), '');
+                        // ISO Fuel Mix — newest date that actually has broad
+                        // ISO coverage (complete samples preferred), not just
+                        // the raw max date, or bars silently shrink to a
+                        // handful of early-reporting regions.
+                        const dateScore = {};
+                        gridData.forEach(r => {
+                            if (r.iso === 'NATIONAL' || r.natural_gas_mw == null) return;
+                            const s = dateScore[r.date] || { isoCount: 0, fullBonus: 0 };
+                            s.isoCount += 1;
+                            if (r.sample_hours != null && !isNaN(Number(r.sample_hours)) && Number(r.sample_hours) >= 18) s.fullBonus += 1;
+                            dateScore[r.date] = s;
+                        });
+                        const bestDate = Object.entries(dateScore)
+                            .sort((a, b) => (b[1].fullBonus - a[1].fullBonus) || (b[1].isoCount - a[1].isoCount) || (b[0] > a[0] ? 1 : -1))
+                            .map(e => e[0])[0];
+                        const latestDate = bestDate || gridData.reduce((max, r) => (r.date > max ? r.date : max), '');
                         const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL' && r.natural_gas_mw != null);
 
                         if (isos.length > 0) {

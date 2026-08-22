@@ -102,12 +102,14 @@ def compute_composite():
     
     # Build (month, day) → hdd_normal lookup from the normals file
     normals_lookup = {}
-    normals_10yr_lookup = {}
+    normals_10yr_hdd_lookup = {}
+    normals_10yr_cdd_lookup = {}
     df_norms = load_normals()
     if df_norms is not None and {"month", "day", "hdd_normal"}.issubset(df_norms.columns):
         for _, nr in df_norms.iterrows():
             normals_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("hdd_normal_gw", nr["hdd_normal"]))
-            normals_10yr_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("hdd_normal_gw_10yr", nr.get("hdd_normal_10yr", nr["hdd_normal"])))
+            normals_10yr_hdd_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("hdd_normal_gw_10yr", nr.get("hdd_normal_10yr", nr["hdd_normal"])))
+            normals_10yr_cdd_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("cdd_normal_gw_10yr", nr.get("cdd_normal_10yr", nr.get("cdd_normal_gw", nr.get("cdd_normal", 0.0)))))
 
     rows = []
     
@@ -131,10 +133,19 @@ def compute_composite():
         
         if days_counted < 15:
             sum_15d_forecast += master_tdd
-            if normals_10yr_lookup and len(date_str) >= 8:
+            if len(date_str) >= 8:
                 try:
                     m, d = int(date_str[4:6]), int(date_str[6:8])
-                    sum_15d_normal += normals_10yr_lookup.get((m, d), 0.0)
+                    # Season-matched normal: comparing summer TDD totals to
+                    # an HDD-only baseline produced absurd pct deviations.
+                    met = active_metric(m)
+                    if met == "HDD":
+                        sum_15d_normal += normals_10yr_hdd_lookup.get((m, d), 0.0)
+                    elif met == "CDD":
+                        sum_15d_normal += normals_10yr_cdd_lookup.get((m, d), 0.0)
+                    else:
+                        sum_15d_normal += (normals_10yr_hdd_lookup.get((m, d), 0.0)
+                                           + normals_10yr_cdd_lookup.get((m, d), 0.0))
                 except:
                     pass
             days_counted += 1
@@ -142,15 +153,19 @@ def compute_composite():
         # Seasonal bull signal: season-aware polarity
         # HDD season: colder (positive anomaly) = bullish
         # CDD season: hotter (positive anomaly) = bullish
-        # Shoulder (BOTH): use TDD net anomaly
-        normal_tdd = 0.0
+        # Shoulder (BOTH): net anomaly vs the COMBINED normal. master_tdd is
+        # a TOTAL (HDD+CDD); subtracting it separately from each seasonal
+        # normal double-counts the entire level (~+10 DD phantom anomaly,
+        # which the coefficient amplified into a permanent shoulder-season
+        # STRONG BULL tilt).
+        normal_hdd = 0.0
         normal_cdd = 0.0
         row_month = 0
         if normals_lookup and len(date_str) >= 8:
             try:
                 m, d = int(date_str[4:6]), int(date_str[6:8])
                 row_month = m
-                normal_tdd = normals_lookup.get((m, d), 0.0)
+                normal_hdd = normals_lookup.get((m, d), 0.0)
                 # CDD normal approximated from normals file if available
                 if df_norms is not None and "cdd_normal" in df_norms.columns:
                     _cdd_row = df_norms[(df_norms["month"] == m) & (df_norms["day"] == d)]
@@ -161,12 +176,12 @@ def compute_composite():
         season = active_metric(row_month) if row_month else active_metric(_date.today().month)
 
         if season == "HDD":
-            tdd_anomaly = master_tdd - normal_tdd   # positive = colder → bullish
+            tdd_anomaly = master_tdd - normal_hdd   # positive = colder → bullish
         elif season == "CDD":
             # In CDD season master_tdd represents cooling output; positive anomaly = hotter → bullish
             tdd_anomaly = master_tdd - normal_cdd
-        else:  # BOTH shoulder: net (HDD - HDD_norm) + (CDD - CDD_norm)
-            tdd_anomaly = (master_tdd - normal_tdd) + (master_tdd - normal_cdd)
+        else:  # BOTH shoulder: net anomaly vs combined normal
+            tdd_anomaly = master_tdd - (normal_hdd + normal_cdd)
 
         # Convert degree-day anomaly to BCF anomaly using Dynamic Sensitivity Coefficient
         bcf_anomaly = weight_adjusted_hdd_signal(tdd_anomaly, rolling_coeff)
