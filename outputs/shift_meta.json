@@ -7,8 +7,8 @@
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260824_00",
-      "prev": "20260823_12",
+      "latest": "20260824_12",
+      "prev": "20260824_00",
       "gap": false,
       "has_gw": true
     },
@@ -19,14 +19,14 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260824_06",
-      "prev": "20260824_00",
+      "latest": "20260824_12",
+      "prev": "20260824_06",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260824_00",
-      "prev": "20260823_12",
+      "latest": "20260824_12",
+      "prev": "20260824_00",
       "gap": false,
       "has_gw": true
     },
@@ -37,8 +37,8 @@
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260824_06",
-      "prev": "20260824_00",
+      "latest": "20260824_12",
+      "prev": "20260824_06",
       "gap": false,
       "has_gw": true
     },
@@ -67,8 +67,8 @@
       "has_gw": true
     },
     "UKMO ENS CHG": {
-      "latest": "20260824_00",
-      "prev": "20260823_12",
+      "latest": "20260824_12",
+      "prev": "20260824_00",
       "gap": false,
       "has_gw": true
     },
@@ -85,8 +85,8 @@
       "has_gw": true
     },
     "NAM CHG": {
-      "latest": "20260824_06",
-      "prev": "20260824_00",
+      "latest": "20260824_12",
+      "prev": "20260824_06",
       "gap": false,
       "has_gw": true
     },
@@ -103,5 +103,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-08-24T18:41:28.636167"
+  "generated_at": "2026-08-24T20:21:07.123138"
 }
