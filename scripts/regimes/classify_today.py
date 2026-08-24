@@ -52,6 +52,25 @@ OUTPUT_PATH = "outputs/regimes/current_regime.json" # Renamed to OUTPUT_PATH for
 # Classifications outside this window are flagged as extrapolated.
 TRAINING_MONTHS = {1, 2, 3, 11, 12}
 
+SEASON_OF_MONTH = {12: 'Winter', 1: 'Winter', 2: 'Winter',
+                   3: 'Spring', 4: 'Spring', 5: 'Spring',
+                   6: 'Summer', 7: 'Summer', 8: 'Summer',
+                   9: 'Fall', 10: 'Fall', 11: 'Fall'}
+
+
+def _pick_matrix(model_data, month):
+    """Season-stratified matrix for the month, falling back to the global
+    one. Regime persistence is much stronger in winter blocks than in
+    summer zonal flow; a single year-round average blurs both."""
+    mats = model_data.get('seasonal_transition_matrices') or {}
+    season = SEASON_OF_MONTH.get(month)
+    if season and season in mats:
+        return np.asarray(mats[season]), f'seasonal:{season}'
+    tm = model_data.get('transition_matrix')
+    if tm is not None:
+        return np.asarray(tm), 'global'
+    return None, 'none'
+
 
 def get_today_z500(max_lookback_hours=24):
     """
@@ -76,21 +95,53 @@ def get_today_z500(max_lookback_hours=24):
 
 def _emit_stale_json(reason="unknown"):
     """
-    Re-emit last known regime JSON with incremented persistence.
-    Called on ANY failure to classify so that persistence always advances
-    and the GitHub Actions commit step always has something to push.
+    Re-emit the last known regime JSON advanced one day through the Markov
+    chain (the most likely next state given the current regime and this
+    season's matrix). Called on ANY classification failure so persistence
+    always advances and the GitHub Actions commit step has something to
+    push. Falls back to frozen persistence when no model/matrix is usable.
     """
     if os.path.exists(OUTPUT_PATH):
         try:
             with open(OUTPUT_PATH, "r") as f:
                 prev = json.load(f)
-            prev["persistence_days"] = prev.get("persistence_days", 1) + 1
-            prev["stale"]            = True
-            prev["stale_reason"]     = reason
-            prev["timestamp"]        = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-            # Use safe_write_json
+
+            walked = False
+            try:
+                with open(MODEL_PATH, "rb") as f:
+                    model_data = pickle.load(f)
+                labels = model_data.get('labels') or {}
+                cur = int(prev.get("current_regime"))
+                matrix, src = _pick_matrix(model_data, datetime.now(UTC).month)
+                if matrix is not None and 0 <= cur < matrix.shape[0]:
+                    nxt = int(np.argmax(matrix[cur]))
+                    probs = {
+                        labels.get(j, f"Regime {j}"): round(float(matrix[nxt, j]), 3)
+                        for j in range(matrix.shape[1])
+                    }
+                    prev["previous_regime"] = cur
+                    prev["current_regime"] = nxt
+                    prev["regime_label"] = labels.get(nxt, f"Regime {nxt}")
+                    prev["transition_probs"] = probs
+                    prev["chain_walk_source"] = src
+                    # Persistence only continues if the chain says so.
+                    prev["persistence_days"] = (
+                        prev.get("persistence_days", 1) + 1 if nxt == cur else 1
+                    )
+                    walked = True
+            except FileNotFoundError:
+                logging.warning("[Regime] Model file unavailable during stale walk; persistence-only fallback.")
+            except Exception as e:
+                logging.warning(f"[Regime] Chain-walk failed ({e}); persistence-only fallback.")
+
+            if not walked:
+                prev["persistence_days"] = prev.get("persistence_days", 1) + 1
+
+            prev["stale"]        = True
+            prev["stale_reason"] = reason
+            prev["timestamp"]    = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
             safe_write_json(prev, OUTPUT_PATH, required_keys=["current_regime", "regime_label"])
-            logging.warning(f"[Regime] Re-emitted stale JSON (persistence +1). Reason: {reason}")
+            logging.warning(f"[Regime] Re-emitted stale JSON ({'markov chain-walk' if walked else 'persistence-only'}). Reason: {reason}")
         except Exception as inner_e:
             logging.error(f"[Regime] Failed to re-emit stale JSON: {inner_e}")
     else:
@@ -118,7 +169,6 @@ def run_classification(): # Renamed from classify_today
     train_lat         = model_data['lat']
     train_lon         = model_data['lon']
     labels            = model_data['labels']
-    transition_matrix = model_data.get('transition_matrix')
 
     # ── Core classification block ─────────────────────────────────────────────
     cluster_idx = None
@@ -195,10 +245,11 @@ def run_classification(): # Renamed from classify_today
         )
 
     # ── Markov transition probabilities ──────────────────────────────────────
-    if transition_matrix is not None:
+    matrix, src = _pick_matrix(model_data, m)
+    if matrix is not None and 0 <= cluster_idx < matrix.shape[0]:
         transition_probs = {
-            labels.get(j, f"Regime {j}"): round(float(transition_matrix[cluster_idx, j]), 3)
-            for j in range(transition_matrix.shape[1])
+            labels.get(j, f"Regime {j}"): round(float(matrix[cluster_idx, j]), 3)
+            for j in range(matrix.shape[1])
         }
     else:
         transition_probs = {labels.get(i, f"Regime {i}"): 0.0 for i in labels.keys()}
@@ -228,7 +279,7 @@ if __name__ == "__main__":
     script_name = Path(__file__).stem
     try:
         run_classification()
-        health = {"script": __file__, "status": "ok", "timestamp": datetime.utcnow().isoformat() + "Z"}
+        health = {"script": __file__, "status": "ok", "timestamp": datetime.now(UTC).isoformat() + "Z"}
         Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:
             json.dump(health, f)
@@ -240,7 +291,7 @@ if __name__ == "__main__":
             "script": __file__,
             "status": "failed",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(UTC).isoformat() + "Z"
         }
         Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:

@@ -28,19 +28,20 @@ def train_regimes():
             # The variable is usually 'z' from ERA5
             if 'z' not in ds.data_vars:
                 continue
-                
+
             if 'valid_time' in ds.coords and 'time' not in ds.coords:
                 ds = ds.rename({'valid_time': 'time'})
-                
-            # Keep only winter months (Nov - Mar)
-            ds = ds.sel(time=ds['time.month'].isin([1, 2, 3, 11, 12]))
-            # Drop unnecessary coordinates like number or expver
+
+            # Keep ALL months: the day-of-year climatology must be built from
+            # the full seasonal cycle. The old code filtered to Nov-Mar BEFORE
+            # computing climatology, so an August anomaly was measured against
+            # the nearest available (late-November) mean height field — a ~3
+            # month seasonal offset that fabricated giant anomalies and made
+            # every summer classification an artifact.
             drop_vars = [v for v in ['number', 'expver'] if v in ds.coords or v in ds.data_vars]
             if drop_vars:
                 ds = ds.drop_vars(drop_vars)
-            
-            # Explicitly select 500 hPa if pressure level dimension present,
-            # then squeeze any remaining size-1 dims.
+
             z = ds['z']
             if 'level' in z.dims:
                 z = z.sel(level=500, method='nearest')
@@ -52,61 +53,77 @@ def train_regimes():
         logging.error("No valid data loaded.")
         return
 
-    # Concatenate all years
     da = xr.concat(ds_list, dim='time')
-    
-    # Calculate daily anomalies against the climatological mean of each day-of-year
-    # First, group by day of year and calculate mean
+
+    # Full-year day-of-year climatology (see note above).
     climatology = da.groupby('time.dayofyear').mean('time')
     anomalies = da.groupby('time.dayofyear') - climatology
-    
-    # Flatten spatial dimensions
-    # Shape translates from (time, lat, lon) to (time, lat*lon)
-    anomalies_flat = anomalies.values.reshape(anomalies.shape[0], -1)
-    
-    # Drop NaNs if any
-    valid_mask = ~np.isnan(anomalies_flat).any(axis=1)
-    anomalies_flat = anomalies_flat[valid_mask]
-    times_valid = anomalies.time.values[valid_mask]
 
-    # Cast to float32: consistent with classify_today inference path,
-    # avoids C-backend dtype mismatch in KMeans.
-    anomalies_flat = anomalies_flat.astype(np.float32)
-    
-    logging.info(f"Training PCA on shape {anomalies_flat.shape} (float32)...")
+    anomalies_flat_all = anomalies.values.reshape(anomalies.shape[0], -1)
+    valid_mask = ~np.isnan(anomalies_flat_all).any(axis=1)
+    anomalies_flat_all = anomalies_flat_all[valid_mask].astype(np.float32)
+    times_valid = pd.DatetimeIndex(anomalies.time.values[valid_mask])
+    months_valid = times_valid.month.to_numpy()
+
+    # PCA/KMeans remain trained on the canonical Nov-Mar winter domain so
+    # cluster identities (and downstream labels) stay stable; summer days
+    # are ASSIGNED into that label space rather than re-clustered.
+    winter_mask = np.isin(months_valid, [11, 12, 1, 2, 3])
+    anomalies_winter = anomalies_flat_all[winter_mask]
+
+    logging.info(f"Training PCA on winter subset {anomalies_winter.shape} of {anomalies_flat_all.shape[0]} total days (float32)...")
     pca = PCA(n_components=0.90, random_state=42)
-    pcs = pca.fit_transform(anomalies_flat)
-    
+    pcs_winter = pca.fit_transform(anomalies_winter)
+
     logging.info("Training KMeans and finding optimal K (6 to 15)...")
     best_k = 6
     best_score = -1
     best_kmeans = None
-    
+
     for k in range(6, 16):
         km = KMeans(n_clusters=k, random_state=42, n_init=10)
-        labels_k = km.fit_predict(pcs)
-        score = silhouette_score(pcs, labels_k)
+        labels_k = km.fit_predict(pcs_winter)
+        score = silhouette_score(pcs_winter, labels_k)
         logging.info(f"  k={k}: Silhouette Score = {score:.4f}")
         if score > best_score:
             best_score = score
             best_k = k
             best_kmeans = km
-            
+
     logging.info(f"Optimal clusters chosen: {best_k} (score: {best_score:.4f})")
-    
-    clusters = best_kmeans.predict(pcs)
-    
-    # Build first-order Markov transition matrix from cluster sequence
-    logging.info("Computing Markov transition matrix...")
-    transition_matrix = np.zeros((best_k, best_k), dtype=np.float32)
-    for t in range(len(clusters) - 1):
-        i, j = int(clusters[t]), int(clusters[t + 1])
-        transition_matrix[i, j] += 1
-    # Normalize rows to probabilities (guard zero rows)
-    row_sums = transition_matrix.sum(axis=1, keepdims=True)
-    row_sums[row_sums == 0] = 1
-    transition_matrix = transition_matrix / row_sums
-    logging.info(f"Transition matrix computed (shape {transition_matrix.shape})")
+
+    # Assign EVERY day of the year into the winter-trained cluster space.
+    pcs_all = pca.transform(anomalies_flat_all)
+    clusters = best_kmeans.predict(pcs_all).astype(int)
+
+    def build_matrix(src_indices):
+        m = np.zeros((best_k, best_k), dtype=np.float32)
+        seq = clusters[src_indices]
+        for t in range(len(seq) - 1):
+            m[seq[t], seq[t + 1]] += 1
+        rs = m.sum(axis=1, keepdims=True)
+        rs[rs == 0] = 1
+        return m / rs
+
+    SEASON_OF_MONTH = {12: 'Winter', 1: 'Winter', 2: 'Winter',
+                       3: 'Spring', 4: 'Spring', 5: 'Spring',
+                       6: 'Summer', 7: 'Summer', 8: 'Summer',
+                       9: 'Fall', 10: 'Fall', 11: 'Fall'}
+
+    # Global matrix from the full year-round sequence (superset of the old
+    # winter-only chain), plus per-season matrices: regime persistence and
+    # flip behavior differ strongly between winter blocks and summer zonal
+    # flow, and one year-round average blurs both.
+    all_idx = np.arange(len(clusters))
+    transition_matrix = build_matrix(all_idx)
+    seasonal_transition_matrices = {}
+    season_sample_counts = {}
+    for season in ('Winter', 'Spring', 'Summer', 'Fall'):
+        s_idx = np.array([i for i in all_idx if SEASON_OF_MONTH[months_valid[i]] == season])
+        seasonal_transition_matrices[season] = build_matrix(s_idx)
+        n_transitions = max(len(s_idx) - 1, 0)
+        season_sample_counts[season] = int(n_transitions)
+        logging.info(f"Season matrix '{season}': {n_transitions} transitions")
     
     # Dynamically assign meaningful semantic labels based on cluster centroids
     lat_arr = da.latitude.values if 'latitude' in da.coords else da.lat.values
@@ -163,8 +180,11 @@ def train_regimes():
             'lon': da.longitude.values if 'longitude' in da.coords else da.lon.values,
             'labels': regime_labels,
             'transition_matrix': transition_matrix,
+            'seasonal_transition_matrices': seasonal_transition_matrices,
+            'season_sample_counts': season_sample_counts,
+            'training_months': [11, 12, 1, 2, 3],
         }, f)
-        
+
     logging.info("Model saved successfully.")
 
 if __name__ == "__main__":

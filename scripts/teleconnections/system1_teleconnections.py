@@ -95,7 +95,13 @@ def _load_outcome_cache():
     if os.path.exists(ANALOG_OUTCOMES_CACHE):
         try:
             df = pd.read_csv(ANALOG_OUTCOMES_CACHE)
-            return {int(r.year): (float(r.mar_hdd_anomaly), float(r.apr_hdd_anomaly)) for r in df.itertuples()}
+            return {
+                int(r.year): {
+                    "mar_hdd_anomaly": round(float(r.mar_hdd_anomaly), 1),
+                    "apr_hdd_anomaly": round(float(r.apr_hdd_anomaly), 1),
+                }
+                for r in df.itertuples()
+            }
         except Exception as e:
             logging.warning(f"Analog outcome cache unreadable ({e}); recomputing.")
     return {}
@@ -133,8 +139,7 @@ def _compute_real_outcomes(years):
     out = {}
     for y in years:
         if y in cache:
-            mar_a, apr_a = cache[y]
-            out[int(y)] = {"mar_hdd_anomaly": round(mar_a, 1), "apr_hdd_anomaly": round(apr_a, 1)}
+            out[int(y)] = cache[y]
             continue
         if y >= current_year or normals is None:
             continue  # incomplete season or no baseline — never fabricate

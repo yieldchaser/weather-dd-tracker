@@ -6,6 +6,7 @@
 *.onnx
 *.tar
 *.nc
+!data/era5/*.nc
 
 # ── Raw GRIB download dirs (populated by fetchers, not committed) ──────────────
 data/ecmwf/*/ifs_t2m.grib2
