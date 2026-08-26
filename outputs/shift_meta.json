@@ -1,20 +1,20 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260826_00",
-      "prev": "20260825_18",
+      "latest": "20260826_06",
+      "prev": "20260826_00",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260825_12",
-      "prev": "20260825_00",
+      "latest": "20260826_00",
+      "prev": "20260825_12",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260825_12",
-      "prev": "20260825_00",
+      "latest": "20260826_00",
+      "prev": "20260825_12",
       "gap": false,
       "has_gw": true
     },
@@ -25,20 +25,20 @@
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260825_12",
-      "prev": "20260825_00",
+      "latest": "20260826_00",
+      "prev": "20260825_12",
       "gap": false,
       "has_gw": true
     },
     "GOOGLE AI CHG": {
-      "latest": "20260825_12",
-      "prev": "20260825_00",
+      "latest": "20260826_00",
+      "prev": "20260825_12",
       "gap": false,
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260826_00",
-      "prev": "20260825_18",
+      "latest": "20260826_06",
+      "prev": "20260826_00",
       "gap": false,
       "has_gw": true
     },
@@ -49,20 +49,20 @@
       "has_gw": true
     },
     "NOAA AI ENS CHG": {
-      "latest": "20260825_00",
-      "prev": "20260824_00",
+      "latest": "20260826_00",
+      "prev": "20260825_00",
       "gap": false,
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20260826_00",
-      "prev": "20260825_12",
+      "latest": "20260826_06",
+      "prev": "20260826_00",
       "gap": false,
       "has_gw": true
     },
     "AIFS ENS CHG": {
-      "latest": "20260825_12",
-      "prev": "20260825_00",
+      "latest": "20260826_00",
+      "prev": "20260825_12",
       "gap": false,
       "has_gw": true
     },
@@ -79,8 +79,8 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20260825_21",
-      "prev": "20260825_20",
+      "latest": "20260826_10",
+      "prev": "20260826_09",
       "gap": false,
       "has_gw": true
     },
@@ -103,5 +103,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-08-26T06:54:37.398485"
+  "generated_at": "2026-08-26T13:01:55.793934"
 }
