@@ -1,26 +1,26 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260827_12",
-      "prev": "20260827_06",
+      "latest": "20260827_18",
+      "prev": "20260827_12",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260827_00",
-      "prev": "20260826_12",
+      "latest": "20260827_12",
+      "prev": "20260827_00",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260827_00",
-      "prev": "20260826_12",
+      "latest": "20260827_12",
+      "prev": "20260827_00",
       "gap": false,
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260827_12",
-      "prev": "20260827_06",
+      "latest": "20260827_18",
+      "prev": "20260827_12",
       "gap": false,
       "has_gw": true
     },
@@ -31,14 +31,14 @@
       "has_gw": true
     },
     "GOOGLE AI CHG": {
-      "latest": "20260827_00",
-      "prev": "20260826_12",
+      "latest": "20260827_12",
+      "prev": "20260827_00",
       "gap": false,
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260827_12",
-      "prev": "20260827_06",
+      "latest": "20260827_18",
+      "prev": "20260827_12",
       "gap": false,
       "has_gw": true
     },
@@ -55,14 +55,14 @@
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20260827_12",
-      "prev": "20260827_00",
+      "latest": "20260827_18",
+      "prev": "20260827_12",
       "gap": false,
       "has_gw": true
     },
     "AIFS ENS CHG": {
-      "latest": "20260827_00",
-      "prev": "20260826_12",
+      "latest": "20260827_12",
+      "prev": "20260827_00",
       "gap": false,
       "has_gw": true
     },
@@ -73,8 +73,8 @@
       "has_gw": true
     },
     "EC46 CHG": {
-      "latest": "20260826_00",
-      "prev": "20260825_00",
+      "latest": "20260827_00",
+      "prev": "20260826_00",
       "gap": false,
       "has_gw": true
     },
@@ -91,8 +91,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20260827_12",
-      "prev": "20260827_00",
+      "latest": "20260828_00",
+      "prev": "20260827_12",
       "gap": false,
       "has_gw": true
     },
@@ -103,5 +103,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-08-27T20:06:22.567989"
+  "generated_at": "2026-08-28T02:15:15.645225"
 }
