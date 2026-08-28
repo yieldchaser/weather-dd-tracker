@@ -1,24 +1,24 @@
 {
-  "timestamp": "2026-08-28T18:21:41.185Z",
-  "composite_score": 1.12,
+  "timestamp": "2026-08-28T20:19:05.501Z",
+  "composite_score": 0.38,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 100.0,
+  "confidence": 85.0,
   "components": [
     {
       "name": "Teleconnections Neutral Band",
       "score": 0.0
     },
     {
-      "name": "Weather Sensitivity Neutral",
-      "score": 0.0
+      "name": "Low Weather Sensitivity (CDD arm)",
+      "score": -0.75
     },
     {
       "name": "Wind Drought (Moderate)",
       "score": 0.9
     },
     {
-      "name": "Summer Ridge Heat (Regime 5 (Arctic Block / Trough East / Ridge West))",
+      "name": "Summer Ridge Heat (Regime 1 (Arctic Block / Ridge East / Trough West))",
       "score": 0.22
     }
   ],
@@ -32,7 +32,7 @@
   "divergence_note": null,
   "detail": {
     "bull_accumulator": 1.12,
-    "bear_accumulator": 0.0
+    "bear_accumulator": 0.75
   },
   "system_status": {
     "teleconnections_connected": true,
