@@ -1,5 +1,5 @@
 {
-  "model": "AIGFS",
+  "model": "GFS",
   "run_date": "20260830",
   "cycle": "06",
   "field": "TMP:2 m above ground (byte-range extracted)",
@@ -64,8 +64,12 @@
     342,
     348,
     354,
-    360
+    360,
+    366,
+    372,
+    378,
+    384
   ],
   "skipped_hours": [],
-  "created_utc": "2026-08-30T14:19:23.829307+00:00"
+  "created_utc": "2026-08-30T14:17:05.281450+00:00"
 }
