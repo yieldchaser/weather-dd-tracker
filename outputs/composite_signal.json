@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-08-31T12:27:49.658Z",
-  "composite_score": 0.38,
+  "timestamp": "2026-08-31T16:18:14.628Z",
+  "composite_score": 0.98,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 85.0,
@@ -14,8 +14,8 @@
       "score": -0.75
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 0.9
+      "name": "Wind Drought (Persistent)",
+      "score": 1.5
     },
     {
       "name": "Summer Ridge Heat (Regime 1 (Arctic Block / Ridge East / Trough West))",
@@ -31,7 +31,7 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 1.12,
+    "bull_accumulator": 1.73,
     "bear_accumulator": 0.75
   },
   "system_status": {
