@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-08-31T22:44:30.358Z",
-  "composite_score": 0.98,
-  "signal": "NEUTRAL",
+  "timestamp": "2026-09-01T00:56:45.079Z",
+  "composite_score": 2.0,
+  "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 85.0,
   "components": [
@@ -15,23 +15,23 @@
     },
     {
       "name": "Wind Drought (Persistent)",
-      "score": 1.5
+      "score": 2.0
     },
     {
-      "name": "Summer Ridge Heat (Regime 1 (Arctic Block / Ridge East / Trough West))",
-      "score": 0.22
+      "name": "Cold Delivery Pattern (Regime 1 (Arctic Block / Ridge East / Trough West))",
+      "score": 0.75
     }
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": -0.92,
+    "score": -0.89,
     "bias": "STRONG BEAR",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
-  "agreement_pct": null,
-  "divergence_note": null,
+  "agreement_pct": 0.0,
+  "divergence_note": "DIVERGENT: front of the curve (0-15d) prices BELOW-normal demand; subseasonal risk (10-45d) leans the other way. Trade the front, respect the back \u2014 do not average them into one number.",
   "detail": {
-    "bull_accumulator": 1.73,
+    "bull_accumulator": 2.75,
     "bear_accumulator": 0.75
   },
   "system_status": {
