@@ -1,74 +1,74 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260831_18",
-      "prev": "20260831_12",
+      "latest": "20260901_00",
+      "prev": "20260831_18",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260831_12",
-      "prev": "20260831_00",
+      "latest": "20260901_00",
+      "prev": "20260831_12",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20260831_12",
-      "prev": "20260831_00",
+      "latest": "20260901_00",
+      "prev": "20260831_12",
       "gap": false,
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260831_18",
-      "prev": "20260831_12",
+      "latest": "20260901_00",
+      "prev": "20260831_18",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260831_12",
-      "prev": "20260831_00",
-      "gap": false,
-      "has_gw": true
-    },
-    "GOOGLE AI CHG": {
-      "latest": "20260831_12",
-      "prev": "20260831_00",
-      "gap": false,
-      "has_gw": true
-    },
-    "EURO AI CHG": {
-      "latest": "20260831_18",
+      "latest": "20260901_00",
       "prev": "20260831_12",
       "gap": false,
       "has_gw": true
     },
+    "GOOGLE AI CHG": {
+      "latest": "20260901_00",
+      "prev": "20260831_12",
+      "gap": false,
+      "has_gw": true
+    },
+    "EURO AI CHG": {
+      "latest": "20260901_00",
+      "prev": "20260831_18",
+      "gap": false,
+      "has_gw": true
+    },
     "NOAA AI CHG": {
-      "latest": "20260831_00",
-      "prev": "20260830_00",
+      "latest": "20260901_00",
+      "prev": "20260831_00",
       "gap": false,
       "has_gw": true
     },
     "NOAA AI ENS CHG": {
-      "latest": "20260831_00",
-      "prev": "20260830_00",
+      "latest": "20260901_00",
+      "prev": "20260831_00",
       "gap": false,
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20260831_18",
-      "prev": "20260831_06",
+      "latest": "20260901_06",
+      "prev": "20260831_18",
       "gap": false,
       "has_gw": true
     },
     "AIFS ENS CHG": {
-      "latest": "20260831_12",
-      "prev": "20260831_00",
+      "latest": "20260901_00",
+      "prev": "20260831_12",
       "gap": false,
       "has_gw": true
     },
     "UKMO ENS CHG": {
-      "latest": "20260831_12",
-      "prev": "20260831_00",
+      "latest": "20260901_00",
+      "prev": "20260831_12",
       "gap": false,
       "has_gw": true
     },
@@ -103,5 +103,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-09-01T02:38:09.464499"
+  "generated_at": "2026-09-01T11:03:02.487405"
 }
