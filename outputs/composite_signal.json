@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-09-01T20:52:29.459Z",
-  "composite_score": 1.2,
+  "timestamp": "2026-09-02T01:56:48.550Z",
+  "composite_score": 1.05,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 85.0,
+  "confidence": 77.5,
   "components": [
     {
-      "name": "Teleconnections Neutral Band",
-      "score": 0.0
+      "name": "Teleconnections Warm/Neutral (off-season, damped)",
+      "score": -0.15
     },
     {
       "name": "Low Weather Sensitivity (CDD arm)",
@@ -32,7 +32,7 @@
   "divergence_note": null,
   "detail": {
     "bull_accumulator": 1.95,
-    "bear_accumulator": 0.75
+    "bear_accumulator": 0.9
   },
   "system_status": {
     "teleconnections_connected": true,
