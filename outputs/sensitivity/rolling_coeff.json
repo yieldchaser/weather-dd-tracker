@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-09-02T12:31:36.779Z",
+  "timestamp": "2026-09-03T12:34:49.607Z",
   "metric": "CDD",
-  "sensitivity_bcf_per_hdd": 0.543,
-  "r_squared": 0.057,
+  "sensitivity_bcf_per_hdd": 0.551,
+  "r_squared": 0.059,
   "percentile": 0,
-  "base_demand": 21.4,
-  "n_observations": 90,
+  "base_demand": 21.3,
+  "n_observations": 91,
   "window_days": 30,
   "data_source": "national_power_burn_history",
   "connected": true
