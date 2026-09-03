@@ -38,6 +38,7 @@ FETCH_SCRIPTS = [
     "fetch_gefs_subseasonal.py",
     "fetch_cmc_ens.py",
     "fetch_wn2.py",
+    "fetch_wn3.py",
     "fetch_aigefs.py",
     "fetch_aifs_ens.py",
     "fetch_ukmo_ens.py",

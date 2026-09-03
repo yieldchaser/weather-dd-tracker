@@ -1093,6 +1093,7 @@
                             'GEFS_35D': 35,
                             'CMC_ENS': 15,
                             'GOOGLE_WN2': 15,
+                            'GOOGLE_WN3': 15,
                             'AIGEFS': 16,
                             'AIFS_ENS': 15,
                             'UKMO_ENS': 8,
@@ -1192,6 +1193,8 @@
                     // horizontal scrolling; the full name stays on the tooltip.
                     const SHORT_NAMES = {
                         'GOOGLE_WN2': 'WN2',
+                        'GOOGLE_WN3': 'WN3',
+                        'GOOGLE WN3 CHG': 'WN3',
                         'FOURCASTNETV2-SMALL': 'FCNv2',
                         'FOURCASTNETV2': 'FCNv2',
                         'ECMWF_ENS': 'EC-ENS',
@@ -1761,7 +1764,7 @@
             let err = document.getElementById('mapError');
             let mapSelect = document.getElementById('mapRunSelect');
 
-            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'GEFS_35D', 'ECMWF_ENS', 'ECMWF_AIFS', 'AIGFS', 'HGEFS', 'CMC_ENS', 'GOOGLE_WN2', 'AIGEFS', 'AIFS_ENS', 'UKMO_ENS', 'EC46', 'HRRR', 'NAM', 'NBM', 'ICON', 'FOURCASTNETV2-SMALL'];
+            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'GEFS_35D', 'ECMWF_ENS', 'ECMWF_AIFS', 'AIGFS', 'HGEFS', 'CMC_ENS', 'GOOGLE_WN2', 'GOOGLE_WN3', 'AIGEFS', 'AIFS_ENS', 'UKMO_ENS', 'EC46', 'HRRR', 'NAM', 'NBM', 'ICON', 'FOURCASTNETV2-SMALL'];
             if (mapModels.includes(selectedModel) && manifest[selectedModel] && manifest[selectedModel].length > 0) {
                 img.style.display = 'block';
                 err.style.display = 'none';
@@ -2286,6 +2289,10 @@
                 title: "WeatherNext 2 (Google DeepMind)",
                 body: "Google DeepMind's latest operational AI ensemble: a 64-member Functional Generative Network model at 0.25° resolution out to 15 days. Successor to GenCast/WeatherNext Gen, it beats ECMWF ENS on the majority of variables and lead times. Values shown are the ensemble mean."
             },
+            "GOOGLE_WN3": {
+                title: "WeatherNext 3 (Google DeepMind)",
+                body: "Google DeepMind's state-of-the-art operational AI weather model (September 2026). Generates hourly forecasts from real-time satellite imagery at 0.05° (~5 km) surface resolution with a 64-member ensemble out to 15 days (360h). Delivers up to 50% error reduction in precipitation and superior temperature capture across complex microclimates. Values shown represent the ensemble mean."
+            },
             "AIGEFS": {
                 title: "AIGEFS (NOAA AI Ensemble)",
                 body: "NOAA's Artificial Intelligence Global Ensemble Forecast System: a 31-member GraphCast-based AI ensemble out to 16 days, operational since December 2025. Extends useful forecast skill 18-24 hours beyond the physics GEFS. Values shown are the ensemble mean."
@@ -2372,6 +2379,7 @@
                         "NOAA AI CHG": "AIGFS",
                         "NOAA AI ENS CHG": "HGEFS",
                         "GOOGLE AI CHG": "GOOGLE_WN2",
+                        "GOOGLE WN3 CHG": "GOOGLE_WN3",
                         "AIGEFS CHG": "AIGEFS",
                         "AIFS ENS CHG": "AIFS_ENS",
                         "UKMO ENS CHG": "UKMO_ENS",

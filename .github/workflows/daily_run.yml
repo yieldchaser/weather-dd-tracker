@@ -62,6 +62,7 @@ jobs:
           mkdir -p data/ukmo_ens/cities
           mkdir -p data/ec46/cities
           mkdir -p data/google_wn2/cities
+          mkdir -p data/google_wn3/cities
 
       - name: Copy normals file
         run: |
@@ -74,6 +75,7 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           EIA_KEY: ${{ secrets.EIA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           python scripts/market_logic/fetch_live_grid.py || echo "[WARN] Live grid fetch failed — continuing pipeline."
           python scripts/poll_models.py
@@ -155,7 +157,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add data/pipeline_state.json outputs/ outputs/health/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ || true
+          git add data/pipeline_state.json outputs/ outputs/health/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ data/google_wn3/ || true
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4 5; do

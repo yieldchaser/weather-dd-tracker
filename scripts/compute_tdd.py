@@ -569,6 +569,7 @@ _MODELS = [
     ("ICON",       "data/icon",       "generic",     {}),
     ("CMC_ENS",    "data/cmc_ens",    "external",    {}),
     ("GOOGLE_WN2", "data/google_wn2", "external",    {}),
+    ("GOOGLE_WN3", "data/google_wn3", "external",    {}),
     ("AIGEFS",     "data/aigefs",     "external",    {}),
     ("AIFS_ENS",   "data/aifs_ens",   "external",    {}),
     ("UKMO_ENS",   "data/ukmo_ens",   "external",    {}),

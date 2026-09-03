@@ -80,7 +80,7 @@ Free. Automatable. Resilient. If a free resource exists, we exploit its API. If 
 **Track A — No GPU Needed (GitHub Actions Native)**
 *   **ECMWF AIFS (Single + ENS v2):** ✅ Active. Deterministic (`ECMWF_AIFS`) plus the 51-member CRPS-trained ensemble (`AIFS_ENS`), both via Open-Meteo.
 *   **NOAA AI Family (AIGFS / AIGEFS / HGEFS):** ✅ Active. Deterministic GraphCast-GFS, the 31-member AIGEFS AI ensemble, and the 62-member hybrid grand ensemble, operational since Dec 2025.
-*   **Google DeepMind WeatherNext 2:** ✅ Active. 64-member FGN ensemble (`GOOGLE_WN2`), successor to the deprecated GenCast/WeatherNext Gen, mirrored by Open-Meteo since Jul 2026.
+*   **Google DeepMind WeatherNext 2 & 3:** ✅ Active. 64-member FGN ensembles (`GOOGLE_WN2` & `GOOGLE_WN3`). WeatherNext 3 (September 2026) operates at 0.05° (~5 km) resolution with real-time satellite ingestion, hourly cycles, and precomputed distribution statistics via GCS Zarr.
 *   **UK Met Office MOGREPS-G:** ✅ Active. 18-member global ensemble (`UKMO_ENS`) for independent physics diversification.
 *   **ECMWF EC46 Sub-Seasonal:** ✅ Active. 51-member 46-day ensemble via the Seasonal API, filling the weeks 3-6 gap beyond GEFS 35-day.
 

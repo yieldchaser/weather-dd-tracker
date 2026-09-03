@@ -8,6 +8,7 @@ Generates an animated GIF mapping the differences across CONUS:
 """
 
 import os
+import sys
 import glob
 import json
 import pandas as pd
@@ -22,6 +23,7 @@ import gc
 import imageio.v2 as imageio
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
+sys.path.insert(0, str(Path(__file__).parent))
 from demand_constants import DEMAND_CITIES
 
 
@@ -404,6 +406,7 @@ def rebuild_manifest():
         "HGEFS": "HGEFS_shift_",
         "CMC_ENS": "CMC_ENS_shift_",
         "GOOGLE_WN2": "GOOGLE_WN2_shift_",
+        "GOOGLE_WN3": "GOOGLE_WN3_shift_",
         "AIGEFS": "AIGEFS_shift_",
         "AIFS_ENS": "AIFS_ENS_shift_",
         "UKMO_ENS": "UKMO_ENS_shift_",
@@ -469,6 +472,7 @@ def main():
         {"name": "NBM",        "path": "data/nbm",              "is_bubble": False},
         {"name": "CMC_ENS",    "path": "data/cmc_ens",          "is_bubble": True},
         {"name": "GOOGLE_WN2", "path": "data/google_wn2",       "is_bubble": True},
+        {"name": "GOOGLE_WN3", "path": "data/google_wn3",       "is_bubble": True},
         {"name": "AIGEFS",     "path": "data/aigefs",           "is_bubble": True},
         {"name": "AIFS_ENS",   "path": "data/aifs_ens",         "is_bubble": True},
         {"name": "UKMO_ENS",   "path": "data/ukmo_ens",         "is_bubble": True},

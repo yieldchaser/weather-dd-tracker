@@ -17,6 +17,8 @@ ECMWF_DIR = Path("data/ecmwf")
 GFS_DIR   = Path("data/gfs")
 AI_DIR    = Path("data/ai_models")
 AIFS_DIR  = Path("data/ecmwf_aifs")
+GOOGLE_WN2_DIR = Path("data/google_wn2")
+GOOGLE_WN3_DIR = Path("data/google_wn3")
 OUTPUT_DIR = Path("outputs")
 
 def get_latest_file(base_dir, file_suffix="tdd.csv"):
@@ -108,6 +110,19 @@ def load_data():
             dfs.append(pd.read_csv(ai_cf))
         except Exception as e:
             print(f"[WARN] Could not load AI models: {e}")
+
+    # 4. Load Google WeatherNext 2 & 3
+    for model_label, m_dir in [("GOOGLE_WN2", GOOGLE_WN2_DIR), ("GOOGLE_WN3", GOOGLE_WN3_DIR)]:
+        cf = get_latest_file(m_dir, "tdd.csv")
+        if cf:
+            try:
+                df_m = pd.read_csv(cf)
+                if "model" not in df_m.columns:
+                    df_m["model"] = model_label
+                if _run_is_fresh(df_m, model_label):
+                    dfs.append(df_m)
+            except Exception as e:
+                print(f"[WARN] Could not load {model_label}: {e}")
         
     if not dfs:
         print("[ERR] No model data available to compare.")
@@ -145,7 +160,7 @@ def compute_disagreement():
     
     # Categorize
     physics_cols = [c for c in pivot.columns if c in ["ECMWF_HRES", "GFS_HRES", "NAM", "HRRR", "ICON", "CMC_ENS", "GFS", "ECMWF", "UKMO_ENS"]]
-    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "GOOGLE_WN2", "AIGEFS", "AIFS_ENS"]]
+    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "GOOGLE_WN2", "GOOGLE_WN3", "AIGEFS", "AIFS_ENS"]]
     
     # Calculate means where possible
     if physics_cols:

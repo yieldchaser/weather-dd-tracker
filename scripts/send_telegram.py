@@ -26,7 +26,7 @@ COMBINED_DROUGHT_PATH = Path("outputs/wind/combined_drought.json")
 PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "CMC_ENS", "UKMO_ENS"]
 SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
 AI_MODELS         = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL",
-                     "FOURCASTNETV2", "AURORA", "ECMWF_AIFS", "GOOGLE_WN2",
+                     "FOURCASTNETV2", "AURORA", "ECMWF_AIFS", "GOOGLE_WN2", "GOOGLE_WN3",
                      "AIGEFS", "AIFS_ENS"]
 
 MAX_MSG_CHARS = 4000  # Telegram hard limit is 4096; leave margin

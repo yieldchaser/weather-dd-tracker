@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Optional: if you add ECMWF Ens and GFS Ens later, they can be added here
 # Models to track in the shift table
-MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "GOOGLE_WN2", "ECMWF_AIFS", "AIGFS", "HGEFS", "AIGEFS", "AIFS_ENS", "UKMO_ENS", "EC46", "HRRR", "NAM", "NBM", "FOURCASTNETV2-SMALL"]
+MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "GOOGLE_WN2", "GOOGLE_WN3", "ECMWF_AIFS", "AIGFS", "HGEFS", "AIGEFS", "AIFS_ENS", "UKMO_ENS", "EC46", "HRRR", "NAM", "NBM", "FOURCASTNETV2-SMALL"]
 
 def main():
     print("\n--- Generating Model Shift Table ---")
@@ -98,6 +98,7 @@ def main():
         "AIGFS Op Chg": "NOAA AI CHG",
         "HGEFS Op Chg": "NOAA AI ENS CHG",
         "GOOGLE_WN2 Op Chg": "GOOGLE AI CHG",
+        "GOOGLE_WN3 Op Chg": "GOOGLE WN3 CHG",
         "AIGEFS Op Chg": "AIGEFS CHG",
         "AIFS_ENS Op Chg": "AIFS ENS CHG",
         "UKMO_ENS Op Chg": "UKMO ENS CHG",
@@ -109,13 +110,13 @@ def main():
     shift_df.rename(columns=rename_map, inplace=True)
             
     # Ensure all expected columns exist even if empty (for UI stability)
-    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "GOOGLE AI CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "AIGEFS CHG", "AIFS ENS CHG", "UKMO ENS CHG", "EC46 CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
+    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "GOOGLE AI CHG", "GOOGLE WN3 CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "AIGEFS CHG", "AIFS ENS CHG", "UKMO ENS CHG", "EC46 CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
     for col in expected_cols:
         if col not in shift_df.columns:
             shift_df[col] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
-    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
+    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "GOOGLE WN3 CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
     # --- STRICT SYNCHRONIZATION ALIGNMENT ---

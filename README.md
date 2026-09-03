@@ -79,7 +79,14 @@ For heavy AI weather models like `FOURCASTNETV2-SMALL`, local execution is avoid
 ### 3. Spatial Map Generation: Contour vs. Bubble
 At the end of each pipeline run, `generate_maps.py` runs a parallel process to compile CONUS-wide forecast delta maps:
 *   **Contour Mapping (Gridded Models):** Performs bilinear grid interpolation across GRIB outputs using `xarray` and `Cartopy` to plot continuous temperature anomalies.
-*   **Bubble Mapping (Point-Only & AI Models):** For `CMC_ENS`, `ICON`, and `FOURCASTNETV2-SMALL`, the script maps point-level temperatures from the city JSONs directly to longitude/latitude coordinates as colored circles, using a `coolwarm` colormap scaled between `-15°F` and `+15°F`.
+*   **Bubble Mapping (Point-Only & AI Models):** For `CMC_ENS`, `ICON`, `GOOGLE_WN2`, `GOOGLE_WN3`, and `FOURCASTNETV2-SMALL`, the script maps point-level temperatures from the city JSONs directly to longitude/latitude coordinates as colored circles, using a `coolwarm` colormap scaled between `-15°F` and `+15°F`.
+
+### 4. Cloud Object-Store Zarr Ingestion (Google DeepMind WeatherNext 3)
+WeatherNext 3 (`GOOGLE_WN3`) provides 0.05° (~5 km) surface resolution with 64-member precomputed ensemble statistics (`temperature_2m_mean`, `temperature_2m_p10`, `temperature_2m_p90`) on Google Cloud Storage (`gs://weathernext3_statistics_spatial/`):
+1. `scripts/fetch_wn3.py` connects lazily via `obstore` / `zarr` / `xarray`.
+2. Rather than downloading multi-gigabyte global grids, it performs **lazy nearest-neighbor spatial indexing (`.sel(method='nearest')`)** specifically across the 79 demand cities before computing, maintaining memory usage under 10 MB.
+3. Outputs daily gas-weighted HDD/CDD/TDD metrics and city-level temperatures for run-to-run shift maps.
+4. WeatherNext 3 data is provided by Google DeepMind / Google Research (CC BY 4.0 after 1 hour).
 
 ---
 
