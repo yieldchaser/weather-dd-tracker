@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-09-04T13:55:01.966268+00:00",
+  "generated_at_utc": "2026-09-04T15:51:01.204064+00:00",
   "fit_window_days": 180,
   "fit": {
-    "a": 0.021867068201077512,
-    "b": -2.1630109305409415,
-    "c": 65.83432491844941,
+    "a": 0.021867068201077484,
+    "b": -2.163010930540941,
+    "c": 65.83432491844937,
     "n": 172,
     "r2": 0.438
   },
@@ -897,9 +897,9 @@
   "forecast_series": [
     {
       "date": "2026-09-05",
-      "temp": 75.04,
-      "burn_implied": 26.655,
-      "burn_normal_delta": 4.1
+      "temp": 75.07,
+      "burn_implied": 26.689,
+      "burn_normal_delta": 4.133
     },
     {
       "date": "2026-09-06",
@@ -909,39 +909,39 @@
     },
     {
       "date": "2026-09-07",
-      "temp": 70.73,
-      "burn_implied": 22.24,
-      "burn_normal_delta": -0.378
+      "temp": 70.6,
+      "burn_implied": 22.119,
+      "burn_normal_delta": -0.498
     },
     {
       "date": "2026-09-08",
-      "temp": 72.19,
-      "burn_implied": 23.645,
-      "burn_normal_delta": 1.566
+      "temp": 72.16,
+      "burn_implied": 23.615,
+      "burn_normal_delta": 1.537
     },
     {
       "date": "2026-09-09",
-      "temp": 74.58,
-      "burn_implied": 26.145,
-      "burn_normal_delta": 4.684
+      "temp": 74.56,
+      "burn_implied": 26.123,
+      "burn_normal_delta": 4.662
     },
     {
       "date": "2026-09-10",
-      "temp": 75.11,
-      "burn_implied": 26.734,
-      "burn_normal_delta": 5.636
+      "temp": 75.03,
+      "burn_implied": 26.644,
+      "burn_normal_delta": 5.546
     },
     {
       "date": "2026-09-11",
-      "temp": 70.67,
-      "burn_implied": 22.184,
-      "burn_normal_delta": 1.833
+      "temp": 70.54,
+      "burn_implied": 22.064,
+      "burn_normal_delta": 1.713
     },
     {
       "date": "2026-09-12",
-      "temp": 68.38,
-      "burn_implied": 20.174,
-      "burn_normal_delta": -0.0
+      "temp": 68.31,
+      "burn_implied": 20.116,
+      "burn_normal_delta": -0.058
     },
     {
       "date": "2026-09-13",
