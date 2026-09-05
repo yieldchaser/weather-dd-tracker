@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260905_00",
-      "prev": "20260904_18",
+      "latest": "20260905_06",
+      "prev": "20260905_00",
       "gap": false,
       "has_gw": true
     },
@@ -19,8 +19,8 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260905_00",
-      "prev": "20260904_18",
+      "latest": "20260905_06",
+      "prev": "20260905_00",
       "gap": false,
       "has_gw": true
     },
@@ -37,14 +37,14 @@
       "has_gw": true
     },
     "GOOGLE WN3 CHG": {
-      "latest": "20260905_00",
-      "prev": "20260904_18",
+      "latest": "20260905_06",
+      "prev": "20260905_00",
       "gap": false,
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260905_00",
-      "prev": "20260904_18",
+      "latest": "20260905_06",
+      "prev": "20260905_00",
       "gap": false,
       "has_gw": true
     },
@@ -55,14 +55,14 @@
       "has_gw": true
     },
     "NOAA AI ENS CHG": {
-      "latest": "20260904_00",
-      "prev": "20260903_00",
+      "latest": "20260905_00",
+      "prev": "20260904_00",
       "gap": false,
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20260905_00",
-      "prev": "20260904_18",
+      "latest": "20260905_06",
+      "prev": "20260905_00",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-09-05T09:52:48.539820"
+  "generated_at": "2026-09-05T12:50:53.558463"
 }
