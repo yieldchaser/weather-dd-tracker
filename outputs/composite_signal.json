@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-05T12:52:39.537Z",
+  "timestamp": "2026-09-05T14:31:04.365Z",
   "composite_score": 1.02,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
@@ -24,7 +24,7 @@
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": 0.23,
+    "score": 0.21,
     "bias": "BULLISH",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
