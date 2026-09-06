@@ -85,20 +85,20 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20260905_18",
-      "prev": "20260905_17",
+      "latest": "20260906_09",
+      "prev": "20260905_18",
       "gap": false,
       "has_gw": true
     },
     "NAM CHG": {
-      "latest": "20260905_12",
-      "prev": "20260905_06",
+      "latest": "20260905_18",
+      "prev": "20260905_12",
       "gap": false,
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20260906_00",
-      "prev": "20260905_12",
+      "latest": "20260906_12",
+      "prev": "20260906_00",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-09-06T13:18:32.096852"
+  "generated_at": "2026-09-06T14:51:10.706560"
 }
