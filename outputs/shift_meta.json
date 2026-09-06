@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260905_12",
-      "prev": "20260905_06",
+      "latest": "20260905_18",
+      "prev": "20260905_12",
       "gap": false,
       "has_gw": true
     },
@@ -19,8 +19,8 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260905_12",
-      "prev": "20260905_06",
+      "latest": "20260905_18",
+      "prev": "20260905_12",
       "gap": false,
       "has_gw": true
     },
@@ -37,8 +37,8 @@
       "has_gw": true
     },
     "GOOGLE WN3 CHG": {
-      "latest": "20260905_12",
-      "prev": "20260905_06",
+      "latest": "20260905_18",
+      "prev": "20260905_12",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-09-05T23:17:59.321217"
+  "generated_at": "2026-09-06T01:53:17.712752"
 }
