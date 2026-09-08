@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260907_12",
-      "prev": "20260907_06",
+      "latest": "20260907_18",
+      "prev": "20260907_12",
       "gap": false,
       "has_gw": true
     },
@@ -61,8 +61,8 @@
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20260907_12",
-      "prev": "20260907_06",
+      "latest": "20260907_18",
+      "prev": "20260907_12",
       "gap": false,
       "has_gw": true
     },
@@ -79,14 +79,14 @@
       "has_gw": true
     },
     "EC46 CHG": {
-      "latest": "20260906_00",
-      "prev": "20260905_00",
+      "latest": "20260907_00",
+      "prev": "20260906_00",
       "gap": false,
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20260907_00",
-      "prev": "20260906_23",
+      "latest": "20260907_21",
+      "prev": "20260907_20",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-09-07T21:08:18.510012"
+  "generated_at": "2026-09-08T00:05:57.080991"
 }
