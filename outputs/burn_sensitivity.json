@@ -1,16 +1,16 @@
 {
-  "generated_at_utc": "2026-09-14T17:45:14.521381+00:00",
+  "generated_at_utc": "2026-09-14T21:46:59.170123+00:00",
   "fit_window_days": 180,
   "fit": {
-    "a": 0.018671723602784015,
-    "b": -1.7137869402648667,
-    "c": 50.37896289968846,
+    "a": 0.018625368259703515,
+    "b": -1.7078711588443045,
+    "c": 50.201669137325005,
     "n": 180,
-    "r2": 0.4748
+    "r2": 0.4742
   },
   "sensitivity": {
     "current_temp_f": 68.4,
-    "bcf_per_f_at_current": 0.8409,
+    "bcf_per_f_at_current": 0.8405,
     "heating_arm": {
       "bcf_per_dd": -0.1168,
       "intercept": 14.358,
@@ -18,47 +18,47 @@
       "r2": 0.0984
     },
     "cooling_arm": {
-      "bcf_per_dd": 1.0512,
-      "intercept": 16.7,
+      "bcf_per_dd": 1.0477,
+      "intercept": 16.735,
       "n": 123,
-      "r2": 0.2167
+      "r2": 0.2152
     }
   },
   "performance_series": [
     {
       "date": "2026-03-14",
       "realized": 13.199,
-      "normal_wx_implied": 11.773
+      "normal_wx_implied": 11.812
     },
     {
       "date": "2026-03-15",
       "realized": 10.921,
-      "normal_wx_implied": 11.689
+      "normal_wx_implied": 11.713
     },
     {
       "date": "2026-03-16",
       "realized": 11.591,
-      "normal_wx_implied": 11.878
+      "normal_wx_implied": 11.885
     },
     {
       "date": "2026-03-17",
       "realized": 15.017,
-      "normal_wx_implied": 11.795
+      "normal_wx_implied": 11.79
     },
     {
       "date": "2026-03-18",
       "realized": 1.662,
-      "normal_wx_implied": 11.687
+      "normal_wx_implied": 11.71
     },
     {
       "date": "2026-03-19",
       "realized": 16.536,
-      "normal_wx_implied": 11.635
+      "normal_wx_implied": 11.663
     },
     {
       "date": "2026-03-20",
       "realized": 16.547,
-      "normal_wx_implied": 11.488
+      "normal_wx_implied": 11.52
     },
     {
       "date": "2026-03-21",
@@ -68,102 +68,102 @@
     {
       "date": "2026-03-22",
       "realized": 11.605,
-      "normal_wx_implied": 11.54
+      "normal_wx_implied": 11.536
     },
     {
       "date": "2026-03-23",
       "realized": 12.02,
-      "normal_wx_implied": 11.569
+      "normal_wx_implied": 11.555
     },
     {
       "date": "2026-03-24",
       "realized": 16.051,
-      "normal_wx_implied": 11.383
+      "normal_wx_implied": 11.381
     },
     {
       "date": "2026-03-25",
       "realized": 14.074,
-      "normal_wx_implied": 11.266
+      "normal_wx_implied": 11.277
     },
     {
       "date": "2026-03-26",
       "realized": 13.256,
-      "normal_wx_implied": 11.243
+      "normal_wx_implied": 11.239
     },
     {
       "date": "2026-03-27",
       "realized": 12.539,
-      "normal_wx_implied": 11.133
+      "normal_wx_implied": 11.137
     },
     {
       "date": "2026-03-28",
       "realized": 13.639,
-      "normal_wx_implied": 11.067
+      "normal_wx_implied": 11.066
     },
     {
       "date": "2026-03-29",
       "realized": 12.536,
-      "normal_wx_implied": 11.063
+      "normal_wx_implied": 11.061
     },
     {
       "date": "2026-03-30",
       "realized": 12.108,
-      "normal_wx_implied": 11.06
+      "normal_wx_implied": 11.061
     },
     {
       "date": "2026-03-31",
       "realized": 12.734,
-      "normal_wx_implied": 11.054
+      "normal_wx_implied": 11.052
     },
     {
       "date": "2026-04-01",
       "realized": 14.126,
-      "normal_wx_implied": 11.054
+      "normal_wx_implied": 11.05
     },
     {
       "date": "2026-04-02",
       "realized": 12.646,
-      "normal_wx_implied": 11.054
+      "normal_wx_implied": 11.05
     },
     {
       "date": "2026-04-03",
       "realized": 12.709,
-      "normal_wx_implied": 11.067
+      "normal_wx_implied": 11.064
     },
     {
       "date": "2026-04-04",
       "realized": 12.496,
-      "normal_wx_implied": 11.055
+      "normal_wx_implied": 11.053
     },
     {
       "date": "2026-04-05",
       "realized": 12.049,
-      "normal_wx_implied": 11.09
+      "normal_wx_implied": 11.077
     },
     {
       "date": "2026-04-06",
       "realized": 11.85,
-      "normal_wx_implied": 11.057
+      "normal_wx_implied": 11.054
     },
     {
       "date": "2026-04-07",
       "realized": 13.41,
-      "normal_wx_implied": 11.129
+      "normal_wx_implied": 11.13
     },
     {
       "date": "2026-04-08",
       "realized": 13.055,
-      "normal_wx_implied": 11.137
+      "normal_wx_implied": 11.144
     },
     {
       "date": "2026-04-09",
       "realized": 12.333,
-      "normal_wx_implied": 11.109
+      "normal_wx_implied": 11.12
     },
     {
       "date": "2026-04-10",
       "realized": 13.444,
-      "normal_wx_implied": 11.121
+      "normal_wx_implied": 11.124
     },
     {
       "date": "2026-04-11",
@@ -173,857 +173,857 @@
     {
       "date": "2026-04-12",
       "realized": 11.579,
-      "normal_wx_implied": 11.305
+      "normal_wx_implied": 11.32
     },
     {
       "date": "2026-04-13",
       "realized": 11.16,
-      "normal_wx_implied": 11.322
+      "normal_wx_implied": 11.334
     },
     {
       "date": "2026-04-14",
       "realized": 13.626,
-      "normal_wx_implied": 11.405
+      "normal_wx_implied": 11.425
     },
     {
       "date": "2026-04-15",
       "realized": 14.949,
-      "normal_wx_implied": 11.593
+      "normal_wx_implied": 11.624
     },
     {
       "date": "2026-04-16",
       "realized": 16.361,
-      "normal_wx_implied": 11.734
+      "normal_wx_implied": 11.736
     },
     {
       "date": "2026-04-17",
       "realized": 14.791,
-      "normal_wx_implied": 11.593
+      "normal_wx_implied": 11.602
     },
     {
       "date": "2026-04-18",
       "realized": 13.259,
-      "normal_wx_implied": 11.742
+      "normal_wx_implied": 11.754
     },
     {
       "date": "2026-04-19",
       "realized": 12.547,
-      "normal_wx_implied": 12.142
+      "normal_wx_implied": 12.138
     },
     {
       "date": "2026-04-20",
       "realized": 12.818,
-      "normal_wx_implied": 12.073
+      "normal_wx_implied": 12.09
     },
     {
       "date": "2026-04-21",
       "realized": 13.256,
-      "normal_wx_implied": 11.915
+      "normal_wx_implied": 11.953
     },
     {
       "date": "2026-04-22",
       "realized": 13.026,
-      "normal_wx_implied": 11.779
+      "normal_wx_implied": 11.812
     },
     {
       "date": "2026-04-23",
       "realized": 12.615,
-      "normal_wx_implied": 11.783
+      "normal_wx_implied": 11.807
     },
     {
       "date": "2026-04-24",
       "realized": 13.335,
-      "normal_wx_implied": 11.933
+      "normal_wx_implied": 11.952
     },
     {
       "date": "2026-04-25",
       "realized": 15.252,
-      "normal_wx_implied": 12.131
+      "normal_wx_implied": 12.141
     },
     {
       "date": "2026-04-26",
       "realized": 13.646,
-      "normal_wx_implied": 12.145
+      "normal_wx_implied": 12.151
     },
     {
       "date": "2026-04-27",
       "realized": 13.556,
-      "normal_wx_implied": 11.972
+      "normal_wx_implied": 11.967
     },
     {
       "date": "2026-04-28",
       "realized": 15.999,
-      "normal_wx_implied": 11.979
+      "normal_wx_implied": 12.005
     },
     {
       "date": "2026-04-29",
       "realized": 16.907,
-      "normal_wx_implied": 12.219
+      "normal_wx_implied": 12.225
     },
     {
       "date": "2026-04-30",
       "realized": 16.682,
-      "normal_wx_implied": 12.573
+      "normal_wx_implied": 12.578
     },
     {
       "date": "2026-05-01",
       "realized": 16.444,
-      "normal_wx_implied": 13.221
+      "normal_wx_implied": 13.197
     },
     {
       "date": "2026-05-02",
       "realized": 15.293,
-      "normal_wx_implied": 13.424
+      "normal_wx_implied": 13.419
     },
     {
       "date": "2026-05-03",
       "realized": 13.803,
-      "normal_wx_implied": 13.282
+      "normal_wx_implied": 13.331
     },
     {
       "date": "2026-05-04",
       "realized": 11.273,
-      "normal_wx_implied": 13.272
+      "normal_wx_implied": 13.329
     },
     {
       "date": "2026-05-05",
       "realized": 12.52,
-      "normal_wx_implied": 13.408
+      "normal_wx_implied": 13.486
     },
     {
       "date": "2026-05-06",
       "realized": 16.257,
-      "normal_wx_implied": 13.614
+      "normal_wx_implied": 13.726
     },
     {
       "date": "2026-05-07",
       "realized": 14.427,
-      "normal_wx_implied": 13.811
+      "normal_wx_implied": 13.915
     },
     {
       "date": "2026-05-08",
       "realized": 15.01,
-      "normal_wx_implied": 13.965
+      "normal_wx_implied": 14.079
     },
     {
       "date": "2026-05-09",
       "realized": 14.019,
-      "normal_wx_implied": 14.253
+      "normal_wx_implied": 14.374
     },
     {
       "date": "2026-05-10",
       "realized": 13.279,
-      "normal_wx_implied": 14.533
+      "normal_wx_implied": 14.658
     },
     {
       "date": "2026-05-11",
       "realized": 14.814,
-      "normal_wx_implied": 14.516
+      "normal_wx_implied": 14.634
     },
     {
       "date": "2026-05-15",
       "realized": 14.203,
-      "normal_wx_implied": 14.924
+      "normal_wx_implied": 15.1
     },
     {
       "date": "2026-05-16",
       "realized": 13.595,
-      "normal_wx_implied": 15.074
+      "normal_wx_implied": 15.295
     },
     {
       "date": "2026-05-17",
       "realized": 13.777,
-      "normal_wx_implied": 15.106
+      "normal_wx_implied": 15.328
     },
     {
       "date": "2026-05-18",
       "realized": 14.411,
-      "normal_wx_implied": 15.117
+      "normal_wx_implied": 15.337
     },
     {
       "date": "2026-05-19",
       "realized": 18.318,
-      "normal_wx_implied": 15.065
+      "normal_wx_implied": 15.272
     },
     {
       "date": "2026-05-20",
       "realized": 20.64,
-      "normal_wx_implied": 15.392
+      "normal_wx_implied": 15.597
     },
     {
       "date": "2026-05-21",
       "realized": 19.306,
-      "normal_wx_implied": 15.503
+      "normal_wx_implied": 15.736
     },
     {
       "date": "2026-05-22",
       "realized": 15.895,
-      "normal_wx_implied": 15.826
+      "normal_wx_implied": 16.092
     },
     {
       "date": "2026-05-23",
       "realized": 14.897,
-      "normal_wx_implied": 16.461
+      "normal_wx_implied": 16.72
     },
     {
       "date": "2026-05-24",
       "realized": 15.448,
-      "normal_wx_implied": 16.839
+      "normal_wx_implied": 17.122
     },
     {
       "date": "2026-05-25",
       "realized": 15.319,
-      "normal_wx_implied": 16.893
+      "normal_wx_implied": 17.16
     },
     {
       "date": "2026-05-26",
       "realized": 16.406,
-      "normal_wx_implied": 17.31
+      "normal_wx_implied": 17.654
     },
     {
       "date": "2026-05-27",
       "realized": 19.479,
-      "normal_wx_implied": 17.559
+      "normal_wx_implied": 17.917
     },
     {
       "date": "2026-05-28",
       "realized": 20.637,
-      "normal_wx_implied": 18.02
+      "normal_wx_implied": 18.299
     },
     {
       "date": "2026-05-29",
       "realized": 13.548,
-      "normal_wx_implied": 18.599
+      "normal_wx_implied": 18.88
     },
     {
       "date": "2026-05-30",
       "realized": 11.711,
-      "normal_wx_implied": 19.128
+      "normal_wx_implied": 19.403
     },
     {
       "date": "2026-05-31",
       "realized": 10.046,
-      "normal_wx_implied": 19.438
+      "normal_wx_implied": 19.75
     },
     {
       "date": "2026-06-01",
       "realized": 12.117,
-      "normal_wx_implied": 18.969
+      "normal_wx_implied": 19.335
     },
     {
       "date": "2026-06-03",
       "realized": 8.093,
-      "normal_wx_implied": 17.96
+      "normal_wx_implied": 18.426
     },
     {
       "date": "2026-06-04",
       "realized": 8.151,
-      "normal_wx_implied": 17.852
+      "normal_wx_implied": 18.298
     },
     {
       "date": "2026-06-05",
       "realized": 14.762,
-      "normal_wx_implied": 18.356
+      "normal_wx_implied": 18.802
     },
     {
       "date": "2026-06-06",
       "realized": 14.941,
-      "normal_wx_implied": 18.675
+      "normal_wx_implied": 19.103
     },
     {
       "date": "2026-06-07",
       "realized": 7.884,
-      "normal_wx_implied": 19.444
+      "normal_wx_implied": 19.905
     },
     {
       "date": "2026-06-08",
       "realized": 12.634,
-      "normal_wx_implied": 20.466
+      "normal_wx_implied": 20.921
     },
     {
       "date": "2026-06-09",
       "realized": 20.634,
-      "normal_wx_implied": 20.965
+      "normal_wx_implied": 21.42
     },
     {
       "date": "2026-06-10",
       "realized": 21.105,
-      "normal_wx_implied": 21.518
+      "normal_wx_implied": 22.026
     },
     {
       "date": "2026-06-11",
       "realized": 22.006,
-      "normal_wx_implied": 21.724
+      "normal_wx_implied": 22.286
     },
     {
       "date": "2026-06-12",
       "realized": 24.117,
-      "normal_wx_implied": 21.704
+      "normal_wx_implied": 22.221
     },
     {
       "date": "2026-06-13",
       "realized": 21.87,
-      "normal_wx_implied": 21.239
+      "normal_wx_implied": 21.733
     },
     {
       "date": "2026-06-14",
       "realized": 19.364,
-      "normal_wx_implied": 21.378
+      "normal_wx_implied": 21.883
     },
     {
       "date": "2026-06-15",
       "realized": 20.064,
-      "normal_wx_implied": 21.633
+      "normal_wx_implied": 22.152
     },
     {
       "date": "2026-06-16",
       "realized": 20.012,
-      "normal_wx_implied": 22.024
+      "normal_wx_implied": 22.57
     },
     {
       "date": "2026-06-17",
       "realized": 18.341,
-      "normal_wx_implied": 22.494
+      "normal_wx_implied": 23.011
     },
     {
       "date": "2026-06-18",
       "realized": 18.118,
-      "normal_wx_implied": 23.111
+      "normal_wx_implied": 23.599
     },
     {
       "date": "2026-06-19",
       "realized": 20.926,
-      "normal_wx_implied": 23.239
+      "normal_wx_implied": 23.807
     },
     {
       "date": "2026-06-20",
       "realized": 19.287,
-      "normal_wx_implied": 23.276
+      "normal_wx_implied": 23.847
     },
     {
       "date": "2026-06-21",
       "realized": 17.207,
-      "normal_wx_implied": 23.626
+      "normal_wx_implied": 24.211
     },
     {
       "date": "2026-06-22",
       "realized": 17.835,
-      "normal_wx_implied": 23.578
+      "normal_wx_implied": 24.212
     },
     {
       "date": "2026-06-23",
       "realized": 20.634,
-      "normal_wx_implied": 23.459
+      "normal_wx_implied": 24.134
     },
     {
       "date": "2026-06-24",
       "realized": 19.924,
-      "normal_wx_implied": 24.025
+      "normal_wx_implied": 24.74
     },
     {
       "date": "2026-06-25",
       "realized": 19.884,
-      "normal_wx_implied": 24.526
+      "normal_wx_implied": 25.241
     },
     {
       "date": "2026-06-26",
       "realized": 19.845,
-      "normal_wx_implied": 25.104
+      "normal_wx_implied": 25.737
     },
     {
       "date": "2026-06-27",
       "realized": 18.65,
-      "normal_wx_implied": 25.01
+      "normal_wx_implied": 25.603
     },
     {
       "date": "2026-06-28",
       "realized": 17.343,
-      "normal_wx_implied": 25.022
+      "normal_wx_implied": 25.658
     },
     {
       "date": "2026-06-29",
       "realized": 18.631,
-      "normal_wx_implied": 25.096
+      "normal_wx_implied": 25.755
     },
     {
       "date": "2026-06-30",
       "realized": 22.287,
-      "normal_wx_implied": 25.03
+      "normal_wx_implied": 25.688
     },
     {
       "date": "2026-07-01",
       "realized": 23.864,
-      "normal_wx_implied": 25.03
+      "normal_wx_implied": 25.644
     },
     {
       "date": "2026-07-02",
       "realized": 25.345,
-      "normal_wx_implied": 25.004
+      "normal_wx_implied": 25.693
     },
     {
       "date": "2026-07-03",
       "realized": 24.939,
-      "normal_wx_implied": 25.28
+      "normal_wx_implied": 26.032
     },
     {
       "date": "2026-07-04",
       "realized": 23.731,
-      "normal_wx_implied": 25.985
+      "normal_wx_implied": 26.735
     },
     {
       "date": "2026-07-05",
       "realized": 23.086,
-      "normal_wx_implied": 26.498
+      "normal_wx_implied": 27.213
     },
     {
       "date": "2026-07-06",
       "realized": 22.835,
-      "normal_wx_implied": 26.732
+      "normal_wx_implied": 27.428
     },
     {
       "date": "2026-07-07",
       "realized": 24.195,
-      "normal_wx_implied": 26.731
+      "normal_wx_implied": 27.44
     },
     {
       "date": "2026-07-08",
       "realized": 24.01,
-      "normal_wx_implied": 26.505
+      "normal_wx_implied": 27.193
     },
     {
       "date": "2026-07-09",
       "realized": 24.973,
-      "normal_wx_implied": 26.418
+      "normal_wx_implied": 27.13
     },
     {
       "date": "2026-07-10",
       "realized": 25.226,
-      "normal_wx_implied": 26.275
+      "normal_wx_implied": 27.021
     },
     {
       "date": "2026-07-11",
       "realized": 23.781,
-      "normal_wx_implied": 25.878
+      "normal_wx_implied": 26.593
     },
     {
       "date": "2026-07-12",
       "realized": 22.8,
-      "normal_wx_implied": 26.121
+      "normal_wx_implied": 26.793
     },
     {
       "date": "2026-07-13",
       "realized": 23.93,
-      "normal_wx_implied": 26.551
+      "normal_wx_implied": 27.117
     },
     {
       "date": "2026-07-14",
       "realized": 26.653,
-      "normal_wx_implied": 26.773
+      "normal_wx_implied": 27.351
     },
     {
       "date": "2026-07-15",
       "realized": 27.827,
-      "normal_wx_implied": 27.068
+      "normal_wx_implied": 27.69
     },
     {
       "date": "2026-07-16",
       "realized": 27.292,
-      "normal_wx_implied": 27.523
+      "normal_wx_implied": 28.133
     },
     {
       "date": "2026-07-17",
       "realized": 26.19,
-      "normal_wx_implied": 28.335
+      "normal_wx_implied": 28.989
     },
     {
       "date": "2026-07-18",
       "realized": 24.348,
-      "normal_wx_implied": 28.645
+      "normal_wx_implied": 29.38
     },
     {
       "date": "2026-07-19",
       "realized": 23.244,
-      "normal_wx_implied": 28.253
+      "normal_wx_implied": 29.05
     },
     {
       "date": "2026-07-20",
       "realized": 24.027,
-      "normal_wx_implied": 27.887
+      "normal_wx_implied": 28.723
     },
     {
       "date": "2026-07-21",
       "realized": 26.07,
-      "normal_wx_implied": 27.865
+      "normal_wx_implied": 28.661
     },
     {
       "date": "2026-07-22",
       "realized": 26.528,
-      "normal_wx_implied": 27.478
+      "normal_wx_implied": 28.219
     },
     {
       "date": "2026-07-23",
       "realized": 25.614,
-      "normal_wx_implied": 26.884
+      "normal_wx_implied": 27.548
     },
     {
       "date": "2026-07-24",
       "realized": 23.542,
-      "normal_wx_implied": 26.203
+      "normal_wx_implied": 26.813
     },
     {
       "date": "2026-07-25",
       "realized": 23.024,
-      "normal_wx_implied": 26.152
+      "normal_wx_implied": 26.741
     },
     {
       "date": "2026-07-26",
       "realized": 23.632,
-      "normal_wx_implied": 26.563
+      "normal_wx_implied": 27.113
     },
     {
       "date": "2026-07-27",
       "realized": 25.56,
-      "normal_wx_implied": 26.72
+      "normal_wx_implied": 27.256
     },
     {
       "date": "2026-07-28",
       "realized": 27.258,
-      "normal_wx_implied": 26.708
+      "normal_wx_implied": 27.272
     },
     {
       "date": "2026-07-29",
       "realized": 31.335,
-      "normal_wx_implied": 26.4
+      "normal_wx_implied": 26.919
     },
     {
       "date": "2026-07-30",
       "realized": 30.361,
-      "normal_wx_implied": 26.223
+      "normal_wx_implied": 26.717
     },
     {
       "date": "2026-07-31",
       "realized": 30.608,
-      "normal_wx_implied": 26.424
+      "normal_wx_implied": 26.88
     },
     {
       "date": "2026-08-01",
       "realized": 30.047,
-      "normal_wx_implied": 27.216
+      "normal_wx_implied": 27.628
     },
     {
       "date": "2026-08-02",
       "realized": 29.98,
-      "normal_wx_implied": 27.733
+      "normal_wx_implied": 28.164
     },
     {
       "date": "2026-08-03",
       "realized": 29.86,
-      "normal_wx_implied": 27.589
+      "normal_wx_implied": 28.051
     },
     {
       "date": "2026-08-04",
       "realized": 29.86,
-      "normal_wx_implied": 27.054
+      "normal_wx_implied": 27.547
     },
     {
       "date": "2026-08-05",
       "realized": 31.149,
-      "normal_wx_implied": 25.918
+      "normal_wx_implied": 26.462
     },
     {
       "date": "2026-08-06",
       "realized": 33.394,
-      "normal_wx_implied": 25.052
+      "normal_wx_implied": 25.552
     },
     {
       "date": "2026-08-07",
       "realized": 33.754,
-      "normal_wx_implied": 25.359
+      "normal_wx_implied": 25.865
     },
     {
       "date": "2026-08-08",
       "realized": 32.426,
-      "normal_wx_implied": 25.871
+      "normal_wx_implied": 26.362
     },
     {
       "date": "2026-08-09",
       "realized": 30.288,
-      "normal_wx_implied": 26.192
+      "normal_wx_implied": 26.636
     },
     {
       "date": "2026-08-10",
       "realized": 32.884,
-      "normal_wx_implied": 26.216
+      "normal_wx_implied": 26.647
     },
     {
       "date": "2026-08-11",
       "realized": 32.361,
-      "normal_wx_implied": 25.621
+      "normal_wx_implied": 26.069
     },
     {
       "date": "2026-08-12",
       "realized": 31.811,
-      "normal_wx_implied": 25.334
+      "normal_wx_implied": 25.733
     },
     {
       "date": "2026-08-13",
       "realized": 31.306,
-      "normal_wx_implied": 25.449
+      "normal_wx_implied": 25.734
     },
     {
       "date": "2026-08-14",
       "realized": 31.22,
-      "normal_wx_implied": 25.182
+      "normal_wx_implied": 25.423
     },
     {
       "date": "2026-08-15",
       "realized": 29.056,
-      "normal_wx_implied": 24.882
+      "normal_wx_implied": 25.195
     },
     {
       "date": "2026-08-16",
       "realized": 30.56,
-      "normal_wx_implied": 25.446
+      "normal_wx_implied": 25.807
     },
     {
       "date": "2026-08-17",
       "realized": 33.205,
-      "normal_wx_implied": 25.728
+      "normal_wx_implied": 26.147
     },
     {
       "date": "2026-08-18",
       "realized": 33.86,
-      "normal_wx_implied": 25.205
+      "normal_wx_implied": 25.697
     },
     {
       "date": "2026-08-19",
       "realized": 33.711,
-      "normal_wx_implied": 24.537
+      "normal_wx_implied": 24.995
     },
     {
       "date": "2026-08-20",
       "realized": 34.635,
-      "normal_wx_implied": 24.168
+      "normal_wx_implied": 24.631
     },
     {
       "date": "2026-08-21",
       "realized": 33.255,
-      "normal_wx_implied": 24.271
+      "normal_wx_implied": 24.741
     },
     {
       "date": "2026-08-22",
       "realized": 29.639,
-      "normal_wx_implied": 24.384
+      "normal_wx_implied": 24.87
     },
     {
       "date": "2026-08-23",
       "realized": 29.183,
-      "normal_wx_implied": 24.165
+      "normal_wx_implied": 24.612
     },
     {
       "date": "2026-08-24",
       "realized": 31.067,
-      "normal_wx_implied": 24.358
+      "normal_wx_implied": 24.742
     },
     {
       "date": "2026-08-25",
       "realized": 32.303,
-      "normal_wx_implied": 24.793
+      "normal_wx_implied": 25.106
     },
     {
       "date": "2026-08-26",
       "realized": 34.596,
-      "normal_wx_implied": 25.084
+      "normal_wx_implied": 25.399
     },
     {
       "date": "2026-08-27",
       "realized": 36.764,
-      "normal_wx_implied": 25.417
+      "normal_wx_implied": 25.714
     },
     {
       "date": "2026-08-28",
       "realized": 35.112,
-      "normal_wx_implied": 25.204
+      "normal_wx_implied": 25.501
     },
     {
       "date": "2026-08-29",
       "realized": 27.852,
-      "normal_wx_implied": 24.373
+      "normal_wx_implied": 24.699
     },
     {
       "date": "2026-08-30",
       "realized": 26.696,
-      "normal_wx_implied": 23.952
+      "normal_wx_implied": 24.303
     },
     {
       "date": "2026-08-31",
       "realized": 31.583,
-      "normal_wx_implied": 24.014
+      "normal_wx_implied": 24.344
     },
     {
       "date": "2026-09-01",
       "realized": 31.597,
-      "normal_wx_implied": 23.192
+      "normal_wx_implied": 23.514
     },
     {
       "date": "2026-09-02",
       "realized": 30.661,
-      "normal_wx_implied": 23.068
+      "normal_wx_implied": 23.322
     },
     {
       "date": "2026-09-03",
       "realized": 30.196,
-      "normal_wx_implied": 23.332
+      "normal_wx_implied": 23.582
     },
     {
       "date": "2026-09-04",
       "realized": 30.565,
-      "normal_wx_implied": 23.128
+      "normal_wx_implied": 23.423
     },
     {
       "date": "2026-09-05",
       "realized": 28.092,
-      "normal_wx_implied": 22.313
+      "normal_wx_implied": 22.582
     },
     {
       "date": "2026-09-06",
       "realized": 26.13,
-      "normal_wx_implied": 22.027
+      "normal_wx_implied": 22.219
     },
     {
       "date": "2026-09-07",
       "realized": 24.355,
-      "normal_wx_implied": 22.38
+      "normal_wx_implied": 22.554
     },
     {
       "date": "2026-09-08",
       "realized": 27.141,
-      "normal_wx_implied": 21.805
+      "normal_wx_implied": 21.991
     },
     {
       "date": "2026-09-09",
       "realized": 31.333,
-      "normal_wx_implied": 21.181
+      "normal_wx_implied": 21.393
     },
     {
       "date": "2026-09-10",
       "realized": 31.794,
-      "normal_wx_implied": 20.833
+      "normal_wx_implied": 21.039
     },
     {
       "date": "2026-09-11",
       "realized": 28.348,
-      "normal_wx_implied": 20.144
+      "normal_wx_implied": 20.327
     },
     {
       "date": "2026-09-12",
       "realized": 25.472,
-      "normal_wx_implied": 19.973
+      "normal_wx_implied": 20.138
     },
     {
       "date": "2026-09-13",
-      "realized": 24.211,
-      "normal_wx_implied": 20.33
+      "realized": 25.632,
+      "normal_wx_implied": 20.466
     }
   ],
   "model_error": {
-    "bias_7d": 5.464,
-    "mae_7d": 5.464,
+    "bias_7d": 5.658,
+    "mae_7d": 5.658,
     "n_7d": 7,
-    "bias_28d": 7.015,
-    "mae_28d": 7.015,
+    "bias_28d": 7.057,
+    "mae_28d": 7.057,
     "n_28d": 28
   },
   "forecast_series": [
     {
       "date": "2026-09-15",
-      "temp": 67.65,
-      "burn_implied": 19.893,
-      "burn_normal_delta": 0.429
+      "temp": 67.37,
+      "burn_implied": 19.678,
+      "burn_normal_delta": 0.019
     },
     {
       "date": "2026-09-16",
-      "temp": 69.86,
-      "burn_implied": 21.78,
-      "burn_normal_delta": 2.728
+      "temp": 69.79,
+      "burn_implied": 21.727,
+      "burn_normal_delta": 2.476
     },
     {
       "date": "2026-09-17",
-      "temp": 71.85,
-      "burn_implied": 23.635,
-      "burn_normal_delta": 4.661
+      "temp": 71.87,
+      "burn_implied": 23.663,
+      "burn_normal_delta": 4.473
     },
     {
       "date": "2026-09-18",
-      "temp": 72.18,
-      "burn_implied": 23.957,
-      "burn_normal_delta": 5.131
+      "temp": 72.21,
+      "burn_implied": 23.994,
+      "burn_normal_delta": 5.014
     },
     {
       "date": "2026-09-19",
-      "temp": 70.64,
-      "burn_implied": 22.489,
-      "burn_normal_delta": 4.176
+      "temp": 69.88,
+      "burn_implied": 21.807,
+      "burn_normal_delta": 3.376
     },
     {
       "date": "2026-09-20",
-      "temp": 70.95,
-      "burn_implied": 22.777,
-      "burn_normal_delta": 4.594
+      "temp": 70.42,
+      "burn_implied": 22.296,
+      "burn_normal_delta": 4.021
     },
     {
       "date": "2026-09-21",
-      "temp": 67.88,
-      "burn_implied": 20.081,
-      "burn_normal_delta": 1.777
+      "temp": 67.37,
+      "burn_implied": 19.678,
+      "burn_normal_delta": 1.323
     },
     {
       "date": "2026-09-22",
-      "temp": 65.45,
-      "burn_implied": 18.196,
-      "burn_normal_delta": 0.268
+      "temp": 64.54,
+      "burn_implied": 17.558,
+      "burn_normal_delta": -0.409
     },
     {
       "date": "2026-09-23",
-      "temp": 64.45,
-      "burn_implied": 17.484,
-      "burn_normal_delta": -0.034
+      "temp": 63.51,
+      "burn_implied": 16.861,
+      "burn_normal_delta": -0.702
     },
     {
       "date": "2026-09-24",
-      "temp": 64.55,
-      "burn_implied": 17.554,
-      "burn_normal_delta": 0.419
+      "temp": 63.63,
+      "burn_implied": 16.94,
+      "burn_normal_delta": -0.183
     },
     {
       "date": "2026-09-25",
-      "temp": 64.41,
-      "burn_implied": 17.456,
-      "burn_normal_delta": 0.378
+      "temp": 63.91,
+      "burn_implied": 17.127,
+      "burn_normal_delta": 0.088
     },
     {
       "date": "2026-09-26",
-      "temp": 64.83,
-      "burn_implied": 17.75,
-      "burn_normal_delta": 0.518
+      "temp": 64.73,
+      "burn_implied": 17.691,
+      "burn_normal_delta": 0.503
     },
     {
       "date": "2026-09-27",
-      "temp": 65.33,
-      "burn_implied": 18.108,
-      "burn_normal_delta": 0.928
+      "temp": 65.34,
+      "burn_implied": 18.127,
+      "burn_normal_delta": 0.934
     },
     {
       "date": "2026-09-28",
-      "temp": 65.45,
-      "burn_implied": 18.196,
-      "burn_normal_delta": 1.463
+      "temp": 65.43,
+      "burn_implied": 18.192,
+      "burn_normal_delta": 1.429
     },
     {
       "date": "2026-09-29",
-      "temp": 63.45,
-      "burn_implied": 16.81,
-      "burn_normal_delta": 1.231
+      "temp": 63.32,
+      "burn_implied": 16.736,
+      "burn_normal_delta": 1.103
     }
   ],
   "ercot_fit": {
