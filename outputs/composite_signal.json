@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-09-15T11:09:12.078Z",
-  "composite_score": -0.15,
+  "timestamp": "2026-09-15T13:47:33.065Z",
+  "composite_score": 0.65,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 85.0,
+  "confidence": 70.0,
   "components": [
     {
       "name": "Teleconnections Neutral Band",
@@ -14,8 +14,8 @@
       "score": -0.75
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2
+      "name": "Wind Drought (Persistent)",
+      "score": 2.0
     },
     {
       "name": "Mild Pattern (Regime 2 (Ridge East))",
@@ -31,7 +31,7 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 1.2,
+    "bull_accumulator": 2.0,
     "bear_accumulator": 1.35
   },
   "system_status": {
