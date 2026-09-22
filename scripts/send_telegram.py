@@ -713,7 +713,8 @@ def main():
     df["month"] = df["date"].dt.month
     df["day"]   = df["date"].dt.day
 
-    season = active_metric(date.today().month)
+    today_d = date.today()
+    season = active_metric(today_d)
 
     gw_mode = GW_NORMALS.exists()
     if gw_mode:
@@ -737,10 +738,10 @@ def main():
 
     if "tdd_gw" in df.columns:
         tdd_col   = "tdd_gw"
-        metric_lbl = metric_label(date.today().month, gas_weighted=True)
+        metric_lbl = metric_label(today_d, gas_weighted=True)
     else:
         tdd_col   = "tdd"
-        metric_lbl = metric_label(date.today().month, gas_weighted=False)
+        metric_lbl = metric_label(today_d, gas_weighted=False)
 
     df = df.merge(norms[["month", "day", norm_col]], on=["month", "day"], how="left")
 
@@ -997,7 +998,7 @@ if __name__ == "__main__":
         health = {
             "script": __file__,
             "status": "ok",
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:
@@ -1010,7 +1011,7 @@ if __name__ == "__main__":
             "script": __file__,
             "status": "failed",
             "error": str(e),
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         Path("outputs/health").mkdir(exist_ok=True, parents=True)
         with open(f"outputs/health/{script_name}.json", "w") as f:

@@ -163,14 +163,15 @@ def compute_composite():
     def weight_adjusted_hdd_signal(hdd, coeff):
         return hdd * coeff
     
-    # Build (month, day) → hdd_normal lookup from the normals file
     normals_lookup = {}
+    normals_cdd_lookup = {}
     normals_10yr_hdd_lookup = {}
     normals_10yr_cdd_lookup = {}
     df_norms = load_normals()
     if df_norms is not None and {"month", "day", "hdd_normal"}.issubset(df_norms.columns):
         for _, nr in df_norms.iterrows():
             normals_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("hdd_normal_gw", nr["hdd_normal"]))
+            normals_cdd_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("cdd_normal_gw", nr.get("cdd_normal", 0.0)))
             normals_10yr_hdd_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("hdd_normal_gw_10yr", nr.get("hdd_normal_10yr", nr["hdd_normal"])))
             normals_10yr_cdd_lookup[(int(nr["month"]), int(nr["day"]))] = float(nr.get("cdd_normal_gw_10yr", nr.get("cdd_normal_10yr", nr.get("cdd_normal_gw", nr.get("cdd_normal", 0.0)))))
 
@@ -228,10 +229,7 @@ def compute_composite():
                 y, m, d = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
                 row_dt = _date(y, m, d)
                 normal_hdd = normals_lookup.get((m, d), 0.0)
-                # CDD normal approximated from normals file if available
-                if df_norms is not None and "cdd_normal" in df_norms.columns:
-                    _cdd_row = df_norms[(df_norms["month"] == m) & (df_norms["day"] == d)]
-                    normal_cdd = float(_cdd_row["cdd_normal"].values[0]) if not _cdd_row.empty else 0.0
+                normal_cdd = normals_cdd_lookup.get((m, d), 0.0)
             except Exception:
                 pass
 

@@ -117,16 +117,16 @@ def main():
     df = load_normals()
     if df is None: return
     
-    # Create fake dates for plotting (usually we look at Sep-Oct for Fall crossover)
-    # The reference image is from Sep 20 to Oct 10 
+    # Use current calendar year dynamically for Fall crossover window (Sep 20 to Oct 15)
     fall_df = df[(df["month"] == 9) | (df["month"] == 10)].copy()
+    current_year = datetime.now().year
     
-    # Add a pseudo date column for the current leap year to make plotting easy
-    fall_df["date"] = pd.to_datetime(f"2024-" + fall_df["month"].astype(str) + "-" + fall_df["day"].astype(str))
+    # Add a date column for the current year
+    fall_df["date"] = pd.to_datetime(fall_df.apply(lambda r: f"{current_year}-{int(r['month']):02d}-{int(r['day']):02d}", axis=1))
     
-    # Filter bounds to match reference
-    target_start = pd.to_datetime("2024-09-20")
-    target_end = pd.to_datetime("2024-10-15")
+    # Filter bounds to match reference (Sep 20 to Oct 15)
+    target_start = pd.to_datetime(f"{current_year}-09-20")
+    target_end = pd.to_datetime(f"{current_year}-10-15")
     
     plot_df = fall_df[(fall_df["date"] >= target_start) & (fall_df["date"] <= target_end)].copy()
     plot_df = plot_df.set_index("date")

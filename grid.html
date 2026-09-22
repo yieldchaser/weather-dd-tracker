@@ -940,6 +940,7 @@
             if (!el) return;
             el.innerText = formatNum(num, dec, isDelta);
             if (isDelta) {
+                el.classList.remove('pos-val', 'neg-val');
                 if (num > 0) el.classList.add('pos-val');
                 else if (num < 0) el.classList.add('neg-val');
             }
@@ -1223,16 +1224,17 @@
         function populateHddMapFromData(tddData) {
             hddMap = {};
             if (!tddData || tddData.length === 0) return;
-            let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
+            const targetModel = tddData.some(r => r.model === 'GFS' && r[DD_FIELD] != null) ? 'GFS' : 'ECMWF';
+            let runs = [...new Set(tddData.filter(r => r.model === targetModel).map(r => r.run_id))].sort().reverse();
             let targetRun = null;
-            for (const run of runsGFS) {
-                if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
+            for (const run of runs) {
+                if (tddData.some(r => r.model === targetModel && r.run_id === run && r[DD_FIELD] != null)) {
                     targetRun = run; break;
                 }
             }
 
             if (targetRun) {
-                tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
+                tddData.filter(r => r.model === targetModel && r.run_id === targetRun).forEach(r => {
                     if (r.date) {
                         let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
                         let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;

@@ -1459,7 +1459,7 @@
                         td.innerText = formatNum(val, 1, true) + gapFlag;
                         if (val > 0) td.classList.add('pos-val');
                         else if (val < 0) td.classList.add('neg-val');
-                        td.className = 'has-tooltip';
+                        td.classList.add('has-tooltip');
                         const direction = val > 0 
                             ? (IS_CDD ? 'hotter (higher cooling load)' : (IS_BOTH ? 'higher demand' : 'colder (higher heating load)'))
                             : (IS_CDD ? 'cooler (lower cooling load)' : (IS_BOTH ? 'lower demand' : 'warmer (lower heating load)'));
@@ -1899,12 +1899,12 @@
             }
 
             renderChart(monthSel.value, metricSel.value);
-            monthSel.addEventListener('change', () => {
+            monthSel.onchange = () => {
                 renderChart(monthSel.value, metricSel.value);
-            });
-            metricSel.addEventListener('change', () => {
+            };
+            metricSel.onchange = () => {
                 renderChart(monthSel.value, metricSel.value);
-            });
+            };
         }
 
         let runChartInstance = null;

@@ -25,35 +25,42 @@ def load_normals():
 
 def main():
     today = date.today()
-    season = active_metric(today.month)
+    from season_utils import dominant_metric_from_master
+    today = date.today()
+    season = active_metric(today)
+    dom = dominant_metric_from_master()
+    if dom in ("HDD", "CDD"):
+        chart_metric = dom
+    elif season == "CDD":
+        chart_metric = "CDD"
+    elif season == "HDD":
+        chart_metric = "HDD"
+    elif today.month in [4, 5, 6, 7, 8, 9] and today.day < 16:
+        chart_metric = "CDD"
+    else:
+        chart_metric = "HDD"
 
     # Season window
-    if season == "CDD" or (season == "BOTH" and today.month == 10):
+    if chart_metric == "CDD":
         # Cooling: Apr 1 – Oct 31 (all same pseudo-year 2000)
         metric_key = "cdd_normal"
         pseudo_year_start, start_m, start_d = 2000, 4, 1
         pseudo_year_end, end_m, end_d = 2000, 10, 31
         season_start_real = f"{today.year}-04-01"
         season_end_real = f"{today.year}-10-31"
-        chart_metric = "CDD"
         y_max = 4000
+        season_label = str(today.year)
     else:
-        # Heating: Nov 1 – Mar 31 (cross-year: Nov/Dec=year N, Jan-Mar=year N+1)
+        # Heating: Sep 1 – Apr 30 (cross-year: Sep-Dec=year N, Jan-Apr=year N+1)
         metric_key = "hdd_normal"
-        pseudo_year_start, start_m, start_d = 2000, 11, 1
-        pseudo_year_end, end_m, end_d = 2001, 3, 31
-        # Current heating season: Nov of last year if before April, else Nov of this year
-        heat_start_year = today.year - 1 if today.month <= 3 else today.year
-        season_start_real = f"{heat_start_year}-11-01"
-        season_end_real = f"{heat_start_year + 1}-03-31"
-        chart_metric = "HDD"
-        y_max = 4000
-        # Label must reflect the ACTUAL running season: in Jan-Mar the
-        # ongoing season started the previous November.
+        pseudo_year_start, start_m, start_d = 2000, 9, 1
+        pseudo_year_end, end_m, end_d = 2001, 4, 30
+        heat_start_year = today.year - 1 if today.month <= 4 else today.year
+        season_start_real = f"{heat_start_year}-09-01"
+        season_end_real = f"{heat_start_year + 1}-04-30"
+        y_max = 4500
         season_label = f"{heat_start_year}/{heat_start_year + 1}"
 
-    if chart_metric == "CDD":
-        season_label = str(today.year)
     print(f"\n--- Generating Cumulative {chart_metric} Season Tracker ---")
     
     normals_df = load_normals()
@@ -76,18 +83,13 @@ def main():
         actuals_df["hdd_value"] = actuals_df["hdd_gw"].fillna(actuals_df["tdd_gw"] if "tdd_gw" in actuals_df.columns else actuals_df["tdd"]) if "hdd_gw" in actuals_df.columns else actuals_df["tdd"]
 
     # Build Normal Accumulation Curve from normals file
-    if season in ("CDD", "BOTH") and "cdd_normal" not in normals_df.columns:
-        print(f"  [WARN] cdd_normal column missing from normals. Falling back to HDD.")
+    if chart_metric == "CDD" and "cdd_normal" not in normals_df.columns:
+        print("  [WARN] cdd_normal column missing from normals. Falling back to HDD.")
         metric_key, chart_metric = "hdd_normal", "HDD"
 
-    season_mask = (
-        (normals_df["month"] > start_m) | (normals_df["month"] == start_m)
-    ) if start_m > end_m else (
-        (normals_df["month"] >= start_m) & (normals_df["month"] <= end_m)
-    )
-    # Cross-year HDD season
+    # Cross-year HDD season (Sep 1 to Apr 30) vs CDD season (Apr 1 to Oct 31)
     if chart_metric == "HDD":
-        season_mask = (normals_df["month"] >= 11) | (normals_df["month"] <= 3)
+        season_mask = (normals_df["month"] >= 9) | (normals_df["month"] <= 4)
     else:
         season_mask = (normals_df["month"] >= 4) & (normals_df["month"] <= 10)
 
@@ -96,7 +98,7 @@ def main():
     # Map to pseudo dates for plotting
     def get_pseudo_date(row):
         if chart_metric == "HDD":
-            yr = 2000 if row["month"] >= 11 else 2001
+            yr = 2000 if int(row["month"]) >= 9 else 2001
         else:
             yr = 2000  # CDD Apr-Oct all in same year
         try:
@@ -131,7 +133,7 @@ def main():
         hist_rows = []
         for d in history_dates:
             if chart_metric == "HDD":
-                yr = 2000 if d.month >= 11 else 2001
+                yr = 2000 if d.month >= 9 else 2001
             else:
                 yr = 2000
             try:
@@ -148,7 +150,7 @@ def main():
 
         def to_pseudo(x):
             if chart_metric == "HDD":
-                yr = 2000 if x.month >= 11 else 2001
+                yr = 2000 if x.month >= 9 else 2001
             else:
                 yr = 2000
             if x.month == 2 and x.day == 29:
