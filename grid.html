@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Desk Dashboard</title>
+    <title>Power Grid Monitor — Weather DD Tracker</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -621,7 +621,7 @@
                         --
                     </div>
                     <div class="button-group">
-                        <button class="solar-toggle-btn active has-tooltip" onclick="setSolarPeriod('all')" data-tooltip-key="All-Day Solar" style="background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer;">All-Day</button>
+                        <button class="solar-toggle-btn active has-tooltip" onclick="setSolarPeriod('all')" data-tooltip-key="All-Day Solar" style="background-color: var(--accent); color: var(--bg-color); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer;">All-Day</button>
                         <button class="solar-toggle-btn has-tooltip" onclick="setSolarPeriod('peak')" data-tooltip-key="Peak Solar" style="background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer;">Peak Only</button>
                     </div>
                 </div>
@@ -819,7 +819,6 @@
                     <canvas id="peakerChart"></canvas>
                 </div>
             </div>
-            </div>
         </div>
     </div>
 
@@ -926,6 +925,7 @@
             populateHddMapFromData(CACHED_TDD_DATA);
             updateWindChart();
             updateSolarChart();
+            updateGasBurnTrend();
         }
 
         function formatNum(num, dec = 1, showSign = false) {
@@ -1237,8 +1237,17 @@
                 tddData.filter(r => r.model === targetModel && r.run_id === targetRun).forEach(r => {
                     if (r.date) {
                         let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
-                        let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
-                        let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null;
+                        let hdd_val = (r[DD_FIELD] !== undefined && r[DD_FIELD] !== null) ? Number(r[DD_FIELD]) : null;
+                        let norm_val = null;
+                        if (CURRENT_METRIC === 'TDD') {
+                            if (r.hdd_normal_gw !== undefined || r.cdd_normal_gw !== undefined) {
+                                norm_val = (Number(r.hdd_normal_gw) || 0) + (Number(r.cdd_normal_gw) || 0);
+                            } else if (r.hdd_normal !== undefined || r.cdd_normal !== undefined) {
+                                norm_val = (Number(r.hdd_normal) || 0) + (Number(r.cdd_normal) || 0);
+                            }
+                        } else {
+                            norm_val = (r[DD_NORMAL_FIELD] !== undefined && r[DD_NORMAL_FIELD] !== null) ? Number(r[DD_NORMAL_FIELD]) : null;
+                        }
                         hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
                     }
                 });
@@ -2423,7 +2432,6 @@
                         let currentMonth = new Date().getMonth() + 1;
                         if (currentMonth >= 10 || currentMonth <= 3) setScatterSeason('heating');
                         else setScatterSeason('cooling');
-                        updateGasBurnTrend();
                     }
                 } catch (err) {
                     console.warn("Gas burn history loading failed", err);
@@ -2454,6 +2462,7 @@
                 // that both updateWindChart() and updateSolarChart() read for the
                 // secondary degree-day axis. Wind and solar then load in parallel.
                 await loadHddMap();
+                updateGasBurnTrend();
                 loadWindForecast();
                 loadSolarForecast();
                 loadCombinedDrought();

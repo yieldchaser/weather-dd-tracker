@@ -16,7 +16,7 @@ print("==============================\n")
 weights_file = Path("data/weights/conus_gas_weights.npy")
 if not weights_file.exists():
     print("0. Building CONUS gas-weight grid (first time only)...")
-    result = subprocess.run(f"{PY} scripts/build_true_gw_grid.py", shell=True)
+    result = subprocess.run(f"{PY} scripts/build_gas_weights.py", shell=True)
     if result.returncode != 0:
         print("  [WARN]  Gas-weight build failed - pipeline will use simple CONUS mean as fallback")
 else:

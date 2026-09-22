@@ -24,7 +24,7 @@ from pathlib import Path
 # otherwise define them here to keep the script self-contained.
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT, compute_tdd
+from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT, compute_hdd, compute_cdd, compute_tdd
 from om_batch_fetch import fetch_all_cities_batch
 def celsius_to_f(c): return c * 9 / 5 + 32
 
@@ -42,6 +42,7 @@ def fetch_icon():
     out_dir = OUTPUT_DIR / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "icon_tdd.csv"
+    flat_path = OUTPUT_DIR / f"{run_id}_tdd.csv"
 
     print(f"Fetching ICON (Open-Meteo) across {len(DEMAND_CITIES)} demand cities (batched)...")
 
@@ -70,16 +71,26 @@ def fetch_icon():
 
         avg_c = weighted_temp / total_w
         avg_f = celsius_to_f(avg_c)
+        h_val = round(compute_hdd(avg_f), 2)
+        c_val = round(compute_cdd(avg_f), 2)
+        t_val = round(h_val + c_val, 2)
         rows.append({
-            "date":      dt_str,
-            "mean_temp": round(avg_f, 2),
-            "tdd":       round(compute_tdd(avg_f), 2),
-            "model":     "ICON",
-            "run_id":    run_id,
+            "date":         dt_str,
+            "mean_temp":    round(avg_f, 2),
+            "hdd":          h_val,
+            "cdd":          c_val,
+            "tdd":          t_val,
+            "mean_temp_gw": round(avg_f, 2),
+            "hdd_gw":       h_val,
+            "cdd_gw":       c_val,
+            "tdd_gw":       t_val,
+            "model":        "ICON",
+            "run_id":       run_id,
         })
 
     df = pd.DataFrame(rows)
     df.to_csv(out_path, index=False)
+    df.to_csv(flat_path, index=False)
 
     # Save raw city data to json for map generation
     city_dir = OUTPUT_DIR / "cities"

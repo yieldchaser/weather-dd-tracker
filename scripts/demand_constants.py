@@ -118,6 +118,16 @@ DEMAND_CITIES = [
 TOTAL_WEIGHT = sum(w for _, _, _, w in DEMAND_CITIES)
 
 
-def compute_tdd(temp_f):
+def compute_hdd(temp_f):
     """Heating Degree Days (HDD) calculation against Base 65°F."""
-    return max(65.0 - temp_f, 0)
+    return max(65.0 - float(temp_f), 0.0)
+
+
+def compute_cdd(temp_f):
+    """Cooling Degree Days (CDD) calculation against Base 65°F."""
+    return max(float(temp_f) - 65.0, 0.0)
+
+
+def compute_tdd(temp_f):
+    """Total Degree Days (TDD = HDD + CDD = |T - 65|) against Base 65°F."""
+    return compute_hdd(temp_f) + compute_cdd(temp_f)

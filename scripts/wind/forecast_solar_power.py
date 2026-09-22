@@ -42,18 +42,20 @@ def safe_write_json(data, path, required_keys=None):
     print(f"[OK] Written {path}")
     return True
 
-def is_valid_model_data(df, value_col, min_valid_pct=0.5):
+def is_valid_model_data(df, value_col, min_daylight_pct=0.20):
     """
-    Check if a model returns enough positive/non-null data points.
-    Prevents blank forecast lines and false drought signals.
+    Check if a model returns enough positive data points.
+    Solar GHI is physically 0 for 12-16 hours per day. A valid model
+    has >0 generation for at least 20% of all hourly timestamps.
     """
     if df is None or df.empty:
         return False
-    # Count rows that are non-null and greater than 0
-    valid = df[value_col].notna() & (df[value_col] > 0)
+    if value_col not in df.columns:
+        return False
+    valid = df[value_col].notna() & (df[value_col] > 0.001)
     valid_pct = valid.sum() / len(df)
-    if valid_pct < min_valid_pct:
-        print(f"[WARN] Model data only {valid_pct:.0%} valid — skipping")
+    if valid_pct < min_daylight_pct:
+        logging.warning(f"Solar model data only {valid_pct:.1%} positive hours (min {min_daylight_pct:.1%}) — skipping")
         return False
     return True
 
@@ -99,19 +101,23 @@ def irradiance_to_cf(ghi_wm2: float) -> float:
     """
     return min((ghi_wm2 / 1000.0) * PERFORMANCE_RATIO, 1.0)
 
-def get_solar_drought_threshold(month: int) -> float:
+def get_solar_drought_threshold(month: int, climo_peak_cf: float = None) -> float:
     """
-    Solar peak-hour CF drought threshold varies by season.
-    Summer (Jun-Aug): solar potential is high, drought = below 35%
-    Winter (Nov-Feb): solar potential is low, drought = below 15%
-    Spring/Fall: 25%
+    Solar peak-hour CF drought threshold.
+    If climo_peak_cf is available, defines drought as severe deficit (< 75% of normal).
+    Otherwise falls back to seasonal thresholds:
+      Summer (Jun-Aug): 0.35
+      Winter (Nov-Feb): 0.15
+      Shoulder (Mar-May, Sep-Oct): 0.20
     """
+    if climo_peak_cf is not None and climo_peak_cf > 0.05:
+        return round(climo_peak_cf * 0.75, 3)
     if 6 <= month <= 8:
         return 0.35
     elif month >= 11 or month <= 2:
         return 0.15
     else:
-        return 0.25
+        return 0.20
 
 def build_solar_climatology():
     logging.info("Solar Climatology not found — bootstrapping via GFS Historical API...")
@@ -278,7 +284,7 @@ def main_logic():
                 "national_cf_peak_pct": round(peak_cf * 100, 1),
                 "climo_cf_pct": round(c_entry["peak"] * 100, 1), 
                 "anomaly_cf_pct": round((peak_cf - c_entry["peak"]) * 100, 1), 
-                "drought_flag": 1 if (peak_cf < get_solar_drought_threshold(current_month)) else 0 
+                "drought_flag": 1 if (peak_cf < get_solar_drought_threshold(current_month, c_entry.get("peak"))) else 0 
             })
             
     if not all_rows: return

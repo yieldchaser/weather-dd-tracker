@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-09-22T08:14:39.296Z",
+  "timestamp": "2026-09-22T09:26:39.679Z",
   "metric": "BOTH",
   "sensitivity_bcf_per_hdd": 0.304,
   "r_squared": 0.028,
   "percentile": 0,
   "base_demand": 25.0,
   "n_observations": 91,
-  "window_days": 30,
+  "window_days": 90,
   "data_source": "national_power_burn_history",
   "connected": true
 }

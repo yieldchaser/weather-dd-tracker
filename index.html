@@ -511,12 +511,20 @@
             opacity: 0.7;
         }
 
-        .tc-cold {
+        .tc-bullish {
+            color: var(--bullish);
+        }
+
+        .tc-bearish {
             color: var(--bearish);
         }
 
+        .tc-cold {
+            color: var(--bullish); /* Heating season: Arctic outbreaks are bullish */
+        }
+
         .tc-warm {
-            color: var(--bullish);
+            color: var(--bearish); /* Heating season: Warm anomalies are bearish */
         }
 
         .tc-zero {
@@ -886,7 +894,6 @@
         </div>
         <br><br>
     </div>
-    </div>
 
     <script>
         const basePath = "outputs/";
@@ -1202,7 +1209,15 @@
 
             // 5. Spaghetti Chart & Monthly Chart
             if (historicalData && historicalData.length > 0) {
-                const forecastData = masterData ? masterData.filter(r => r.model === 'ECMWF') : [];
+                let forecastData = [];
+                if (masterData && masterData.length > 0) {
+                    const ecmwfRows = masterData.filter(r => r.model === 'ECMWF');
+                    if (ecmwfRows.length > 0) {
+                        const runs = [...new Set(ecmwfRows.map(r => r.run_id))].sort();
+                        const latestRun = runs[runs.length - 1];
+                        forecastData = ecmwfRows.filter(r => r.run_id === latestRun);
+                    }
+                }
                 const combinedData = [...historicalData, ...forecastData];
                 initSeasonalSpaghettiChart(combinedData);
                 initMonthlyOutlierChart(historicalData);
@@ -1266,9 +1281,10 @@
 
                 let w1_chg = '-', w2_chg = '-', w3_chg = '-';
                 let total_chg = 0;
-                let c1 = 0, c2 = 0, c3 = 0;
-                let gapFlag = (shiftMeta && shiftMeta.models && shiftMeta.models[m] && shiftMeta.models[m].gap) ? ' <small style="color:#ff9800">*</small>' : '';
-                let gwWarning = (shiftMeta && shiftMeta.models && shiftMeta.models[m] && shiftMeta.models[m].has_gw === false) ? ' <small title="Gas-weighting failed - using simple average" style="color:#f44336; cursor:help">⚠️</small>' : '';
+                const metaKey = (shiftMeta && shiftMeta.models) ? (shiftMeta.models[m] ? m : shiftMeta.models[`${m} OP CHG`] ? `${m} OP CHG` : shiftMeta.models[`${m} CHG`] ? `${m} CHG` : Object.keys(shiftMeta.models).find(k => k.startsWith(m))) : null;
+                const mMeta = metaKey ? shiftMeta.models[metaKey] : null;
+                let gapFlag = (mMeta && mMeta.gap) ? ' <small style="color:#ff9800">*</small>' : '';
+                let gwWarning = (mMeta && mMeta.has_gw === false) ? ' <small title="Gas-weighting failed - using simple average" style="color:#f44336; cursor:help">⚠️</small>' : '';
 
                 if (runDelta && runDelta.length > 0) {
                     let mDelta = runDelta.filter(r => r.model === m);
@@ -1716,7 +1732,7 @@
                                 maxTicksLimit: 20,
                                 callback: function (val, idx) {
                                     // Show month name only at the first day of each month
-                                    return monthGroupStarts[idx] ?? null;
+                                    return monthGroupStarts[val] ?? null;
                                 }
                             },
                             grid: { color: '#2a3642' }
@@ -2162,8 +2178,17 @@
                 valEl.className = 'tc-val tc-zero';
                 return;
             }
-            valEl.textContent = Number(value).toFixed(1);
-            valEl.className = 'tc-val ' + (value < 0 ? 'tc-cold' : value > 0 ? 'tc-warm' : 'tc-zero');
+            const num = Number(value);
+            valEl.textContent = num.toFixed(1);
+            if (num === 0) {
+                valEl.className = 'tc-val tc-zero';
+                return;
+            }
+            // In cooling season (CDD), warm (>0) is bullish, cold (<0) is bearish.
+            // In heating season (HDD), cold (<0) is bullish, warm (>0) is bearish.
+            const isCooling = (typeof CURRENT_METRIC !== 'undefined' && CURRENT_METRIC === 'CDD');
+            const isBullish = isCooling ? (num > 0) : (num < 0);
+            valEl.className = 'tc-val ' + (isBullish ? 'tc-bullish' : 'tc-bearish');
         }
 
         async function loadIntelligenceOverlays() {

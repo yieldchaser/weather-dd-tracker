@@ -34,17 +34,17 @@ OM_MODELS = {
 }
 
 
+from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT, compute_hdd, compute_cdd, compute_tdd
+
+
 def celsius_to_f(c):
     return c * 9 / 5 + 32
-
-def compute_tdd(temp_f):
-    return max(BASE_TEMP_F - temp_f, 0)
 
 
 def fetch_open_meteo(model_key, om_model_name, run_date_str):
     """
     Fetch 16-day weighted-average city temperature for all DEMAND_CITIES.
-    Returns a DataFrame with date, mean_temp, tdd, model, run_id.
+    Returns a DataFrame with date, mean_temp, hdd, cdd, tdd, model, run_id.
     """
     print(f"  Fetching Open-Meteo [{model_key}] ({om_model_name}) "
           f"across {len(DEMAND_CITIES)} demand cities (batched)...")
@@ -73,12 +73,21 @@ def fetch_open_meteo(model_key, om_model_name, run_date_str):
             continue
         avg_c = weighted_temp / total_w
         avg_f = celsius_to_f(avg_c)
+        h_val = round(compute_hdd(avg_f), 2)
+        c_val = round(compute_cdd(avg_f), 2)
+        t_val = round(h_val + c_val, 2)
         rows.append({
-            "date":      dt_str,
-            "mean_temp": round(avg_f, 2),
-            "tdd":       round(compute_tdd(avg_f), 2),
-            "model":     model_key,
-            "run_id":    f"{run_date_str}_OM",
+            "date":         dt_str,
+            "mean_temp":    round(avg_f, 2),
+            "hdd":          h_val,
+            "cdd":          c_val,
+            "tdd":          t_val,
+            "mean_temp_gw": round(avg_f, 2),
+            "hdd_gw":       h_val,
+            "cdd_gw":       c_val,
+            "tdd_gw":       t_val,
+            "model":        model_key,
+            "run_id":       f"{run_date_str}_OM",
         })
 
     if not rows:

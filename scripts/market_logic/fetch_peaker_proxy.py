@@ -43,9 +43,11 @@ def calculate_peaker_proxy():
         
     try:
         df = pd.read_csv(INPUT_FILE)
-        df["period"] = pd.to_datetime(df["period"])
-        df["hour"] = df["period"].dt.hour
-        df["date"] = df["period"].dt.strftime("%Y-%m-%d")
+        # Convert period from UTC to US/Central so PEAK_HOURS reflects actual peak clock hours
+        df["period_dt"] = pd.to_datetime(df["period"], utc=True)
+        period_central = df["period_dt"].dt.tz_convert("US/Central")
+        df["hour"] = period_central.dt.hour
+        df["date"] = period_central.dt.strftime("%Y-%m-%d")
 
         # COVERAGE GATE: summing whatever ISOs reported an hour fabricates
         # national dips when one is missing (mirrors fetch_live_grid).

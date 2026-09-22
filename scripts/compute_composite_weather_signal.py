@@ -141,20 +141,35 @@ def compute_composite_weather_signal():
 
     # ── 1. Teleconnections ────────────────────────────────────────────────────
     if tele_connected:
-        cold_risk = teleconnections.get('composite_score', 0)
+        cold_risk = float(teleconnections.get('composite_score', 50))
         sw = SEASONAL_WEIGHTS[_month]
-        if cold_risk > 50:
-            val = ((float(cold_risk) - 50) / 10.0) * sw
-            bull_score += val
-            suffix = "" if sw >= 0.6 else " (off-season, damped)"
-            components.append({"name": f"Teleconnections Cold Risk High{suffix}", "score": round(val, 2)})
-        elif cold_risk < 20:
-            val = ((20 - cold_risk) / 10.0) * sw
-            bear_score += val
-            suffix = "" if sw >= 0.6 else " (off-season, damped)"
-            components.append({"name": f"Teleconnections Warm/Neutral{suffix}", "score": -round(val, 2)})
+        is_cooling = _month in COOLING_MONTHS
+        suffix = "" if sw >= 0.6 else " (off-season, damped)"
+
+        if is_cooling:
+            # Summer: Cold risk = bearish (suppresses CDD cooling demand). Warm/low cold risk = bullish (boosts CDD).
+            if cold_risk > 55:
+                val = ((cold_risk - 50) / 10.0) * sw
+                bear_score += val
+                components.append({"name": f"Teleconnections Summer Cool Risk{suffix}", "score": -round(val, 2)})
+            elif cold_risk < 45:
+                val = ((50 - cold_risk) / 10.0) * sw
+                bull_score += val
+                components.append({"name": f"Teleconnections Summer Heat Risk{suffix}", "score": round(val, 2)})
+            else:
+                components.append({"name": "Teleconnections Neutral Band", "score": 0.0})
         else:
-            components.append({"name": "Teleconnections Neutral Band", "score": 0.0})
+            # Winter/Heating: Cold risk = bullish (boosts HDD heating demand). Warm/low cold risk = bearish.
+            if cold_risk > 55:
+                val = ((cold_risk - 50) / 10.0) * sw
+                bull_score += val
+                components.append({"name": f"Teleconnections Cold Risk High{suffix}", "score": round(val, 2)})
+            elif cold_risk < 45:
+                val = ((50 - cold_risk) / 10.0) * sw
+                bear_score += val
+                components.append({"name": f"Teleconnections Warm Anomaly{suffix}", "score": -round(val, 2)})
+            else:
+                components.append({"name": "Teleconnections Neutral Band", "score": 0.0})
     else:
         stale_systems.append(f"teleconnections ({tele_reason})")
 
@@ -230,7 +245,7 @@ def compute_composite_weather_signal():
             val = round(1.5 * wind_weight_multiplier, 2)
             bull_score += val
             components.append({"name": "Wind Drought (Moderate)", "score": val})
-        elif p < 0.15 and anomaly_today > 0.05:
+        elif p < 0.15 and anomaly_today > 5.0:
             val = round(1.5 * wind_weight_multiplier, 2)
             bear_score += val
             components.append({"name": "Strong Wind Surplus", "score": -val})

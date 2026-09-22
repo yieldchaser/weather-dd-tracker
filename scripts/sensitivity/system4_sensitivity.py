@@ -116,6 +116,10 @@ def calculate_OLS_sensitivity():
     r2 = float(ols_model.rsquared)
     const = float(ols_model.params.get("const", ols_model.params.iloc[0]))
 
+    if coeff <= 0:
+        _write_disconnected(f"non_positive_sensitivity_slope_{coeff:.3f}")
+        return
+
     lo, hi = PERCENTILE_BANDS[_season]
     percentile = min(max(int((coeff - lo) / (hi - lo) * 100), 0), 100)
 
@@ -127,7 +131,7 @@ def calculate_OLS_sensitivity():
         "percentile": percentile,
         "base_demand": round(const, 1),
         "n_observations": int(len(merged)),
-        "window_days": 30,
+        "window_days": 90,
         "data_source": "national_power_burn_history",
         "connected": True,
     }

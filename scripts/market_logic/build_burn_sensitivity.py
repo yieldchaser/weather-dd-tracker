@@ -144,7 +144,7 @@ def update_ercot_temp_cache():
         url = (f"https://archive-api.open-meteo.com/v1/archive"
                f"?latitude={lat}&longitude={lon}"
                f"&start_date={missing_start.isoformat()}&end_date={end_date.isoformat()}"
-               f"&daily=temperature_2m_mean&timezone=America%2FChicago")
+               f"&daily=temperature_2m_mean&temperature_unit=fahrenheit&timezone=America%2FChicago")
         try:
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
@@ -208,7 +208,7 @@ def ercot_load_vs_temp(hourly_df, temps):
         "current_load_gw": round(cur_load, 1),
         "implied_load_gw": round(implied, 1),
         "residual_gw": round(cur_load - implied, 1),
-        "points": [{"date": str(d), "t": float(t), "load_gw": round(float(l / 1000.0), 1)}
+        "points": [{"date": str(d), "t": float(t), "load_gw": round(float(l), 1)}
                    for d, t, l in zip(df["date"], x, y)],
         "fit_line": fit_pts,
     }

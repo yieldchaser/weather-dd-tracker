@@ -116,25 +116,29 @@ def main():
             shift_df[col] = np.nan
     
     # Let's order the columns like a proper trading desk shift table
-    columns = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "GOOGLE WN3 CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
+    columns = [
+        "GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG",
+        "GOOGLE AI CHG", "GOOGLE WN3 CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG",
+        "AIGEFS CHG", "AIFS ENS CHG", "UKMO ENS CHG", "EC46 CHG", "HRRR CHG", "NAM CHG", "NBM CHG"
+    ]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     
     # --- STRICT SYNCHRONIZATION ALIGNMENT ---
     # Ensure GFS OP and GFS ENS terminate on the exact same date (intersection)
-    if "GFS Op Chg" in shift_df.columns and "GFS Ens Chg" in shift_df.columns:
-        valid_op = shift_df["GFS Op Chg"].dropna().index.max()
-        valid_ens = shift_df["GFS Ens Chg"].dropna().index.max()
+    if "GFS OP CHG" in shift_df.columns and "GFS ENS CHG" in shift_df.columns:
+        valid_op = shift_df["GFS OP CHG"].dropna().index.max()
+        valid_ens = shift_df["GFS ENS CHG"].dropna().index.max()
         if pd.notnull(valid_op) and pd.notnull(valid_ens):
             min_date = min(valid_op, valid_ens)
-            shift_df.loc[shift_df.index > min_date, ["GFS Op Chg", "GFS Ens Chg"]] = np.nan
+            shift_df.loc[shift_df.index > min_date, ["GFS OP CHG", "GFS ENS CHG"]] = np.nan
             
     # Ensure ECMWF OP and EURO ENS terminate on the exact same date
-    if "ECMWF Op Chg" in shift_df.columns and "Euro Ens Chg" in shift_df.columns:
-        valid_ecmwf_op = shift_df["ECMWF Op Chg"].dropna().index.max()
-        valid_euro_ens = shift_df["Euro Ens Chg"].dropna().index.max()
+    if "ECMWF OP CHG" in shift_df.columns and "EURO ENS CHG" in shift_df.columns:
+        valid_ecmwf_op = shift_df["ECMWF OP CHG"].dropna().index.max()
+        valid_euro_ens = shift_df["EURO ENS CHG"].dropna().index.max()
         if pd.notnull(valid_ecmwf_op) and pd.notnull(valid_euro_ens):
             min_date_eu = min(valid_ecmwf_op, valid_euro_ens)
-            shift_df.loc[shift_df.index > min_date_eu, ["ECMWF Op Chg", "Euro Ens Chg"]] = np.nan
+            shift_df.loc[shift_df.index > min_date_eu, ["ECMWF OP CHG", "EURO ENS CHG"]] = np.nan
             
     shift_df = shift_df.round(1).dropna(how="all")
     
@@ -175,9 +179,14 @@ def main():
         if not m_df.empty:
             runs = sorted(m_df["run_id"].unique(), reverse=True)
             if len(runs) >= 2:
-                t1 = datetime.strptime(runs[0].replace("_AI", ""), "%Y%m%d_%H")
-                t2 = datetime.strptime(runs[1].replace("_AI", ""), "%Y%m%d_%H")
-                gap = abs((t1 - t2).total_seconds() / 3600) > 24
+                try:
+                    clean_r0 = runs[0].replace("_AI", "").replace("_seamless", "").replace("_OM", "")
+                    clean_r1 = runs[1].replace("_AI", "").replace("_seamless", "").replace("_OM", "")
+                    t1 = datetime.strptime(clean_r0, "%Y%m%d_%H")
+                    t2 = datetime.strptime(clean_r1, "%Y%m%d_%H")
+                    gap = abs((t1 - t2).total_seconds() / 3600) > 24
+                except Exception:
+                    gap = False
                 # Check for gas-weighting consistency in latest run
                 latest_rows = m_df[m_df["run_id"] == runs[0]]
                 has_gw = latest_rows["tdd_gw"].notna().any()
@@ -196,7 +205,7 @@ def main():
 
     # ── Convergence Detector ──────────────────────────────────────────────────
     # Fires when multi-model spread collapses: models that disagreed now align.
-    chg_cols = [c for c in shift_df.columns if "Chg" in c and shift_df[c].notna().any()]
+    chg_cols = [c for c in shift_df.columns if "CHG" in c.upper() and shift_df[c].notna().any()]
     if len(chg_cols) >= 2:
         # Per-day: did all models with data shift in the SAME direction?
         signs = shift_df[chg_cols].apply(lambda col: col.apply(

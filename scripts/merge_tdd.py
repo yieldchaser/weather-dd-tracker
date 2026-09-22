@@ -27,7 +27,9 @@ def load_all():
         "data/gefs/*_tdd.csv",
         "data/gefs_subseasonal/*_tdd.csv",
         "data/icon/*_tdd.csv",
+        "data/icon/**/*_tdd*.csv",
         "data/open_meteo/*_tdd.csv",
+        "data/open_meteo/**/*_tdd*.csv",
         "data/ai_models/**/*_tdd*.csv"
     ]
     

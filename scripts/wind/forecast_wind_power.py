@@ -101,30 +101,36 @@ def wind_power_curve(ws_ms):
         return 1.0
     return ((ws_ms - CUT_IN) / (RATED - CUT_IN)) ** 3
 
-def get_wind_drought_threshold(month: int) -> float:
+def get_wind_drought_threshold(month: int, climo_cf: float = None) -> float:
     """
     Wind CF drought threshold varies by season.
-    Winter: high wind season, 35% is meaningful low
-    Summer: structurally lower wind, 25% is meaningful low
-    Shoulder: interpolate
+    If climo_cf is provided, drought is < 75% of normal.
+    Otherwise:
+      Winter (Nov-Mar): 0.30
+      Summer (Jun-Aug): 0.20
+      Shoulder (Apr-May, Sep-Oct): 0.20
     """
-    # Heating season (Nov-Mar): 35%
-    if month >= 11 or month <= 3:
-        return 0.35
-    # Cooling season (Jun-Aug): 25%
-    elif 6 <= month <= 8:
-        return 0.25
-    # Shoulder (Apr-May, Sep-Oct): 30%
-    else:
-        return 0.30
-
-def get_peak_wind_drought_threshold(month: int) -> float:
+    if climo_cf is not None and climo_cf > 0.05:
+        return round(climo_cf * 0.75, 3)
+    # Heating season (Nov-Mar): 30%
     if month >= 11 or month <= 3:
         return 0.30
+    # Cooling season (Jun-Aug): 20%
     elif 6 <= month <= 8:
         return 0.20
+    # Shoulder (Apr-May, Sep-Oct): 20%
     else:
+        return 0.20
+
+def get_peak_wind_drought_threshold(month: int, climo_peak_cf: float = None) -> float:
+    if climo_peak_cf is not None and climo_peak_cf > 0.05:
+        return round(climo_peak_cf * 0.75, 3)
+    if month >= 11 or month <= 3:
         return 0.25
+    elif 6 <= month <= 8:
+        return 0.15
+    else:
+        return 0.18
 
 def get_node_wind_speed(hourly_data, preferred_height):
     """
@@ -417,7 +423,7 @@ def main_logic():
             cf_shoulder = period_metrics.loc[d, "shoulder"] if "shoulder" in period_metrics.columns else 0
             
             anomaly_cf = national_cf_pct - climo_cf
-            drought_threshold = get_wind_drought_threshold(current_month)
+            drought_threshold = get_wind_drought_threshold(current_month, climo_cf)
             drought_flag = 1 if national_cf_pct < drought_threshold else 0
             
             all_rows.append({
@@ -493,8 +499,12 @@ def main_logic():
                     agreement_7d_count += 1
     agreement_7d_pct = round(agreement_7d_count / valid_days * 100) if valid_days > 0 else 0
 
+    active_per_day = df_future[df_future["model"].isin(models_checked)].groupby("date")["model"].nunique()
     daily_model_counts = df_future[df_future["model"].isin(models_checked)].groupby("date")["drought_flag"].sum()
-    drought_days_all = daily_model_counts[daily_model_counts >= 2].index.tolist()
+    drought_days_all = [
+        d for d, count in daily_model_counts.items()
+        if count >= min(2, active_per_day.get(d, 1))
+    ]
     
     end_16d = (datetime.now(UTC).date() + timedelta(days=15)).strftime("%Y-%m-%d")
     end_7d  = (datetime.now(UTC).date() + timedelta(days=6)).strftime("%Y-%m-%d")

@@ -18,12 +18,15 @@ def compute_run_changes():
     df = df[df["run_id"].notna()]
 
     gw_mode = "tdd_gw" in df.columns
-    # REMOVED global fillna to preserve methodology integrity
 
-    # Compute Average HDD per run (normalized)
+    # Compute Average degree days per run (normalized)
     agg = {"tdd": "mean"}
+    if "hdd" in df.columns: agg["hdd"] = "mean"
+    if "cdd" in df.columns: agg["cdd"] = "mean"
     if gw_mode:
         agg["tdd_gw"] = "mean"
+        if "hdd_gw" in df.columns: agg["hdd_gw"] = "mean"
+        if "cdd_gw" in df.columns: agg["cdd_gw"] = "mean"
 
     run_totals = (
         df.groupby(["model", "run_id"])
@@ -36,36 +39,45 @@ def compute_run_changes():
     all_rows = []
     for model in run_totals["model"].unique():
         m = run_totals[run_totals["model"] == model].copy().reset_index(drop=True)
-        m["prev_tdd"]    = m["tdd"].shift(1)
-        m["hdd_change"]  = m["tdd"] - m["prev_tdd"]
+        m["prev_tdd"] = m["tdd"].shift(1)
+        m["tdd_change"] = m["tdd"] - m["prev_tdd"]
         
-        if gw_mode:
-            m["prev_tdd_gw"]   = m["tdd_gw"].shift(1)
-            m["prev_tdd"]      = m["tdd"].shift(1)
+        # Default hdd_change to hdd or tdd
+        if "hdd" in m.columns:
+            m["prev_hdd"] = m["hdd"].shift(1)
+            m["hdd_change"] = m["hdd"] - m["prev_hdd"]
+        else:
+            m["hdd_change"] = m["tdd_change"]
             
-            # METHODOLOGY INTEGRITY: If tdd_gw exactly equals tdd, it's a fallback 'pollutant'.
-            # We treat such rows as missing GW data to ensure apples-to-apples.
-            def get_gw_change(row):
-                curr_gw = row["tdd_gw"]
-                curr_si = row["tdd"]
-                prev_gw = row["prev_tdd_gw"]
-                prev_si = row["prev_tdd"]
-                
-                # Check for NaNs and Fallback-Equality
-                if pd.isna(curr_gw) or pd.isna(prev_gw): return None
-                if abs(curr_gw - curr_si) < 0.01: return None # Current is simple fallback
-                if abs(prev_gw - prev_si) < 0.01: return None # Prev is simple fallback
-                
-                return curr_gw - prev_gw
+        if "cdd" in m.columns:
+            m["prev_cdd"] = m["cdd"].shift(1)
+            m["cdd_change"] = m["cdd"] - m["prev_cdd"]
+        else:
+            m["cdd_change"] = 0.0
 
-            m["hdd_change_gw"] = m.apply(get_gw_change, axis=1)
+        if gw_mode:
+            m["prev_tdd_gw"] = m["tdd_gw"].shift(1)
+            m["tdd_change_gw"] = m["tdd_gw"] - m["prev_tdd_gw"]
+            
+            if "hdd_gw" in m.columns:
+                m["prev_hdd_gw"] = m["hdd_gw"].shift(1)
+                m["hdd_change_gw"] = m["hdd_gw"] - m["prev_hdd_gw"]
+            else:
+                m["hdd_change_gw"] = m["tdd_change_gw"]
+
+            if "cdd_gw" in m.columns:
+                m["prev_cdd_gw"] = m["cdd_gw"].shift(1)
+                m["cdd_change_gw"] = m["cdd_gw"] - m["prev_cdd_gw"]
+            else:
+                m["cdd_change_gw"] = 0.0
+
         all_rows.append(m)
 
     result = pd.concat(all_rows, ignore_index=True)
 
-    # Fast revision flag: any single run moving >3 HDD
+    # Fast revision flag: any single run moving >1.0 DD
     # Use GW change if available, otherwise fall back to simple change
-    if gw_mode:
+    if gw_mode and "hdd_change_gw" in result.columns:
         result["effective_change"] = result["hdd_change_gw"].fillna(result["hdd_change"])
     else:
         result["effective_change"] = result["hdd_change"]

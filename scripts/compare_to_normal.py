@@ -83,9 +83,13 @@ def compare():
         # Backfill tdd_gw, hdd_gw, cdd_gw if missing
         merged["tdd_gw"] = merged["tdd_gw"].fillna(merged["tdd"])
         if "hdd_gw" not in merged.columns:
-            merged["hdd_gw"] = merged["tdd_gw"]
+            merged["hdd_gw"] = merged["hdd"]
+        else:
+            merged["hdd_gw"] = merged["hdd_gw"].fillna(merged["hdd"])
         if "cdd_gw" not in merged.columns:
-            merged["cdd_gw"] = 0.0
+            merged["cdd_gw"] = merged["cdd"]
+        else:
+            merged["cdd_gw"] = merged["cdd_gw"].fillna(merged["cdd"])
 
         merged["hdd_anomaly_gw"] = merged["hdd_gw"] - merged["hdd_normal_gw"]
         merged["hdd_anomaly_gw_10yr"] = merged["hdd_gw"] - merged["hdd_normal_gw_10yr"]
