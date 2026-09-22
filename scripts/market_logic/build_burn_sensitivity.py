@@ -122,6 +122,9 @@ def update_ercot_temp_cache():
     if ERCOT_TEMP_CACHE.exists():
         try:
             cache_df = pd.read_csv(ERCOT_TEMP_CACHE)
+            if cache_df["temp"].dropna().mean() < 50.0:
+                cache_df["temp"] = (cache_df["temp"] * 9.0 / 5.0 + 32.0).round(3)
+                cache_df.to_csv(ERCOT_TEMP_CACHE, index=False)
             existing = dict(zip(cache_df["date"], cache_df["temp"]))
         except Exception:
             existing = {}

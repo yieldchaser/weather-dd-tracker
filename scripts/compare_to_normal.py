@@ -47,7 +47,7 @@ def compare():
     # If a date fails to join, we fill with the nearest available normal (forward-fill then back-fill)
     # This prevents null normals for subseasonal horizons or rare dates.
     norm_cols = ["hdd_normal", "cdd_normal", "mean_temp_f", "hdd_normal_10yr", "cdd_normal_10yr"]
-    merged[norm_cols] = merged[norm_cols].ffill().bfill()
+    merged[norm_cols] = merged.groupby("model")[norm_cols].transform(lambda s: s.ffill().bfill())
 
     # Phase 1: simple anomalies
     merged["hdd"] = merged["hdd"].fillna(merged["tdd"])
@@ -80,6 +80,8 @@ def compare():
             on=["month", "day"],
             how="left"
         )
+        gw_fill_cols = [c for c in ["hdd_normal_gw", "hdd_normal_gw_10yr", "cdd_normal_gw", "cdd_normal_gw_10yr"] if c in merged.columns]
+        merged[gw_fill_cols] = merged.groupby("model")[gw_fill_cols].transform(lambda s: s.ffill().bfill())
         # Backfill tdd_gw, hdd_gw, cdd_gw if missing
         merged["tdd_gw"] = merged["tdd_gw"].fillna(merged["tdd"])
         if "hdd_gw" not in merged.columns:

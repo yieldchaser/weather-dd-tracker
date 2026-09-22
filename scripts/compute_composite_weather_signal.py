@@ -109,6 +109,9 @@ def _is_connected(data, system_name, threshold_hours=36):
         return False, "no_data"
     if data.get("connected") is False:
         return False, data.get("data_source", "explicitly_disconnected")
+    if data.get("stale") is True:
+        logging.warning(f"[Composite] {system_name} has stale=True flag.")
+        return False, "stale_flag"
     if data.get("data_source") == "synthetic_proxy":
         logging.warning(f"[Composite] {system_name} is using synthetic proxy data — excluded from confidence.")
         return False, "synthetic_proxy"
@@ -183,8 +186,9 @@ def compute_composite_weather_signal():
                 if   t == 'EMERGENCY': freeze_impact += 3.0
                 elif t == 'WARNING':   freeze_impact += 1.5
                 else:                  freeze_impact += 0.5
-            bull_score += freeze_impact
-            components.append({"name": "Freeze-Off Alert System", "score": freeze_impact})
+            capped_impact = min(freeze_impact, 5.0)
+            bull_score += capped_impact
+            components.append({"name": "Freeze-Off Alert System", "score": capped_impact})
     else:
         stale_systems.append(f"freeze ({freeze_reason})")
 

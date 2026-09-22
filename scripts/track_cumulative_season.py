@@ -78,9 +78,9 @@ def main():
     
     # Use season-appropriate metric
     if chart_metric == "CDD":
-        actuals_df["hdd_value"] = actuals_df["cdd_gw"].fillna(actuals_df["forecast_cdd"] if "forecast_cdd" in actuals_df.columns else 0) if "cdd_gw" in actuals_df.columns else actuals_df["tdd"]
+        actuals_df["hdd_value"] = actuals_df["cdd_gw"].fillna(actuals_df["cdd"] if "cdd" in actuals_df.columns else actuals_df.get("forecast_cdd", 0)) if "cdd_gw" in actuals_df.columns else actuals_df.get("cdd", actuals_df.get("forecast_cdd", 0))
     else:
-        actuals_df["hdd_value"] = actuals_df["hdd_gw"].fillna(actuals_df["tdd_gw"] if "tdd_gw" in actuals_df.columns else actuals_df["tdd"]) if "hdd_gw" in actuals_df.columns else actuals_df["tdd"]
+        actuals_df["hdd_value"] = actuals_df["hdd_gw"].fillna(actuals_df["hdd"] if "hdd" in actuals_df.columns else actuals_df["tdd"]) if "hdd_gw" in actuals_df.columns else actuals_df.get("hdd", actuals_df["tdd"])
 
     # Build Normal Accumulation Curve from normals file
     if chart_metric == "CDD" and metric_key not in normals_df.columns:

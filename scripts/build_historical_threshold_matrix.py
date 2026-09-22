@@ -77,8 +77,8 @@ def main():
     if master_path.exists():
         master_df = pd.read_csv(master_path)
         master_df["date"] = pd.to_datetime(master_df["date"])
-        hdd_col = "hdd_gw" if "hdd_gw" in master_df.columns else ("hdd" if "hdd" in master_df.columns else "tdd")
-        master_df["hdd_value"] = master_df[hdd_col].fillna(master_df["tdd"])
+        fallback_hdd = master_df["hdd"] if "hdd" in master_df.columns else master_df["tdd"]
+        master_df["hdd_value"] = master_df[hdd_col].fillna(fallback_hdd)
         
         # Extract ECMWF current run
         ecmwf = master_df[master_df["model"] == "ECMWF"]

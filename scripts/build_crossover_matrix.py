@@ -61,12 +61,18 @@ def get_10yr_normals():
     if not city_dfs: return None
 
     # Merge and weight
-    master_df = city_dfs[0][["date"]].copy()
+    master_df = city_dfs[0][["date"]].drop_duplicates().sort_values("date").reset_index(drop=True)
     weighted_temp_sum = np.zeros(len(master_df))
+    w_sum = np.zeros(len(master_df))
     for df in city_dfs:
-        weighted_temp_sum += df["temp"].fillna(df["temp"].mean()) * df["weight"].iloc[0]
+        w = df["weight"].iloc[0]
+        m = pd.merge(master_df[["date"]], df[["date", "temp"]], on="date", how="left")
+        col = m["temp"].fillna(m["temp"].mean())
+        valid = col.notna()
+        weighted_temp_sum += np.where(valid, col * w, 0.0)
+        w_sum += np.where(valid, w, 0.0)
     
-    master_df["mean_temp_gw"] = weighted_temp_sum / TOTAL_WEIGHT
+    master_df["mean_temp_gw"] = np.where(w_sum > 0, weighted_temp_sum / w_sum, np.nan)
     
     # Group by MM-DD to get daily normals
     master_df["month"] = master_df["date"].dt.month

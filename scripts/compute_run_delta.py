@@ -40,17 +40,39 @@ def compute_delta():
 
         cols_latest = {"date": "date", "tdd": "tdd_latest"}
         cols_prev   = {"date": "date", "tdd": "tdd_prev"}
+        if "hdd" in df.columns:
+            cols_latest["hdd"] = "hdd_latest"
+            cols_prev["hdd"]   = "hdd_prev"
+        if "cdd" in df.columns:
+            cols_latest["cdd"] = "cdd_latest"
+            cols_prev["cdd"]   = "cdd_prev"
+
         if gw_mode:
             cols_latest["tdd_gw"] = "tdd_gw_latest"
             cols_prev["tdd_gw"]   = "tdd_gw_prev"
+            if "hdd_gw" in df.columns:
+                cols_latest["hdd_gw"] = "hdd_gw_latest"
+                cols_prev["hdd_gw"]   = "hdd_gw_prev"
+            if "cdd_gw" in df.columns:
+                cols_latest["cdd_gw"] = "cdd_gw_latest"
+                cols_prev["cdd_gw"]   = "cdd_gw_prev"
 
         df_latest = m[m["run_id"] == latest_id][list(cols_latest.keys())].rename(columns=cols_latest)
         df_prev   = m[m["run_id"] == prev_id][list(cols_prev.keys())].rename(columns=cols_prev)
 
         merged = df_latest.merge(df_prev, on="date", how="inner")
-        merged["tdd_change"]    = merged["tdd_latest"]    - merged["tdd_prev"]
+        merged["tdd_change"] = merged["tdd_latest"] - merged["tdd_prev"]
+        if "hdd_latest" in merged.columns and "hdd_prev" in merged.columns:
+            merged["hdd_change"] = merged["hdd_latest"] - merged["hdd_prev"]
+        if "cdd_latest" in merged.columns and "cdd_prev" in merged.columns:
+            merged["cdd_change"] = merged["cdd_latest"] - merged["cdd_prev"]
+
         if gw_mode:
             merged["tdd_gw_change"] = merged["tdd_gw_latest"] - merged["tdd_gw_prev"]
+            if "hdd_gw_latest" in merged.columns and "hdd_gw_prev" in merged.columns:
+                merged["hdd_gw_change"] = merged["hdd_gw_latest"] - merged["hdd_gw_prev"]
+            if "cdd_gw_latest" in merged.columns and "cdd_gw_prev" in merged.columns:
+                merged["cdd_gw_change"] = merged["cdd_gw_latest"] - merged["cdd_gw_prev"]
 
         merged["model"]      = model
         merged["run_latest"] = latest_id

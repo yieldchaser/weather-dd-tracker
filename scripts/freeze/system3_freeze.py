@@ -60,7 +60,7 @@ BASINS = {
     'SW Marcellus': {'lat': 39.7, 'lon': -80.5}
 }
 
-FREEZE_THRESHOLD_C = 0.0  # 32F
+FREEZE_THRESHOLD_C = -4.0  # 24.8°F (wellhead freeze-off threshold)
 
 def fetch_herbie_with_retry(date, fxx, max_retries=3, wait_minutes=10):
     """

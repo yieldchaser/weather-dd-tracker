@@ -68,13 +68,15 @@ def main():
     
     # Calculate Gas-Weighted Average
     gw_sum = np.zeros(len(master_df))
-    w_sum = 0
+    w_sum_arr = np.zeros(len(master_df))
     for name, _, _, weight in DEMAND_CITIES:
         if name in city_data:
-            gw_sum += master_df[f"temp_{name}"].fillna(0) * weight
-            w_sum += weight
+            col = master_df[f"temp_{name}"]
+            valid = col.notna()
+            gw_sum += np.where(valid, col * weight, 0.0)
+            w_sum_arr += np.where(valid, weight, 0.0)
             
-    master_df["mean_temp_gw"] = gw_sum / w_sum
+    master_df["mean_temp_gw"] = np.where(w_sum_arr > 0, gw_sum / w_sum_arr, np.nan)
     
     # Calculate Daily HDDs and CDDs
     base = 65.0

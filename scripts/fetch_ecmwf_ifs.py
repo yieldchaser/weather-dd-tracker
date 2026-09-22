@@ -95,6 +95,7 @@ def fetch(max_runs=4):
                     time=cycle,
                     step=[str(x) for x in EXPECTED_STEPS],
                     param="2t",
+                    area=ECMWF_AREA,
                     target=target,
                 )
 
