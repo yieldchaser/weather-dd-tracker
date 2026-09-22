@@ -52,8 +52,13 @@ def get_current_year_estimate(target_month, target_type, current_year):
     if FORECAST_PATH.exists():
         forecast_df = pd.read_csv(FORECAST_PATH)
         forecast_df["date"] = pd.to_datetime(forecast_df["date"]).dt.date
-        # Ensure we have the appropriate value column, we prefer tdd_gw or tdd
-        val_col = "tdd_gw" if "tdd_gw" in forecast_df.columns else "tdd"
+        # Ensure we have the appropriate value column matching target_type (HDD vs CDD)
+        if target_type == "HDD":
+            val_col = "hdd_gw" if "hdd_gw" in forecast_df.columns else ("hdd" if "hdd" in forecast_df.columns else "tdd_gw")
+        elif target_type == "CDD":
+            val_col = "cdd_gw" if "cdd_gw" in forecast_df.columns else ("cdd" if "cdd" in forecast_df.columns else "tdd_gw")
+        else:
+            val_col = "tdd_gw" if "tdd_gw" in forecast_df.columns else "tdd"
         forecast_dict = dict(zip(forecast_df["date"], forecast_df[val_col]))
     else:
         forecast_dict = {}
@@ -61,16 +66,14 @@ def get_current_year_estimate(target_month, target_type, current_year):
     normals_df = pd.DataFrame()
     if DAILY_NORMALS_PATH.exists():
         normals_df = pd.read_csv(DAILY_NORMALS_PATH)
-        from season_utils import active_metric as _active_metric
-        _season = _active_metric(target_month)
-        if _season == "CDD":
+        if target_type == "HDD":
+            val_col_norm = "hdd_normal_gw" if "hdd_normal_gw" in normals_df.columns else "hdd_normal"
+        elif target_type == "CDD":
             val_col_norm = "cdd_normal_gw" if "cdd_normal_gw" in normals_df.columns else "cdd_normal"
-        elif _season == "BOTH":
+        else:
             normals_df = normals_df.copy()
             normals_df["tdd_normal_gw"] = normals_df.get("hdd_normal_gw", 0) + normals_df.get("cdd_normal_gw", 0)
             val_col_norm = "tdd_normal_gw"
-        else:
-            val_col_norm = "hdd_normal_gw" if "hdd_normal_gw" in normals_df.columns else "hdd_normal"
         norm_dict = dict(zip(zip(normals_df["month"], normals_df["day"]), normals_df[val_col_norm]))
     else:
         norm_dict = {}

@@ -16,17 +16,17 @@ COLORS = {
 }
 
 def load_normals():
+    gw_path = Path("data/normals/us_gas_weighted_normals.csv")
+    if gw_path.exists():
+        return pd.read_csv(gw_path)
     normals_path = Path("data/normals/us_daily_normals.csv")
-    if not normals_path.exists():
-        return None
-    df = pd.read_csv(normals_path)
-    # We apply cumulative logic to the 30-year HDD normal 
-    return df
+    if normals_path.exists():
+        return pd.read_csv(normals_path)
+    return None
 
 def main():
     today = date.today()
     from season_utils import dominant_metric_from_master
-    today = date.today()
     season = active_metric(today)
     dom = dominant_metric_from_master()
     if dom in ("HDD", "CDD"):
@@ -40,10 +40,15 @@ def main():
     else:
         chart_metric = "HDD"
 
+    normals_df = load_normals()
+    if normals_df is None:
+        print("  [WARN] Normals missing.")
+        return
+
     # Season window
     if chart_metric == "CDD":
         # Cooling: Apr 1 – Oct 31 (all same pseudo-year 2000)
-        metric_key = "cdd_normal"
+        metric_key = "cdd_normal_gw" if "cdd_normal_gw" in normals_df.columns else "cdd_normal"
         pseudo_year_start, start_m, start_d = 2000, 4, 1
         pseudo_year_end, end_m, end_d = 2000, 10, 31
         season_start_real = f"{today.year}-04-01"
@@ -52,7 +57,7 @@ def main():
         season_label = str(today.year)
     else:
         # Heating: Sep 1 – Apr 30 (cross-year: Sep-Dec=year N, Jan-Apr=year N+1)
-        metric_key = "hdd_normal"
+        metric_key = "hdd_normal_gw" if "hdd_normal_gw" in normals_df.columns else "hdd_normal"
         pseudo_year_start, start_m, start_d = 2000, 9, 1
         pseudo_year_end, end_m, end_d = 2001, 4, 30
         heat_start_year = today.year - 1 if today.month <= 4 else today.year
@@ -62,11 +67,6 @@ def main():
         season_label = f"{heat_start_year}/{heat_start_year + 1}"
 
     print(f"\n--- Generating Cumulative {chart_metric} Season Tracker ---")
-    
-    normals_df = load_normals()
-    if normals_df is None:
-        print("  [WARN] Normals missing.")
-        return
 
     master_path = Path("outputs/tdd_master.csv")
     if not master_path.exists():
@@ -83,9 +83,10 @@ def main():
         actuals_df["hdd_value"] = actuals_df["hdd_gw"].fillna(actuals_df["tdd_gw"] if "tdd_gw" in actuals_df.columns else actuals_df["tdd"]) if "hdd_gw" in actuals_df.columns else actuals_df["tdd"]
 
     # Build Normal Accumulation Curve from normals file
-    if chart_metric == "CDD" and "cdd_normal" not in normals_df.columns:
-        print("  [WARN] cdd_normal column missing from normals. Falling back to HDD.")
-        metric_key, chart_metric = "hdd_normal", "HDD"
+    if chart_metric == "CDD" and metric_key not in normals_df.columns:
+        print("  [WARN] CDD normal column missing from normals. Falling back to HDD.")
+        metric_key = "hdd_normal_gw" if "hdd_normal_gw" in normals_df.columns else "hdd_normal"
+        chart_metric = "HDD"
 
     # Cross-year HDD season (Sep 1 to Apr 30) vs CDD season (Apr 1 to Oct 31)
     if chart_metric == "HDD":

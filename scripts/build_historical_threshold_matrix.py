@@ -77,7 +77,8 @@ def main():
     if master_path.exists():
         master_df = pd.read_csv(master_path)
         master_df["date"] = pd.to_datetime(master_df["date"])
-        master_df["hdd_value"] = master_df.get("tdd_gw", master_df["tdd"]).fillna(master_df["tdd"])
+        hdd_col = "hdd_gw" if "hdd_gw" in master_df.columns else ("hdd" if "hdd" in master_df.columns else "tdd")
+        master_df["hdd_value"] = master_df[hdd_col].fillna(master_df["tdd"])
         
         # Extract ECMWF current run
         ecmwf = master_df[master_df["model"] == "ECMWF"]
@@ -88,6 +89,19 @@ def main():
                 v = row["hdd_value"]
                 if pd.notna(v):
                     current_forecast[row["date"].date()] = v
+
+    # Load real ERA5 historical actuals
+    hist_actuals = {}
+    hist_path = Path("outputs/historical_degree_days.csv")
+    if hist_path.exists():
+        try:
+            hdf = pd.read_csv(hist_path)
+            hdf["date_obj"] = pd.to_datetime(hdf["date"]).dt.date
+            col = "hdd_gw" if "hdd_gw" in hdf.columns else "hdd_simple"
+            hist_actuals = dict(zip(hdf["date_obj"], hdf[col]))
+            print(f"  [OK] Loaded {len(hist_actuals)} real ERA5 daily records for historical matrix.")
+        except Exception as e:
+            print(f"  [WARN] Failed loading historical actuals: {e}")
                 
     current_winter = get_current_winter_year()
     years = list(range(current_winter, current_winter - 21, -1)) # 21 years Dynamic
@@ -97,26 +111,18 @@ def main():
     hdd_delta_to_norm = {y: 0.0 for y in years}
     days_above_norm = {y: 0 for y in years}
     
-    # Generate data
-    np.random.seed(42) # Consistent noise for demonstration purposes
-    
     for y in years:
         dates = get_winter_dates(y)
         for d in dates:
             norm_val = norm_dict.get((d.month, d.day), 25.0)
             
-            if y == current_winter:
-                # Blend actuals/forecast if available, else fallback to norm + slight noise
-                if d in current_forecast:
-                    val = current_forecast[d]
-                else: 
-                    # If dealing with past current year, realistically we pull from an actuals DB.
-                    # Since we lack one, we inject normal + realistic noise.
-                    val = norm_val * np.random.uniform(0.85, 1.15)
+            # Use forecast, real historical actuals, or deterministic normal baseline
+            if d in current_forecast:
+                val = current_forecast[d]
+            elif d in hist_actuals:
+                val = hist_actuals[d]
             else:
-                # Historical Simulation logic
-                noise = np.random.uniform(0.75, 1.25) # 25% variation
-                val = norm_val * noise
+                val = norm_val
                 
             # Calculations
             if val > THRESHOLD:

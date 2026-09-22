@@ -38,6 +38,28 @@ def plot():
     if len(runs_to_plot) >= 4:
         styles[runs_to_plot[-4]] = {"color": "magenta", "ls": "--", "lw": 1.5, "label": f"{runs_to_plot[-4][:8]} {runs_to_plot[-4][-2:]}z"}
 
+    import sys as _sys; _sys.path.insert(0, os.path.dirname(__file__))
+    from season_utils import active_metric as _am
+    import datetime as _dt
+    today_d = _dt.date.today()
+    future_runs = df[df["date"] >= pd.Timestamp(today_d)]
+    h_m = future_runs["hdd_gw"].mean() if "hdd_gw" in future_runs.columns else None
+    c_m = future_runs["cdd_gw"].mean() if "cdd_gw" in future_runs.columns else None
+    _season = _am(today_d, hdd_val=h_m, cdd_val=c_m)
+
+    if _season == "CDD":
+        val_col = "cdd_gw" if "cdd_gw" in df.columns else "cdd"
+        norm_col = "cdd_normal_gw"
+        y_label = "Gas Weighted CDD"
+    elif _season == "BOTH":
+        val_col = "tdd_gw" if "tdd_gw" in df.columns else "tdd"
+        norm_col = "tdd_normal_gw"
+        y_label = "Gas Weighted TDD"
+    else:  # HDD
+        val_col = "hdd_gw" if "hdd_gw" in df.columns else "hdd"
+        norm_col = "hdd_normal_gw"
+        y_label = "Gas Weighted HDD"
+
     fig, ax = plt.subplots(figsize=(10, 6))
 
     for run_id in runs_to_plot:
@@ -45,7 +67,7 @@ def plot():
         s = styles[run_id]
         ax.plot(
             run_data["date"], 
-            run_data["tdd_gw"], 
+            run_data[val_col], 
             color=s["color"], 
             linestyle=s["ls"], 
             linewidth=s["lw"], 
@@ -59,17 +81,9 @@ def plot():
         latest_run_data["month"] = latest_run_data["date"].dt.month
         latest_run_data["day"] = latest_run_data["date"].dt.day
         merged = latest_run_data.merge(norms, on=["month", "day"], how="left")
-        import sys as _sys; _sys.path.insert(0, os.path.dirname(__file__))
-        from season_utils import active_metric as _am
-        import datetime as _dt
-        _season = _am(_dt.date.today().month)
-        if _season == "CDD":
-            _nc = "cdd_normal_gw" if "cdd_normal_gw" in merged.columns else "cdd_normal"
-        elif _season == "BOTH":
+        if _season == "BOTH":
             merged["tdd_normal_gw"] = merged.get("hdd_normal_gw", 0) + merged.get("cdd_normal_gw", 0)
-            _nc = "tdd_normal_gw"
-        else:
-            _nc = "hdd_normal_gw" if "hdd_normal_gw" in merged.columns else "hdd_normal"
+        _nc = norm_col if norm_col in merged.columns else ("hdd_normal" if _season == "HDD" else "cdd_normal")
 
         ax.plot(
             latest_run_data["date"],
@@ -81,7 +95,7 @@ def plot():
         )
 
     ax.set_title("ECMWF EPS Model Changes 24 Hours")
-    ax.set_ylabel("Gas Weighted TDD")
+    ax.set_ylabel(y_label)
     ax.set_xlabel("Model Predict Date")
     
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%y'))

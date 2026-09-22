@@ -87,6 +87,15 @@ def get_10yr_normals():
     return normals_10y
 
 def load_normals():
+    gw_path = Path("data/normals/us_gas_weighted_normals.csv")
+    if gw_path.exists():
+        df = pd.read_csv(gw_path)
+        df["30yr_hdd"] = df["hdd_normal_gw"]
+        df["30yr_cdd"] = df["cdd_normal_gw"]
+        df["10yr_hdd"] = df.get("hdd_normal_gw_10yr", df["hdd_normal_gw"])
+        df["10yr_cdd"] = df.get("cdd_normal_gw_10yr", df["cdd_normal_gw"])
+        return df
+
     normals_path = Path("data/normals/us_daily_normals.csv")
     if not normals_path.exists():
         print(" [ERR] Normal file missing.")
@@ -143,8 +152,8 @@ def main():
     plt.style.use('seaborn-v0_8-whitegrid')
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    ax.plot(plot_df.index, plot_df["30yr_hdd"], color=COLORS["10Y_HDD"], linewidth=2.5, label="ng_hdd_30yr")
-    ax.plot(plot_df.index, plot_df["10yr_hdd"], color=COLORS["30Y_HDD"], linewidth=2.5, label="ng_hdd_10yr")
+    ax.plot(plot_df.index, plot_df["30yr_hdd"], color=COLORS["30Y_HDD"], linewidth=2.5, label="ng_hdd_30yr")
+    ax.plot(plot_df.index, plot_df["10yr_hdd"], color=COLORS["10Y_HDD"], linewidth=2.5, label="ng_hdd_10yr")
     
     ax.plot(plot_df.index, plot_df["30yr_cdd"], color=COLORS["30Y_CDD"], linewidth=2.5, label="pop_cdd_30yr")
     ax.plot(plot_df.index, plot_df["10yr_cdd"], color=COLORS["10Y_CDD"], linewidth=2.5, label="pop_cdd_10yr")
