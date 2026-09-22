@@ -49,59 +49,92 @@ def compare():
     norm_cols = ["hdd_normal", "cdd_normal", "mean_temp_f", "hdd_normal_10yr", "cdd_normal_10yr"]
     merged[norm_cols] = merged[norm_cols].ffill().bfill()
 
-    # HDD anomaly (simple)
-    merged["hdd_anomaly"] = merged["tdd"] - merged["hdd_normal"]
-    merged["hdd_anomaly_10yr"] = merged["tdd"] - merged["hdd_normal_10yr"]
+    # Phase 1: simple anomalies
+    merged["hdd"] = merged["hdd"].fillna(merged["tdd"])
+    merged["cdd"] = merged["cdd"].fillna(0)
+    merged["forecast_cdd"] = merged["cdd"]
 
-    # CDD anomaly from mean_temp
-    merged["forecast_cdd"] = merged["mean_temp"].apply(lambda t: max(t - 65, 0))
-    merged["cdd_anomaly"]  = merged["forecast_cdd"] - merged["cdd_normal"]
-    merged["cdd_anomaly_10yr"]  = merged["forecast_cdd"] - merged["cdd_normal_10yr"]
+    merged["hdd_anomaly"] = merged["hdd"] - merged["hdd_normal"]
+    merged["hdd_anomaly_10yr"] = merged["hdd"] - merged["hdd_normal_10yr"]
+    merged["cdd_anomaly"] = merged["cdd"] - merged["cdd_normal"]
+    merged["cdd_anomaly_10yr"] = merged["cdd"] - merged["cdd_normal_10yr"]
+    merged["tdd_anomaly"] = merged["tdd"] - (merged["hdd_normal"] + merged["cdd_normal"])
+    merged["tdd_anomaly_10yr"] = merged["tdd"] - (merged["hdd_normal_10yr"] + merged["cdd_normal_10yr"])
 
-    # Phase 2: gas-weighted anomaly (Issue #3 fix)
+    # Phase 2: gas-weighted anomalies
     gw_mode = NORMALS_GW.exists() and "tdd_gw" in df.columns
     if gw_mode:
         normals_gw = pd.read_csv(NORMALS_GW)
+        gw_norm_cols = [
+            "month", "day",
+            "hdd_normal_gw", "hdd_normal_gw_10yr",
+            "cdd_normal_gw", "cdd_normal_gw_10yr"
+        ]
+        # Ensure columns exist in normals_gw
+        for col in ["cdd_normal_gw", "cdd_normal_gw_10yr"]:
+            if col not in normals_gw.columns:
+                normals_gw[col] = normals_gw.get(col.replace("_gw", ""), 0.0)
+
         merged = merged.merge(
-            normals_gw[["month", "day", "hdd_normal_gw", "hdd_normal_gw_10yr"]],
+            normals_gw[[c for c in gw_norm_cols if c in normals_gw.columns]],
             on=["month", "day"],
             how="left"
         )
-        # Backfill tdd_gw from tdd for backward compatibility with old CSVs
+        # Backfill tdd_gw, hdd_gw, cdd_gw if missing
         merged["tdd_gw"] = merged["tdd_gw"].fillna(merged["tdd"])
-        merged["hdd_anomaly_gw"] = merged["tdd_gw"] - merged["hdd_normal_gw"]
-        merged["hdd_anomaly_gw_10yr"] = merged["tdd_gw"] - merged["hdd_normal_gw_10yr"]
-        print("  [OK] Gas-weighted anomaly (30yr and 10yr) computed.")
+        if "hdd_gw" not in merged.columns:
+            merged["hdd_gw"] = merged["tdd_gw"]
+        if "cdd_gw" not in merged.columns:
+            merged["cdd_gw"] = 0.0
+
+        merged["hdd_anomaly_gw"] = merged["hdd_gw"] - merged["hdd_normal_gw"]
+        merged["hdd_anomaly_gw_10yr"] = merged["hdd_gw"] - merged["hdd_normal_gw_10yr"]
+        merged["cdd_anomaly_gw"] = merged["cdd_gw"] - merged["cdd_normal_gw"]
+        merged["cdd_anomaly_gw_10yr"] = merged["cdd_gw"] - merged["cdd_normal_gw_10yr"]
+        merged["tdd_anomaly_gw"] = merged["tdd_gw"] - (merged["hdd_normal_gw"] + merged["cdd_normal_gw"])
+        merged["tdd_anomaly_gw_10yr"] = merged["tdd_gw"] - (merged["hdd_normal_gw_10yr"] + merged["cdd_normal_gw_10yr"])
+        print("  [OK] Gas-weighted anomalies (HDD, CDD, TDD for 30yr and 10yr) computed.")
     else:
         merged["hdd_anomaly_gw"] = None
         merged["hdd_anomaly_gw_10yr"] = None
-        print("  [WARN]  Gas-weighted anomaly not computed (GW normals or tdd_gw not available).")
+        merged["cdd_anomaly_gw"] = None
+        merged["cdd_anomaly_gw_10yr"] = None
+        merged["tdd_anomaly_gw"] = None
+        merged["tdd_anomaly_gw_10yr"] = None
+        print("  [WARN] Gas-weighted anomaly not computed (GW normals or tdd_gw not available).")
 
-    # Dominant anomaly: season-aware (HDD Nov-Mar, CDD Apr-Sep, TDD net for shoulder Apr/Oct)
+    # Dominant anomaly: dynamic load-aware & season-aware
     def dominant_anomaly(row):
-        metric = active_metric(int(row["month"]))
+        h_val = row.get("hdd_gw") if pd.notna(row.get("hdd_gw")) else row.get("hdd", 0)
+        c_val = row.get("cdd_gw") if pd.notna(row.get("cdd_gw")) else row.get("cdd", 0)
+        metric = active_metric(row.get("date"), hdd_val=h_val, cdd_val=c_val)
         if metric == "CDD":
-            return row["cdd_anomaly"]
-        if metric == "BOTH":  # shoulder month: net TDD anomaly
-            return row.get("tdd_gw", row["tdd"]) - row["hdd_normal"] - row.get("cdd_normal", 0)
-        return row["hdd_anomaly"]
+            return row.get("cdd_anomaly_gw") if pd.notna(row.get("cdd_anomaly_gw")) else row["cdd_anomaly"]
+        if metric == "BOTH":
+            return row.get("tdd_anomaly_gw") if pd.notna(row.get("tdd_anomaly_gw")) else row["tdd_anomaly"]
+        return row.get("hdd_anomaly_gw") if pd.notna(row.get("hdd_anomaly_gw")) else row["hdd_anomaly"]
 
     merged["anomaly"] = merged.apply(dominant_anomaly, axis=1)
 
     # Per-run summary: both simple and GW
     agg_dict = {
-        "forecast_hdd_avg":    ("tdd",           "mean"),
+        "forecast_hdd_avg":    ("hdd",           "mean"),
         "normal_hdd_avg":      ("hdd_normal",     "mean"),
         "normal_hdd_avg_10yr": ("hdd_normal_10yr", "mean"),
-        "forecast_cdd_avg":    ("forecast_cdd",   "mean"),
+        "forecast_cdd_avg":    ("cdd",           "mean"),
         "normal_cdd_avg":      ("cdd_normal",     "mean"),
         "normal_cdd_avg_10yr": ("cdd_normal_10yr", "mean"),
+        "forecast_tdd_avg":    ("tdd",           "mean"),
         "days":                ("tdd",            "count"),
     }
     if gw_mode:
-        agg_dict["forecast_hdd_avg_gw"] = ("tdd_gw",        "mean")
+        agg_dict["forecast_hdd_avg_gw"] = ("hdd_gw",        "mean")
         agg_dict["normal_hdd_avg_gw"]   = ("hdd_normal_gw", "mean")
         agg_dict["normal_hdd_avg_gw_10yr"] = ("hdd_normal_gw_10yr", "mean")
+        agg_dict["forecast_cdd_avg_gw"] = ("cdd_gw",        "mean")
+        agg_dict["normal_cdd_avg_gw"]   = ("cdd_normal_gw", "mean")
+        agg_dict["normal_cdd_avg_gw_10yr"] = ("cdd_normal_gw_10yr", "mean")
+        agg_dict["forecast_tdd_avg_gw"] = ("tdd_gw",        "mean")
 
     summary = (
         merged.groupby(["model", "run_id"])
@@ -113,30 +146,32 @@ def compare():
     summary["vs_normal_hdd_10yr"] = summary["forecast_hdd_avg"] - summary["normal_hdd_avg_10yr"]
     summary["vs_normal_cdd"] = summary["forecast_cdd_avg"] - summary["normal_cdd_avg"]
     summary["vs_normal_cdd_10yr"] = summary["forecast_cdd_avg"] - summary["normal_cdd_avg_10yr"]
+    summary["vs_normal_tdd"] = (summary["forecast_hdd_avg"] + summary["forecast_cdd_avg"]) - (summary["normal_hdd_avg"] + summary["normal_cdd_avg"])
     
     if gw_mode:
         summary["vs_normal_hdd_gw"] = summary["forecast_hdd_avg_gw"] - summary["normal_hdd_avg_gw"]
         summary["vs_normal_hdd_gw_10yr"] = summary["forecast_hdd_avg_gw"] - summary["normal_hdd_avg_gw_10yr"]
+        summary["vs_normal_cdd_gw"] = summary["forecast_cdd_avg_gw"] - summary["normal_cdd_avg_gw"]
+        summary["vs_normal_cdd_gw_10yr"] = summary["forecast_cdd_avg_gw"] - summary["normal_cdd_avg_gw_10yr"]
+        summary["vs_normal_tdd_gw"] = (summary["forecast_hdd_avg_gw"] + summary["forecast_cdd_avg_gw"]) - (summary["normal_hdd_avg_gw"] + summary["normal_cdd_avg_gw"])
 
-    # Signal: season-aware (HDD Nov-Mar, CDD Apr-Sep, TDD net shoulder)
-    import datetime
-    _cur_metric = active_metric(datetime.date.today().month)
+    # Signal: dynamically evaluated based on dominant weather regime
+    from season_utils import dominant_metric_from_master
+    _cur_metric = dominant_metric_from_master(df)
     if _cur_metric == "CDD":
-        _sig_col = "vs_normal_cdd"
+        _sig_col = "vs_normal_cdd_gw" if gw_mode else "vs_normal_cdd"
     elif _cur_metric == "BOTH":
-        summary["vs_normal_tdd"] = (
-            summary["forecast_hdd_avg"] + summary["forecast_cdd_avg"]
-            - summary["normal_hdd_avg"] - summary["normal_cdd_avg"]
-        )
-        _sig_col = "vs_normal_tdd"
+        _sig_col = "vs_normal_tdd_gw" if gw_mode else "vs_normal_tdd"
     else:
-        _sig_col = "vs_normal_hdd"
+        _sig_col = "vs_normal_hdd_gw" if gw_mode else "vs_normal_hdd"
+
     summary["signal"] = summary[_sig_col].apply(
         lambda x: "BULLISH" if x > 0.5 else ("BEARISH" if x < -0.5 else "NEUTRAL")
     )
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_FILE, index=False)
+
 
     print("\n--- FORECAST vs NORMAL ---")
     for _, row in summary.iterrows():

@@ -299,6 +299,74 @@
             border: 1px solid var(--accent);
         }
 
+        /* Demand Metric Selector */
+        .metric-selector-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .metric-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .metric-bar-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            color: var(--text-main);
+            text-transform: uppercase;
+        }
+
+        .pill-group {
+            display: inline-flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            padding: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .metric-pill {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            outline: none;
+        }
+
+        .metric-pill:hover {
+            color: var(--text-br);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .metric-pill.active {
+            background-color: var(--accent);
+            color: #0b0c10;
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
+        .metric-bar-right {
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
         /* Chart Section */
         .chart-section {
             background-color: var(--card-bg);
@@ -583,6 +651,22 @@
             <a href="grid.html" class="nav-link has-tooltip" data-tooltip-key="Power Grid Nav">Power Grid</a>
         </div>
 
+        <!-- DEMAND METRIC SELECTOR -->
+        <div class="metric-selector-bar has-tooltip" data-tooltip-key="Metric Selector">
+            <div class="metric-bar-left">
+                <span class="metric-bar-label">DEMAND METRIC:</span>
+                <div class="pill-group" id="metric-pills">
+                    <button class="metric-pill active has-tooltip" id="pill-AUTO" data-tooltip-key="Metric Auto" onclick="setDashboardMetric('AUTO')">Auto (<span id="auto-metric-tag">HDD</span>)</button>
+                    <button class="metric-pill has-tooltip" id="pill-HDD" data-tooltip-key="Metric HDD" onclick="setDashboardMetric('HDD')">HDD</button>
+                    <button class="metric-pill has-tooltip" id="pill-CDD" data-tooltip-key="Metric CDD" onclick="setDashboardMetric('CDD')">CDD</button>
+                    <button class="metric-pill has-tooltip" id="pill-TDD" data-tooltip-key="Metric TDD" onclick="setDashboardMetric('TDD')">TDD (Net)</button>
+                </div>
+            </div>
+            <div class="metric-bar-right">
+                Dominant Load: <span id="metric-desc" style="color:var(--accent); font-weight:600;">Space Heating Mode</span>
+            </div>
+        </div>
+
         <div class="header">
             <h1>WEATHER DESK</h1>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
@@ -806,57 +890,114 @@
 
     <script>
         const basePath = "outputs/";
-
-        // --- Season Helper ---
-        // SEASON: 'HEATING' = Nov–Mar, 'COOLING' = May–Sep, 'TDD' = Apr & Oct
-        // TIME_TRAVEL_DATE: set to a hardcoded Date for dry-run testing; null = use real clock
         const TIME_TRAVEL_DATE = null;
-        const _MONTH = (TIME_TRAVEL_DATE || new Date()).getMonth() + 1; // 1-12
-        const SEASON = (_MONTH >= 11 || _MONTH <= 3)
-            ? 'HEATING'
-            : (_MONTH === 4 || _MONTH === 10 ? 'TDD' : 'COOLING');
-        const DD_LABEL = SEASON === 'COOLING' ? 'CDD' : (SEASON === 'TDD' ? 'TDD' : 'HDD');
-        // DD_FIELD: canonical field name used in data objects (e.g. point[DD_FIELD])
-        const DD_FIELD = SEASON === 'COOLING' ? 'cdd_gw' : (SEASON === 'TDD' ? 'tdd_gw' : 'hdd_gw');
-        const IS_CDD = SEASON === 'COOLING';
-        const IS_BOTH = SEASON === 'TDD';
 
-        // Season-aware color accent (for chart palette hints)
-        const SEASON_COLOR = SEASON === 'COOLING' ? '#ff7043' : (SEASON === 'TDD' ? '#66bb6a' : '#66fcf1');
+        // Metric state: AUTO (Dynamic consensus), HDD (Heating), CDD (Cooling), TDD (Net combined)
+        let METRIC_MODE = localStorage.getItem('weather_dd_metric_mode') || 'AUTO';
+        let AUTO_DOMINANT_METRIC = 'HDD';
+        let CURRENT_METRIC = 'HDD';
+        let SEASON = 'HEATING';
+        let DD_LABEL = 'HDD';
+        let DD_FIELD = 'hdd_gw';
+        let IS_CDD = false;
+        let IS_BOTH = false;
+        let SEASON_COLOR = '#66fcf1';
+        let DASHBOARD_DATA = null;
 
-        // Dual-key value resolver: tries metric-specific columns, falls back to tdd_gw/tdd
-        // IMPROVEMENT: If 'has_gw' metadata is false, we should ideally use simple averages 
-        // to maintain apples-to-apples if the other run also lacks GW.
-        function ddVal(row, forceSimple = false) {
-            if (forceSimple) {
-                if (IS_CDD) return parseFloat(row.cdd ?? row.tdd ?? 0);
-                return parseFloat(row.hdd ?? row.tdd ?? 0);
+        function getDominantForecastMetric(masterData, vsNormal) {
+            const rows = (vsNormal && vsNormal.length > 0) ? vsNormal : masterData;
+            if (rows && rows.length > 0) {
+                const todayStr = (TIME_TRAVEL_DATE || new Date()).toISOString().substring(0, 10);
+                let hddSum = 0;
+                let cddSum = 0;
+                let count = 0;
+                rows.forEach(r => {
+                    const d = (r.date || "").substring(0, 10);
+                    if (d >= todayStr) {
+                        const h = parseFloat(r.hdd_gw ?? r.hdd ?? 0);
+                        const c = parseFloat(r.cdd_gw ?? r.cdd ?? 0);
+                        if (!isNaN(h) && !isNaN(c)) {
+                            hddSum += h;
+                            cddSum += c;
+                            count++;
+                        }
+                    }
+                });
+                if (count > 0) {
+                    if (hddSum > 1.5 * cddSum && hddSum >= 1.0) return 'HDD';
+                    if (cddSum > 1.5 * hddSum && cddSum >= 1.0) return 'CDD';
+                    return 'TDD';
+                }
             }
-            if (IS_CDD)
-                return parseFloat(row.cdd_gw ?? row.cdd ?? row.tdd_gw ?? row.tdd ?? 0);
-            if (IS_BOTH)
-                return parseFloat(row.tdd_gw ?? row.tdd ?? 0);
-            return parseFloat(row.hdd_gw ?? row.tdd_gw ?? row.tdd ?? 0);
-        }
-        function anomVal(row) {
-            if (IS_CDD)
-                return parseFloat(row.cdd_anomaly_gw ?? row.cdd_anomaly ?? row.hdd_anomaly_gw ?? row.hdd_anomaly ?? 0);
-            if (IS_BOTH)
-                return parseFloat(row.hdd_anomaly_gw ?? row.hdd_anomaly ?? 0) + parseFloat(row.cdd_anomaly_gw ?? row.cdd_anomaly ?? 0);
-            return parseFloat(row.hdd_anomaly_gw ?? row.hdd_anomaly ?? 0);
-        }
-        function normVal(row, yr10 = false) {
-            if (IS_CDD)
-                return yr10
-                    ? parseFloat(row.cdd_normal_10yr ?? row.cdd_normal ?? 0)
-                    : parseFloat(row.cdd_normal ?? 0);
-            return yr10
-                ? parseFloat(row.hdd_normal_gw_10yr ?? row.hdd_normal_10yr ?? row.hdd_normal_gw ?? row.hdd_normal ?? 0)
-                : parseFloat(row.hdd_normal_gw ?? row.hdd_normal ?? 0);
+            const now = (TIME_TRAVEL_DATE || new Date());
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+            if (m >= 11 || m <= 3) return 'HDD';
+            if (m >= 5 && m <= 8) return 'CDD';
+            if (m === 9) return d >= 16 ? 'HDD' : 'CDD';
+            if (m === 10) return d >= 15 ? 'HDD' : 'TDD';
+            if (m === 4) return 'TDD';
+            return 'HDD';
         }
 
-        // Apply dynamic labels to static elements on load
-        window.addEventListener('DOMContentLoaded', () => {
+        function updateMetricState(mode, masterData, vsNormal) {
+            METRIC_MODE = mode || 'AUTO';
+            localStorage.setItem('weather_dd_metric_mode', METRIC_MODE);
+            AUTO_DOMINANT_METRIC = getDominantForecastMetric(masterData, vsNormal);
+            CURRENT_METRIC = (METRIC_MODE === 'AUTO') ? AUTO_DOMINANT_METRIC : METRIC_MODE;
+
+            if (CURRENT_METRIC === 'CDD') {
+                SEASON = 'COOLING';
+                DD_LABEL = 'CDD';
+                DD_FIELD = 'cdd_gw';
+                IS_CDD = true;
+                IS_BOTH = false;
+                SEASON_COLOR = '#ff7043';
+            } else if (CURRENT_METRIC === 'TDD') {
+                SEASON = 'TDD';
+                DD_LABEL = 'TDD';
+                DD_FIELD = 'tdd_gw';
+                IS_CDD = false;
+                IS_BOTH = true;
+                SEASON_COLOR = '#66bb6a';
+            } else { // 'HDD'
+                SEASON = 'HEATING';
+                DD_LABEL = 'HDD';
+                DD_FIELD = 'hdd_gw';
+                IS_CDD = false;
+                IS_BOTH = false;
+                SEASON_COLOR = '#66fcf1';
+            }
+
+            // Update selector pills
+            const pillAuto = document.getElementById('pill-AUTO');
+            const pillHdd = document.getElementById('pill-HDD');
+            const pillCdd = document.getElementById('pill-CDD');
+            const pillTdd = document.getElementById('pill-TDD');
+            const autoTag = document.getElementById('auto-metric-tag');
+            const descEl = document.getElementById('metric-desc');
+
+            if (autoTag) autoTag.innerText = AUTO_DOMINANT_METRIC;
+            [pillAuto, pillHdd, pillCdd, pillTdd].forEach(p => { if (p) p.classList.remove('active'); });
+            if (METRIC_MODE === 'AUTO' && pillAuto) pillAuto.classList.add('active');
+            else if (METRIC_MODE === 'HDD' && pillHdd) pillHdd.classList.add('active');
+            else if (METRIC_MODE === 'CDD' && pillCdd) pillCdd.classList.add('active');
+            else if (METRIC_MODE === 'TDD' && pillTdd) pillTdd.classList.add('active');
+
+            if (descEl) {
+                if (CURRENT_METRIC === 'HDD') {
+                    descEl.innerText = (METRIC_MODE === 'AUTO') ? "Early Heating Season (HDD Dominant)" : "Heating Degree Days (Space Heating Demand)";
+                    descEl.style.color = '#66fcf1';
+                } else if (CURRENT_METRIC === 'CDD') {
+                    descEl.innerText = (METRIC_MODE === 'AUTO') ? "Cooling Season (CDD Dominant)" : "Cooling Degree Days (Power Burn Demand)";
+                    descEl.style.color = '#ff7043';
+                } else {
+                    descEl.innerText = (METRIC_MODE === 'AUTO') ? "Shoulder Transition (Net TDD Mode)" : "Total Degree Days (Net Weather Load)";
+                    descEl.style.color = '#66bb6a';
+                }
+            }
+
+            // Dynamic section titles
             const ddL = DD_LABEL;
             const el = (id) => document.getElementById(id);
             if (el('macro-dd-label')) el('macro-dd-label').innerText = `Total Forecast ${ddL}s (Gas-Weighted)`;
@@ -864,8 +1005,64 @@
             if (el('horizon-title')) el('horizon-title').innerText = `Gas-Weighted ${ddL}s by Horizon (All Models)`;
             if (el('spaghetti-title')) el('spaghetti-title').innerText = `Season Cumulative ${ddL}s (Gas-Weighted)`;
             if (el('monthly-matrix-title')) el('monthly-matrix-title').innerText = `Historical Monthly ${ddL}s`;
-        });
+            if (el('shift-title')) el('shift-title').innerText = `Day-by-Day Model Consensus Shift (GW ${ddL}s)`;
+        }
 
+        function setDashboardMetric(mode) {
+            if (!DASHBOARD_DATA) return;
+            updateMetricState(mode, DASHBOARD_DATA.masterData, DASHBOARD_DATA.vsNormal);
+            renderDashboard();
+        }
+
+        // Dual-key value resolver: tries metric-specific columns, falls back to tdd_gw/tdd
+        function ddVal(row, forceSimple = false) {
+            if (forceSimple) {
+                if (IS_CDD) return parseFloat(row.cdd ?? 0);
+                if (IS_BOTH) return parseFloat(row.tdd ?? (parseFloat(row.hdd ?? 0) + parseFloat(row.cdd ?? 0)));
+                return parseFloat(row.hdd ?? 0);
+            }
+            if (IS_CDD)
+                return parseFloat(row.cdd_gw ?? row.cdd ?? 0);
+            if (IS_BOTH)
+                return parseFloat(row.tdd_gw ?? (parseFloat(row.hdd_gw ?? row.hdd ?? 0) + parseFloat(row.cdd_gw ?? row.cdd ?? 0)));
+            return parseFloat(row.hdd_gw ?? row.hdd ?? 0);
+        }
+
+        function normVal(row, yr10 = false) {
+            if (IS_CDD) {
+                return yr10
+                    ? parseFloat(row.cdd_normal_gw_10yr ?? row.cdd_normal_10yr ?? row.cdd_normal_gw ?? row.cdd_normal ?? 0)
+                    : parseFloat(row.cdd_normal_gw ?? row.cdd_normal ?? 0);
+            }
+            if (IS_BOTH) {
+                let hNorm = yr10
+                    ? parseFloat(row.hdd_normal_gw_10yr ?? row.hdd_normal_10yr ?? row.hdd_normal_gw ?? row.hdd_normal ?? 0)
+                    : parseFloat(row.hdd_normal_gw ?? row.hdd_normal ?? 0);
+                let cNorm = yr10
+                    ? parseFloat(row.cdd_normal_gw_10yr ?? row.cdd_normal_10yr ?? row.cdd_normal_gw ?? row.cdd_normal ?? 0)
+                    : parseFloat(row.cdd_normal_gw ?? row.cdd_normal ?? 0);
+                return hNorm + cNorm;
+            }
+            return yr10
+                ? parseFloat(row.hdd_normal_gw_10yr ?? row.hdd_normal_10yr ?? row.hdd_normal_gw ?? row.hdd_normal ?? 0)
+                : parseFloat(row.hdd_normal_gw ?? row.hdd_normal ?? 0);
+        }
+
+        function anomVal(row, yr10 = false) {
+            if (IS_CDD) {
+                return yr10
+                    ? parseFloat(row.cdd_anomaly_gw_10yr ?? row.cdd_anomaly_10yr ?? 0)
+                    : parseFloat(row.cdd_anomaly_gw ?? row.cdd_anomaly ?? 0);
+            }
+            if (IS_BOTH) {
+                return yr10
+                    ? parseFloat(row.tdd_anomaly_gw_10yr ?? row.tdd_anomaly_10yr ?? ((parseFloat(row.hdd_anomaly_gw_10yr ?? 0) + parseFloat(row.cdd_anomaly_gw_10yr ?? 0))))
+                    : parseFloat(row.tdd_anomaly_gw ?? row.tdd_anomaly ?? ((parseFloat(row.hdd_anomaly_gw ?? 0) + parseFloat(row.cdd_anomaly_gw ?? 0))));
+            }
+            return yr10
+                ? parseFloat(row.hdd_anomaly_gw_10yr ?? row.hdd_anomaly_10yr ?? 0)
+                : parseFloat(row.hdd_anomaly_gw ?? row.hdd_anomaly ?? 0);
+        }
 
         function fetchCSV(filename) {
             const url = basePath + filename + "?t=" + Date.now();
@@ -898,6 +1095,7 @@
             if (!el) return;
             el.innerText = formatNum(num, dec, isDelta);
             if (isDelta) {
+                el.classList.remove('pos-val', 'neg-val');
                 if (num > 0) el.classList.add('pos-val');
                 else if (num < 0) el.classList.add('neg-val');
             }
@@ -905,7 +1103,6 @@
 
         async function loadDashboard() {
             try {
-                // Create a robust fetcher for the JSON manifest that guarantees a safe object is returned
                 const fetchManifest = async () => {
                     try {
                         let res = await fetch("outputs/maps_manifest.json?t=" + Date.now());
@@ -929,347 +1126,10 @@
                     fetch("outputs/shift_meta.json").then(r => r.ok ? r.json() : { models: {} }).catch(e => ({ models: {} }))
                 ]);
 
-                // 1. Bias
-                if (biasData.length > 0) {
-                    let biasStr = String(biasData[0].market_bias).toUpperCase();
-                    let biasEl = document.getElementById('macro-bias');
-                    biasEl.innerText = biasStr;
-                    if (biasStr.includes('BULL')) biasEl.classList.add('bullish-text');
-                    if (biasStr.includes('BEAR')) biasEl.classList.add('bearish-text');
-                }
+                DASHBOARD_DATA = { biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest, historicalData, shiftMeta };
 
-                // 2. Alerts
-                if (convAlert.length > 0) {
-                    const alertConvEl = document.getElementById('alert-conv');
-                    alertConvEl.style.display = 'block';
-                    const dir = String(convAlert[0].direction).toUpperCase();
-                    alertConvEl.setAttribute('data-dyn-title', 'Convergence Alert');
-                    alertConvEl.setAttribute('data-dyn-body', `High consensus alert: <strong>${convAlert.length} day(s)</strong> are consistently shifting <strong>${dir}</strong> across different models, reinforcing the trend direction.`);
-                    document.getElementById('conv-text').innerText = `${convAlert.length} day(s) aligning ${convAlert[0].direction}`;
-                }
-
-                if (runChange.length > 0) {
-                    let fr = runChange.filter(r => r.fast_revision === true || r.fast_revision === 'True');
-                    if (fr.length > 0) {
-                        let latestFr = fr[fr.length - 1];
-                        const alertFastEl = document.getElementById('alert-fast-rev');
-                        alertFastEl.style.display = 'block';
-                        let chgCol = latestFr[`${DD_FIELD.replace('_gw', '')}_change_gw`]
-                            ?? latestFr[`${DD_FIELD.replace('_gw', '')}_change`]
-                            ?? latestFr.hdd_change_gw ?? latestFr.tdd_change_gw ?? latestFr.cdd_change_gw ?? latestFr.hdd_change ?? 0;
-                        let arr = chgCol > 0 ? "▲" : "▼";
-                        let direction = chgCol > 0 ? "colder" : "warmer";
-                        alertFastEl.setAttribute('data-dyn-title', 'Fast Revision Alert');
-                        alertFastEl.setAttribute('data-dyn-body', `Rapid adjustment alert: <strong>${latestFr.model}</strong> shifted by <strong>${formatNum(chgCol, 1, true)} ${DD_LABEL}s</strong> (${direction}) in its latest run, indicating a significant short-term pattern revision.`);
-                        document.getElementById('rev-text').innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} ${DD_LABEL}s`;
-                    }
-                }
-
-                // 3. Time Horizon Panels (All Models)
-                if (vsNormal.length > 0) {
-                    let models = [...new Set(vsNormal.map(r => r.model).filter(m => m))].sort();
-
-                    let shortTermHtml = '';
-                    let medTermHtml = '';
-                    let longTermHtml = '';
-
-                    // For the macro summary card (use ECMWF as baseline, fallback to GFS)
-                    let macroFcst = 0, macroChg = 0, macroDays = 1;
-
-                    models.forEach(m => {
-                        let mRows = vsNormal.filter(r => r.model === m);
-                        // Sort by numeric timestamp if possible, or string. Ensure latest is first.
-                        mRows.sort((a, b) => String(b.run_id).localeCompare(String(a.run_id)));
-                        if (mRows.length === 0) return;
-
-                        let latestRunId = mRows[0].run_id;
-                        let currentRun = mRows.filter(r => r.run_id === latestRunId);
-                        currentRun.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-
-                        let w1_fcst = 0, w1_norm = 0, w1_anom = 0, w1_norm10 = 0, w1_anom10 = 0, len1 = 0;
-                        let w2_fcst = 0, w2_norm = 0, w2_anom = 0, w2_norm10 = 0, w2_anom10 = 0, len2 = 0;
-                        let w3_fcst = 0, w3_norm = 0, w3_anom = 0, w3_norm10 = 0, w3_anom10 = 0, len3 = 0;
-
-                        let runY = latestRunId.substring(0, 4);
-                        let runM = latestRunId.substring(4, 6);
-                        let runD = latestRunId.substring(6, 8);
-                        let baseDate = new Date(`${runY}-${runM}-${runD}T00:00:00Z`);
-
-                        const SUBSEASONAL_MODELS = ['GEFS_35D', 'CFS'];
-                        let isSubseasonal = SUBSEASONAL_MODELS.includes(m);
-
-                        currentRun.forEach((r) => {
-                            let f = ddVal(r);
-                            let n = normVal(r, false);
-                            let a = anomVal(r);
-
-                            let n10 = normVal(r, true);
-                            let a10 = IS_CDD
-                                ? parseFloat(r.cdd_anomaly_10yr ?? r.cdd_anomaly_gw ?? 0)
-                                : parseFloat(r.hdd_anomaly_gw_10yr ?? r.hdd_anomaly_10yr ?? 0);
-
-                            let rDate = new Date(`${r.date}T00:00:00Z`);
-                            let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
-
-                            // Any data past day 15 goes into Long-Term bucket
-                            if (dayDiff > 14) {
-                                w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++;
-                            }
-                            else if (dayDiff < 5) {
-                                w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++;
-                            }
-                            else {
-                                w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++;
-                            }
-                        });
-
-                        // Get Delta
-                        let w1_chg = '-', w2_chg = '-', w3_chg = '-';
-                        let total_chg = 0;
-                        let c1 = 0, c2 = 0, c3 = 0;
-                        let gapFlag = (shiftMeta.models[m] && shiftMeta.models[m].gap) ? ' <small style="color:#ff9800">*</small>' : '';
-                        let gwWarning = (shiftMeta.models[m] && shiftMeta.models[m].has_gw === false) ? ' <small title="Gas-weighting failed - using simple average" style="color:#f44336; cursor:help">⚠️</small>' : '';
-
-                        if (runDelta && runDelta.length > 0) {
-                            let mDelta = runDelta.filter(r => r.model === m);
-                            if (mDelta.length > 0) {
-                                mDelta.sort((a, b) => String(b.run_latest).localeCompare(String(a.run_latest)));
-                                let latestTarget = mDelta[0].run_latest;
-                                let curDelta = mDelta.filter(r => r.run_latest === latestTarget);
-
-                                let dtY = latestTarget.substring(0, 4);
-                                let dtM = latestTarget.substring(4, 6);
-                                let dtD = latestTarget.substring(6, 8);
-                                let deltaBase = new Date(`${dtY}-${dtM}-${dtD}T00:00:00Z`);
-
-                                c1 = 0; c2 = 0; c3 = 0;
-                                curDelta.forEach((r) => {
-                                    let dtR = new Date(`${r.date}T00:00:00Z`);
-                                    let dDiff = Math.round((dtR - deltaBase) / (1000 * 60 * 60 * 24));
-
-                                    // FIX: Apples-to-apples check
-                                    let val = r.tdd_gw_change;
-                                    if (val === undefined || val === null || isNaN(val)) {
-                                        val = r.tdd_change || 0;
-                                    }
-
-                                    total_chg += val;
-                                    if (dDiff < 5) c1 += val;
-                                    else if (dDiff < 15 || !isSubseasonal) c2 += val;
-                                    else c3 += val;
-                                });
-                                w1_chg = c1 !== 0 ? formatNum(c1 / Math.max(1, len1), 1, true) + gapFlag : '-';
-                                w2_chg = c2 !== 0 ? formatNum(c2 / Math.max(1, len2), 1, true) + gapFlag : '-';
-                                w3_chg = c3 !== 0 ? formatNum(c3 / Math.max(1, len3), 1, true) + gapFlag : '-';
-
-                                let c1_cls = c1 > 0 ? 'pos-val' : (c1 < 0 ? 'neg-val' : '');
-                                let c2_cls = c2 > 0 ? 'pos-val' : (c2 < 0 ? 'neg-val' : '');
-                                let c3_cls = c3 > 0 ? 'pos-val' : (c3 < 0 ? 'neg-val' : '');
-                                if (w1_chg !== '-') w1_chg = `<span class="${c1_cls}">${w1_chg}</span>`;
-                                if (w2_chg !== '-') w2_chg = `<span class="${c2_cls}">${w2_chg}</span>`;
-                                if (w3_chg !== '-') w3_chg = `<span class="${c3_cls}">${w3_chg}</span>`;
-                            }
-                        }
-
-                        let a1_cls = w1_anom > 0 ? 'pos-val' : (w1_anom < 0 ? 'neg-val' : '');
-                        let a2_cls = w2_anom > 0 ? 'pos-val' : (w2_anom < 0 ? 'neg-val' : '');
-                        let a3_cls = w3_anom > 0 ? 'pos-val' : (w3_anom < 0 ? 'neg-val' : '');
-
-                        let a1_cls10 = w1_anom10 > 0 ? 'pos-val' : (w1_anom10 < 0 ? 'neg-val' : '');
-                        let a2_cls10 = w2_anom10 > 0 ? 'pos-val' : (w2_anom10 < 0 ? 'neg-val' : '');
-                        let a3_cls10 = w3_anom10 > 0 ? 'pos-val' : (w3_anom10 < 0 ? 'neg-val' : '');
-
-                        const MODEL_HORIZONS = {
-                            'HRRR': 2,
-                            'NAM': 3.5,
-                            'NBM': 5,
-                            'GFS': 16,
-                            'ECMWF': 10,
-                            'ECMWF_ENS': 15,
-                            'ECMWF_AIFS': 10,
-                            'AIGFS': 16,
-                            'HGEFS': 10,
-                            'GEFS': 16,
-                            'GEFS_35D': 35,
-                            'CMC_ENS': 15,
-                            'GOOGLE_WN2': 15,
-                            'GOOGLE_WN3': 15,
-                            'AIGEFS': 16,
-                            'AIFS_ENS': 15,
-                            'UKMO_ENS': 8,
-                            'EC46': 46,
-                            'ICON': 16,
-                            'FOURCASTNETV2-SMALL': 10,
-                            'FOURCASTNETV2': 10,
-                            'GRAPHCAST': 10,
-                            'PANGUWEATHER': 10,
-                            'AURORA': 10
-                        };
-
-                        let h1 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] <= 5) ? MODEL_HORIZONS[m] : len1;
-                        let h2 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 5 && MODEL_HORIZONS[m] <= 15) ? MODEL_HORIZONS[m] : len2;
-                        let h3 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 15) ? MODEL_HORIZONS[m] : len3;
-
-                        if (len1 > 0) {
-                            let f1 = formatNum(w1_fcst / len1, 1);
-                            let n1 = formatNum(w1_norm / len1, 1);
-                            let a1 = formatNum(w1_anom / len1, 1, true);
-                            let n1_10 = formatNum(w1_norm10 / len1, 1);
-                            let a1_10 = formatNum(w1_anom10 / len1, 1, true);
-                            let chg1_td = (c1 !== 0 && len1 > 0)
-                                ? `<td class="has-tooltip" data-dyn-title="${m} Run-to-Run Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c1 / len1, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w1_chg}</td>`
-                                : `<td>-</td>`;
-
-                            shortTermHtml += `<tr>
-                                <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h1}d)</small>${gwWarning}</strong></td>
-                                <td class="has-tooltip" data-dyn-title="${m} Short-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f1} ${DD_LABEL}s</strong> over this horizon.">${f1}</td>
-                                <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n1} ${DD_LABEL}s</strong>.">${n1}</td>
-                                <td class="has-tooltip ${a1_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a1}</td>
-                                <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
-                                <td class="has-tooltip ${a1_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a1_10}</td>
-                                ${chg1_td}
-                            </tr>`;
-                        }
-                        if (len2 > 0) {
-                            let f2 = formatNum(w2_fcst / len2, 1);
-                            let n2 = formatNum(w2_norm / len2, 1);
-                            let a2 = formatNum(w2_anom / len2, 1, true);
-                            let n2_10 = formatNum(w2_norm10 / len2, 1);
-                            let a2_10 = formatNum(w2_anom10 / len2, 1, true);
-                            let chg2_td = (c2 !== 0 && len2 > 0)
-                                ? `<td class="has-tooltip" data-dyn-title="${m} Medium-Term Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c2 / len2, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w2_chg}</td>`
-                                : `<td>-</td>`;
-
-                            medTermHtml += `<tr>
-                                <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h2}d)</small>${gwWarning}</strong></td>
-                                <td class="has-tooltip" data-dyn-title="${m} Medium-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f2} ${DD_LABEL}s</strong> over this horizon.">${f2}</td>
-                                <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n2} ${DD_LABEL}s</strong>.">${n2}</td>
-                                <td class="has-tooltip ${a2_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a2}</td>
-                                <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
-                                <td class="has-tooltip ${a2_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a2_10}</td>
-                                ${chg2_td}
-                            </tr>`;
-                        }
-                        if (len3 > 0) {
-                            let f3 = formatNum(w3_fcst / len3, 1);
-                            let n3 = formatNum(w3_norm / len3, 1);
-                            let a3 = formatNum(w3_anom / len3, 1, true);
-                            let n3_10 = formatNum(w3_norm10 / len3, 1);
-                            let a3_10 = formatNum(w3_anom10 / len3, 1, true);
-                            let chg3_td = (c3 !== 0 && len3 > 0)
-                                ? `<td class="has-tooltip" data-dyn-title="${m} Long-Term Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c3 / len3, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w3_chg}</td>`
-                                : `<td>-</td>`;
-
-                            longTermHtml += `<tr>
-                                <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h3}d)</small>${gwWarning}</strong></td>
-                                <td class="has-tooltip" data-dyn-title="${m} Long-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f3} ${DD_LABEL}s</strong> over this horizon.">${f3}</td>
-                                <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n3} ${DD_LABEL}s</strong>.">${n3}</td>
-                                <td class="has-tooltip ${a3_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a3}</td>
-                                <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
-                                <td class="has-tooltip ${a3_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a3_10}</td>
-                                ${chg3_td}
-                            </tr>`;
-                        }
-
-                        // Macro updates (prefer ECMWF, fallback GFS if ECMWF empty)
-                        if (m === 'ECMWF' || (m === 'GFS' && macroFcst === 0)) {
-                            macroFcst = w1_fcst + w2_fcst + w3_fcst;
-                            macroChg = total_chg;
-                            macroDays = len1 + len2 + len3;
-                        }
-                    });
-
-                    document.getElementById('short-term-body').innerHTML = shortTermHtml || '<tr><td colspan="5" style="text-align:center; color:#888;">No data available.</td></tr>';
-                    document.getElementById('med-term-body').innerHTML = medTermHtml || '<tr><td colspan="5" style="text-align:center; color:#888;">No data available.</td></tr>';
-                    document.getElementById('long-term-body').innerHTML = longTermHtml || '<tr><td colspan="5" style="text-align:center; color:#888;">No 15+ day forecasts available.</td></tr>';
-
-                    renderVal('macro-total-hdd', macroFcst, 1);
-                    renderVal('macro-delta', macroDays > 0 ? macroChg / macroDays : 0, 1, true);
-                }
-
-                // 5. Shift Table
-                if (shiftTable.length > 0) {
-                    // Display abbreviations keep every model on screen without
-                    // horizontal scrolling; the full name stays on the tooltip.
-                    const SHORT_NAMES = {
-                        'GOOGLE_WN2': 'WN2',
-                        'GOOGLE_WN3': 'WN3',
-                        'GOOGLE WN3 CHG': 'WN3',
-                        'FOURCASTNETV2-SMALL': 'FCNv2',
-                        'FOURCASTNETV2': 'FCNv2',
-                        'ECMWF_ENS': 'EC-ENS',
-                        'ECMWF_AIFS': 'EC-AIFS',
-                        'GEFS_35D': 'GEFS-35D',
-                        'UKMO_ENS': 'UKMO',
-                        'AIFS_ENS': 'AIFS-E'
-                    };
-                    let headerRow = document.getElementById('shift-header');
-                    let cols = Object.keys(shiftTable[0]);
-                    cols.filter(c => c !== "date").forEach(c => {
-                        let th = document.createElement('th');
-                        th.className = 'has-tooltip shift-col';
-                        th.setAttribute('data-tooltip-key', c);
-                        th.innerText = SHORT_NAMES[c] || c;
-                        headerRow.appendChild(th);
-                    });
-
-                    let tbody = document.getElementById('shift-body');
-                    shiftTable.forEach(row => {
-                        let tr = document.createElement('tr');
-                        // Date col
-                        let tdDate = document.createElement('td');
-                        const targetDtStr = String(row["date"] || "").substring(0, 10);
-                        tdDate.innerText = targetDtStr;
-                        tdDate.style.fontWeight = 'bold';
-                        tdDate.className = 'has-tooltip';
-                        tdDate.setAttribute('data-dyn-title', `Target Date: ${targetDtStr}`);
-                        tdDate.setAttribute('data-dyn-body', `Day-by-day run shifts on this row represent forecast updates targeting the 24-hour period of <strong>${targetDtStr}</strong>.`);
-                        tr.appendChild(tdDate);
-
-                        cols.filter(c => c !== "date").forEach(c => {
-                            let td = document.createElement('td');
-                            let val = row[c];
-
-                            // Check if this model is empty in the shiftTable (true N/A)
-                            let allNull = shiftTable.every(r => r[c] === null || r[c] === undefined || r[c] === "");
-
-                            if (allNull) {
-                                td.innerHTML = '<span style="color:#888; font-size:0.7rem;">Prev Run (N/A)</span>';
-                            } else if (val === null || val === undefined || val === "") {
-                                td.innerText = "-";
-                            } else {
-                                let gapFlag = (shiftMeta.models[c] && shiftMeta.models[c].gap) ? '*' : '';
-                                td.innerText = formatNum(val, 1, true) + gapFlag;
-                                if (val > 0) td.classList.add('pos-val');
-                                else if (val < 0) td.classList.add('neg-val');
-                                td.className = 'has-tooltip';
-                                // Season-correct polarity: a positive DD shift is
-                                // colder in HDD season but HOTTER in CDD season.
-                                const direction = val > 0 ? (IS_CDD ? 'hotter' : 'colder') : (IS_CDD ? 'cooler' : 'milder');
-                                td.setAttribute('data-dyn-title', `${c} Run Shift — ${String(row["date"] || "").substring(0, 10)}`);
-                                td.setAttribute('data-dyn-body', `The model run shifted by <strong>${formatNum(val, 1, true)} ${DD_LABEL}s</strong> (${direction}) compared to the previous run on this date.`);
-                            }
-                            tr.appendChild(td);
-                        });
-                        tbody.appendChild(tr);
-                    });
-                }
-
-                // 6. Build Spaghetti & Monthly Charts
-                if (historicalData && historicalData.length > 0) {
-                    // Merge forecast data from the selected model (default ECMWF) into historicalData 
-                    // so the Spaghetti Chart shows the "Current Season" including the forecast.
-                    const forecastData = masterData.filter(r => r.model === 'ECMWF');
-                    const combinedData = [...historicalData, ...forecastData];
-
-                    initSeasonalSpaghettiChart(combinedData);
-                    initMonthlyOutlierChart(historicalData);
-                }
-
-                // 7. Build Model Chart
-                if (masterData.length > 0) {
-                    initChart(masterData, vsNormal, mapManifest);
-                }
+                updateMetricState(METRIC_MODE, masterData, vsNormal);
+                renderDashboard();
 
                 document.getElementById('last-updated').innerText = "Live Data | " + new Date().toISOString().substring(0, 16).replace('T', ' ') + " UTC";
                 document.getElementById('loading').style.display = 'none';
@@ -1279,6 +1139,337 @@
                 console.error(e);
                 document.getElementById('loading').innerText = "Error loading data. Check console.";
             }
+        }
+
+        function renderDashboard() {
+            if (!DASHBOARD_DATA) return;
+            const { biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest, historicalData, shiftMeta } = DASHBOARD_DATA;
+
+            // 1. Bias Card
+            if (biasData && biasData.length > 0) {
+                let biasStr = String(biasData[0].market_bias).toUpperCase();
+                let biasEl = document.getElementById('macro-bias');
+                if (biasEl) {
+                    biasEl.innerText = biasStr;
+                    biasEl.classList.remove('bullish-text', 'bearish-text');
+                    if (biasStr.includes('BULL')) biasEl.classList.add('bullish-text');
+                    if (biasStr.includes('BEAR')) biasEl.classList.add('bearish-text');
+                }
+            }
+
+            // 2. Alerts
+            if (convAlert && convAlert.length > 0) {
+                const alertConvEl = document.getElementById('alert-conv');
+                if (alertConvEl) {
+                    alertConvEl.style.display = 'block';
+                    const dir = String(convAlert[0].direction).toUpperCase();
+                    alertConvEl.setAttribute('data-dyn-title', 'Convergence Alert');
+                    alertConvEl.setAttribute('data-dyn-body', `High consensus alert: <strong>${convAlert.length} day(s)</strong> are consistently shifting <strong>${dir}</strong> across different models, reinforcing the trend direction.`);
+                    const convText = document.getElementById('conv-text');
+                    if (convText) convText.innerText = `${convAlert.length} day(s) aligning ${convAlert[0].direction}`;
+                }
+            }
+
+            if (runChange && runChange.length > 0) {
+                let fr = runChange.filter(r => r.fast_revision === true || r.fast_revision === 'True');
+                const alertFastEl = document.getElementById('alert-fast-rev');
+                if (fr.length > 0 && alertFastEl) {
+                    let latestFr = fr[fr.length - 1];
+                    alertFastEl.style.display = 'block';
+                    let chgCol = latestFr[`${DD_FIELD.replace('_gw', '')}_change_gw`]
+                        ?? latestFr[`${DD_FIELD.replace('_gw', '')}_change`]
+                        ?? latestFr.hdd_change_gw ?? latestFr.tdd_change_gw ?? latestFr.cdd_change_gw ?? latestFr.hdd_change ?? 0;
+                    let arr = chgCol > 0 ? "▲" : "▼";
+                    let direction = chgCol > 0 
+                        ? (IS_CDD ? "hotter" : (IS_BOTH ? "higher demand" : "colder")) 
+                        : (IS_CDD ? "cooler" : (IS_BOTH ? "lower demand" : "warmer"));
+                    alertFastEl.setAttribute('data-dyn-title', 'Fast Revision Alert');
+                    alertFastEl.setAttribute('data-dyn-body', `Rapid adjustment alert: <strong>${latestFr.model}</strong> shifted by <strong>${formatNum(chgCol, 1, true)} ${DD_LABEL}s</strong> (${direction}) in its latest run, indicating a significant short-term pattern revision.`);
+                    const revText = document.getElementById('rev-text');
+                    if (revText) revText.innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} ${DD_LABEL}s`;
+                }
+            }
+
+            // 3. Time Horizon Panels
+            if (vsNormal && vsNormal.length > 0) {
+                renderHorizonPanels(vsNormal, runDelta, shiftMeta);
+            }
+
+            // 4. Shift Table
+            if (shiftTable && shiftTable.length > 0) {
+                renderShiftTable(shiftTable, shiftMeta);
+            }
+
+            // 5. Spaghetti Chart & Monthly Chart
+            if (historicalData && historicalData.length > 0) {
+                const forecastData = masterData ? masterData.filter(r => r.model === 'ECMWF') : [];
+                const combinedData = [...historicalData, ...forecastData];
+                initSeasonalSpaghettiChart(combinedData);
+                initMonthlyOutlierChart(historicalData);
+            }
+
+            // 6. Forecast Model Chart
+            if (masterData && masterData.length > 0) {
+                initChart(masterData, vsNormal, mapManifest);
+            }
+        }
+
+        function renderHorizonPanels(vsNormal, runDelta, shiftMeta) {
+            let models = [...new Set(vsNormal.map(r => r.model).filter(m => m))].sort();
+
+            let shortTermHtml = '';
+            let medTermHtml = '';
+            let longTermHtml = '';
+
+            let macroFcst = 0, macroChg = 0, macroDays = 1;
+
+            models.forEach(m => {
+                let mRows = vsNormal.filter(r => r.model === m);
+                mRows.sort((a, b) => String(b.run_id).localeCompare(String(a.run_id)));
+                if (mRows.length === 0) return;
+
+                let latestRunId = mRows[0].run_id;
+                let currentRun = mRows.filter(r => r.run_id === latestRunId);
+                currentRun.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+                let w1_fcst = 0, w1_norm = 0, w1_anom = 0, w1_norm10 = 0, w1_anom10 = 0, len1 = 0;
+                let w2_fcst = 0, w2_norm = 0, w2_anom = 0, w2_norm10 = 0, w2_anom10 = 0, len2 = 0;
+                let w3_fcst = 0, w3_norm = 0, w3_anom = 0, w3_norm10 = 0, w3_anom10 = 0, len3 = 0;
+
+                let runY = latestRunId.substring(0, 4);
+                let runM = latestRunId.substring(4, 6);
+                let runD = latestRunId.substring(6, 8);
+                let baseDate = new Date(`${runY}-${runM}-${runD}T00:00:00Z`);
+
+                const SUBSEASONAL_MODELS = ['GEFS_35D', 'CFS'];
+                let isSubseasonal = SUBSEASONAL_MODELS.includes(m);
+
+                currentRun.forEach((r) => {
+                    let f = ddVal(r);
+                    let n = normVal(r, false);
+                    let a = anomVal(r, false);
+
+                    let n10 = normVal(r, true);
+                    let a10 = anomVal(r, true);
+
+                    let rDate = new Date(`${r.date}T00:00:00Z`);
+                    let dayDiff = Math.round((rDate - baseDate) / (1000 * 60 * 60 * 24));
+
+                    if (dayDiff > 14) {
+                        w3_fcst += f; w3_norm += n; w3_anom += a; w3_norm10 += n10; w3_anom10 += a10; len3++;
+                    } else if (dayDiff < 5) {
+                        w1_fcst += f; w1_norm += n; w1_anom += a; w1_norm10 += n10; w1_anom10 += a10; len1++;
+                    } else {
+                        w2_fcst += f; w2_norm += n; w2_anom += a; w2_norm10 += n10; w2_anom10 += a10; len2++;
+                    }
+                });
+
+                let w1_chg = '-', w2_chg = '-', w3_chg = '-';
+                let total_chg = 0;
+                let c1 = 0, c2 = 0, c3 = 0;
+                let gapFlag = (shiftMeta && shiftMeta.models && shiftMeta.models[m] && shiftMeta.models[m].gap) ? ' <small style="color:#ff9800">*</small>' : '';
+                let gwWarning = (shiftMeta && shiftMeta.models && shiftMeta.models[m] && shiftMeta.models[m].has_gw === false) ? ' <small title="Gas-weighting failed - using simple average" style="color:#f44336; cursor:help">⚠️</small>' : '';
+
+                if (runDelta && runDelta.length > 0) {
+                    let mDelta = runDelta.filter(r => r.model === m);
+                    if (mDelta.length > 0) {
+                        mDelta.sort((a, b) => String(b.run_latest).localeCompare(String(a.run_latest)));
+                        let latestTarget = mDelta[0].run_latest;
+                        let curDelta = mDelta.filter(r => r.run_latest === latestTarget);
+
+                        let dtY = latestTarget.substring(0, 4);
+                        let dtM = latestTarget.substring(4, 6);
+                        let dtD = latestTarget.substring(6, 8);
+                        let deltaBase = new Date(`${dtY}-${dtM}-${dtD}T00:00:00Z`);
+
+                        c1 = 0; c2 = 0; c3 = 0;
+                        curDelta.forEach((r) => {
+                            let dtR = new Date(`${r.date}T00:00:00Z`);
+                            let dDiff = Math.round((dtR - deltaBase) / (1000 * 60 * 60 * 24));
+
+                            let val = r.tdd_gw_change;
+                            if (val === undefined || val === null || isNaN(val)) {
+                                val = r.tdd_change || 0;
+                            }
+
+                            total_chg += val;
+                            if (dDiff < 5) c1 += val;
+                            else if (dDiff < 15 || !isSubseasonal) c2 += val;
+                            else c3 += val;
+                        });
+                        w1_chg = c1 !== 0 ? formatNum(c1 / Math.max(1, len1), 1, true) + gapFlag : '-';
+                        w2_chg = c2 !== 0 ? formatNum(c2 / Math.max(1, len2), 1, true) + gapFlag : '-';
+                        w3_chg = c3 !== 0 ? formatNum(c3 / Math.max(1, len3), 1, true) + gapFlag : '-';
+
+                        let c1_cls = c1 > 0 ? 'pos-val' : (c1 < 0 ? 'neg-val' : '');
+                        let c2_cls = c2 > 0 ? 'pos-val' : (c2 < 0 ? 'neg-val' : '');
+                        let c3_cls = c3 > 0 ? 'pos-val' : (c3 < 0 ? 'neg-val' : '');
+                        if (w1_chg !== '-') w1_chg = `<span class="${c1_cls}">${w1_chg}</span>`;
+                        if (w2_chg !== '-') w2_chg = `<span class="${c2_cls}">${w2_chg}</span>`;
+                        if (w3_chg !== '-') w3_chg = `<span class="${c3_cls}">${w3_chg}</span>`;
+                    }
+                }
+
+                let a1_cls = w1_anom > 0 ? 'pos-val' : (w1_anom < 0 ? 'neg-val' : '');
+                let a2_cls = w2_anom > 0 ? 'pos-val' : (w2_anom < 0 ? 'neg-val' : '');
+                let a3_cls = w3_anom > 0 ? 'pos-val' : (w3_anom < 0 ? 'neg-val' : '');
+
+                let a1_cls10 = w1_anom10 > 0 ? 'pos-val' : (w1_anom10 < 0 ? 'neg-val' : '');
+                let a2_cls10 = w2_anom10 > 0 ? 'pos-val' : (w2_anom10 < 0 ? 'neg-val' : '');
+                let a3_cls10 = w3_anom10 > 0 ? 'pos-val' : (w3_anom10 < 0 ? 'neg-val' : '');
+
+                const MODEL_HORIZONS = {
+                    'HRRR': 2, 'NAM': 3.5, 'NBM': 5, 'GFS': 16, 'ECMWF': 10,
+                    'ECMWF_ENS': 15, 'ECMWF_AIFS': 10, 'AIGFS': 16, 'HGEFS': 10,
+                    'GEFS': 16, 'GEFS_35D': 35, 'CMC_ENS': 15, 'GOOGLE_WN2': 15,
+                    'GOOGLE_WN3': 15, 'AIGEFS': 16, 'AIFS_ENS': 15, 'UKMO_ENS': 8,
+                    'EC46': 46, 'ICON': 16, 'FOURCASTNETV2-SMALL': 10,
+                    'FOURCASTNETV2': 10, 'GRAPHCAST': 10, 'PANGUWEATHER': 10, 'AURORA': 10
+                };
+
+                let h1 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] <= 5) ? MODEL_HORIZONS[m] : len1;
+                let h2 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 5 && MODEL_HORIZONS[m] <= 15) ? MODEL_HORIZONS[m] : len2;
+                let h3 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 15) ? MODEL_HORIZONS[m] : len3;
+
+                if (len1 > 0) {
+                    let f1 = formatNum(w1_fcst / len1, 1);
+                    let n1 = formatNum(w1_norm / len1, 1);
+                    let a1 = formatNum(w1_anom / len1, 1, true);
+                    let n1_10 = formatNum(w1_norm10 / len1, 1);
+                    let a1_10 = formatNum(w1_anom10 / len1, 1, true);
+                    let chg1_td = (c1 !== 0 && len1 > 0)
+                        ? `<td class="has-tooltip" data-dyn-title="${m} Run-to-Run Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c1 / len1, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w1_chg}</td>`
+                        : `<td>-</td>`;
+
+                    shortTermHtml += `<tr>
+                        <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h1}d)</small>${gwWarning}</strong></td>
+                        <td class="has-tooltip" data-dyn-title="${m} Short-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f1} ${DD_LABEL}s</strong> over this horizon.">${f1}</td>
+                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n1} ${DD_LABEL}s</strong>.">${n1}</td>
+                        <td class="has-tooltip ${a1_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a1}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
+                        <td class="has-tooltip ${a1_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a1_10}</td>
+                        ${chg1_td}
+                    </tr>`;
+                }
+                if (len2 > 0) {
+                    let f2 = formatNum(w2_fcst / len2, 1);
+                    let n2 = formatNum(w2_norm / len2, 1);
+                    let a2 = formatNum(w2_anom / len2, 1, true);
+                    let n2_10 = formatNum(w2_norm10 / len2, 1);
+                    let a2_10 = formatNum(w2_anom10 / len2, 1, true);
+                    let chg2_td = (c2 !== 0 && len2 > 0)
+                        ? `<td class="has-tooltip" data-dyn-title="${m} Medium-Term Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c2 / len2, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w2_chg}</td>`
+                        : `<td>-</td>`;
+
+                    medTermHtml += `<tr>
+                        <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h2}d)</small>${gwWarning}</strong></td>
+                        <td class="has-tooltip" data-dyn-title="${m} Medium-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f2} ${DD_LABEL}s</strong> over this horizon.">${f2}</td>
+                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n2} ${DD_LABEL}s</strong>.">${n2}</td>
+                        <td class="has-tooltip ${a2_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a2}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
+                        <td class="has-tooltip ${a2_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a2_10}</td>
+                        ${chg2_td}
+                    </tr>`;
+                }
+                if (len3 > 0) {
+                    let f3 = formatNum(w3_fcst / len3, 1);
+                    let n3 = formatNum(w3_norm / len3, 1);
+                    let a3 = formatNum(w3_anom / len3, 1, true);
+                    let n3_10 = formatNum(w3_norm10 / len3, 1);
+                    let a3_10 = formatNum(w3_anom10 / len3, 1, true);
+                    let chg3_td = (c3 !== 0 && len3 > 0)
+                        ? `<td class="has-tooltip" data-dyn-title="${m} Long-Term Change" data-dyn-body="The model run shifted by an average of <strong>${formatNum(c3 / len3, 1, true)} ${DD_LABEL}s</strong> per day between the latest two runs.">${w3_chg}</td>`
+                        : `<td>-</td>`;
+
+                    longTermHtml += `<tr>
+                        <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h3}d)</small>${gwWarning}</strong></td>
+                        <td class="has-tooltip" data-dyn-title="${m} Long-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f3} ${DD_LABEL}s</strong> over this horizon.">${f3}</td>
+                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n3} ${DD_LABEL}s</strong>.">${n3}</td>
+                        <td class="has-tooltip ${a3_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a3}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
+                        <td class="has-tooltip ${a3_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a3_10}</td>
+                        ${chg3_td}
+                    </tr>`;
+                }
+
+                if (m === 'ECMWF' || (m === 'GFS' && macroFcst === 0)) {
+                    macroFcst = w1_fcst + w2_fcst + w3_fcst;
+                    macroChg = total_chg;
+                    macroDays = len1 + len2 + len3;
+                }
+            });
+
+            document.getElementById('short-term-body').innerHTML = shortTermHtml || '<tr><td colspan="7" style="text-align:center; color:#888;">No data available.</td></tr>';
+            document.getElementById('med-term-body').innerHTML = medTermHtml || '<tr><td colspan="7" style="text-align:center; color:#888;">No data available.</td></tr>';
+            document.getElementById('long-term-body').innerHTML = longTermHtml || '<tr><td colspan="7" style="text-align:center; color:#888;">No 15+ day forecasts available.</td></tr>';
+
+            renderVal('macro-total-hdd', macroFcst, 1);
+            renderVal('macro-delta', macroDays > 0 ? macroChg / macroDays : 0, 1, true);
+        }
+
+        function renderShiftTable(shiftTable, shiftMeta) {
+            const SHORT_NAMES = {
+                'GOOGLE_WN2': 'WN2',
+                'GOOGLE_WN3': 'WN3',
+                'GOOGLE WN3 CHG': 'WN3',
+                'FOURCASTNETV2-SMALL': 'FCNv2',
+                'FOURCASTNETV2': 'FCNv2',
+                'ECMWF_ENS': 'EC-ENS',
+                'ECMWF_AIFS': 'EC-AIFS',
+                'GEFS_35D': 'GEFS-35D',
+                'UKMO_ENS': 'UKMO',
+                'AIFS_ENS': 'AIFS-E'
+            };
+            let headerRow = document.getElementById('shift-header');
+            headerRow.innerHTML = '<th style="white-space:nowrap;" class="has-tooltip" data-tooltip-key="Forecast Date Header">Date</th>';
+            let cols = Object.keys(shiftTable[0]);
+            cols.filter(c => c !== "date").forEach(c => {
+                let th = document.createElement('th');
+                th.className = 'has-tooltip shift-col';
+                th.setAttribute('data-tooltip-key', c);
+                th.innerText = SHORT_NAMES[c] || c;
+                headerRow.appendChild(th);
+            });
+
+            let tbody = document.getElementById('shift-body');
+            tbody.innerHTML = '';
+            shiftTable.forEach(row => {
+                let tr = document.createElement('tr');
+                let tdDate = document.createElement('td');
+                const targetDtStr = String(row["date"] || "").substring(0, 10);
+                tdDate.innerText = targetDtStr;
+                tdDate.style.fontWeight = 'bold';
+                tdDate.className = 'has-tooltip';
+                tdDate.setAttribute('data-dyn-title', `Target Date: ${targetDtStr}`);
+                tdDate.setAttribute('data-dyn-body', `Day-by-day run shifts on this row represent forecast updates targeting the 24-hour period of <strong>${targetDtStr}</strong>.`);
+                tr.appendChild(tdDate);
+
+                cols.filter(c => c !== "date").forEach(c => {
+                    let td = document.createElement('td');
+                    let val = row[c];
+
+                    let allNull = shiftTable.every(r => r[c] === null || r[c] === undefined || r[c] === "");
+
+                    if (allNull) {
+                        td.innerHTML = '<span style="color:#888; font-size:0.7rem;">Prev Run (N/A)</span>';
+                    } else if (val === null || val === undefined || val === "") {
+                        td.innerText = "-";
+                    } else {
+                        let gapFlag = (shiftMeta && shiftMeta.models && shiftMeta.models[c] && shiftMeta.models[c].gap) ? '*' : '';
+                        td.innerText = formatNum(val, 1, true) + gapFlag;
+                        if (val > 0) td.classList.add('pos-val');
+                        else if (val < 0) td.classList.add('neg-val');
+                        td.className = 'has-tooltip';
+                        const direction = val > 0 
+                            ? (IS_CDD ? 'hotter (higher cooling load)' : (IS_BOTH ? 'higher demand' : 'colder (higher heating load)'))
+                            : (IS_CDD ? 'cooler (lower cooling load)' : (IS_BOTH ? 'lower demand' : 'warmer (lower heating load)'));
+                        td.setAttribute('data-dyn-title', `${c} Run Shift — ${String(row["date"] || "").substring(0, 10)}`);
+                        td.setAttribute('data-dyn-body', `The model run shifted by <strong>${formatNum(val, 1, true)} ${DD_LABEL}s</strong> (${direction}) compared to the previous run on this date.`);
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
         }
 
         // Spaghetti chart instance — kept at module scope so SEASON changes can destroy+re-init
@@ -1352,35 +1543,32 @@
                     return String(y);
                 };
             } else if (SEASON === 'HEATING') {
-                // Nov – Mar, two-year crossover key: year anchored to Nov start
-                // e.g. a date of Jan 3 2026 → key "2025-2026" (Nov falls in 2025)
-                const heatingMonths = [11, 12, 1, 2, 3];
+                // Sep 1 – Apr 30: winter heating accumulation season
+                // Covers late September through April so current late September data and forecasts are actively plotted
+                const heatingMonths = [9, 10, 11, 12, 1, 2, 3, 4];
                 const heatingMonthDays = [
-                    { m: 11, d: 30 }, { m: 12, d: 31 }, { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }
+                    { m: 9, d: 30 }, { m: 10, d: 31 }, { m: 11, d: 30 }, { m: 12, d: 31 },
+                    { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }, { m: 4, d: 30 }
                 ];
                 monthAxis = heatingMonthDays;
-                xTickLabels = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+                xTickLabels = ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
                 getSeasonKey = (y, m) => {
                     if (!heatingMonths.includes(m)) return null;
-                    // If month is Nov or Dec, season starts THIS year
-                    const y1 = (m >= 11) ? y : y - 1;
+                    const y1 = (m >= 9) ? y : y - 1;
                     const y2 = y1 + 1;
                     return `${y1}-${y2}`;
                 };
             } else {
-                // TDD — shoulder season: March–April and October–November
-                // Two sub-windows combined into a single view, keyed as "YYYY-shoulder"
-                const tddMonths = [3, 4, 10, 11];
+                // TDD — Net Total Degree Days across full year (Jan–Dec)
+                const tddMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
                 const tddMonthDays = [
-                    { m: 3, d: 31 }, { m: 4, d: 30 }, { m: 10, d: 31 }, { m: 11, d: 30 }
+                    { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }, { m: 4, d: 30 },
+                    { m: 5, d: 31 }, { m: 6, d: 30 }, { m: 7, d: 31 }, { m: 8, d: 31 },
+                    { m: 9, d: 30 }, { m: 10, d: 31 }, { m: 11, d: 30 }, { m: 12, d: 31 }
                 ];
                 monthAxis = tddMonthDays;
-                xTickLabels = ['Mar', 'Apr', 'Oct', 'Nov'];
-                getSeasonKey = (y, m) => {
-                    if (!tddMonths.includes(m)) return null;
-                    // Spring shoulder (Mar-Apr) keyed to the year itself; fall shoulder (Oct-Nov) same
-                    return `${y}-shoulder`;
-                };
+                xTickLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                getSeasonKey = (y, m) => String(y);
             }
 
             // --- Build day-level label array (MM-DD) ---
@@ -1725,11 +1913,13 @@
             // Collect available models
             let models = [...new Set(masterData.map(r => r.model).filter(m => m))].sort();
             let sel = document.getElementById('modelSelect');
+            const prevSelected = sel.value;
+            sel.innerHTML = '';
             models.forEach(m => {
                 let opt = document.createElement('option');
                 opt.value = m;
                 opt.innerText = m;
-                if (m === 'ECMWF') opt.selected = true;
+                if (prevSelected ? m === prevSelected : m === 'ECMWF') opt.selected = true;
                 sel.appendChild(opt);
             });
 
@@ -1750,10 +1940,10 @@
             masterData.forEach(r => { if (r.date) globalDatesSet.add(r.date.substring(0, 10)); });
             const globalLabels = Array.from(globalDatesSet).sort();
 
-            sel.addEventListener('change', () => {
+            sel.onchange = () => {
                 updateChart(masterData, normalMap, normal10Map, sel.value, globalLabels);
                 updateMap(sel.value, mapManifest);
-            });
+            };
 
             updateChart(masterData, normalMap, normal10Map, sel.value || models[0], globalLabels);
             updateMap(sel.value || models[0], mapManifest);
@@ -2092,6 +2282,26 @@
             "Power Grid Nav": {
                 title: "Power Grid Dashboard",
                 body: "Monitors regional and national electrical grid loads, real-time natural gas/wind/solar generation mixes, wind/solar droughts, and nuclear availability."
+            },
+            "Metric Selector": {
+                title: "Demand Metric Selector",
+                body: "Toggle between <strong>Auto (Dynamic)</strong>, <strong>HDD</strong> (Heating Degree Days), <strong>CDD</strong> (Cooling Degree Days), and <strong>TDD</strong> (Total Degree Days / Net Weather Load). In shoulder seasons (late September / April), Auto automatically resolves the dominant market driver based on 15-day multi-model consensus."
+            },
+            "Metric Auto": {
+                title: "Auto (Dynamic Market Mode)",
+                body: "Dynamically selects HDD or CDD based on actual weather load across the 15-day forecast horizon. If HDDs exceed CDDs by &gt;1.5x, the desk shifts to space heating mode. If CDDs exceed HDDs, it tracks cooling load."
+            },
+            "Metric HDD": {
+                title: "Heating Degree Days (HDD)",
+                body: "Base 65°F Heating Degree Days: measures residential and commercial space heating natural gas demand. Crucial for winter trading and storage withdrawal season."
+            },
+            "Metric CDD": {
+                title: "Cooling Degree Days (CDD)",
+                body: "Base 65°F Cooling Degree Days: measures air conditioning electric load and electric power sector natural gas burn. Crucial for summer trading and power burn dynamics."
+            },
+            "Metric TDD": {
+                title: "Total Degree Days (TDD)",
+                body: "Combined degree days (HDD + CDD). Captures total weather-driven energy demand across spring and fall shoulder transitions when neither heating nor cooling fully dominates."
             },
             "Live Data Timestamp": {
                 title: "Live Data Timestamp",

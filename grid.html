@@ -349,6 +349,74 @@
             border: 1px solid var(--accent);
         }
 
+        /* Demand Metric Selector */
+        .metric-selector-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .metric-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .metric-bar-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            color: var(--text-main);
+            text-transform: uppercase;
+        }
+
+        .pill-group {
+            display: inline-flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            padding: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .metric-pill {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            outline: none;
+        }
+
+        .metric-pill:hover {
+            color: var(--text-br);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .metric-pill.active {
+            background-color: var(--accent);
+            color: #0b0c10;
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
+        .metric-bar-right {
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
         /* Chart Section */
         .chart-section {
             background-color: var(--card-bg);
@@ -487,6 +555,22 @@
         <div class="nav-bar">
             <a href="index.html" class="nav-link has-tooltip" data-tooltip-key="Weather Desk Nav">Weather Desk</a>
             <a href="grid.html" class="nav-link active has-tooltip" data-tooltip-key="Power Grid Nav">Power Grid</a>
+        </div>
+
+        <!-- DEMAND METRIC SELECTOR -->
+        <div class="metric-selector-bar has-tooltip" data-tooltip-key="Metric Selector">
+            <div class="metric-bar-left">
+                <span class="metric-bar-label">DEMAND METRIC:</span>
+                <div class="pill-group" id="metric-pills">
+                    <button class="metric-pill active has-tooltip" id="pill-AUTO" data-tooltip-key="Metric Auto" onclick="setGridMetric('AUTO')">Auto (<span id="auto-metric-tag">HDD</span>)</button>
+                    <button class="metric-pill has-tooltip" id="pill-HDD" data-tooltip-key="Metric HDD" onclick="setGridMetric('HDD')">HDD</button>
+                    <button class="metric-pill has-tooltip" id="pill-CDD" data-tooltip-key="Metric CDD" onclick="setGridMetric('CDD')">CDD</button>
+                    <button class="metric-pill has-tooltip" id="pill-TDD" data-tooltip-key="Metric TDD" onclick="setGridMetric('TDD')">TDD (Net)</button>
+                </div>
+            </div>
+            <div class="metric-bar-right">
+                Secondary Overlay: <span id="metric-desc" style="color:var(--accent); font-weight:600;">Space Heating Demand (HDD)</span>
+            </div>
         </div>
 
         <div class="header">
@@ -741,12 +825,108 @@
 
     <script>
         const basePath = "outputs/";
-        const _MONTH = new Date().getMonth() + 1;
-        const SEASON = (_MONTH >= 11 || _MONTH <= 3) ? 'HEATING'
-                     : (_MONTH === 4 || _MONTH === 10) ? 'TDD' : 'COOLING';
-        const DD_LABEL = SEASON === 'COOLING' ? 'CDD' : (SEASON === 'TDD' ? 'TDD' : 'HDD');
-        const DD_FIELD = SEASON === 'COOLING' ? 'cdd_gw' : (SEASON === 'TDD' ? 'tdd_gw' : 'hdd_gw');
-        const DD_NORMAL_FIELD = SEASON === 'COOLING' ? 'cdd_normal_gw' : (SEASON === 'TDD' ? 'tdd_normal_gw' : 'hdd_normal_gw');
+        let METRIC_MODE = localStorage.getItem('weather_dd_metric_mode') || 'AUTO';
+        let AUTO_DOMINANT_METRIC = 'HDD';
+        let CURRENT_METRIC = 'HDD';
+        let SEASON = 'HEATING';
+        let DD_LABEL = 'HDD';
+        let DD_FIELD = 'hdd_gw';
+        let DD_NORMAL_FIELD = 'hdd_normal_gw';
+        let CACHED_TDD_DATA = null;
+
+        function getDominantForecastMetric(tddData) {
+            if (tddData && tddData.length > 0) {
+                const todayStr = new Date().toISOString().substring(0, 10);
+                let hddSum = 0;
+                let cddSum = 0;
+                let count = 0;
+                tddData.forEach(r => {
+                    const d = (r.date || "").substring(0, 10);
+                    if (d >= todayStr) {
+                        const h = parseFloat(r.hdd_gw ?? r.hdd ?? 0);
+                        const c = parseFloat(r.cdd_gw ?? r.cdd ?? 0);
+                        if (!isNaN(h) && !isNaN(c)) {
+                            hddSum += h;
+                            cddSum += c;
+                            count++;
+                        }
+                    }
+                });
+                if (count > 0) {
+                    if (hddSum > 1.5 * cddSum && hddSum >= 1.0) return 'HDD';
+                    if (cddSum > 1.5 * hddSum && cddSum >= 1.0) return 'CDD';
+                    return 'TDD';
+                }
+            }
+            const now = new Date();
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+            if (m >= 11 || m <= 3) return 'HDD';
+            if (m >= 5 && m <= 8) return 'CDD';
+            if (m === 9) return d >= 16 ? 'HDD' : 'CDD';
+            if (m === 10) return d >= 15 ? 'HDD' : 'TDD';
+            if (m === 4) return 'TDD';
+            return 'HDD';
+        }
+
+        function updateMetricState(mode, tddData) {
+            METRIC_MODE = mode || 'AUTO';
+            localStorage.setItem('weather_dd_metric_mode', METRIC_MODE);
+            AUTO_DOMINANT_METRIC = getDominantForecastMetric(tddData);
+            CURRENT_METRIC = (METRIC_MODE === 'AUTO') ? AUTO_DOMINANT_METRIC : METRIC_MODE;
+
+            if (CURRENT_METRIC === 'CDD') {
+                SEASON = 'COOLING';
+                DD_LABEL = 'CDD';
+                DD_FIELD = 'cdd_gw';
+                DD_NORMAL_FIELD = 'cdd_normal_gw';
+            } else if (CURRENT_METRIC === 'TDD') {
+                SEASON = 'TDD';
+                DD_LABEL = 'TDD';
+                DD_FIELD = 'tdd_gw';
+                DD_NORMAL_FIELD = 'tdd_normal_gw';
+            } else { // 'HDD'
+                SEASON = 'HEATING';
+                DD_LABEL = 'HDD';
+                DD_FIELD = 'hdd_gw';
+                DD_NORMAL_FIELD = 'hdd_normal_gw';
+            }
+
+            // Update selector pills
+            const pillAuto = document.getElementById('pill-AUTO');
+            const pillHdd = document.getElementById('pill-HDD');
+            const pillCdd = document.getElementById('pill-CDD');
+            const pillTdd = document.getElementById('pill-TDD');
+            const autoTag = document.getElementById('auto-metric-tag');
+            const descEl = document.getElementById('metric-desc');
+
+            if (autoTag) autoTag.innerText = AUTO_DOMINANT_METRIC;
+            [pillAuto, pillHdd, pillCdd, pillTdd].forEach(p => { if (p) p.classList.remove('active'); });
+            if (METRIC_MODE === 'AUTO' && pillAuto) pillAuto.classList.add('active');
+            else if (METRIC_MODE === 'HDD' && pillHdd) pillHdd.classList.add('active');
+            else if (METRIC_MODE === 'CDD' && pillCdd) pillCdd.classList.add('active');
+            else if (METRIC_MODE === 'TDD' && pillTdd) pillTdd.classList.add('active');
+
+            if (descEl) {
+                if (CURRENT_METRIC === 'HDD') {
+                    descEl.innerText = (METRIC_MODE === 'AUTO') ? "Space Heating Demand (HDD Dominant)" : "Heating Degree Days (Space Heating Demand)";
+                    descEl.style.color = '#66fcf1';
+                } else if (CURRENT_METRIC === 'CDD') {
+                    descEl.innerText = (METRIC_MODE === 'AUTO') ? "Power Burn Demand (CDD Dominant)" : "Cooling Degree Days (Power Burn Demand)";
+                    descEl.style.color = '#ff7043';
+                } else {
+                    descEl.innerText = (METRIC_MODE === 'AUTO') ? "Shoulder Transition (Net TDD Mode)" : "Total Degree Days (Net Weather Load)";
+                    descEl.style.color = '#66bb6a';
+                }
+            }
+        }
+
+        async function setGridMetric(mode) {
+            updateMetricState(mode, CACHED_TDD_DATA);
+            populateHddMapFromData(CACHED_TDD_DATA);
+            updateWindChart();
+            updateSolarChart();
+        }
 
         function formatNum(num, dec = 1, showSign = false) {
             if (num === null || num === undefined || isNaN(num)) return "-";
@@ -1040,38 +1220,42 @@
             updateSolarChart();
         }
 
-        // Loads tdd_master.csv and populates the global hddMap used by both
-        // updateWindChart() and updateSolarChart(). Kept as a standalone async
-        // function so any future chart that needs degree-day overlay can simply
-        // await loadHddMap() without coupling itself to wind data loading.
+        function populateHddMapFromData(tddData) {
+            hddMap = {};
+            if (!tddData || tddData.length === 0) return;
+            let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
+            let targetRun = null;
+            for (const run of runsGFS) {
+                if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
+                    targetRun = run; break;
+                }
+            }
+
+            if (targetRun) {
+                tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
+                    if (r.date) {
+                        let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
+                        let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
+                        let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null;
+                        hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
+                    }
+                });
+            }
+        }
+
         async function loadHddMap() {
             try {
-                let tddRes = await fetch(basePath + "tdd_master.csv?t=" + Date.now());
-                if (!tddRes.ok) return;
-                let tddText = await tddRes.text();
-                let tddData = Papa.parse(tddText, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
-
-                // Use latest GFS run that has valid gas-weighted DD values (hdd_gw/tdd_gw/cdd_gw
-                // may be empty on recent runs if the weight grid wasn't applied — fall back).
-                let runsGFS = [...new Set(tddData.filter(r => r.model === 'GFS').map(r => r.run_id))].sort().reverse();
-                let targetRun = null;
-                for (const run of runsGFS) {
-                    if (tddData.some(r => r.model === 'GFS' && r.run_id === run && r[DD_FIELD] != null)) {
-                        targetRun = run; break;
-                    }
+                let res = await fetch(basePath + "vs_normal.csv?t=" + Date.now());
+                if (!res.ok) {
+                    res = await fetch(basePath + "tdd_master.csv?t=" + Date.now());
                 }
+                if (!res.ok) return;
+                let text = await res.text();
+                CACHED_TDD_DATA = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
 
-                if (targetRun) {
-                    tddData.filter(r => r.model === 'GFS' && r.run_id === targetRun).forEach(r => {
-                        if (r.date) {
-                            let dstr = (r.date instanceof Date) ? r.date.toISOString().split('T')[0] : String(r.date).split(' ')[0];
-                            let hdd_val = r[DD_FIELD] !== undefined ? r[DD_FIELD] : null;
-                            let norm_val = r[DD_NORMAL_FIELD] !== undefined ? r[DD_NORMAL_FIELD] : null;
-                            hddMap[dstr] = [hdd_val, (hdd_val !== null && norm_val !== null) ? hdd_val - norm_val : null];
-                        }
-                    });
-                }
-            } catch(e) { console.warn("tdd_master load failed", e); }
+                updateMetricState(METRIC_MODE, CACHED_TDD_DATA);
+                populateHddMapFromData(CACHED_TDD_DATA);
+            } catch(e) { console.warn("loadHddMap failed", e); }
         }
 
         async function loadWindForecast() {
@@ -2287,6 +2471,26 @@
             "Power Grid Nav": {
                 title: "Power Grid Dashboard",
                 body: "Monitors regional and national electrical grid loads, real-time natural gas/wind/solar generation mixes, wind/solar droughts, and nuclear availability."
+            },
+            "Metric Selector": {
+                title: "Demand Metric Selector",
+                body: "Toggle between <strong>Auto (Dynamic)</strong>, <strong>HDD</strong> (Heating Degree Days), <strong>CDD</strong> (Cooling Degree Days), and <strong>TDD</strong> (Total Degree Days / Net Weather Load). In shoulder seasons (late September / April), Auto automatically resolves the dominant market driver based on 15-day multi-model consensus."
+            },
+            "Metric Auto": {
+                title: "Auto (Dynamic Market Mode)",
+                body: "Dynamically selects HDD or CDD based on actual weather load across the 15-day forecast horizon. If HDDs exceed CDDs by &gt;1.5x, the desk shifts to space heating mode. If CDDs exceed HDDs, it tracks cooling load."
+            },
+            "Metric HDD": {
+                title: "Heating Degree Days (HDD)",
+                body: "Base 65°F Heating Degree Days: measures residential and commercial space heating natural gas demand. Crucial for winter trading and storage withdrawal season."
+            },
+            "Metric CDD": {
+                title: "Cooling Degree Days (CDD)",
+                body: "Base 65°F Cooling Degree Days: measures air conditioning electric load and electric power sector natural gas burn. Crucial for summer trading and power burn dynamics."
+            },
+            "Metric TDD": {
+                title: "Total Degree Days (TDD)",
+                body: "Combined degree days (HDD + CDD). Captures total weather-driven energy demand across spring and fall shoulder transitions when neither heating nor cooling fully dominates."
             },
             "Live Data Timestamp": {
                 title: "Live Data Timestamp",

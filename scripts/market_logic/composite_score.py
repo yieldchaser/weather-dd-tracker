@@ -198,10 +198,9 @@ def compute_composite():
             sum_15d_forecast += master_tdd
             if len(date_str) >= 8:
                 try:
-                    m, d = int(date_str[4:6]), int(date_str[6:8])
-                    # Season-matched normal: comparing summer TDD totals to
-                    # an HDD-only baseline produced absurd pct deviations.
-                    met = active_metric(m)
+                    y, m, d = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
+                    row_dt = _date(y, m, d)
+                    met = active_metric(row_dt)
                     if met == "HDD":
                         sum_15d_normal += normals_10yr_hdd_lookup.get((m, d), 0.0)
                     elif met == "CDD":
@@ -223,11 +222,11 @@ def compute_composite():
         # STRONG BULL tilt).
         normal_hdd = 0.0
         normal_cdd = 0.0
-        row_month = 0
+        row_dt = None
         if normals_lookup and len(date_str) >= 8:
             try:
-                m, d = int(date_str[4:6]), int(date_str[6:8])
-                row_month = m
+                y, m, d = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
+                row_dt = _date(y, m, d)
                 normal_hdd = normals_lookup.get((m, d), 0.0)
                 # CDD normal approximated from normals file if available
                 if df_norms is not None and "cdd_normal" in df_norms.columns:
@@ -236,7 +235,7 @@ def compute_composite():
             except Exception:
                 pass
 
-        season = active_metric(row_month) if row_month else active_metric(_date.today().month)
+        season = active_metric(row_dt) if row_dt else active_metric(_date.today())
 
         if season == "HDD":
             tdd_anomaly = master_tdd - normal_hdd   # positive = colder → bullish

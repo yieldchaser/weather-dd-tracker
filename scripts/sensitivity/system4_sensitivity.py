@@ -56,7 +56,7 @@ def calculate_OLS_sensitivity():
     sys.path.insert(0, str(sys_path))
     from season_utils import active_metric
 
-    _season = active_metric(date.today().month)
+    _season = active_metric(date.today())
 
     if not BURN_FILE.exists():
         _write_disconnected("burn_history_missing")
@@ -71,6 +71,10 @@ def calculate_OLS_sensitivity():
         _write_disconnected(f"insufficient_burn_history_{len(burn)}")
         return
     burn["date"] = pd.to_datetime(burn["date"]).dt.date
+
+    # Ensure tdd_gw is available from hdd_gw + cdd_gw
+    if "tdd_gw" not in burn.columns and "hdd_gw" in burn.columns and "cdd_gw" in burn.columns:
+        burn["tdd_gw"] = burn["hdd_gw"] + burn["cdd_gw"]
 
     # Use the burn file's own realized degree-day columns — same source as
     # build_burn_sensitivity's arms. Pulling forecast-run DDs from

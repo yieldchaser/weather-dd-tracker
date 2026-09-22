@@ -63,7 +63,9 @@ def main():
     run_cmd("scripts/compare_to_normal.py")
     df_norm = pd.read_csv("outputs/vs_normal.csv")
     assert "GOOGLE_WN3" in df_norm["model"].values, "GOOGLE_WN3 missing from vs_normal.csv!"
-    print("  [PASS] vs_normal.csv contains GOOGLE_WN3 degree day anomalies.")
+    for col in ("hdd_anomaly_gw", "cdd_anomaly_gw", "tdd_anomaly_gw", "hdd_normal_gw", "cdd_normal_gw"):
+        assert col in df_norm.columns, f"Column {col} missing in vs_normal.csv!"
+    print("  [PASS] vs_normal.csv contains GOOGLE_WN3 and all 6 explicit GW anomaly fields.")
 
     # 5. Day-by-Day Run Delta Calculation
     step("5. Day-by-Day Run Delta Engine (compute_run_delta.py)")
@@ -101,17 +103,27 @@ def main():
     run_cmd("scripts/cleanup_repo.py")
     print("  [PASS] cleanup_repo.py verified retention parameters for WN3.")
 
-    # 10. Frontend Contract Validation
-    step("10. Frontend Dashboard UI Contracts (index.html & grid.html)")
+    # 10. Sensitivity & Composite Market Signals
+    step("10. Sensitivity & Composite Intelligence Signals")
+    run_cmd("scripts/sensitivity/system4_sensitivity.py")
+    assert Path("outputs/sensitivity/rolling_coeff.json").exists(), "rolling_coeff.json missing!"
+    run_cmd("scripts/compute_composite_weather_signal.py")
+    assert Path("outputs/composite_signal.json").exists(), "composite_signal.json missing!"
+    print("  [PASS] Rolling sensitivity and composite signals executed successfully.")
+
+    # 11. Frontend Contract Validation
+    step("11. Frontend Dashboard UI Contracts (index.html & grid.html)")
     for fname in ("index.html", "grid.html"):
         with open(fname, "r", encoding="utf-8") as f:
             html = f.read()
         assert "GOOGLE_WN3" in html, f"GOOGLE_WN3 missing in {fname}!"
         assert "WeatherNext 3" in html, f"WeatherNext 3 title missing in {fname} tooltip!"
-    print("  [PASS] Tooltips, short abbreviations, and map dropdowns validated in HTML dashboards.")
+        assert 'data-tooltip-key="Metric Selector"' in html, f"Metric Selector missing in {fname}!"
+        assert 'pill-AUTO' in html and 'pill-HDD' in html and 'pill-CDD' in html and 'pill-TDD' in html, f"Pill selectors missing in {fname}!"
+    print("  [PASS] Interactive metric selectors, tooltips, short abbreviations, and map dropdowns validated in HTML dashboards.")
 
     print("\n" + "=" * 60)
-    print("  >>> END-TO-END DRY RUN SUCCESSFUL: ALL 10 GATES PASSED <<<")
+    print("  >>> END-TO-END DRY RUN SUCCESSFUL: ALL 11 GATES PASSED <<<")
     print("=" * 60 + "\n")
 
 if __name__ == "__main__":

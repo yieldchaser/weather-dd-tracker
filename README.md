@@ -169,6 +169,19 @@ WeatherNext 3 (`GOOGLE_WN3`) provides 0.05° (~5 km) surface resolution with 64-
     *   *Non-weather burn strength:* the 28-day realized-vs-weather-normal power-burn bias from the burn engine, applied with a symmetric ±1 Bcf/d deadband (×0.03/Bcf) so structural load growth counts both ways.
 *   Verdicts flip to **BULLISH/BEARISH** beyond ±0.10; inside that band the signal reads NEUTRAL.
 
+### 10. Seasonal Demand Dynamics & Interactive Metric Switching (Power & Gas Trading)
+*   **Meteorological & Market Transition:** In late September and April shoulder transitions, energy markets pivot between power burn (CDD-driven air conditioning) and space heating (HDD-driven residential/commercial heating). Rigid calendar cutoffs risk masking early heating cold snaps or late cooling spikes.
+*   **Dynamic Consensus Resolution (`scripts/season_utils.py`):** The system continuously inspects 15-day forward degree day accumulations across the multi-model ensemble:
+    $$\sum_{d=1}^{15} \text{HDD}_{gw, d} > 1.5 \times \sum_{d=1}^{15} \text{CDD}_{gw, d} \implies \text{HDD (Space Heating Dominant)}$$
+    $$\sum_{d=1}^{15} \text{CDD}_{gw, d} > 1.5 \times \sum_{d=1}^{15} \text{HDD}_{gw, d} \implies \text{CDD (Power Burn Dominant)}$$
+    $$\text{Otherwise} \implies \text{TDD (Net Shoulder Load)}$$
+*   **Interactive Desk Selector:** Both the Weather Desk (`index.html`) and Power Grid Monitor (`grid.html`) feature an interactive pill selector:
+    *   `Auto (Dynamic)`: Automatically tracks the prevailing market load driver.
+    *   `HDD`: Focuses on winter gas space heating demand, 30-year HDD climatology, and cold delivery.
+    *   `CDD`: Focuses on summer power generation burn, 30-year CDD climatology, and heatwave duration.
+    *   `TDD (Net)`: Evaluates total net degree days across shoulder seasons or annual comparisons.
+*   **Polarity-Aware Shift Analysis:** Shift matrix tooltips dynamically interpret run-to-run deltas based on the active metric ($+\Delta \rightarrow$ *colder* in HDD mode, *hotter* in CDD mode, *higher demand* in TDD mode).
+
 ---
 
 ## 🗂️ Script Inventory & Directory Layout
