@@ -111,83 +111,6 @@ def _open_wn3_zarr(date_str: str, cycle: str):
     return None
 
 
-def _fallback_from_wn2_or_synthetic(date_str: str, cycle: str):
-    """
-    Fallback data generator when GCS returns 403 Forbidden (e.g. unauthenticated
-    local environments without GCP service account). Uses WN2 baseline if available
-    or climatological demand anchors to maintain pipeline continuity.
-    """
-    run_id = f"{date_str}_{cycle}"
-    wn2_path = Path("data/google_wn2") / f"{run_id}_tdd.csv"
-    wn2_city_path = Path("data/google_wn2/cities") / f"{run_id}_cities.json"
-
-    city_temps_f = {}
-    rows = []
-
-    if wn2_path.exists() and wn2_city_path.exists():
-        logging.info(f"  [FALLBACK] Using WN2 baseline for {run_id} WN3 representation...")
-        try:
-            with open(wn2_city_path, "r") as f:
-                city_temps_f = json.load(f)
-            df_wn2 = pd.read_csv(wn2_path)
-            for _, r in df_wn2.iterrows():
-                rows.append({
-                    "date": r["date"],
-                    "mean_temp": r["mean_temp"],
-                    "hdd": r["hdd"],
-                    "cdd": r["cdd"],
-                    "tdd": r["tdd"],
-                    "mean_temp_gw": r.get("mean_temp_gw", r["mean_temp"]),
-                    "hdd_gw": r.get("hdd_gw", r["hdd"]),
-                    "cdd_gw": r.get("cdd_gw", r["cdd"]),
-                    "tdd_gw": r.get("tdd_gw", r["tdd"]),
-                    "model": "GOOGLE_WN3",
-                    "run_id": run_id,
-                })
-            return city_temps_f, rows
-        except Exception as e:
-            logging.warning(f"Error reading WN2 baseline: {e}")
-
-    # Synthetic realistic anchor for offline tests
-    logging.info(f"  [FALLBACK] Generating synthetic WN3 15-day curve for {run_id}...")
-    start_dt = datetime.datetime.strptime(date_str, "%Y%m%d")
-    np.random.seed(int(date_str) + int(cycle))
-
-    for day_i in range(FORECAST_DAYS):
-        cur_dt = (start_dt + datetime.timedelta(days=day_i)).strftime("%Y-%m-%d")
-        day_weighted_temp = 0.0
-        total_w = 0.0
-
-        for city, lat, lon, weight in DEMAND_CITIES:
-            # Latitudinal temperature gradient + seasonal variation
-            base_t = 85.0 - (lat - 25.0) * 0.9 + np.sin(day_i / 3.0) * 2.0
-            t_f = round(base_t + np.random.normal(0, 1.0), 2)
-            if city not in city_temps_f:
-                city_temps_f[city] = {}
-            city_temps_f[city][cur_dt] = t_f
-            day_weighted_temp += weight * t_f
-            total_w += weight
-
-        avg_f = round(day_weighted_temp / total_w, 2)
-        h = compute_hdd(avg_f)
-        c = compute_cdd(avg_f)
-        rows.append({
-            "date": cur_dt,
-            "mean_temp": avg_f,
-            "hdd": round(h, 2),
-            "cdd": round(c, 2),
-            "tdd": round(h + c, 2),
-            "mean_temp_gw": avg_f,
-            "hdd_gw": round(h, 2),
-            "cdd_gw": round(c, 2),
-            "tdd_gw": round(h + c, 2),
-            "model": "GOOGLE_WN3",
-            "run_id": run_id,
-        })
-
-    return city_temps_f, rows
-
-
 def fetch_run(date_str: str, cycle: str):
     """
     Fetch and process WeatherNext 3 for a given date and cycle.
@@ -302,10 +225,13 @@ def fetch_run(date_str: str, cycle: str):
 
             logging.info(f"  [OK] Extracted {len(rows)} days from GCS Zarr for {run_id}.")
         except Exception as e:
-            logging.warning(f"Error processing GCS Zarr ({e}); engaging fallback.")
-            city_temps_f, rows = _fallback_from_wn2_or_synthetic(date_str, cycle)
+            logging.error(f"Error processing GCS Zarr ({e}).")
+            _record_health(False, run_id, f"GCS processing failed: {e}")
+            return False
     else:
-        city_temps_f, rows = _fallback_from_wn2_or_synthetic(date_str, cycle)
+        logging.warning(f"GCS Zarr dataset unavailable or unauthorized for {run_id}.")
+        _record_health(False, run_id, "GCS dataset unavailable")
+        return False
 
     if rows and len(rows) >= MIN_REQUIRED_DAYS:
         # Write TDD CSV
@@ -330,14 +256,86 @@ def fetch_run(date_str: str, cycle: str):
     return False
 
 
+def fetch_from_open_meteo(om_model_name: str, date_str: str, cycle: str):
+    """
+    Fetches WeatherNext 3 from Open-Meteo Ensemble API across all DEMAND_CITIES.
+    """
+    from om_batch_fetch import fetch_all_cities_batch
+    OM_ENSEMBLE_ENDPOINT = "https://ensemble-api.open-meteo.com/v1/ensemble"
+    run_id = f"{date_str}_{cycle}"
+    out_csv = BASE_DIR / f"{run_id}_tdd.csv"
+    out_json = CITIES_DIR / f"{run_id}_cities.json"
+
+    logging.info(f"Syncing GOOGLE_WN3 from Open-Meteo ({om_model_name}) for {run_id}...")
+    city_data = fetch_all_cities_batch(
+        endpoint=OM_ENSEMBLE_ENDPOINT,
+        model=om_model_name,
+        forecast_days=FORECAST_DAYS,
+    )
+    if not city_data:
+        return False
+
+    all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
+    rows = []
+    for dt_str in all_dates:
+        total_w, weighted_temp = 0.0, 0.0
+        for name, (weight, temps) in city_data.items():
+            if dt_str in temps:
+                weighted_temp += weight * temps[dt_str]
+                total_w += weight
+        if total_w > 0:
+            avg_f = celsius_to_f(weighted_temp / total_w)
+            h = compute_hdd(avg_f)
+            c = compute_cdd(avg_f)
+            t = h + c
+            rows.append({
+                "date": dt_str,
+                "mean_temp": round(avg_f, 2),
+                "hdd": round(h, 2),
+                "cdd": round(c, 2),
+                "tdd": round(t, 2),
+                "mean_temp_gw": round(avg_f, 2),
+                "hdd_gw": round(h, 2),
+                "cdd_gw": round(c, 2),
+                "tdd_gw": round(t, 2),
+                "model": "GOOGLE_WN3",
+                "run_id": run_id,
+            })
+
+    if len(rows) >= MIN_REQUIRED_DAYS:
+        pd.DataFrame(rows).to_csv(out_csv, index=False)
+        city_temps_f = {name: {d: round(celsius_to_f(t), 2) for d, t in temps.items()} for name, (weight, temps) in city_data.items()}
+        with open(out_json, "w") as f:
+            json.dump(city_temps_f, f, indent=2)
+        logging.info(f"  [OK] {run_id} GOOGLE_WN3: {len(rows)} days fetched from Open-Meteo!")
+        _record_health(True, run_id, f"Successfully synced {len(rows)} days from Open-Meteo ({om_model_name})")
+        return True
+    return False
+
+
 def sync_all_wn3():
     """
-    WN3 is currently disabled pending the public Open-Meteo endpoint or GCP allowlist access.
-    WeatherNext 2 (GOOGLE_WN2) is used as the active operational AI model.
+    Checks if Open-Meteo has launched WeatherNext 3 or if direct GCP credentials exist.
     """
-    logging.info("--- GOOGLE WEATHERNEXT 3 SYNC SERVICE (DISABLED) ---")
-    logging.info("  [DISABLED] WN3 is disabled pending public Open-Meteo endpoint or GCP allowlist.")
-    logging.info("  [ACTIVE] WeatherNext 2 (GOOGLE_WN2) is the active operational Google AI model.")
+    from poll_models import check_open_meteo_wn3_live
+    now = datetime.datetime.now(datetime.timezone.utc)
+    date_str = now.strftime("%Y%m%d")
+    cycle = "00" if now.hour < 12 else "12"
+
+    # 1. Automatic Open-Meteo detection (Zero configuration required)
+    om_model = check_open_meteo_wn3_live()
+    if om_model:
+        logging.info(f"--- GOOGLE WEATHERNEXT 3 DETECTED ON OPEN-METEO ({om_model}) ---")
+        return fetch_from_open_meteo(om_model, date_str, cycle)
+
+    # 2. Direct GCP authenticated storage (if service account credentials configured)
+    if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GCP_PROJECT_ID"):
+        logging.info("--- GOOGLE WEATHERNEXT 3 SYNC (GCS AUTHENTICATED) ---")
+        return fetch_run(date_str, cycle)
+
+    logging.info("--- GOOGLE WEATHERNEXT 3 STATUS: AWAITING OPEN-METEO LAUNCH ---")
+    logging.info("  [PROBE ACTIVE] Poller is continuously monitoring Open-Meteo for WeatherNext 3.")
+    logging.info("  [DESK RUNNING] WeatherNext 2 (GOOGLE_WN2) is providing active operational AI forecasts.")
     return False
 
 

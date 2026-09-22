@@ -191,7 +191,15 @@ def check_open_meteo_wn3_live():
     Automatically probes Open-Meteo to detect when WeatherNext 3 goes live.
     Tests candidate model identifiers: 'google_weathernext3_ensemble_mean', 'google_weathernext3'.
     """
-    candidates = ["google_weathernext3_ensemble_mean", "google_weathernext3"]
+    candidates = [
+        "google_weathernext3_ensemble_mean",
+        "google_weathernext3",
+        "google_weathernext_3",
+        "google_weathernext_3_ensemble_mean",
+        "google_wn3_ensemble_mean",
+        "google_wn3",
+        "weathernext3",
+    ]
     for m in candidates:
         url = f"https://ensemble-api.open-meteo.com/v1/ensemble?latitude=40.71&longitude=-74.01&models={m}&daily=temperature_2m_mean"
         try:
@@ -413,7 +421,25 @@ def poll():
     # 7b. Automatically probe Open-Meteo for WeatherNext 3 launch
     om_wn3 = check_open_meteo_wn3_live()
     if om_wn3:
-        print(f"  >>> [NEW MODEL DETECTED] Google WeatherNext 3 is NOW LIVE on Open-Meteo ({om_wn3})! <<<")
+        latest_wn3_avail = None
+        for d in dates_to_check:
+            for c in ["00", "12"]:
+                run_id = f"{d}_{c}"
+                if run_id > state.get("GOOGLE_WN3", ""):
+                    url = f"https://ensemble-api.open-meteo.com/v1/ensemble?latitude=40&longitude=-100&daily=temperature_2m_mean&models={om_wn3}&forecast_days=1"
+                    try:
+                        r = requests.get(url, timeout=5)
+                        if r.status_code == 200:
+                            data = r.json()
+                            om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
+                            if om_date == d:
+                                latest_wn3_avail = run_id
+                    except Exception:
+                        pass
+        if latest_wn3_avail and latest_wn3_avail > state.get("GOOGLE_WN3", ""):
+            print(f"  >>> [NEW MODEL DETECTED] Google WeatherNext 3 is NOW LIVE on Open-Meteo ({om_wn3}, run {latest_wn3_avail})! <<<")
+            new_state["GOOGLE_WN3"] = latest_wn3_avail
+            triggered = True
 
     # 8. Check NOAA AIGEFS
     latest_aigefs_avail = None

@@ -111,8 +111,8 @@ def load_data():
         except Exception as e:
             print(f"[WARN] Could not load AI models: {e}")
 
-    # 4. Load Google WeatherNext 2
-    for model_label, m_dir in [("GOOGLE_WN2", GOOGLE_WN2_DIR)]:
+    # 4. Load Google WeatherNext
+    for model_label, m_dir in [("GOOGLE_WN2", GOOGLE_WN2_DIR), ("GOOGLE_WN3", GOOGLE_WN3_DIR)]:
         cf = get_latest_file(m_dir, "tdd.csv")
         if cf:
             try:
