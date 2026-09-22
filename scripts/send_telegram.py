@@ -454,7 +454,7 @@ def _fmt_regime():
         return ""
 
 
-def _fmt_teleconnections():
+def _fmt_teleconnections(season="HDD"):
     tele_file = Path("outputs/teleconnections/latest.json")
     if not tele_file.exists():
         return ""
@@ -468,8 +468,12 @@ def _fmt_teleconnections():
 
         def _sig(val):
             if val is None: return ""
-            if val < -0.5: return "🟢"
-            if val > 0.5:  return "🔴"
+            if season == "CDD":
+                if val > 0.5:  return "🟢"
+                if val < -0.5: return "🔴"
+            else:
+                if val < -0.5: return "🟢"
+                if val > 0.5:  return "🔴"
             return "⚪"
 
         ao  = td.get("ao")
@@ -533,13 +537,13 @@ def _fmt_wind():
         dd16 = wd.get("drought_days_16d", 0)
 
         if d16 >= 0.60:
-            impact = "STRONG BULL 🔴"
+            impact = "STRONG BULL 🟢🔥"
         elif d16 >= 0.35:
-            impact = "MODERATE BULL 🟡"
+            impact = "MODERATE BULL 🟢"
         elif d16 > 0.20:
             impact = "MILD BULL 🟡"
-        elif d16 < 0.15 and wd.get("anomaly_today", 0) > 0.05:
-            impact = "STRONG BEAR 🟢"
+        elif d16 < 0.15 and wd.get("anomaly_today", 0) > 5.0:
+            impact = "STRONG BEAR 🔴"
         else:
             impact = "NEUTRAL ⚪"
 
@@ -668,11 +672,7 @@ def _fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s):
             f_prv = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))][tdd_col].mean()
             lat_si = df[(df["model"]==model)&(df["run_id"]==run_id)&(df["date"].isin(common))]["tdd"].mean()
             prv_si = df[(df["model"]==model)&(df["run_id"]==prev_run)&(df["date"].isin(common))]["tdd"].mean()
-            is_polluted = False
-            if tdd_col == "tdd_gw":
-                if pd.notna(f_lat) and abs(f_lat - lat_si) < 0.01: is_polluted = True
-                if pd.notna(f_prv) and abs(f_prv - prv_si) < 0.01: is_polluted = True
-            if pd.isna(f_lat) or pd.isna(f_prv) or is_polluted:
+            if pd.isna(f_lat) or pd.isna(f_prv):
                 f_lat, f_prv = lat_si, prv_si
             delta = f_lat - f_prv
             if abs(delta) < 0.05:
@@ -714,34 +714,40 @@ def main():
     df["day"]   = df["date"].dt.day
 
     today_d = date.today()
-    season = active_metric(today_d)
+    future_df = df[df["date"] >= pd.Timestamp(today_d)]
+    h_mean = future_df["hdd_gw"].mean() if "hdd_gw" in future_df.columns else (future_df["hdd"].mean() if "hdd" in future_df.columns else None)
+    c_mean = future_df["cdd_gw"].mean() if "cdd_gw" in future_df.columns else (future_df["cdd"].mean() if "cdd" in future_df.columns else None)
+    season = active_metric(today_d, hdd_val=h_mean, cdd_val=c_mean)
 
     gw_mode = GW_NORMALS.exists()
     if gw_mode:
         norms = pd.read_csv(GW_NORMALS)
         if season == "CDD":
             norm_col = "cdd_normal_gw"
+            dd_col   = "cdd_gw" if "cdd_gw" in df.columns else "cdd"
         elif season == "BOTH":
             norms["tdd_normal_gw"] = norms["hdd_normal_gw"] + norms["cdd_normal_gw"]
             norm_col = "tdd_normal_gw"
-        else:
+            dd_col   = "tdd_gw" if "tdd_gw" in df.columns else "tdd"
+        else: # HDD
             norm_col = "hdd_normal_gw"
+            dd_col   = "hdd_gw" if "hdd_gw" in df.columns else "hdd"
     else:
         norms = pd.read_csv(STD_NORMALS)
         if season == "CDD":
             norm_col = "cdd_normal"
+            dd_col   = "cdd"
         elif season == "BOTH":
             norms["tdd_normal"] = norms["hdd_normal"] + norms["cdd_normal"]
             norm_col = "tdd_normal"
-        else:
+            dd_col   = "tdd"
+        else: # HDD
             norm_col = "hdd_normal"
+            dd_col   = "hdd"
 
-    if "tdd_gw" in df.columns:
-        tdd_col   = "tdd_gw"
-        metric_lbl = metric_label(today_d, gas_weighted=True)
-    else:
-        tdd_col   = "tdd"
-        metric_lbl = metric_label(today_d, gas_weighted=False)
+    tdd_col = dd_col  # use active degree day column throughout
+    prefix = "GW " if ("gw" in dd_col and gw_mode) else ""
+    metric_lbl = f"{prefix}{season if season != 'BOTH' else 'TDD'}/day"
 
     df = df.merge(norms[["month", "day", norm_col]], on=["month", "day"], how="left")
 
@@ -765,7 +771,7 @@ def main():
     prev     = sorted_s.groupby("model").nth(-2).reset_index()
 
     today_str  = date.today().strftime("%Y-%m-%d")
-    mode_tag   = "Gas-Weighted" if (tdd_col == "tdd_gw" and gw_mode) else "CONUS avg"
+    mode_tag   = "Gas-Weighted" if ("gw" in tdd_col and gw_mode) else "CONUS avg"
     season_tag = f"{season} Season" if season != "BOTH" else "Shoulder/TDD"
 
     # ── Header ─────────────────────────────────────────────────────────────
@@ -815,7 +821,7 @@ def main():
     regime_str = _fmt_regime()
     if regime_str:
         weather_parts.append(regime_str)
-    tele_str = _fmt_teleconnections()
+    tele_str = _fmt_teleconnections(season)
     if tele_str:
         weather_parts.append(tele_str)
 
@@ -831,7 +837,7 @@ def main():
                 hd["month"] = pd.to_datetime(hd["date"]).dt.month
                 hd["year"]  = pd.to_datetime(hd["date"]).dt.year
                 hd["day"]   = pd.to_datetime(hd["date"]).dt.day
-                hdd_col_h   = "tdd_gw" if "tdd_gw" in hd.columns else "hdd"
+                hdd_col_h   = dd_col if dd_col in hd.columns else ("hdd_gw" if season == "HDD" else "tdd_gw")
                 hd_mtd = hd[(hd["month"] == cur_month) & (hd["day"] <= cur_day)]
                 ycounts = hd_mtd.groupby("year")["date"].count()
                 valid_y = ycounts[ycounts >= max(cur_day - 1, 1)].index
@@ -903,16 +909,17 @@ def main():
 
     short_df = latest[latest["category"] == "SHORT"]
     if not short_df.empty:
-        # Header horizon follows the actual models listed (NBM runs 8d, so
-        # the old hardcoded '0–5 Day' mislabeled its own table).
-        short_max = int(short_df["days"].max())
-        short_lines = [f"\n<b>⏱ SHORT-TERM</b> (0–{short_max} Day)"]
-        for _, row in short_df.iterrows():
-            fa = row["fa_gw"]
-            vs = row["vs_normal"]
-            short_lines.append(f"  {_esc(row['model'])} ({int(row['days'])}d): "
-                                f"{fa:.1f} | {vs:+.1f} {_signal(vs)}")
-        model_sections.append("\n".join(short_lines))
+        # Exclude stale runs or runs with all-NaN values
+        valid_short = short_df[short_df["fa_gw"].notna() & (~short_df["stale_run"])].copy()
+        if not valid_short.empty:
+            short_max = int(valid_short["days"].max())
+            short_lines = [f"\n<b>⏱ SHORT-TERM</b> (0–{short_max} Day)"]
+            for _, row in valid_short.iterrows():
+                fa = row["fa_gw"]
+                vs = row["vs_normal"]
+                short_lines.append(f"  {_esc(row['model'])} ({int(row['days'])}d): "
+                                    f"{fa:.1f} | {vs:+.1f} {_signal(vs)}")
+            model_sections.append("\n".join(short_lines))
 
     if model_sections:
         sections.append("\n".join(model_sections))

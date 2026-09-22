@@ -320,6 +320,33 @@ def test_frontend_schema_contract():
                 record_pass(f"UI CSV Exists ({html_file.name})", f"{csv_name}")
 
 
+def test_telegram_message_contract():
+    print("\n--- 8. Testing Telegram Message Generation & Formatting Contract ---")
+    tel_script = ROOT / "scripts" / "send_telegram.py"
+    if not tel_script.exists():
+        record_failure("Telegram Script Exists", f"{tel_script} not found")
+        return
+    import subprocess
+    res = subprocess.run([sys.executable, str(tel_script)], capture_output=True, text=True, encoding="utf-8")
+    if res.returncode != 0:
+        record_failure("Telegram Script Execution", f"send_telegram.py exited with {res.returncode}: {res.stderr[:200]}")
+        return
+    record_pass("Telegram Script Execution", "send_telegram.py executed cleanly")
+    
+    stdout = res.stdout
+    # Check for NaN leaks
+    if "+nan" in stdout.lower() or "| nan" in stdout.lower():
+        record_failure("Telegram NaN Leaks", "Found raw NaN output in generated Telegram message!")
+    else:
+        record_pass("Telegram NaN Leaks", "Zero raw NaNs in generated Telegram message")
+
+    # Check for active season tag
+    if "HDD Season" in stdout or "CDD Season" in stdout or "Shoulder/TDD" in stdout:
+        record_pass("Telegram Season Tag", "Valid dynamic season detected in message header")
+    else:
+        record_failure("Telegram Season Tag", "No valid season tag in Telegram header")
+
+
 def main():
     print("==================================================================")
     print("    WEATHER DESK MATHEMATICAL & OPERATIONAL INVARIANT TEST SUITE   ")
@@ -332,6 +359,7 @@ def main():
     test_market_signals()
     test_static_code_scan()
     test_frontend_schema_contract()
+    test_telegram_message_contract()
 
     print("\n==================================================================")
     print(f"  TOTAL INVARIANT FAILURES: {len(FAILURES)}")
