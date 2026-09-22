@@ -35,73 +35,73 @@ def main():
     print("\n>>> COMMENCING COMPREHENSIVE END-TO-END PIPELINE DRY RUN <<<\n")
     
     # 1. Fetch Ingestion
-    step("1. Data Ingestion (fetch_wn3.py)")
-    run_cmd("scripts/fetch_wn3.py")
-    assert Path("data/google_wn3").exists(), "data/google_wn3 does not exist!"
-    assert len(list(Path("data/google_wn3").glob("*_tdd.csv"))) >= 2, "Need at least 2 WN3 runs for delta testing!"
-    print("  [PASS] WN3 data ingested and staged successfully.")
+    step("1. Data Ingestion (fetch_wn2.py)")
+    run_cmd("scripts/fetch_wn2.py")
+    assert Path("data/google_wn2").exists(), "data/google_wn2 does not exist!"
+    assert len(list(Path("data/google_wn2").glob("*_tdd.csv"))) >= 2, "Need at least 2 WN2 runs for delta testing!"
+    print("  [PASS] WN2 data ingested and staged successfully.")
 
     # 2. Master TDD Merge
     step("2. Master TDD Database Integration (merge_tdd.py)")
     run_cmd("scripts/merge_tdd.py")
     df_master = pd.read_csv("outputs/tdd_master.csv")
-    assert "GOOGLE_WN3" in df_master["model"].values, "GOOGLE_WN3 missing from tdd_master.csv!"
-    wn3_rows = df_master[df_master["model"] == "GOOGLE_WN3"]
-    print(f"  [PASS] GOOGLE_WN3 present in tdd_master.csv ({len(wn3_rows)} forecast rows).")
+    assert "GOOGLE_WN2" in df_master["model"].values, "GOOGLE_WN2 missing from tdd_master.csv!"
+    wn2_rows = df_master[df_master["model"] == "GOOGLE_WN2"]
+    print(f"  [PASS] GOOGLE_WN2 present in tdd_master.csv ({len(wn2_rows)} forecast rows).")
 
     # 3. Latest Run Extraction
     step("3. Latest Run Extraction (select_latest_run.py)")
     run_cmd("scripts/select_latest_run.py")
-    latest_path = Path("outputs/google_wn3_latest.csv")
-    assert latest_path.exists(), "outputs/google_wn3_latest.csv was not generated!"
+    latest_path = Path("outputs/google_wn2_latest.csv")
+    assert latest_path.exists(), "outputs/google_wn2_latest.csv was not generated!"
     df_latest = pd.read_csv(latest_path)
     assert len(df_latest) >= 10, f"Expected >= 10 forecast days, got {len(df_latest)}"
-    print(f"  [PASS] outputs/google_wn3_latest.csv created with {len(df_latest)} rows.")
+    print(f"  [PASS] outputs/google_wn2_latest.csv created with {len(df_latest)} rows.")
 
     # 4. Compare to Normals
     step("4. Anomaly vs. 10-Yr & 30-Yr Normals (compare_to_normal.py)")
     run_cmd("scripts/compare_to_normal.py")
     df_norm = pd.read_csv("outputs/vs_normal.csv")
-    assert "GOOGLE_WN3" in df_norm["model"].values, "GOOGLE_WN3 missing from vs_normal.csv!"
+    assert "GOOGLE_WN2" in df_norm["model"].values, "GOOGLE_WN2 missing from vs_normal.csv!"
     for col in ("hdd_anomaly_gw", "cdd_anomaly_gw", "tdd_anomaly_gw", "hdd_normal_gw", "cdd_normal_gw"):
         assert col in df_norm.columns, f"Column {col} missing in vs_normal.csv!"
-    print("  [PASS] vs_normal.csv contains GOOGLE_WN3 and all 6 explicit GW anomaly fields.")
+    print("  [PASS] vs_normal.csv contains GOOGLE_WN2 and all 6 explicit GW anomaly fields.")
 
     # 5. Day-by-Day Run Delta Calculation
     step("5. Day-by-Day Run Delta Engine (compute_run_delta.py)")
     run_cmd("scripts/compute_run_delta.py")
     df_delta = pd.read_csv("outputs/run_delta.csv")
-    assert "GOOGLE_WN3" in df_delta["model"].values, "GOOGLE_WN3 missing from run_delta.csv!"
-    print("  [PASS] run_delta.csv contains run-to-run changes for GOOGLE_WN3.")
+    assert "GOOGLE_WN2" in df_delta["model"].values, "GOOGLE_WN2 missing from run_delta.csv!"
+    print("  [PASS] run_delta.csv contains run-to-run changes for GOOGLE_WN2.")
 
     # 6. Model Shift Table Matrix
     step("6. Trading Desk Shift Table (build_model_shift_table.py)")
     run_cmd("scripts/build_model_shift_table.py")
     df_shift = pd.read_csv("outputs/model_shift_table.csv")
-    assert "GOOGLE WN3 CHG" in df_shift.columns, "Column 'GOOGLE WN3 CHG' missing in model_shift_table.csv!"
-    print(f"  [PASS] model_shift_table.csv includes 'GOOGLE WN3 CHG' across {len(df_shift)} forecast dates.")
+    assert "GOOGLE AI CHG" in df_shift.columns, "Column 'GOOGLE AI CHG' missing in model_shift_table.csv!"
+    print(f"  [PASS] model_shift_table.csv includes 'GOOGLE AI CHG' across {len(df_shift)} forecast dates.")
 
     # 7. System 8/9 Physics vs. AI Divergence
     step("7. Physics vs. AI Divergence Engine (physics_vs_ai_disagreement.py)")
     run_cmd("scripts/market_logic/physics_vs_ai_disagreement.py")
     df_disagree = pd.read_csv("outputs/physics_vs_ai_disagreement.csv")
-    assert "GOOGLE_WN3" in df_disagree.columns, "GOOGLE_WN3 missing from physics_vs_ai_disagreement.csv!"
-    print("  [PASS] physics_vs_ai_disagreement.csv factored GOOGLE_WN3 into AI consensus.")
+    assert "GOOGLE_WN2" in df_disagree.columns, "GOOGLE_WN2 missing from physics_vs_ai_disagreement.csv!"
+    print("  [PASS] physics_vs_ai_disagreement.csv factored GOOGLE_WN2 into AI consensus.")
 
     # 8. Spatial Bubble Maps & Manifest Rebuild
     step("8. Shift Map Animation & Manifest (generate_maps.py)")
     manifest_path = Path("outputs/maps_manifest.json")
     with open(manifest_path, "r") as f:
         mf = json.load(f)
-    assert "GOOGLE_WN3" in mf, "GOOGLE_WN3 missing from maps_manifest.json!"
-    wn3_map_file = Path("outputs/maps") / mf["GOOGLE_WN3"][0]["file"]
-    assert wn3_map_file.exists(), f"Map GIF {wn3_map_file} does not exist on disk!"
-    print(f"  [PASS] Animated shift map GIF exists: {wn3_map_file.name} (Manifest updated).")
+    assert "GOOGLE_WN2" in mf, "GOOGLE_WN2 missing from maps_manifest.json!"
+    wn2_map_file = Path("outputs/maps") / mf["GOOGLE_WN2"][0]["file"]
+    assert wn2_map_file.exists(), f"Map GIF {wn2_map_file} does not exist on disk!"
+    print(f"  [PASS] Animated shift map GIF exists: {wn2_map_file.name} (Manifest updated).")
 
     # 9. Repository Retention & Pruning
     step("9. Repository Pruning & Maintenance (cleanup_repo.py)")
     run_cmd("scripts/cleanup_repo.py")
-    print("  [PASS] cleanup_repo.py verified retention parameters for WN3.")
+    print("  [PASS] cleanup_repo.py verified retention parameters for WN2.")
 
     # 10. Sensitivity & Composite Market Signals
     step("10. Sensitivity & Composite Intelligence Signals")
@@ -116,8 +116,7 @@ def main():
     for fname in ("index.html", "grid.html"):
         with open(fname, "r", encoding="utf-8") as f:
             html = f.read()
-        assert "GOOGLE_WN3" in html, f"GOOGLE_WN3 missing in {fname}!"
-        assert "WeatherNext 3" in html, f"WeatherNext 3 title missing in {fname} tooltip!"
+        assert "GOOGLE_WN2" in html, f"GOOGLE_WN2 missing in {fname}!"
         assert 'data-tooltip-key="Metric Selector"' in html, f"Metric Selector missing in {fname}!"
         assert 'pill-AUTO' in html and 'pill-HDD' in html and 'pill-CDD' in html and 'pill-TDD' in html, f"Pill selectors missing in {fname}!"
     print("  [PASS] Interactive metric selectors, tooltips, short abbreviations, and map dropdowns validated in HTML dashboards.")

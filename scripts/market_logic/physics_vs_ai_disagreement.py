@@ -111,8 +111,8 @@ def load_data():
         except Exception as e:
             print(f"[WARN] Could not load AI models: {e}")
 
-    # 4. Load Google WeatherNext 2 & 3
-    for model_label, m_dir in [("GOOGLE_WN2", GOOGLE_WN2_DIR), ("GOOGLE_WN3", GOOGLE_WN3_DIR)]:
+    # 4. Load Google WeatherNext 2
+    for model_label, m_dir in [("GOOGLE_WN2", GOOGLE_WN2_DIR)]:
         cf = get_latest_file(m_dir, "tdd.csv")
         if cf:
             try:
@@ -160,7 +160,7 @@ def compute_disagreement():
     
     # Categorize
     physics_cols = [c for c in pivot.columns if c in ["ECMWF_HRES", "GFS_HRES", "NAM", "HRRR", "ICON", "CMC_ENS", "GFS", "ECMWF", "UKMO_ENS"]]
-    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "GOOGLE_WN2", "GOOGLE_WN3", "AIGEFS", "AIFS_ENS"]]
+    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "GOOGLE_WN2", "AIGEFS", "AIFS_ENS"]]
     
     # Calculate means where possible
     if physics_cols:

@@ -20,13 +20,13 @@ def load_state():
     if not os.path.exists(STATE_FILE):
         os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
         return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": "",
-            "GOOGLE_WN2": "", "GOOGLE_WN3": "", "AIGEFS": "", "AIFS_ENS": "", "UKMO_ENS": "", "EC46": ""}
+            "GOOGLE_WN2": "", "AIGEFS": "", "AIFS_ENS": "", "UKMO_ENS": "", "EC46": ""}
     try:
         with open(STATE_FILE, "r") as f:
             return json.load(f)
     except Exception:
         return {"GFS": "", "ECMWF": "", "NBM": "", "ECMWF_ENS": "", "AIFS": "", "CMC_ENS": "",
-                "GOOGLE_WN2": "", "GOOGLE_WN3": "", "AIGEFS": "", "AIFS_ENS": "", "UKMO_ENS": "", "EC46": ""}
+                "GOOGLE_WN2": "", "AIGEFS": "", "AIFS_ENS": "", "UKMO_ENS": "", "EC46": ""}
 
 def save_state(state):
     with open(STATE_FILE, "w") as f:
@@ -186,27 +186,21 @@ def check_google_wn2_complete(date_str, cycle):
         return False
     except: return False
 
-def check_google_wn3_complete(date_str, cycle):
+def check_open_meteo_wn3_live():
     """
-    Checks if Google WeatherNext 3 is available on GCS Zarr or locally cached.
-    WN3 runs 00Z, 06Z, 12Z, 18Z cycles with 15-day horizons.
+    Automatically probes Open-Meteo to detect when WeatherNext 3 goes live.
+    Tests candidate model identifiers: 'google_weathernext3_ensemble_mean', 'google_weathernext3'.
     """
-    local_csv = Path("data/google_wn3") / f"{date_str}_{cycle}_tdd.csv"
-    if local_csv.exists():
-        return True
-    try:
-        sys.path.insert(0, str(Path(__file__).parent))
-        from fetch_wn3 import _open_wn3_zarr
-        ds = _open_wn3_zarr(date_str, cycle)
-        return ds is not None
-    except Exception:
-        # Fallback based on synoptic schedule (~6h after cycle init)
+    candidates = ["google_weathernext3_ensemble_mean", "google_weathernext3"]
+    for m in candidates:
+        url = f"https://ensemble-api.open-meteo.com/v1/ensemble?latitude=40.71&longitude=-74.01&models={m}&daily=temperature_2m_mean"
         try:
-            init_dt = datetime.datetime.strptime(f"{date_str}{cycle}", "%Y%m%d%H").replace(tzinfo=datetime.timezone.utc)
-            now = datetime.datetime.now(datetime.timezone.utc)
-            return (now - init_dt).total_seconds() >= 6 * 3600
+            r = requests.get(url, timeout=5)
+            if r.status_code == 200:
+                return m
         except Exception:
-            return False
+            pass
+    return None
 
 def check_aigefs_complete(date_str, cycle):
     """
@@ -416,19 +410,10 @@ def poll():
         new_state["GOOGLE_WN2"] = latest_wn2_avail
         triggered = True
 
-    # 7b. Check Google WeatherNext 3
-    latest_wn3_avail = None
-    for d in dates_to_check:
-        for c in ["00", "06", "12", "18"]:
-            run_id = f"{d}_{c}"
-            if run_id > state.get("GOOGLE_WN3", ""):
-                print(f"  [PING] Checking GOOGLE_WN3 {run_id} availability...")
-                if check_google_wn3_complete(d, c):
-                    latest_wn3_avail = run_id
-    if latest_wn3_avail and latest_wn3_avail > state.get("GOOGLE_WN3", ""):
-        print(f"  >>> [NEW] Google WeatherNext 3 Run Detected: {latest_wn3_avail} <<<")
-        new_state["GOOGLE_WN3"] = latest_wn3_avail
-        triggered = True
+    # 7b. Automatically probe Open-Meteo for WeatherNext 3 launch
+    om_wn3 = check_open_meteo_wn3_live()
+    if om_wn3:
+        print(f"  >>> [NEW MODEL DETECTED] Google WeatherNext 3 is NOW LIVE on Open-Meteo ({om_wn3})! <<<")
 
     # 8. Check NOAA AIGEFS
     latest_aigefs_avail = None

@@ -14,7 +14,6 @@ def load_all():
         "data/ecmwf_ens/*_tdd.csv",
         "data/cmc_ens/*_tdd.csv",
         "data/google_wn2/*_tdd.csv",
-        "data/google_wn3/*_tdd.csv",
         "data/aigefs/*_tdd.csv",
         "data/aifs_ens/*_tdd.csv",
         "data/ukmo_ens/*_tdd.csv",

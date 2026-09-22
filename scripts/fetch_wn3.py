@@ -332,27 +332,13 @@ def fetch_run(date_str: str, cycle: str):
 
 def sync_all_wn3():
     """
-    Identifies the active synoptic cycle (00Z, 06Z, 12Z, 18Z) and syncs it.
+    WN3 is currently disabled pending the public Open-Meteo endpoint or GCP allowlist access.
+    WeatherNext 2 (GOOGLE_WN2) is used as the active operational AI model.
     """
-    logging.info("--- GOOGLE WEATHERNEXT 3 SYNC SERVICE ---")
-    now = datetime.datetime.now(datetime.UTC)
-
-    # Synoptic cycle windows:
-    # 00Z available ~06 UTC, 06Z ~12 UTC, 12Z ~18 UTC, 18Z ~00 UTC next day
-    if now.hour >= 18:
-        date_str = now.strftime("%Y%m%d")
-        cycle = "12"
-    elif now.hour >= 12:
-        date_str = now.strftime("%Y%m%d")
-        cycle = "06"
-    elif now.hour >= 6:
-        date_str = now.strftime("%Y%m%d")
-        cycle = "00"
-    else:
-        date_str = (now - datetime.timedelta(days=1)).strftime("%Y%m%d")
-        cycle = "18"
-
-    fetch_run(date_str, cycle)
+    logging.info("--- GOOGLE WEATHERNEXT 3 SYNC SERVICE (DISABLED) ---")
+    logging.info("  [DISABLED] WN3 is disabled pending public Open-Meteo endpoint or GCP allowlist.")
+    logging.info("  [ACTIVE] WeatherNext 2 (GOOGLE_WN2) is the active operational Google AI model.")
+    return False
 
 
 if __name__ == "__main__":
