@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-09-24T21:08:12.488Z",
-  "composite_score": -1.35,
+  "timestamp": "2026-09-25T00:21:19.315Z",
+  "composite_score": -1.2,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 85.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly (off-season, damped)",
-      "score": -1.35
+      "score": -1.2
     },
     {
       "name": "Low Weather Sensitivity (BOTH arm)",
@@ -24,7 +24,7 @@
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": 1.0,
+    "score": 0.95,
     "bias": "STRONG BULL",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
@@ -32,7 +32,7 @@
   "divergence_note": null,
   "detail": {
     "bull_accumulator": 0.75,
-    "bear_accumulator": 2.1
+    "bear_accumulator": 1.95
   },
   "system_status": {
     "teleconnections_connected": true,
