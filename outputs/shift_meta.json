@@ -1,14 +1,14 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20260925_18",
-      "prev": "20260925_12",
+      "latest": "20260926_00",
+      "prev": "20260925_18",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20260925_12",
-      "prev": "20260925_00",
+      "latest": "20260926_00",
+      "prev": "20260925_12",
       "gap": false,
       "has_gw": true
     },
@@ -19,20 +19,20 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20260925_18",
-      "prev": "20260925_12",
+      "latest": "20260926_00",
+      "prev": "20260925_18",
       "gap": false,
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20260925_12",
-      "prev": "20260925_00",
+      "latest": "20260926_00",
+      "prev": "20260925_12",
       "gap": false,
       "has_gw": true
     },
     "GOOGLE AI CHG": {
-      "latest": "20260925_12",
-      "prev": "20260925_00",
+      "latest": "20260926_00",
+      "prev": "20260925_12",
       "gap": false,
       "has_gw": true
     },
@@ -43,38 +43,38 @@
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20260925_18",
-      "prev": "20260925_12",
+      "latest": "20260926_00",
+      "prev": "20260925_18",
       "gap": false,
       "has_gw": true
     },
     "NOAA AI CHG": {
-      "latest": "20260925_00",
-      "prev": "20260924_00",
+      "latest": "20260926_00",
+      "prev": "20260925_00",
       "gap": false,
       "has_gw": true
     },
     "NOAA AI ENS CHG": {
-      "latest": "20260925_00",
-      "prev": "20260924_00",
+      "latest": "20260926_00",
+      "prev": "20260925_00",
       "gap": false,
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20260925_18",
-      "prev": "20260925_12",
+      "latest": "20260926_06",
+      "prev": "20260925_18",
       "gap": false,
       "has_gw": true
     },
     "AIFS ENS CHG": {
-      "latest": "20260925_12",
-      "prev": "20260925_00",
+      "latest": "20260926_00",
+      "prev": "20260925_12",
       "gap": false,
       "has_gw": true
     },
     "UKMO ENS CHG": {
-      "latest": "20260925_12",
-      "prev": "20260925_00",
+      "latest": "20260926_00",
+      "prev": "20260925_12",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-09-26T02:20:47.633788"
+  "generated_at": "2026-09-26T10:46:49.175628"
 }
