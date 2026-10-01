@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-09-30T22:14:02.611Z",
+  "timestamp": "2026-10-01T01:00:24.314Z",
   "composite_score": 0.15,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 77.5,
   "components": [
     {
-      "name": "Teleconnections Warm Anomaly (off-season, damped)",
-      "score": -1.05
+      "name": "Teleconnections Warm Anomaly",
+      "score": -1.8
     },
     {
       "name": "Low Weather Sensitivity (BOTH arm)",
@@ -19,20 +19,20 @@
     },
     {
       "name": "Cold Delivery Pattern (Regime 1 (Arctic Block / Ridge East / Trough West))",
-      "score": 0.75
+      "score": 1.5
     }
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": -0.23,
+    "score": -0.22,
     "bias": "BEARISH",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 1.95,
-    "bear_accumulator": 1.8
+    "bull_accumulator": 2.7,
+    "bear_accumulator": 2.55
   },
   "system_status": {
     "teleconnections_connected": true,
