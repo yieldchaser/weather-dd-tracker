@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-10-02T12:08:28.789Z",
-  "composite_score": -2.07,
+  "timestamp": "2026-10-02T14:54:29.771Z",
+  "composite_score": -2.37,
   "signal": "BEARISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 88.8,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
-      "score": -1.32
+      "score": -1.62
     },
     {
       "name": "Low Weather Sensitivity (BOTH arm)",
@@ -32,7 +32,7 @@
   "divergence_note": "Tactical and subseasonal views are ALIGNED.",
   "detail": {
     "bull_accumulator": 1.2,
-    "bear_accumulator": 3.27
+    "bear_accumulator": 3.57
   },
   "system_status": {
     "teleconnections_connected": true,
