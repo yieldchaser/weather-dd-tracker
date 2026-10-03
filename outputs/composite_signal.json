@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-10-03T11:05:48.288Z",
-  "composite_score": -2.31,
+  "timestamp": "2026-10-03T13:36:58.939Z",
+  "composite_score": -3.51,
   "signal": "BEARISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 88.8,
+  "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
@@ -14,8 +14,8 @@
       "score": -0.75
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2
+      "name": "Wind Generation",
+      "score": 0.0
     },
     {
       "name": "Mild Pattern (Regime 2 (Ridge East))",
@@ -31,7 +31,7 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 1.2,
+    "bull_accumulator": 0.0,
     "bear_accumulator": 3.51
   },
   "system_status": {
