@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-10-05T13:06:44.887Z",
-  "composite_score": -3.45,
+  "timestamp": "2026-10-05T17:18:23.987Z",
+  "composite_score": -2.65,
   "signal": "BEARISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 88.8,
@@ -14,8 +14,8 @@
       "score": -0.75
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2
+      "name": "Wind Drought (Persistent)",
+      "score": 2.0
     },
     {
       "name": "Mild Pattern (Regime 2 (Ridge East))",
@@ -31,7 +31,7 @@
   "agreement_pct": 0.0,
   "divergence_note": "DIVERGENT: front of the curve (0-15d) prices ABOVE-normal demand; subseasonal risk (10-45d) leans the other way. Trade the front, respect the back \u2014 do not average them into one number.",
   "detail": {
-    "bull_accumulator": 1.2,
+    "bull_accumulator": 2.0,
     "bear_accumulator": 4.65
   },
   "system_status": {
