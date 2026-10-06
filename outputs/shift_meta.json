@@ -85,14 +85,14 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20261005_11",
-      "prev": "20261005_10",
+      "latest": "20261006_01",
+      "prev": "20261006_00",
       "gap": false,
       "has_gw": true
     },
     "NAM CHG": {
-      "latest": "20261005_12",
-      "prev": "20261005_06",
+      "latest": "20261006_00",
+      "prev": "20261005_18",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-10-06T02:24:06.249125"
+  "generated_at": "2026-10-06T03:38:44.750937"
 }
