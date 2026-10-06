@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-10-06T00:01:45.514Z",
-  "composite_score": -2.65,
+  "timestamp": "2026-10-06T02:27:21.365Z",
+  "composite_score": -2.29,
   "signal": "BEARISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 88.8,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
-      "score": -2.7
+      "score": -2.34
     },
     {
       "name": "Low Weather Sensitivity (BOTH arm)",
@@ -32,7 +32,7 @@
   "divergence_note": "DIVERGENT: front of the curve (0-15d) prices ABOVE-normal demand; subseasonal risk (10-45d) leans the other way. Trade the front, respect the back \u2014 do not average them into one number.",
   "detail": {
     "bull_accumulator": 2.0,
-    "bear_accumulator": 4.65
+    "bear_accumulator": 4.29
   },
   "system_status": {
     "teleconnections_connected": true,
