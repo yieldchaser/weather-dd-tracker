@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-10-10T11:56:57.705Z",
-  "composite_score": -3.75,
+  "timestamp": "2026-10-10T14:36:58.837Z",
+  "composite_score": -2.25,
   "signal": "BEARISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 88.8,
+  "confidence": 85.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
@@ -14,12 +14,12 @@
       "score": -0.75
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2
+      "name": "Wind Generation",
+      "score": 0.0
     },
     {
-      "name": "Mild Pattern (Regime 2 (Ridge East))",
-      "score": -1.2
+      "name": "Cold Delivery Pattern (Regime 1 (Arctic Block / Ridge East / Trough West))",
+      "score": 1.5
     }
   ],
   "stale_systems": [],
@@ -31,8 +31,8 @@
   "agreement_pct": 0.0,
   "divergence_note": "DIVERGENT: front of the curve (0-15d) prices ABOVE-normal demand; subseasonal risk (10-45d) leans the other way. Trade the front, respect the back \u2014 do not average them into one number.",
   "detail": {
-    "bull_accumulator": 1.2,
-    "bear_accumulator": 4.95
+    "bull_accumulator": 1.5,
+    "bear_accumulator": 3.75
   },
   "system_status": {
     "teleconnections_connected": true,
