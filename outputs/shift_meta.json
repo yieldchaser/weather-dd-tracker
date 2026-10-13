@@ -1,38 +1,38 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20261013_06",
-      "prev": "20261012_18",
+      "latest": "20261013_12",
+      "prev": "20261013_06",
       "gap": false,
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20261013_00",
-      "prev": "20261012_12",
-      "gap": false,
-      "has_gw": true
-    },
-    "EURO ENS CHG": {
-      "latest": "20261013_00",
-      "prev": "20261012_12",
-      "gap": false,
-      "has_gw": true
-    },
-    "GFS ENS CHG": {
-      "latest": "20261013_06",
+      "latest": "20261013_12",
       "prev": "20261013_00",
       "gap": false,
       "has_gw": true
     },
+    "EURO ENS CHG": {
+      "latest": "20261013_12",
+      "prev": "20261013_00",
+      "gap": false,
+      "has_gw": true
+    },
+    "GFS ENS CHG": {
+      "latest": "20261013_12",
+      "prev": "20261013_06",
+      "gap": false,
+      "has_gw": true
+    },
     "CMC ENS CHG": {
-      "latest": "20261013_00",
-      "prev": "20261012_12",
+      "latest": "20261013_12",
+      "prev": "20261013_00",
       "gap": false,
       "has_gw": true
     },
     "GOOGLE AI CHG": {
-      "latest": "20261013_00",
-      "prev": "20261012_12",
+      "latest": "20261013_12",
+      "prev": "20261013_00",
       "gap": false,
       "has_gw": true
     },
@@ -43,8 +43,8 @@
       "has_gw": true
     },
     "EURO AI CHG": {
-      "latest": "20261013_06",
-      "prev": "20261013_00",
+      "latest": "20261013_12",
+      "prev": "20261013_06",
       "gap": false,
       "has_gw": true
     },
@@ -67,14 +67,14 @@
       "has_gw": true
     },
     "AIFS ENS CHG": {
-      "latest": "20261013_00",
-      "prev": "20261012_12",
+      "latest": "20261013_12",
+      "prev": "20261013_00",
       "gap": false,
       "has_gw": true
     },
     "UKMO ENS CHG": {
-      "latest": "20261013_00",
-      "prev": "20261012_12",
+      "latest": "20261013_12",
+      "prev": "20261013_00",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-10-13T17:25:49.574259"
+  "generated_at": "2026-10-13T22:29:29.397561"
 }
