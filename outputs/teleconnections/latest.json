@@ -1,27 +1,28 @@
 {
-  "timestamp": "2026-10-12T14:16:15.668643Z",
+  "timestamp": "2026-10-13T00:03:25.799493Z",
   "ao": 0.436,
   "nao": 0.68,
   "pna": 0.101,
-  "epo": null,
-  "composite_score": 5,
+  "epo": -0.525,
+  "composite_score": 20,
   "as_of": {
     "AO": "2026-10-10",
     "NAO": "2026-10-10",
-    "PNA": "2026-10-10"
+    "PNA": "2026-10-10",
+    "EPO": "2026-10-09"
   },
   "stale_indices": [],
   "analogs": [
-    {
-      "year": 1988
-    },
     {
       "year": 1992,
       "mar_hdd_anomaly": -1.2,
       "apr_hdd_anomaly": -0.1
     },
     {
-      "year": 1999
+      "year": 2019
+    },
+    {
+      "year": 2003
     }
   ],
   "status": "success"
