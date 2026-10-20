@@ -390,7 +390,7 @@ def update_wind_history(nat_row, out_rows):
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     national_mw = nat_row.get("wind_mw", 0) or 0
     nat_cf_pct = (national_mw / (TOTAL_INSTALLED_GW * 1000) * 100) if national_mw else 0.0
-    iso_map = {r["iso"]: r["wind_mw"] for r in out_rows}
+    iso_map = {r["iso"]: r["wind_mw"] for r in out_rows if r.get("date") == nat_row.get("date")}
     new_data = {
         "date": nat_row["date"],
         "national_wind_mw": int(round(national_mw)) if pd.notna(national_mw) else 0,

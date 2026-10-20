@@ -235,7 +235,10 @@ def main():
             return len(vals) >= 2 and len(set(vals)) == 1
         convergence_days = shift_df[signs.apply(all_same_sign, axis=1)].index
         if len(convergence_days) > 0:
-            direction = "WARMER" if shift_df.loc[convergence_days[0], chg_cols[0]] < 0 else "COLDER"
+            first_day = convergence_days[0]
+            active_signs = [s for s in signs.loc[first_day] if s not in (None, 0) and pd.notnull(s)]
+            aligned_sign = active_signs[0] if active_signs else 0
+            direction = "WARMER" if aligned_sign < 0 else "COLDER"
             print(f"\n[ALERT] CONVERGENCE ALERT: Models aligning {direction} on {len(convergence_days)} day(s):")
             for d in convergence_days[:5]:
                 row_str = "  " + ", ".join(

@@ -1367,7 +1367,7 @@
                 const fn = document.getElementById('wind-horizon-footnote');
                 if (fn) {
                     fn.innerHTML = Object.entries(hz)
-                        .map(([m, d]) => `<span class="has-tooltip" data-tooltip-key="${TOOLTIPS[m] ? m : 'Forward Wind Forecast'}">${String(m).replace('_', '/')}</span> ${d}d`)
+                        .map(([m, d]) => `<span class="has-tooltip" data-tooltip-key="${(TOOLTIPS[m] ? m : (TOOLTIPS[String(m).replace('_', '/')] ? String(m).replace('_', '/') : 'Forward Wind Forecast'))}">${String(m).replace('_', '/')}</span> ${d}d`)
                         .join(' | ');
                 }
             }
@@ -2752,6 +2752,10 @@
                 body: "Average solar power output calculated strictly during peak daylight hours when solar generation occurs."
             },
             "GFS/CFS": {
+                title: "GFS/CFS (Subseasonal)",
+                body: "Seamless combination of the 16-day GFS (Global Forecast System) and the extended subseasonal CFS (Climate Forecast System) to provide wind and solar predictions out to 35 days."
+            },
+            "GFS_CFS": {
                 title: "GFS/CFS (Subseasonal)",
                 body: "Seamless combination of the 16-day GFS (Global Forecast System) and the extended subseasonal CFS (Climate Forecast System) to provide wind and solar predictions out to 35 days."
             }

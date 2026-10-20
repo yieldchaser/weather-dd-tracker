@@ -376,9 +376,11 @@ def main_logic():
         all_model_data = pd.concat(node_dfs, ignore_index=True)
         # Renormalize by capacity ACTUALLY reporting at each hour — dividing
         # partial-node sums by full fleet capacity fabricates CF dips.
-        national_hourly = all_model_data.groupby("time").agg(
-            gw=("gw", "sum"), inst=("inst", "sum")
-        ).reset_index()
+        agg_hourly = {"gw": ("gw", "sum"), "inst": ("inst", "sum")}
+        if "gw_p10" in all_model_data.columns and all_model_data["gw_p10"].notna().any():
+            agg_hourly["gw_p10"] = ("gw_p10", "sum")
+            agg_hourly["gw_p90"] = ("gw_p90", "sum")
+        national_hourly = all_model_data.groupby("time").agg(**agg_hourly).reset_index()
         national_hourly["cf"] = national_hourly["gw"] / national_hourly["inst"].replace(0, float("nan"))
         national_hourly = national_hourly.dropna(subset=["cf"])
         national_hourly["date"] = national_hourly["time"].dt.date
@@ -437,8 +439,8 @@ def main_logic():
                 "climo_cf_pct": round(climo_cf * 100, 1),
                 "anomaly_cf_pct": round(anomaly_cf * 100, 1),
                 "drought_flag": drought_flag,
-                "gfs_p10_gw": round(row.get("gw_p10", 0), 2) if row.get("gw_p10") is not None else None,
-                "gfs_p90_gw": round(row.get("gw_p90", 0), 2) if row.get("gw_p90") is not None else None
+                "gfs_p10_gw": round(float(row["gw_p10"]), 2) if "gw_p10" in row and pd.notna(row["gw_p10"]) else None,
+                "gfs_p90_gw": round(float(row["gw_p90"]), 2) if "gw_p90" in row and pd.notna(row["gw_p90"]) else None
             })
             
     if not all_rows:

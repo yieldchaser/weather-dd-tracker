@@ -1303,10 +1303,12 @@
                             let dtR = new Date(`${r.date}T00:00:00Z`);
                             let dDiff = Math.round((dtR - deltaBase) / (1000 * 60 * 60 * 24));
 
-                            let val = r.tdd_gw_change;
-                            if (val === undefined || val === null || isNaN(val)) {
-                                val = r.tdd_change || 0;
-                            }
+                            let val = IS_CDD
+                                ? (parseFloat(r.cdd_gw_change ?? r.cdd_change ?? 0))
+                                : (IS_BOTH
+                                    ? (parseFloat(r.tdd_gw_change ?? r.tdd_change ?? 0))
+                                    : (parseFloat(r.hdd_gw_change ?? r.hdd_change ?? 0)));
+                            if (isNaN(val)) val = 0;
 
                             total_chg += val;
                             if (dDiff < 5) c1 += val;
