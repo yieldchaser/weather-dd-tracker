@@ -43,6 +43,21 @@ def main():
             
         latest_run = runs[0]
         prev_run = runs[1]
+
+        # Ignore offline/stale models (older than 4 days) so they don't corrupt the live date index
+        try:
+            clean_r0 = latest_run.replace("_AI", "").replace("_seamless", "").replace("_OM", "")
+            if len(clean_r0) == 8:
+                t_run = datetime.strptime(clean_r0, "%Y%m%d")
+            else:
+                t_run = datetime.strptime(clean_r0[:11], "%Y%m%d_%H")
+            run_age_days = (datetime.now() - t_run).total_seconds() / 86400
+            if run_age_days > 4:
+                print(f"  [STALE] Skipping {model}: latest run {latest_run} is {run_age_days:.1f} days old.")
+                continue
+        except Exception:
+            pass
+
         print(f"  {model}: Latest={latest_run}, Prev={prev_run}")
         
         latest_df = m_df[m_df["run_id"] == latest_run][["date", "hdd_value"]].rename(columns={"hdd_value": "latest"})
@@ -79,8 +94,12 @@ def main():
         print("  [WARN] No shift data could be computed.")
         return
         
-    # Build the Shift Table
-    shift_df = pd.DataFrame(index=sorted(latest_dates))
+    # Build the Shift Table (only show dates from yesterday onwards)
+    today_cutoff = pd.Timestamp.now().normalize() - pd.Timedelta(days=1)
+    valid_dates = [d for d in latest_dates if pd.to_datetime(d) >= today_cutoff]
+    if not valid_dates:
+        valid_dates = latest_dates
+    shift_df = pd.DataFrame(index=sorted(valid_dates))
     
     for model in MODELS:
         col_name = f"{model} Op Chg"

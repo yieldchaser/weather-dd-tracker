@@ -1,3 +1,9 @@
+# ── Credentials & Secrets ──────────────────────────────────────────────────
+*credentials*.json
+*gcp*.json
+weather-desk-live*.json
+.env
+
 # ── Large binary model/weather data (never commit) ────────────────────────────
 *.grib
 *.grib2
