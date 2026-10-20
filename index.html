@@ -1247,6 +1247,11 @@
                 let currentRun = mRows.filter(r => r.run_id === latestRunId);
                 currentRun.sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
+                // Exclude models whose forecast horizon completely expired in the past
+                let maxDate = currentRun.length > 0 ? currentRun[currentRun.length - 1].date : null;
+                let todayCutoff = new Date(Date.now() - 86400000 * 2).toISOString().substring(0, 10);
+                if (maxDate && maxDate < todayCutoff) return;
+
                 let w1_fcst = 0, w1_norm = 0, w1_anom = 0, w1_norm10 = 0, w1_anom10 = 0, len1 = 0;
                 let w2_fcst = 0, w2_norm = 0, w2_anom = 0, w2_norm10 = 0, w2_anom10 = 0, len2 = 0;
                 let w3_fcst = 0, w3_norm = 0, w3_anom = 0, w3_norm10 = 0, w3_anom10 = 0, len3 = 0;
@@ -1928,8 +1933,12 @@
         let runChartInstance = null;
 
         function initChart(masterData, vsNormal, mapManifest) {
-            // Collect available models
-            let models = [...new Set(masterData.map(r => r.model).filter(m => m))].sort();
+            // Collect active models (only models with forecasts reaching near today/future)
+            const todayCutoff = new Date(Date.now() - 86400000 * 2).toISOString().substring(0, 10);
+            const activeModels = new Set(
+                masterData.filter(r => r.date && r.date >= todayCutoff).map(r => r.model).filter(Boolean)
+            );
+            let models = [...new Set(masterData.map(r => r.model).filter(m => m && (activeModels.size === 0 || activeModels.has(m))))].sort();
             let sel = document.getElementById('modelSelect');
             const prevSelected = sel.value;
             sel.innerHTML = '';
