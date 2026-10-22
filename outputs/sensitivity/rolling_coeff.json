@@ -1,12 +1,6 @@
 {
-  "timestamp": "2026-10-21T13:24:26.137Z",
-  "metric": "BOTH",
-  "sensitivity_bcf_per_hdd": 0.017,
-  "r_squared": 0.0,
-  "percentile": 0,
-  "base_demand": 26.6,
-  "n_observations": 91,
-  "window_days": 90,
-  "data_source": "national_power_burn_history",
-  "connected": true
+  "timestamp": "2026-10-22T13:25:30.752320+00:00",
+  "connected": false,
+  "data_source": "unavailable",
+  "reason": "non_positive_sensitivity_slope_-0.022"
 }
