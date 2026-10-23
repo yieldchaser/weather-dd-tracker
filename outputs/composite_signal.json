@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-10-22T21:18:57.943Z",
-  "composite_score": 0.5,
+  "timestamp": "2026-10-23T02:29:59.728Z",
+  "composite_score": 0.8,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 68.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
-      "score": -3.0
+      "score": -2.7
     },
     {
       "name": "Wind Drought (Persistent)",
@@ -22,7 +22,7 @@
     "sensitivity (unavailable)"
   ],
   "tactical_signal": {
-    "score": 1.0,
+    "score": 0.92,
     "bias": "STRONG BULL",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
@@ -30,7 +30,7 @@
   "divergence_note": null,
   "detail": {
     "bull_accumulator": 3.5,
-    "bear_accumulator": 3.0
+    "bear_accumulator": 2.7
   },
   "system_status": {
     "teleconnections_connected": true,
