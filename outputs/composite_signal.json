@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-10-24T10:11:36.782Z",
-  "composite_score": 1.1,
+  "timestamp": "2026-10-24T12:51:47.364Z",
+  "composite_score": -0.9,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 68.0,
+  "confidence": 62.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
       "score": -2.4
     },
     {
-      "name": "Wind Drought (Persistent)",
-      "score": 2.0
+      "name": "Wind Generation",
+      "score": 0.0
     },
     {
       "name": "Cold Delivery Pattern (Regime 1 (Arctic Block / Ridge East / Trough West))",
@@ -29,7 +29,7 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 3.5,
+    "bull_accumulator": 1.5,
     "bear_accumulator": 2.4
   },
   "system_status": {
