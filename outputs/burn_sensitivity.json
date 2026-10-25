@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-10-25T14:18:50.108899+00:00",
+  "generated_at_utc": "2026-10-25T20:36:22.337436+00:00",
   "fit_window_days": 180,
   "fit": {
     "a": 0.013489025209695442,
@@ -937,93 +937,93 @@
   "forecast_series": [
     {
       "date": "2026-10-26",
-      "temp": 55.01,
-      "burn_implied": 17.122,
-      "burn_normal_delta": 0.479
+      "temp": 54.87,
+      "burn_implied": 17.093,
+      "burn_normal_delta": 0.45
     },
     {
       "date": "2026-10-27",
-      "temp": 55.02,
-      "burn_implied": 17.124,
-      "burn_normal_delta": 0.515
+      "temp": 54.91,
+      "burn_implied": 17.101,
+      "burn_normal_delta": 0.492
     },
     {
       "date": "2026-10-28",
-      "temp": 55.04,
-      "burn_implied": 17.128,
-      "burn_normal_delta": 0.634
+      "temp": 54.9,
+      "burn_implied": 17.099,
+      "burn_normal_delta": 0.605
     },
     {
       "date": "2026-10-29",
-      "temp": 57.42,
-      "burn_implied": 17.708,
-      "burn_normal_delta": 1.292
+      "temp": 57.23,
+      "burn_implied": 17.656,
+      "burn_normal_delta": 1.241
     },
     {
       "date": "2026-10-30",
-      "temp": 59.39,
-      "burn_implied": 18.303,
-      "burn_normal_delta": 1.872
+      "temp": 59.05,
+      "burn_implied": 18.193,
+      "burn_normal_delta": 1.762
     },
     {
       "date": "2026-10-31",
-      "temp": 59.29,
-      "burn_implied": 18.27,
-      "burn_normal_delta": 1.816
+      "temp": 58.52,
+      "burn_implied": 18.027,
+      "burn_normal_delta": 1.573
     },
     {
       "date": "2026-11-01",
-      "temp": 59.69,
-      "burn_implied": 18.403,
-      "burn_normal_delta": 1.963
+      "temp": 58.75,
+      "burn_implied": 18.098,
+      "burn_normal_delta": 1.658
     },
     {
       "date": "2026-11-02",
-      "temp": 59.21,
-      "burn_implied": 18.244,
-      "burn_normal_delta": 1.879
+      "temp": 59.14,
+      "burn_implied": 18.222,
+      "burn_normal_delta": 1.857
     },
     {
       "date": "2026-11-03",
-      "temp": 56.92,
-      "burn_implied": 17.573,
-      "burn_normal_delta": 1.253
+      "temp": 57.64,
+      "burn_implied": 17.769,
+      "burn_normal_delta": 1.449
     },
     {
       "date": "2026-11-04",
-      "temp": 54.07,
-      "burn_implied": 16.936,
-      "burn_normal_delta": 0.63
+      "temp": 54.51,
+      "burn_implied": 17.02,
+      "burn_normal_delta": 0.714
     },
     {
       "date": "2026-11-05",
-      "temp": 52.78,
-      "burn_implied": 16.719,
-      "burn_normal_delta": 0.398
+      "temp": 52.75,
+      "burn_implied": 16.715,
+      "burn_normal_delta": 0.393
     },
     {
       "date": "2026-11-06",
-      "temp": 52.64,
-      "burn_implied": 16.699,
-      "burn_normal_delta": 0.38
+      "temp": 51.5,
+      "burn_implied": 16.549,
+      "burn_normal_delta": 0.231
     },
     {
       "date": "2026-11-07",
-      "temp": 52.91,
-      "burn_implied": 16.739,
-      "burn_normal_delta": 0.439
+      "temp": 50.97,
+      "burn_implied": 16.491,
+      "burn_normal_delta": 0.191
     },
     {
       "date": "2026-11-08",
-      "temp": 52.45,
-      "burn_implied": 16.671,
-      "burn_normal_delta": 0.348
+      "temp": 50.95,
+      "burn_implied": 16.489,
+      "burn_normal_delta": 0.166
     },
     {
       "date": "2026-11-09",
-      "temp": 51.79,
-      "burn_implied": 16.584,
-      "burn_normal_delta": 0.272
+      "temp": 49.5,
+      "burn_implied": 16.371,
+      "burn_normal_delta": 0.06
     }
   ],
   "ercot_fit": {
