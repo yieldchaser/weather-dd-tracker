@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-10-24T20:24:10.389Z",
-  "composite_score": -0.9,
+  "timestamp": "2026-10-25T02:04:21.172Z",
+  "composite_score": -0.54,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 62.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
-      "score": -2.4
+      "score": -2.04
     },
     {
       "name": "Wind Generation",
@@ -22,15 +22,15 @@
     "sensitivity (unavailable)"
   ],
   "tactical_signal": {
-    "score": -0.9,
-    "bias": "STRONG BEAR",
+    "score": -0.44,
+    "bias": "BEARISH",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
     "bull_accumulator": 1.5,
-    "bear_accumulator": 2.4
+    "bear_accumulator": 2.04
   },
   "system_status": {
     "teleconnections_connected": true,
