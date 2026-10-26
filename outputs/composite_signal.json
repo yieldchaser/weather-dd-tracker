@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-10-26T12:04:43.299Z",
-  "composite_score": 1.2,
+  "timestamp": "2026-10-26T15:22:35.656Z",
+  "composite_score": -0.7,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 68.0,
@@ -10,12 +10,12 @@
       "score": -1.5
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2
+      "name": "Wind Drought (Persistent)",
+      "score": 2.0
     },
     {
-      "name": "Cold Delivery Pattern (Regime 1 (Arctic Block / Ridge East / Trough West))",
-      "score": 1.5
+      "name": "Mild Pattern (Regime 2 (Ridge East))",
+      "score": -1.2
     }
   ],
   "stale_systems": [
@@ -29,8 +29,8 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 2.7,
-    "bear_accumulator": 1.5
+    "bull_accumulator": 2.0,
+    "bear_accumulator": 2.7
   },
   "system_status": {
     "teleconnections_connected": true,
