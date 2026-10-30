@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-30T03:32:22.120Z",
+  "timestamp": "2026-10-30T12:15:53.552Z",
   "composite_score": 2.7,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
@@ -22,12 +22,12 @@
     "sensitivity (unavailable)"
   ],
   "tactical_signal": {
-    "score": -0.89,
-    "bias": "STRONG BEAR",
+    "score": 0.21,
+    "bias": "BULLISH",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
-  "agreement_pct": 0.0,
-  "divergence_note": "DIVERGENT: front of the curve (0-15d) prices BELOW-normal demand; subseasonal risk (10-45d) leans the other way. Trade the front, respect the back \u2014 do not average them into one number.",
+  "agreement_pct": 100.0,
+  "divergence_note": "Tactical and subseasonal views are ALIGNED.",
   "detail": {
     "bull_accumulator": 2.7,
     "bear_accumulator": 0.0
