@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-10-31T11:40:45.009Z",
-  "composite_score": -0.72,
+  "timestamp": "2026-10-31T14:40:21.946Z",
+  "composite_score": 0.08,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 68.0,
+  "confidence": 56.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
       "score": -0.72
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.2
+      "name": "Wind Drought (Persistent)",
+      "score": 2.0
     },
     {
       "name": "Mild Pattern (Regime 4 (Polar Vortex))",
@@ -29,7 +29,7 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 1.2,
+    "bull_accumulator": 2.0,
     "bear_accumulator": 1.92
   },
   "system_status": {
