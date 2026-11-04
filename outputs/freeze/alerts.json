@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-11-03T23:34:20.871059Z",
-  "status": "ok",
+  "timestamp": "2026-11-04T17:20:05.866596Z",
+  "status": "partial",
   "sources": {
     "GFS": "ok",
-    "ECMWF": "ok"
+    "ECMWF": "failed"
   },
-  "gfs_run": "2026-11-03T18:00:00Z",
-  "ecmwf_run": "2026-11-03T12:00:00Z",
+  "gfs_run": "2026-11-04T12:00:00Z",
+  "ecmwf_run": "2026-11-04T17:20:05.865211Z",
   "alert_level": {
     "Permian": "NONE",
     "Haynesville": "NONE",
