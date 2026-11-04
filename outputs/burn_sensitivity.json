@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-04T01:52:08.389831+00:00",
+  "generated_at_utc": "2026-11-04T03:46:09.171797+00:00",
   "fit_window_days": 180,
   "fit": {
     "a": 0.017934758041437925,
-    "b": -1.9273033803794055,
-    "c": 70.34347437000619,
+    "b": -1.9273033803794057,
+    "c": 70.3434743700062,
     "n": 180,
     "r2": 0.239
   },
@@ -937,9 +937,9 @@
   "forecast_series": [
     {
       "date": "2026-11-05",
-      "temp": 57.92,
-      "burn_implied": 18.88,
-      "burn_normal_delta": -0.181
+      "temp": 57.91,
+      "burn_implied": 18.879,
+      "burn_normal_delta": -0.182
     },
     {
       "date": "2026-11-06",
@@ -949,33 +949,33 @@
     },
     {
       "date": "2026-11-07",
-      "temp": 50.38,
-      "burn_implied": 18.767,
-      "burn_normal_delta": -0.592
+      "temp": 50.32,
+      "burn_implied": 18.774,
+      "burn_normal_delta": -0.585
     },
     {
       "date": "2026-11-08",
-      "temp": 48.05,
-      "burn_implied": 19.144,
-      "burn_normal_delta": -0.524
+      "temp": 47.99,
+      "burn_implied": 19.157,
+      "burn_normal_delta": -0.512
     },
     {
       "date": "2026-11-09",
-      "temp": 48.65,
-      "burn_implied": 19.029,
-      "burn_normal_delta": -0.529
+      "temp": 48.49,
+      "burn_implied": 19.058,
+      "burn_normal_delta": -0.499
     },
     {
       "date": "2026-11-10",
-      "temp": 50.18,
-      "burn_implied": 18.792,
-      "burn_normal_delta": -0.684
+      "temp": 50.0,
+      "burn_implied": 18.815,
+      "burn_normal_delta": -0.661
     },
     {
       "date": "2026-11-11",
-      "temp": 49.98,
-      "burn_implied": 18.818,
-      "burn_normal_delta": -0.904
+      "temp": 49.84,
+      "burn_implied": 18.837,
+      "burn_normal_delta": -0.885
     },
     {
       "date": "2026-11-12",
@@ -1015,15 +1015,15 @@
     },
     {
       "date": "2026-11-18",
-      "temp": 49.26,
-      "burn_implied": 18.924,
-      "burn_normal_delta": -1.849
+      "temp": 49.48,
+      "burn_implied": 18.89,
+      "burn_normal_delta": -1.884
     },
     {
       "date": "2026-11-19",
-      "temp": 49.98,
-      "burn_implied": 18.818,
-      "burn_normal_delta": -1.657
+      "temp": 48.79,
+      "burn_implied": 19.003,
+      "burn_normal_delta": -1.471
     }
   ],
   "ercot_fit": {

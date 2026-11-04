@@ -5,9 +5,7 @@
   "field": "TMP:2 m above ground (byte-range extracted)",
   "forecast_hours": [
     0,
-    6
-  ],
-  "skipped_hours": [
+    6,
     12,
     18,
     24,
@@ -68,5 +66,6 @@
     354,
     360
   ],
-  "created_utc": "2026-11-04T01:07:44.670738+00:00"
+  "skipped_hours": [],
+  "created_utc": "2026-11-04T03:10:22.586567+00:00"
 }
