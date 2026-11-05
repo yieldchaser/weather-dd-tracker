@@ -2183,7 +2183,7 @@
             }
         }
 
-        function setTcCard(valEl, value) {
+        function setTcCard(valEl, value, key) {
             if (value === null || value === undefined || Number.isNaN(Number(value))) {
                 valEl.textContent = 'N/A';
                 valEl.className = 'tc-val tc-zero';
@@ -2195,10 +2195,14 @@
                 valEl.className = 'tc-val tc-zero';
                 return;
             }
-            // In cooling season (CDD), warm (>0) is bullish, cold (<0) is bearish.
-            // In heating season (HDD), cold (<0) is bullish, warm (>0) is bearish.
+            // In cooling season (CDD), warm (>0) is bullish, cold (<0) is bearish (except PNA where <0 is bullish).
+            // In heating season (HDD), cold (<0) is bullish, warm (>0) is bearish (except PNA where >0 is bullish).
             const isCooling = (typeof CURRENT_METRIC !== 'undefined' && CURRENT_METRIC === 'CDD');
-            const isBullish = isCooling ? (num > 0) : (num < 0);
+            const isPna = (key && key.toLowerCase() === 'pna');
+            // For AO, NAO, EPO: heating cold (<0) is bullish; cooling warm (>0) is bullish.
+            // For PNA: heating cold East (>0) is bullish; cooling warm East (<0) is bullish.
+            const isColdBullish = isPna ? (num > 0) : (num < 0);
+            const isBullish = isCooling ? !isColdBullish : isColdBullish;
             valEl.className = 'tc-val ' + (isBullish ? 'tc-bullish' : 'tc-bearish');
         }
 
@@ -2215,7 +2219,7 @@
                 for (const [key, elId] of Object.entries(keys)) {
                     if (tcData[key] !== undefined) {
                         const val = tcData[key];
-                        setTcCard(document.getElementById(elId), val);
+                        setTcCard(document.getElementById(elId), val, key);
                         updateTcTooltip(key, val);
                     }
                 }

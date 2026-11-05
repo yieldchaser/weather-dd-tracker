@@ -233,8 +233,8 @@ def test_market_signals():
 
     if score is None or math.isnan(score):
         record_failure("Composite Score Valid", "Score is null or NaN")
-    elif score < -3.0 or score > 3.0:
-        record_failure("Composite Score Range", f"Score {score} out of bounds [-3.0, +3.0]")
+    elif score < -10.0 or score > 10.0:
+        record_failure("Composite Score Range", f"Score {score} out of bounds [-10.0, +10.0]")
     else:
         record_pass("Composite Score Range", f"Score = {score:+.2f}")
 

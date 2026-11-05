@@ -96,32 +96,58 @@ def calculate_OLS_sensitivity():
     # The original storage-based design also looked back ~90 days.
     window_start = end_date_dt - timedelta(days=90)
 
-    merged = burn[(burn["date"] >= window_start) & (burn["date"] <= end_date_dt)][
-        ["date", "gas_burn_bcfd", dd_col]
-    ].rename(columns={"gas_burn_bcfd": "bcf_d", dd_col: "dd"}).dropna()
+    # In heating season (HDD), avoid cross-seasonal contamination from summer
+    # cooling burn days (where CDD > 1.0) which act as high-leverage outliers
+    # and invert the HDD slope.
+    burn_window = burn[(burn["date"] >= window_start) & (burn["date"] <= end_date_dt)].copy()
+    if _season == "HDD" and "cdd_gw" in burn_window.columns:
+        burn_window = burn_window[burn_window["cdd_gw"] <= 1.0]
 
-    if len(merged) < 10 or merged["dd"].std() < 0.5:
-        _write_disconnected(f"insufficient_variation_{len(merged)}pts")
-        return
-
-    X = sm.add_constant(merged["dd"].astype(float))
-    y = merged["bcf_d"].astype(float)
-    try:
-        ols_model = sm.OLS(y, X).fit()
-    except Exception as e:
-        _write_disconnected(f"ols_failed_{type(e).__name__}")
-        return
-
-    coeff = float(ols_model.params.get("dd", ols_model.params.iloc[-1]))
-    r2 = float(ols_model.rsquared)
-    const = float(ols_model.params.get("const", ols_model.params.iloc[0]))
-
-    if coeff <= 0:
-        _write_disconnected(f"non_positive_sensitivity_slope_{coeff:.3f}")
-        return
+    merged = burn_window[["date", "gas_burn_bcfd", dd_col]].rename(
+        columns={"gas_burn_bcfd": "bcf_d", dd_col: "dd"}
+    ).dropna()
 
     lo, hi = PERCENTILE_BANDS[_season]
-    percentile = min(max(int((coeff - lo) / (hi - lo) * 100), 0), 100)
+    mid = (lo + hi) / 2.0
+
+    if len(merged) < 10 or merged["dd"].std() < 0.5:
+        logging.warning(
+            f"[Sensitivity] Insufficient variation ({len(merged)} pts). "
+            f"Using seasonal baseline ({mid:.2f} Bcf/{_season}, percentile 50)."
+        )
+        coeff = mid
+        percentile = 50
+        r2 = 0.0
+        const = float(merged["bcf_d"].mean()) if not merged.empty else 20.0
+        data_source = "seasonal_baseline_fallback"
+    else:
+        X = sm.add_constant(merged["dd"].astype(float))
+        y = merged["bcf_d"].astype(float)
+        try:
+            ols_model = sm.OLS(y, X).fit()
+            coeff = float(ols_model.params.get("dd", ols_model.params.iloc[-1]))
+            r2 = float(ols_model.rsquared)
+            const = float(ols_model.params.get("const", ols_model.params.iloc[0]))
+        except Exception as e:
+            logging.warning(f"[Sensitivity] OLS fit error ({e}). Using seasonal baseline.")
+            coeff = mid
+            percentile = 50
+            r2 = 0.0
+            const = float(merged["bcf_d"].mean()) if not merged.empty else 20.0
+            data_source = "seasonal_baseline_fallback"
+
+        if coeff <= 0:
+            logging.warning(
+                f"[Sensitivity] Non-positive rolling slope ({coeff:.3f}) in transition. "
+                f"Using seasonal baseline ({mid:.2f} Bcf/{_season}, percentile 50)."
+            )
+            coeff = mid
+            percentile = 50
+            r2 = 0.0
+            data_source = "seasonal_baseline_fallback"
+        else:
+            percentile = min(max(int((coeff - lo) / (hi - lo) * 100), 0), 100)
+            data_source = "national_power_burn_history"
 
     output = {
         "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
@@ -132,7 +158,7 @@ def calculate_OLS_sensitivity():
         "base_demand": round(const, 1),
         "n_observations": int(len(merged)),
         "window_days": 90,
-        "data_source": "national_power_burn_history",
+        "data_source": data_source,
         "connected": True,
     }
 

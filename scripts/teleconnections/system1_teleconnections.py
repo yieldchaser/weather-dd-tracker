@@ -247,10 +247,19 @@ def run_system1():
     # Positive PNA = Ridging in West, Trough in East (Cold East US).
     # Negative EPO = Ridge over Alaska, forcing cold air down into US.
     
-    score = 0
+    # Compute composite cold risk score (0-100 scale centered at 50 for neutral).
+    # Downstream consumers (compute_composite_weather_signal, send_telegram) expect:
+    #   50 = neutral / normal pattern (score in 45-55 band = neutral)
+    #   >55 = cold-favorable pattern (bullish in heating season)
+    #   <45 = mild/warm pattern (bearish in heating season)
+    # Rule of thumb for Natural Gas Cold Risk: 
+    # Negative AO/NAO = Arctic air spills south.
+    # Positive PNA = Ridging in West, Trough in East (Cold East US).
+    # Negative EPO = Ridge over Alaska, forcing cold air down into US.
     weights = {'AO': -1.5, 'NAO': -1.5, 'PNA': 1.0, 'EPO': -2.0}
     
     current_vec = {}
+    forcing = 0.0
     for idx, w in weights.items():
         val = data.get(idx, {}).get('current')
         if val is None:
@@ -258,19 +267,14 @@ def run_system1():
         roc = data[idx]['roc'] or 0.0
         current_vec[idx] = val
 
-        # Base value contribution
-        if w < 0 and val < -0.5:
-            score += abs(w) * abs(val) * 10
-        elif w > 0 and val > 0.5:
-            score += w * val * 10
+        # Signed cold forcing: positive means cold-favorable, negative means warm-favorable
+        # (w is negative for AO/NAO/EPO so val < 0 gives positive forcing; w is positive for PNA)
+        forcing += w * val + 0.5 * w * roc
 
-        # Rate of change contribution
-        if w < 0 and roc < -0.5:
-            score += 5
-        elif w > 0 and roc > 0.5:
-            score += 5
-
-    score = min(max(int(score), 0), 100)
+    # Map signed forcing into 0-100 scale centered at 50.
+    # 1 standard deviation shift across key indices gives ~3-4 forcing units (~12-15 score points).
+    score = int(round(50 + forcing * 3.5))
+    score = min(max(score, 0), 100)
 
     # Build analog year matching
     analog_years = []
