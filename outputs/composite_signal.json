@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-09T20:11:58.485Z",
+  "timestamp": "2026-11-10T01:29:10.185Z",
   "composite_score": 3.83,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
@@ -24,12 +24,12 @@
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": 0.09,
-    "bias": "NEUTRAL",
+    "score": 0.19,
+    "bias": "BULLISH",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
-  "agreement_pct": null,
-  "divergence_note": null,
+  "agreement_pct": 100.0,
+  "divergence_note": "Tactical and subseasonal views are ALIGNED.",
   "detail": {
     "bull_accumulator": 4.25,
     "bear_accumulator": 0.42
