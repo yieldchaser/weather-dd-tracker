@@ -1,26 +1,28 @@
 {
-  "timestamp": "2026-11-10T14:26:35.465Z",
-  "composite_score": 3.55,
+  "timestamp": "2026-11-10T16:32:28.244Z",
+  "composite_score": 2.62,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 68.0,
+  "confidence": 85.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
-      "score": -0.7
+      "score": -0.63
     },
     {
-      "name": "Wind Drought (Persistent)",
-      "score": 2.5
+      "name": "Weather Sensitivity Neutral",
+      "score": 0.0
+    },
+    {
+      "name": "Wind Drought (Moderate)",
+      "score": 1.5
     },
     {
       "name": "Cold Delivery Pattern (Regime 5 (Arctic Block / Trough East / Ridge West))",
       "score": 1.75
     }
   ],
-  "stale_systems": [
-    "sensitivity (stale)"
-  ],
+  "stale_systems": [],
   "tactical_signal": {
     "score": 0.39,
     "bias": "BULLISH",
@@ -29,13 +31,13 @@
   "agreement_pct": 100.0,
   "divergence_note": "Tactical and subseasonal views are ALIGNED.",
   "detail": {
-    "bull_accumulator": 4.25,
-    "bear_accumulator": 0.7
+    "bull_accumulator": 3.25,
+    "bear_accumulator": 0.63
   },
   "system_status": {
     "teleconnections_connected": true,
     "freeze_connected": true,
-    "sensitivity_connected": false,
+    "sensitivity_connected": true,
     "wind_connected": true,
     "regimes_connected": true
   }
