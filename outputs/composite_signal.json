@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-11-10T22:56:34.502Z",
-  "composite_score": 2.62,
+  "timestamp": "2026-11-11T01:32:22.173Z",
+  "composite_score": 2.69,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 85.0,
   "components": [
     {
       "name": "Teleconnections Warm Anomaly",
-      "score": -0.63
+      "score": -0.56
     },
     {
       "name": "Weather Sensitivity Neutral",
@@ -24,15 +24,15 @@
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": 1.0,
-    "bias": "STRONG BULL",
+    "score": 0.4,
+    "bias": "BULLISH",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
   "agreement_pct": 100.0,
   "divergence_note": "Tactical and subseasonal views are ALIGNED.",
   "detail": {
     "bull_accumulator": 3.25,
-    "bear_accumulator": 0.63
+    "bear_accumulator": 0.56
   },
   "system_status": {
     "teleconnections_connected": true,
