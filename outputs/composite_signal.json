@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-11-15T13:38:39.232Z",
-  "composite_score": 4.51,
+  "timestamp": "2026-11-15T15:47:12.471Z",
+  "composite_score": 3.01,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 100.0,
@@ -14,8 +14,8 @@
       "score": 0.0
     },
     {
-      "name": "Wind Drought (Moderate)",
-      "score": 1.5
+      "name": "Wind Generation",
+      "score": 0.0
     },
     {
       "name": "Cold Delivery Pattern (Regime 5 (Arctic Block / Trough East / Ridge West))",
@@ -31,7 +31,7 @@
   "agreement_pct": 0.0,
   "divergence_note": "DIVERGENT: front of the curve (0-15d) prices BELOW-normal demand; subseasonal risk (10-45d) leans the other way. Trade the front, respect the back \u2014 do not average them into one number.",
   "detail": {
-    "bull_accumulator": 4.51,
+    "bull_accumulator": 3.01,
     "bear_accumulator": 0.0
   },
   "system_status": {
