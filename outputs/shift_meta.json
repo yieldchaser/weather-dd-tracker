@@ -1,8 +1,8 @@
 {
   "models": {
     "GFS OP CHG": {
-      "latest": "20261114_12",
-      "prev": "20261114_06",
+      "latest": "20261114_18",
+      "prev": "20261114_12",
       "gap": false,
       "has_gw": true
     },
@@ -19,8 +19,8 @@
       "has_gw": true
     },
     "GFS ENS CHG": {
-      "latest": "20261114_12",
-      "prev": "20261114_06",
+      "latest": "20261114_18",
+      "prev": "20261114_12",
       "gap": false,
       "has_gw": true
     },
@@ -36,9 +36,15 @@
       "gap": false,
       "has_gw": true
     },
+    "GOOGLE WN3 CHG": {
+      "latest": "20261115_00",
+      "prev": "20261114_12",
+      "gap": false,
+      "has_gw": true
+    },
     "EURO AI CHG": {
-      "latest": "20261114_12",
-      "prev": "20261114_06",
+      "latest": "20261114_18",
+      "prev": "20261114_12",
       "gap": false,
       "has_gw": true
     },
@@ -55,8 +61,8 @@
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20261114_12",
-      "prev": "20261114_06",
+      "latest": "20261114_18",
+      "prev": "20261114_12",
       "gap": false,
       "has_gw": true
     },
@@ -73,8 +79,8 @@
       "has_gw": true
     },
     "EC46 CHG": {
-      "latest": "20261113_00",
-      "prev": "20261112_00",
+      "latest": "20261114_00",
+      "prev": "20261113_00",
       "gap": false,
       "has_gw": true
     },
@@ -103,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-14T22:07:56.472788"
+  "generated_at": "2026-11-15T01:13:55.539550"
 }
