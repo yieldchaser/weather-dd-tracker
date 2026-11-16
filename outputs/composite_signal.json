@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-11-15T22:28:38.013Z",
-  "composite_score": 3.01,
+  "timestamp": "2026-11-16T01:16:14.167Z",
+  "composite_score": 3.08,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Cold Risk High",
-      "score": 1.26
+      "score": 1.33
     },
     {
       "name": "Weather Sensitivity Neutral",
@@ -24,14 +24,14 @@
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": -0.7,
-    "bias": "STRONG BEAR",
+    "score": -0.23,
+    "bias": "BEARISH",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
   "agreement_pct": 0.0,
   "divergence_note": "DIVERGENT: front of the curve (0-15d) prices BELOW-normal demand; subseasonal risk (10-45d) leans the other way. Trade the front, respect the back \u2014 do not average them into one number.",
   "detail": {
-    "bull_accumulator": 3.01,
+    "bull_accumulator": 3.08,
     "bear_accumulator": 0.0
   },
   "system_status": {
