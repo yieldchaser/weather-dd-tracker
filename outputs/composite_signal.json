@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-11-16T14:31:22.778Z",
-  "composite_score": 3.08,
+  "timestamp": "2026-11-16T18:47:45.728Z",
+  "composite_score": 2.52,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
   "confidence": 100.0,
   "components": [
     {
       "name": "Teleconnections Cold Risk High",
-      "score": 1.33
+      "score": 0.77
     },
     {
       "name": "Weather Sensitivity Neutral",
@@ -18,7 +18,7 @@
       "score": 0.0
     },
     {
-      "name": "Cold Delivery Pattern (Regime 5 (Arctic Block / Trough East / Ridge West))",
+      "name": "Cold Delivery Pattern (Regime 1 (Arctic Block / Ridge East / Trough West))",
       "score": 1.75
     }
   ],
@@ -31,7 +31,7 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 3.08,
+    "bull_accumulator": 2.52,
     "bear_accumulator": 0.0
   },
   "system_status": {
