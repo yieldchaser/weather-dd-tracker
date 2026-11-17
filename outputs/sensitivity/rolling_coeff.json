@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-11-16T17:54:49.658Z",
+  "timestamp": "2026-11-17T17:21:19.589Z",
   "metric": "HDD",
   "sensitivity_bcf_per_hdd": 2.25,
   "r_squared": 0.0,
   "percentile": 50,
-  "base_demand": 19.9,
-  "n_observations": 35,
+  "base_demand": 19.8,
+  "n_observations": 36,
   "window_days": 90,
   "data_source": "seasonal_baseline_fallback",
   "connected": true
