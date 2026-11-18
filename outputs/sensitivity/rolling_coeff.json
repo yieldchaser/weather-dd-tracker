@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-11-17T17:21:19.589Z",
+  "timestamp": "2026-11-18T16:55:50.813Z",
   "metric": "HDD",
-  "sensitivity_bcf_per_hdd": 2.25,
-  "r_squared": 0.0,
-  "percentile": 50,
-  "base_demand": 19.8,
-  "n_observations": 36,
+  "sensitivity_bcf_per_hdd": 0.011,
+  "r_squared": 0.001,
+  "percentile": 0,
+  "base_demand": 19.6,
+  "n_observations": 37,
   "window_days": 90,
-  "data_source": "seasonal_baseline_fallback",
+  "data_source": "national_power_burn_history",
   "connected": true
 }
