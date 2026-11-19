@@ -49,8 +49,8 @@
       "has_gw": true
     },
     "NOAA AI CHG": {
-      "latest": "20261118_00",
-      "prev": "20261117_00",
+      "latest": "20261119_00",
+      "prev": "20261118_00",
       "gap": false,
       "has_gw": true
     },
@@ -61,8 +61,8 @@
       "has_gw": true
     },
     "AIGEFS CHG": {
-      "latest": "20261118_18",
-      "prev": "20261118_12",
+      "latest": "20261119_00",
+      "prev": "20261118_18",
       "gap": false,
       "has_gw": true
     },
@@ -85,9 +85,9 @@
       "has_gw": true
     },
     "HRRR CHG": {
-      "latest": "20261117_13",
-      "prev": "20261117_12",
-      "gap": false,
+      "latest": "20261119_00",
+      "prev": "20261117_13",
+      "gap": true,
       "has_gw": true
     },
     "NAM CHG": {
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-19T02:57:30.359051"
+  "generated_at": "2026-11-19T05:07:56.043032"
 }
