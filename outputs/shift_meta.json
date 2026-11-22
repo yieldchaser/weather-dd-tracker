@@ -37,9 +37,9 @@
       "has_gw": true
     },
     "GOOGLE WN3 CHG": {
-      "latest": "20261120_12",
-      "prev": "20261119_12",
-      "gap": false,
+      "latest": "20261122_00",
+      "prev": "20261120_12",
+      "gap": true,
       "has_gw": true
     },
     "EURO AI CHG": {
@@ -97,8 +97,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20261121_12",
-      "prev": "20261121_00",
+      "latest": "20261122_00",
+      "prev": "20261121_12",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-22T01:38:24.975506"
+  "generated_at": "2026-11-22T03:57:38.993216"
 }
