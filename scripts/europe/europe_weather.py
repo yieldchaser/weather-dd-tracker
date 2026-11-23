@@ -39,6 +39,9 @@ import json
 import math
 import sys
 import time
+import warnings
+
+warnings.filterwarnings("ignore", message="(Mean of empty slice|All-NaN slice)")
 from pathlib import Path
 
 import numpy as np
@@ -64,7 +67,8 @@ RUNS_KEPT = 12
 # (key, label, open-meteo model, cycles, publication lag on Open-Meteo in hours, forecast_days)
 MODELS = [
     ("ECMWF_ENS", "ECMWF ENS", "ecmwf_ifs025_ensemble", ["00", "12"], 8, 15),
-    ("GEFS", "GFS ENS (GEFS)", "ncep_gefs025", ["00", "06", "12", "18"], 6, 16),
+    # GEFS 0.25° stops near day 10; the seamless product continues at 0.5°.
+    ("GEFS", "GFS ENS (GEFS)", ["ncep_gefs_seamless", "ncep_gefs025"], ["00", "06", "12", "18"], 6, 16),
     ("AIFS_ENS", "ECMWF AIFS ENS", "ecmwf_aifs025_ensemble", ["00", "12"], 7, 15),
 ]
 
@@ -136,8 +140,8 @@ def c_to_f(c):
 # the count until 1991-2020 is complete.
 ERA5_DIR = DATA_DIR / "era5"
 FIRST_YEAR = 1991
-YEARS_PER_RUN = 3
-REQ_PAUSE_S = 20  # keeps archive usage under the per-minute limit
+YEARS_PER_RUN = 2
+REQ_PAUSE_S = 5  # keeps archive usage under the per-minute limit
 
 
 def fetch_city_archive(start, end):
@@ -330,7 +334,22 @@ def expected_run_id(cycles, lag_h, now=None):
 
 
 def fetch_ensemble(om_model, days):
-    """Return (dates, member_temp_c[member][city][day]) for all cities."""
+    """Return (dates, member_temp_c[member][city][day]) for all cities.
+    om_model may be a list of identifiers to try in order."""
+    if isinstance(om_model, (list, tuple)):
+        last = None
+        for m in om_model:
+            try:
+                dates, cube = fetch_ensemble(m, days)
+                if dates and cube:
+                    print(f"[Europe]   using Open-Meteo model '{m}'")
+                    return dates, cube
+            except Exception as e:  # noqa: BLE001
+                last = e
+                print(f"[Europe]   model '{m}' unavailable: {str(e)[:120]}")
+        if last:
+            raise last
+        return [], {}
     per_city = []
     for chunk in batched(CITIES, 20):
         js = get_json(ENSEMBLE_URL, {
@@ -426,7 +445,9 @@ def run_model(key, label, om_model, cycles, lag_h, days):
                 return None
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(run, separators=(",", ":")))
-    print(f"[Europe] {key} {run_id}: {len(mem_hdd)} members, {n} days, 15d mean HDD {np.nansum(mean):.1f}.")
+    valid = int(np.sum(~np.isnan(mean)))
+    print(f"[Europe] {key} {run_id}: {len(mem_hdd)} members, {valid}/{n} days with data, "
+          f"mean HDD/day {np.nanmean(mean):.2f}.")
     # prune
     runs = sorted(RUNS_DIR.glob(f"{key}_*.json"))
     for old in runs[:-RUNS_KEPT]:
