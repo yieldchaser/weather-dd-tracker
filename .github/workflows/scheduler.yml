@@ -6,6 +6,11 @@ name: Pipeline Scheduler
 # chain if it ever stops; a newer run replaces an older one.
 on:
   workflow_dispatch:
+    inputs:
+      loop_minutes:
+        description: "Loop length in minutes (default 340)"
+        required: false
+        default: "340"
   schedule:
     - cron: "17 */4 * * *"
 
@@ -29,4 +34,5 @@ jobs:
       - name: Dispatch overdue workflows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOOP_MINUTES: ${{ inputs.loop_minutes }}
         run: python3 scripts/scheduler.py

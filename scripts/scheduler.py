@@ -27,7 +27,10 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "yieldchaser/weather-dd-tracker")
 TOKEN = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
 API = f"https://api.github.com/repos/{REPO}/actions/workflows"
 
-LOOP_SECONDS = int(os.environ.get("SCHED_LOOP_SECONDS", 5 * 3600 + 40 * 60))
+try:
+    LOOP_SECONDS = int(float(os.environ.get("LOOP_MINUTES") or 340) * 60)
+except ValueError:
+    LOOP_SECONDS = 340 * 60
 CHECK_EVERY_S = 300
 # A slot older than this is not dispatched any more (the next slot covers it).
 MAX_LATENESS = dt.timedelta(hours=3)
@@ -80,6 +83,7 @@ def dispatch(wf):
 
 
 def tick(now):
+    print(f"{now:%Y-%m-%d %H:%M} tick", flush=True)
     for wf, slots in SLOTS.items():
         slot = last_slot(slots, now)
         if slot is None or now - slot < GRACE or now - slot > MAX_LATENESS:
