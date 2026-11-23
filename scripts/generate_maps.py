@@ -350,6 +350,8 @@ def generate_gifs_for_model(model_name, folder, manifest):
                 grids = {pd.Timestamp(d): ds_curr.sel(date=d).values for d in ds_curr.date.values}
             else:
                 grids = dict(ds_curr)
+            # lons were re-sorted to -180..180 above; columns must follow.
+            grids = {k: align_lons(np.asarray(v)) for k, v in grids.items()}
             render_anomaly_gif(model_name, latest_run, sample_grid_at_cities(grids, lats, lons), normals)
         except Exception as e:
             print(f"  [WARN] {model_name} anomaly map failed: {e}")
