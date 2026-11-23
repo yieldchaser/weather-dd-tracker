@@ -740,6 +740,16 @@
                     <div class="tc-name">EPO</div>
                     <div class="tc-val tc-zero" id="tc-epo-val">--</div>
                 </div>
+                <div class="telecon-card has-tooltip" id="tc-mjo" data-tooltip-key="MJO">
+                    <div class="tc-name">MJO</div>
+                    <div class="tc-val tc-zero" id="tc-mjo-val">--</div>
+                </div>
+            </div>
+            <div class="week-card" id="mjo-panel" style="display:none;margin-bottom:16px;">
+                <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
+                    <div style="width:280px;height:280px;max-width:100%;position:relative;flex:0 0 auto;margin:0 auto;"><canvas id="mjoChart"></canvas></div>
+                    <div id="mjo-text" style="flex:1 1 240px;font-size:0.88rem;line-height:1.55;color:#c5c6c7;"></div>
+                </div>
             </div>
  
             <!-- INTELLIGENCE SIGNAL BANNER -->
@@ -856,6 +866,9 @@
                 <div id="ekg-cards" class="ekg-cards"></div>
                 <div style="height:380px;position:relative;"><canvas id="ekgChart"></canvas></div>
                 <div id="ekg-foot" class="chg-foot"></div>
+                <h3 class="has-tooltip" data-tooltip-key="Daily Departure" style="color:#66fcf1;font-size:1rem;margin:22px 0 4px;" id="dep-title">Daily departure from normal</h3>
+                <div style="font-size:0.8rem;color:#8a99a8;margin-bottom:6px;" id="dep-sub"></div>
+                <div style="height:340px;position:relative;"><canvas id="depChart"></canvas></div>
             </div>
 
             <!-- MODEL SCORECARD -->
@@ -1842,9 +1855,27 @@
                 (fc[d] = fc[d] || []).push(v);
             });
             const fcDates = Object.keys(fc).filter(d => fc[d].length >= 2).sort();
+            // Per-model latest-run series for the departure chart.
+            const DEP_MODELS = ['ECMWF_ENS', 'GEFS', 'AIFS_ENS', 'CMC_ENS', 'ECMWF', 'GFS', 'GOOGLE_WN3', 'GOOGLE_WN2', 'AIGEFS', 'ECMWF_AIFS', 'NBM'];
+            const depLatest = {}, depSeries = {};
+            (masterData || []).forEach(r => {
+                if (!DEP_MODELS.includes(r.model) || !r.run_id) return;
+                const t = runTimeMs(r.run_id); if (t === null) return;
+                if (!depLatest[r.model] || t > depLatest[r.model].t) depLatest[r.model] = { t, id: r.run_id };
+            });
+            const staleCut = Date.parse(lastObs + 'T00:00:00Z') - 3 * 86400000;
+            (masterData || []).forEach(r => {
+                const L = depLatest[r.model];
+                if (!L || r.run_id !== L.id || L.t < staleCut) return;
+                const d = String(r.date).substring(0, 10); if (d <= lastObs) return;
+                const v = ddVal(r); if (isNaN(v)) return;
+                (depSeries[r.model] = depSeries[r.model] || {})[d] = v;
+            });
+            let endDate = fcDates.length ? fcDates[fcDates.length - 1] : lastObs;
+            Object.values(depSeries).forEach(m => Object.keys(m).forEach(d => { if (d > endDate && d <= addDaysIso(lastObs, 16)) endDate = d; }));
             const start = addDaysIso(lastObs, -119);
             const labels = [];
-            for (let d = start; d <= (fcDates.length ? fcDates[fcDates.length - 1] : lastObs); d = addDaysIso(d, 1)) labels.push(d);
+            for (let d = start; d <= endDate; d = addDaysIso(d, 1)) labels.push(d);
             const q = (arr, p) => { if (!arr.length) return null; const a = [...arr].sort((x, y) => x - y); const i = (a.length - 1) * p, lo = Math.floor(i); return a[lo] + (a[Math.min(lo + 1, a.length - 1)] - a[lo]) * (i - lo); };
             const sameDate = (y, d) => `${y}${d.substring(4)}`;
             const band = labels.map(d => {
@@ -1923,6 +1954,49 @@
                     scales: { x: { ticks: { color: '#c5c6c7', maxRotation: 0, autoSkip: true, maxTicksLimit: window.innerWidth <= 600 ? 5 : 10, callback: (v, i) => { const d = labels[i]; return new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); } }, grid: { color: '#2a3642' } },
                         y: { min: 0, ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: true, text: `Gas-weighted ${DD_LABEL}/day`, color: '#c5c6c7' } } } }
             });
+            // ── Daily departure from normal: observed bars + each model's latest run ──
+            const depCanvas = document.getElementById('depChart');
+            if (depCanvas) {
+                const moreDemand = IS_CDD ? '#ef5350' : '#42a5f5', lessDemand = IS_CDD ? '#42a5f5' : '#ef5350';
+                // Skip the out-of-season stretch (normal < 1/day) except the week before it ends.
+                let i0 = labels.findIndex((d, i) => band[i].norm != null && band[i].norm >= 1);
+                i0 = i0 < 0 ? 0 : Math.max(0, i0 - 7);
+                const dl = labels.slice(i0), db = band.slice(i0);
+                const obsDep = dl.map((d, i) => (d <= lastObs && obs.has(d) && db[i].norm != null) ? obs.get(d) - db[i].norm : null);
+                const COLORS = { ECMWF_ENS: '#26a69a', GEFS: '#ff7043', AIFS_ENS: '#66bb6a', CMC_ENS: '#ab47bc', ECMWF: '#42a5f5', GFS: '#ffca28',
+                    GOOGLE_WN3: '#bdbdbd', GOOGLE_WN2: '#8d6e63', AIGEFS: '#ec407a', ECMWF_AIFS: '#ffa726', NBM: '#7e57c2' };
+                const SHOWN = ['ECMWF_ENS', 'GEFS', 'AIFS_ENS', 'CMC_ENS', 'ECMWF', 'GFS'];
+                const lines = DEP_MODELS.filter(m => depSeries[m]).map(m => ({
+                    type: 'line', label: `${m} ${depLatest[m].id.substring(6, 8)}/${depLatest[m].id.substring(9, 11)}z`,
+                    data: dl.map((d, i) => (depSeries[m][d] !== undefined && db[i].norm != null) ? depSeries[m][d] - db[i].norm : null),
+                    borderColor: COLORS[m] || '#999', backgroundColor: COLORS[m] || '#999', borderWidth: 1.8, pointRadius: 1.5, tension: 0.2,
+                    spanGaps: false, hidden: !SHOWN.includes(m), order: 1 }));
+                if (window._depChart) window._depChart.destroy();
+                const lastObsLine = { id: 'lastObsLine', afterDatasetsDraw(ch) {
+                    const idx = dl.indexOf(lastObs); if (idx < 0) return;
+                    const x = ch.scales.x.getPixelForValue(idx), { top, bottom } = ch.chartArea, c = ch.ctx;
+                    c.save(); c.strokeStyle = '#8a99a8'; c.setLineDash([4, 4]); c.beginPath(); c.moveTo(x, top); c.lineTo(x, bottom); c.stroke(); c.restore(); } };
+                window._depChart = new Chart(depCanvas.getContext('2d'), {
+                    plugins: [lastObsLine],
+                    data: { labels: dl, datasets: [
+                        { type: 'bar', label: `Observed (ERA5)`, data: obsDep, order: 2,
+                          backgroundColor: obsDep.map(v => v === null ? 'transparent' : (v >= 0 ? moreDemand : lessDemand)) },
+                        ...lines ] },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { labels: { color: '#c5c6c7', boxWidth: 12, font: { size: window.innerWidth <= 600 ? 9 : 11 } } },
+                            tooltip: { backgroundColor: 'rgba(31,40,51,0.95)', filter: it => it.parsed.y !== null,
+                                callbacks: { title: it => fdTxt(it[0].label) + (it[0].label > lastObs ? '  (forecast)' : ''),
+                                    label: c => `${c.dataset.label}: ${formatNum(c.parsed.y, 1, true)} ${DD_LABEL}/day vs normal` } } },
+                        scales: { x: { ticks: { color: '#c5c6c7', maxRotation: 0, autoSkip: true, maxTicksLimit: window.innerWidth <= 600 ? 5 : 10,
+                                    callback: (v, i) => new Date(dl[i] + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) },
+                                    grid: { color: '#2a3642' } },
+                            y: { ticks: { color: '#c5c6c7' }, grid: { color: (c) => c.tick.value === 0 ? '#8a99a8' : '#2a3642' },
+                                title: { display: true, text: `${DD_LABEL}/day vs 1991-2020`, color: '#c5c6c7' } } } }
+                });
+                const word = IS_CDD ? 'hotter' : 'colder';
+                document.getElementById('dep-sub').innerText = `Bars: observed. Lines: latest run of each model. Positive = ${word} than normal (more ${DD_LABEL}s). The dashed vertical line marks the last observed day. Tap a model in the legend to show or hide it.`;
+            }
+
             document.getElementById('ekg-foot').innerText = `Bands: every year ${yrSpan} for each calendar date, pooled over a centred 15-day window. Rank and records compare the exact date with every earlier year since ${firstY}. Records need at least 20 earlier years and are not counted for days near zero ${DD_LABEL}. Forecast = mean of the latest ${Object.keys(latest).join(', ')} runs after the last observed day.`;
         }
 
@@ -2915,6 +2989,63 @@
             valEl.className = 'tc-val ' + (isBullish ? 'tc-bullish' : 'tc-bearish');
         }
 
+        // ── MJO card + phase diagram (NOAA PSL ROMI) ──────────────────────────
+        // Winter US link (DJF composites): an active MJO (amplitude >= 1) in
+        // phases 8, 1, 2, 3 tends to bring cold to the eastern US about 1-3 weeks
+        // later; phases 4, 5, 6 tend to bring warmth. Weak in the warm season.
+        let mjoChart = null;
+        function renderMjo(m) {
+            const el = document.getElementById('tc-mjo-val');
+            if (!el) return;
+            if (!m || !m.phase) { el.textContent = 'n/a'; return; }
+            el.textContent = `P${m.phase} · ${Number(m.amplitude).toFixed(1)}`;
+            const mon = new Date().getUTCMonth() + 1, winter = (mon >= 11 || mon <= 3);
+            const coldP = [8, 1, 2, 3].includes(m.phase), warmP = [4, 5, 6].includes(m.phase);
+            let cls = 'tc-zero', lean = 'little signal';
+            if (m.active && winter && coldP) { cls = IS_CDD ? 'tc-bearish' : 'tc-bullish'; lean = 'cold-East tendency 1-3 weeks out'; }
+            else if (m.active && winter && warmP) { cls = IS_CDD ? 'tc-bullish' : 'tc-bearish'; lean = 'warm-East tendency 1-3 weeks out'; }
+            else if (!m.active) lean = 'inactive (amplitude below 1)';
+            else if (!winter) lean = 'weak US link outside winter';
+            el.className = 'tc-val ' + cls;
+            const fd = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+            const region = { 1: 'Western Hemisphere/Africa', 2: 'Indian Ocean', 3: 'Indian Ocean', 4: 'Maritime Continent', 5: 'Maritime Continent', 6: 'West Pacific', 7: 'West Pacific', 8: 'Western Hemisphere' }[m.phase];
+            if (TOOLTIPS['MJO']) TOOLTIPS['MJO'].body = `Phase <strong>${m.phase}</strong> (${region}), amplitude <strong>${Number(m.amplitude).toFixed(2)}</strong>: ${lean}. Data through ${fd(m.as_of)}${m.stale ? ' (stale)' : ''}.<br><br>` + TOOLTIPS['MJO'].base;
+            const panel = document.getElementById('mjo-panel'), cv = document.getElementById('mjoChart');
+            const tr = Array.isArray(m.trail) ? m.trail : [];
+            if (!panel || !cv || tr.length < 2) return;
+            panel.style.display = 'block';
+            const first = tr[0], last = tr[tr.length - 1];
+            document.getElementById('mjo-text').innerHTML =
+                `<div style="color:#66fcf1;font-weight:600;margin-bottom:4px;" class="has-tooltip" data-tooltip-key="MJO">MJO phase diagram, last ${tr.length} days</div>` +
+                `Now: phase <strong>${m.phase}</strong> (${region}), amplitude <strong>${Number(m.amplitude).toFixed(2)}</strong>, ${lean}.<br>` +
+                `${fd(first.date)}: phase ${first.phase}, amplitude ${Number(first.amplitude).toFixed(2)}.<br>` +
+                `Inside the circle the MJO is weak. Movement is counter-clockwise; phases 8-1-2-3 are on the left half.<br>` +
+                `<span style="color:#888">Source: ${m.source}, data through ${fd(m.as_of)}.</span>`;
+            const lim = Math.max(3, Math.ceil(Math.max(...tr.map(p => Math.max(Math.abs(p.x), Math.abs(p.y)))) + 0.5));
+            const circle = { id: 'mjoGuides', beforeDatasetsDraw(ch) {
+                const { ctx, scales: { x, y } } = ch; ctx.save(); ctx.strokeStyle = '#3a4652'; ctx.lineWidth = 1;
+                const cx = x.getPixelForValue(0), cy = y.getPixelForValue(0), r = Math.abs(x.getPixelForValue(1) - cx);
+                ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.stroke();
+                for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4, L = Math.abs(x.getPixelForValue(lim) - cx) * 1.5;
+                    ctx.beginPath(); ctx.moveTo(cx - L * Math.cos(a), cy - L * Math.sin(a)); ctx.lineTo(cx + L * Math.cos(a), cy + L * Math.sin(a)); ctx.stroke(); }
+                ctx.fillStyle = '#6b7885'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                const R = Math.abs(x.getPixelForValue(lim * 0.82) - cx);
+                for (let ph = 1; ph <= 8; ph++) { const a = (-180 + 45 * (ph - 1) + 22.5) * Math.PI / 180;
+                    ctx.fillText(String(ph), cx + R * Math.cos(a), cy - R * Math.sin(a)); }
+                ctx.restore(); } };
+            if (mjoChart) mjoChart.destroy();
+            mjoChart = new Chart(cv.getContext('2d'), {
+                type: 'scatter', plugins: [circle],
+                data: { datasets: [{ data: tr.map(p => ({ x: p.x, y: p.y, d: p.date, ph: p.phase, a: p.amplitude })), showLine: true,
+                    borderColor: '#66fcf1', borderWidth: 1.5, pointRadius: tr.map((p, i) => i === tr.length - 1 ? 6 : 2),
+                    pointBackgroundColor: tr.map((p, i) => i === tr.length - 1 ? '#ffb74d' : '#66fcf1') }] },
+                options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1, animation: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${fd(c.raw.d)}: phase ${c.raw.ph}, amplitude ${Number(c.raw.a).toFixed(2)}` } } },
+                    scales: { x: { min: -lim, max: lim, ticks: { color: '#8a99a8', stepSize: 1 }, grid: { display: false }, title: { display: true, text: 'RMM1 (ROMI PC2)', color: '#8a99a8', font: { size: 10 } } },
+                              y: { min: -lim, max: lim, ticks: { color: '#8a99a8', stepSize: 1 }, grid: { display: false }, title: { display: true, text: 'RMM2 (-PC1)', color: '#8a99a8', font: { size: 10 } } } } }
+            });
+        }
+
         async function loadIntelligenceOverlays() {
             const [tcData, signalData, regimeData] = await Promise.all([
                 fetchJSON('outputs/teleconnections/latest.json'),
@@ -2933,6 +3064,7 @@
                     }
                 }
                 document.getElementById('telecon-panel').classList.add('visible');
+                try { renderMjo(tcData.mjo); } catch (e) { console.error('mjo', e); }
             }
 
             // Task 2, Intelligence Signal Banner
@@ -3027,6 +3159,10 @@
             "Weather Desk Nav": {
                 title: "Weather Desk Dashboard",
                 body: "Provides real-time spatial weather analysis, teleconnections, algorithmic market bias, temperature anomaly forecasts, and model run-to-run changes."
+            },
+            "Daily Departure": {
+                title: "Daily Departure from Normal",
+                body: "Observed gas-weighted degree days minus the 1991-2020 normal for each day (bars), continued by each model's latest run (lines) on the same normal, so recent weather and every model's outlook read on one axis. In heating season positive bars are colder than normal (more heating demand). Models whose latest run is more than 3 days older than the last observed day are left out."
             },
             "Daily vs History": {
                 title: "Daily Degree Days vs History",
@@ -3175,6 +3311,11 @@
             "PNA": {
                 title: "Pacific-North American (PNA)",
                 body: "The Pacific-North American index. A <strong>positive phase</strong> correlates with warmer western US and colder eastern US temperatures, whereas a <strong>negative phase</strong> is the reverse."
+            },
+            "MJO": {
+                title: "Madden-Julian Oscillation (MJO)",
+                base: "A pulse of tropical thunderstorms that circles the globe every 30-60 days, shown as phase 1-8 and amplitude (strength). In winter an active MJO (amplitude 1 or more) in phases 8, 1, 2 or 3 tends to send cold into the eastern US about 1-3 weeks later; phases 4, 5 and 6 tend to bring warmth. Below amplitude 1 it carries little signal. Source: NOAA PSL real-time OMI (ROMI).",
+                body: "A pulse of tropical thunderstorms that circles the globe every 30-60 days, shown as phase 1-8 and amplitude (strength). In winter an active MJO (amplitude 1 or more) in phases 8, 1, 2 or 3 tends to send cold into the eastern US about 1-3 weeks later; phases 4, 5 and 6 tend to bring warmth. Below amplitude 1 it carries little signal. Source: NOAA PSL real-time OMI (ROMI)."
             },
             "EPO": {
                 title: "East Pacific Oscillation (EPO)",

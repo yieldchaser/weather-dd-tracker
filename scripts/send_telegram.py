@@ -525,6 +525,18 @@ def _fmt_teleconnections(season="HDD"):
         # damps teleconnection weight to 0.15 in summer).
         off_season = date.today().month in (5, 6, 7, 8, 9)
         cr_suffix = " <i>(off-season: pattern-seeding only, damped in composite)</i>" if off_season else ""
+        mjo = td.get("mjo") or {}
+        if mjo.get("phase"):
+            mon = date.today().month
+            winter = mon >= 11 or mon <= 3
+            ph, amp = int(mjo["phase"]), float(mjo.get("amplitude") or 0)
+            if amp >= 1 and winter and ph in (8, 1, 2, 3):
+                msig = "🟢" if season != "CDD" else "🔴"
+            elif amp >= 1 and winter and ph in (4, 5, 6):
+                msig = "🔴" if season != "CDD" else "🟢"
+            else:
+                msig = "⚪"
+            idx_line += f"  MJO P{ph} {amp:.1f}{'' if amp >= 1 else ' (weak)'}{msig}"
         lines = [f"<b>📡 TELECONNECTIONS</b>: {idx_line}",
                  f"  Cold Risk: {cold_risk}/100 {risk_emoji}{cr_suffix}"]
         as_of = td.get("as_of") or {}
