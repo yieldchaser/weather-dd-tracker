@@ -73,7 +73,10 @@
         .pos { color: var(--bullish); }
         .neg { color: var(--bearish); }
 
-        .grid2 { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; }
+        table.cty td, table.cty th { padding: 6px 5px; }
+        table.cty td.day { font-size: 0.72rem; min-width: 34px; text-align: center; }
+        table.cty th.day { text-align: center; font-size: 0.62rem; }
+        table.cty td.sep, table.cty th.sep { border-left: 2px solid #3a4652; }
         .yr-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 10px; max-height: 72px; overflow-y: auto; }
         .yr-chip { font-size: 0.7rem; padding: 2px 7px; border-radius: 10px; border: 1px solid #3a4552; color: #8a949e; cursor: pointer; user-select: none; }
         .yr-chip.on { color: #0b0c10; font-weight: 700; border-color: transparent; }
@@ -83,9 +86,6 @@
         #loading { padding: 60px; text-align: center; color: var(--muted); }
         .empty { padding: 30px; text-align: center; color: var(--muted); border: 1px dashed #3a4552; border-radius: 4px; }
 
-        @media (max-width: 900px) {
-            .grid2 { grid-template-columns: 1fr; }
-        }
         @media (max-width: 768px) {
             body { padding: 16px; }
             .header h1 { font-size: 1.4rem; }
@@ -144,31 +144,26 @@
                 <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10–P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and 2016-2025 daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ.</div>
             </div>
 
-            <div class="grid2">
-                <div>
-                    <h2 class="section-title">Run-to-run change by window (all models)</h2>
-                    <div class="panel">
-                        <div class="tbl-wrap">
-                            <table>
-                                <thead><tr id="mxHead"></tr></thead>
-                                <tbody id="mxBody"></tbody>
-                            </table>
-                        </div>
-                        <div class="panel-note">Window totals on identical calendar dates for every model. Green = colder / more heating demand (supportive for TTF/NBP and US LNG pull), red = milder. Superscript = days covered when the comparison run is shorter than the window.</div>
-                    </div>
+            <h2 class="section-title">Run-to-run change by window (all models)</h2>
+            <div class="panel">
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr id="mxHead"></tr></thead>
+                        <tbody id="mxBody"></tbody>
+                    </table>
                 </div>
-                <div>
-                    <h2 class="section-title">Country temperature anomaly (°C)</h2>
-                    <div class="panel">
-                        <div class="tbl-wrap">
-                            <table>
-                                <thead><tr><th>Country</th><th>Wt</th><th>1-5</th><th>6-10</th><th>11-15</th></tr></thead>
-                                <tbody id="ctyBody"></tbody>
-                            </table>
-                        </div>
-                        <div class="panel-note">Ensemble-mean 2 m temperature vs 1991-2020 ERA5 city normals, averaged over each window. Blue = colder than normal. Wt = relative heating-gas weight.</div>
-                    </div>
+                <div class="panel-note">Window totals on identical calendar dates for every model. Green = colder / more heating demand (supportive for TTF/NBP and US LNG pull), red = milder. Superscript = days covered when the comparison run is shorter than the window.</div>
+            </div>
+
+            <h2 class="section-title" id="ctyTitle">Country temperature anomaly (°C vs 1991-2020)</h2>
+            <div class="panel">
+                <div class="tbl-wrap">
+                    <table class="cty">
+                        <thead><tr id="ctyHead"></tr></thead>
+                        <tbody id="ctyBody"></tbody>
+                    </table>
                 </div>
+                <div class="panel-note">Ensemble-mean 2 m temperature vs 1991-2020 ERA5 city normals for the selected model's latest run, by country and day; window columns are averages. Blue = colder than normal. Wt = share of the heating-gas weight. Rows sorted by weight.</div>
             </div>
 
             <h2 class="section-title">Season cumulative HDD (Sep–Apr)</h2>
@@ -316,7 +311,7 @@
         function renderMain() {
             const M = DATA.models[UI.model], runs = M.runs, L = runs[0], C = pickCompare(runs, UI.cmp);
             const d1 = today();
-            const labels = L.dates.filter(d => d >= addDays(d1, -1));
+            const labels = L.dates.filter(d => d >= d1);
             const Lm = seriesMap(L), Cm = C ? seriesMap(C) : {};
             const p10 = seriesMap(L, 'hdd_p10'), p90 = seriesMap(L, 'hdd_p90');
             const ds = [];
@@ -422,22 +417,28 @@
         }
 
         function renderCountries() {
-            const L = DATA.models[UI.model].runs[0];
+            const M = DATA.models[UI.model], L = M.runs[0];
             const d1 = today();
+            const days = L.dates.filter(d => d >= d1).slice(0, 15);
             const wins = [[0, 4], [5, 9], [10, 14]].map(([a, b]) => Array.from({ length: b - a + 1 }, (_, i) => addDays(d1, a + i)));
             const idx = d => L.dates.indexOf(d);
-            const rows = Object.entries(L.country_anom_c || {}).map(([c, arr]) => {
-                const vals = wins.map(w => { const v = w.map(idx).filter(i => i >= 0 && arr[i] !== null).map(i => arr[i]); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; });
-                return { c, w: (DATA.weights || {})[c] || 0, vals };
-            }).sort((a, b) => b.w - a.w);
+            const avg = (arr, ds) => { const v = ds.map(idx).filter(i => i >= 0 && arr[i] !== null && arr[i] !== undefined).map(i => arr[i]); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+            const rows = Object.entries(L.country_anom_c || {}).map(([c, arr]) => ({ c, arr, w: (DATA.weights || {})[c] || 0 })).sort((a, b) => b.w - a.w);
             const totW = rows.reduce((a, r) => a + r.w, 0) || 1;
-            const cell = v => {
-                if (v === null) return '<td style="color:#555">–</td>';
-                const a = Math.min(0.7, 0.1 + Math.abs(v) / 6);
-                const bg = v < 0 ? `rgba(66,165,245,${a})` : `rgba(239,83,80,${a})`;
-                return `<td style="background:${bg}; color:#fff;">${fmt(v, 1, true)}</td>`;
+            const cell = (v, extra = '') => {
+                if (v === null || v === undefined) return `<td class="${extra}" style="color:#555">–</td>`;
+                const a = Math.min(0.75, 0.08 + Math.abs(v) / 6);
+                return `<td class="${extra}" style="background:${v < 0 ? `rgba(66,165,245,${a})` : `rgba(239,83,80,${a})`}; color:#fff;">${fmt(v, 1, true)}</td>`;
             };
-            document.getElementById('ctyBody').innerHTML = rows.map(r => `<tr><td>${r.c}</td><td style="color:#888">${(100 * r.w / totW).toFixed(0)}%</td>${r.vals.map(cell).join('')}</tr>`).join('');
+            document.getElementById('ctyTitle').innerText = `Country temperature anomaly (°C vs 1991-2020) — ${M.label} ${runLabel(L.run_id)}`;
+            document.getElementById('ctyHead').innerHTML = '<th>Country</th><th>Wt</th><th>1-5</th><th>6-10</th><th>11-15</th>' +
+                days.map((d, i) => { const x = new Date(d + 'T00:00:00Z'); return `<th class="day${i === 0 ? ' sep' : ''}">${DOW[x.getUTCDay()].substring(0, 2)}<br>${x.getUTCDate()}</th>`; }).join('');
+            // Weighted Europe row first
+            const eu = days.map(d => { let n = 0, w = 0; rows.forEach(r => { const v = r.arr[idx(d)]; if (v !== null && v !== undefined) { n += r.w * v; w += r.w; } }); return w ? n / w : null; });
+            const euArr = L.dates.map(d => { const k = days.indexOf(d); return k >= 0 ? eu[k] : null; });
+            const line = (name, w, arr, bold) => `<tr${bold ? ' class="cons"' : ''}><td>${name}</td><td style="color:#888">${w}</td>${wins.map(ws => cell(avg(arr, ws))).join('')}${days.map((d, i) => { const v = arr[idx(d)]; return cell(v === undefined ? null : v, 'day' + (i === 0 ? ' sep' : '')); }).join('')}</tr>`;
+            document.getElementById('ctyBody').innerHTML = line('Europe (weighted)', '100%', euArr, true) +
+                rows.map(r => line(r.c, (100 * r.w / totW).toFixed(0) + '%', r.arr, false)).join('');
         }
 
         function renderSeason() {
