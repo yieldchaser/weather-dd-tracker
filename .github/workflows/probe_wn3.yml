@@ -1,0 +1,45 @@
+name: TEMP probe WeatherNext 3 on Open-Meteo
+on:
+  push:
+    branches: [claude/peaceful-cori-avfgpu]
+    paths: [.github/workflows/probe_wn3.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query Open-Meteo ensemble API
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, urllib.error
+          base = "https://ensemble-api.open-meteo.com/v1/ensemble?latitude=40.71&longitude=-74.01&daily=temperature_2m_mean&forecast_days=7&timezone=UTC"
+          names = ["google_weathernext3_ensemble_mean", "google_weathernext3", "google_weathernext2_ensemble_mean",
+                   "google_weathernext2", "totally_fake_model_xyz", None]
+          series = {}
+          for m in names:
+              url = base + (f"&models={m}" if m else "")
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as r:
+                      j = json.loads(r.read()); code = r.status
+              except urllib.error.HTTPError as e:
+                  code = e.code; j = {"error_body": e.read().decode()[:200]}
+              except Exception as e:
+                  code = "ERR"; j = {"error": str(e)[:200]}
+              d = j.get("daily", {})
+              keys = [k for k in d if k != "time"]
+              vals = d.get(keys[0]) if keys else None
+              series[m] = vals
+              print(f"MODEL={m!r} HTTP={code} daily_keys={keys} first_dates={d.get('time', [])[:2]} values={vals}")
+              if "error_body" in j or "error" in j: print("   ", j)
+          a, b = series.get("google_weathernext3_ensemble_mean"), series.get("google_weathernext2_ensemble_mean")
+          if a and b:
+              print("WN3 minus WN2 per day:", [round(x - y, 2) if x is not None and y is not None else None for x, y in zip(a, b)])
+          for m in ["google_weathernext3_ensemble_mean", "google_weathernext2_ensemble_mean"]:
+              for host in ["https://ensemble-api.open-meteo.com/data/" + m + "/static/meta.json"]:
+                  try:
+                      with urllib.request.urlopen(host, timeout=20) as r: print("META", m, r.status, r.read()[:300])
+                  except urllib.error.HTTPError as e: print("META", m, e.code)
+                  except Exception as e: print("META", m, "ERR", str(e)[:100])
+          PY
