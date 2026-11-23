@@ -172,6 +172,9 @@ def _warm_cartopy_cache():
         print(f"[WARN] Cartopy cache warm-up failed: {e}")
 
 
+MAX_COMPARE_GAP_H = 72
+
+
 def pick_comparisons(latest_run, older_runs, max_n=3):
     """Choose which prior runs to diff against the latest run.
 
@@ -195,6 +198,9 @@ def pick_comparisons(latest_run, older_runs, max_n=3):
             break
         if r not in picks:
             picks.append(r)
+    # A comparison only means something between neighbouring runs. ICON's
+    # archive jumps from June to November; diffing those is not a run change.
+    picks = [r for r in picks if (hours_between(latest_run, r) or 0) <= MAX_COMPARE_GAP_H]
     return picks[:max_n]
 
 
@@ -207,6 +213,7 @@ def load_city_normals():
         out = {}
         for row in df.itertuples(index=False):
             out.setdefault((int(row.month), int(row.day)), {})[row.city] = float(row.normal_temp_f)
+        out["_n_years"] = int(df["n_years"].max()) if "n_years" in df.columns else 30
         return out
     except Exception as e:
         print(f"  [WARN] Could not read city normals: {e}")
@@ -263,7 +270,9 @@ def render_anomaly_gif(model_name, run_id, city_temps, normals):
             sc = ax.scatter(lons, lats, c=an, s=[60 + 18 * w for w in wts], cmap='RdBu_r', vmin=-20, vmax=20,
                             transform=ccrs.PlateCarree(), edgecolor='black', linewidth=0.5)
             cbar = plt.colorbar(sc, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
-            cbar.set_label("Temperature Anomaly vs 1991-2020 Normal (°F) ,  bubble size = gas-demand weight", fontsize=9)
+            ny = normals.get("_n_years", 30)
+            basis = "1991-2020 normal" if ny >= 30 else f"provisional normal ({ny} of 30 yrs, 1991-2020)"
+            cbar.set_label(f"Temperature anomaly vs {basis} (°F),  bubble size = gas-demand weight", fontsize=9)
             tag = "colder" if gw < 0 else "warmer"
             plt.title(f"{model_name} {run_id}  ·  Day {i + 1}: {ts.strftime('%a %b %d')}\n"
                       f"Gas-weighted anomaly {gw:+.1f}°F ({tag} than normal)", fontsize=12, fontweight='bold')
