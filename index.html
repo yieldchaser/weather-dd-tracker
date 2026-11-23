@@ -2082,7 +2082,7 @@
             if (st.bench.n5 && recent5.length) datasets.push({ label: `5-yr Avg (${recent5[0]}…${recent5[recent5.length - 1]})`, data: avg5, borderColor: '#e0e0e0', borderWidth: 1.5, borderDash: [2, 4], pointRadius: 0, fill: false, order: 3 });
             if (st.current) {
                 datasets.push({
-                    label: `Current Season (${currentSeasonKey})${lastIdx > lastObsIdx ? ' (dashed = ' + (forecastMeta.label || 'forecast') + ')' : ''}`,
+                    label: `Current Season (${currentSeasonKey})${lastIdx > lastObsIdx ? ' (dashed = ' + (window.innerWidth > 600 ? (forecastMeta.label || 'forecast') : 'forecast') + ')' : ''}`,
                     data: curSeries, borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1, fill: false, order: 1,
                     segment: { borderDash: ctx => (ctx.p0DataIndex >= lastObsIdx && lastObsIdx >= 0) ? [6, 4] : undefined }
                 });
@@ -2118,7 +2118,7 @@
                     scales: {
                         x: {
                             max: (st.bench.zoom && lastIdx >= 0) ? allLabels[Math.min(allLabels.length - 1, lastIdx + 35)] : undefined,
-                            ticks: { color: '#c5c6c7', autoSkip: false, maxRotation: 0, callback: (val) => monthGroupStarts[val] ?? (st.bench.zoom && (val % 7 === 0) && ![1, 2, 3, 4].some(k => monthGroupStarts[val - k] || monthGroupStarts[val + k]) ? allLabels[val].substring(3) : null) },
+                            ticks: { color: '#c5c6c7', autoSkip: false, maxRotation: 0, callback: (val) => monthGroupStarts[val] ?? (st.bench.zoom && window.innerWidth > 600 && (val % 7 === 0) && ![1, 2, 3, 4].some(k => monthGroupStarts[val - k] || monthGroupStarts[val + k]) ? allLabels[val].substring(3) : null) },
                             grid: { color: (c) => (monthGroupStarts[c.index] ? '#3a4652' : (st.bench.zoom && c.index % 7 === 0 ? '#232d38' : 'transparent')) }
                         },
                         y: { ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: true, text: `Cumulative Gas-Weighted ${DD_LABEL}s`, color: SEASON_COLOR },

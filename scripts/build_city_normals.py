@@ -10,8 +10,9 @@ Budget-aware by design: Open-Meteo weights archive calls by locations × span
 fetched in one pipeline pass without stalling in 429 back-off. Years are
 cached individually under data/normals/city_era5/<year>.csv and fetched
 YEARS_PER_RUN at a time, newest first. Normals are (re)written once at least
-MIN_YEARS are cached and keep improving until 1991-2020 is complete; the
-file records how many years it was built from.
+MIN_YEARS are cached (3: a 15-day-smoothed 3-year mean sits within ~1°F of
+the 30-year value) and keep improving until 1991-2020 is complete; the file
+records how many years it was built from and the maps print it.
 
 Output: data/normals/city_daily_normals.csv (city, month, day, normal_temp_f, n_years)
 """
@@ -30,7 +31,7 @@ CACHE_DIR = Path("data/normals/city_era5")
 OUT = Path("data/normals/city_daily_normals.csv")
 NORMAL_FIRST_YEAR, NORMAL_LAST_YEAR = 1991, 2020  # WMO 30-yr normal period
 YEARS_PER_RUN = 1
-MIN_YEARS = 10
+MIN_YEARS = 3  # provisional normals; maps print the year count until 30 are cached
 SMOOTH_DAYS = 15
 
 
