@@ -82,8 +82,8 @@ jobs:
           python scripts/market_logic/fetch_live_grid.py || echo "[WARN] Live grid fetch failed — continuing pipeline."
           python scripts/poll_models.py
           # Per-city 1991-2020 normals for anomaly-vs-normal maps: one ERA5 year per
-          # major-cycle slot (API budget), cached in git until 1991-2020 is complete.
-          if [[ $(date -u +%-H) -eq 5 || $(date -u +%-H) -eq 17 ]] && [ "$(ls data/normals/city_era5/*.csv 2>/dev/null | wc -l)" -lt 30 ]; then
+          # poller run (~2k archive calls), cached in git until 1991-2020 is complete.
+          if [ "$(ls data/normals/city_era5/*.csv 2>/dev/null | wc -l)" -lt 30 ]; then
             timeout 900 python scripts/build_city_normals.py || echo "[WARN] City normals build failed."
           fi
           timeout 1500 python scripts/generate_maps.py || echo "[WARN] Map generation failed or timed out."
