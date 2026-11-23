@@ -102,6 +102,7 @@ TOTAL_W = sum(c[4] for c in CITIES)
 # ───────────────────────────── HTTP ─────────────────────────────
 def get_json(url, params, timeout=90, attempts=5):
     last = None
+    t0 = time.time()
     for i in range(attempts):
         try:
             r = requests.get(url, params=params, timeout=timeout)
@@ -111,7 +112,9 @@ def get_json(url, params, timeout=90, attempts=5):
             return r.json()
         except Exception as e:  # noqa: BLE001
             last = e
-            time.sleep(min(60, 3 * 2 ** i))
+            print(f"  [retry {i + 1}/{attempts}] {url.split('/')[2]}: {str(e)[:160]} ({time.time() - t0:.0f}s)", flush=True)
+            if i < attempts - 1:
+                time.sleep(min(60, 3 * 2 ** i))
     raise RuntimeError(f"GET {url} failed after {attempts} attempts: {last}")
 
 
@@ -146,7 +149,7 @@ def fetch_city_archive(start, end):
             "longitude": ",".join(str(c[3]) for c in chunk),
             "start_date": start, "end_date": end,
             "daily": "temperature_2m_mean", "timezone": "UTC",
-        }, timeout=120, attempts=4)
+        }, timeout=60, attempts=3)
         if isinstance(js, dict):
             js = [js]
         for city, res in zip(chunk, js):
@@ -335,7 +338,7 @@ def fetch_ensemble(om_model, days):
             "longitude": ",".join(str(c[3]) for c in chunk),
             "daily": "temperature_2m_mean", "models": om_model,
             "forecast_days": days, "timezone": "UTC",
-        }, timeout=180)
+        }, timeout=90, attempts=4)
         per_city += js if isinstance(js, list) else [js]
         time.sleep(1)
     dates = None

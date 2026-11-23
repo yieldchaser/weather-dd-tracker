@@ -22,6 +22,7 @@ concurrency:
 jobs:
   europe:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -50,7 +51,7 @@ jobs:
           PY
 
       - name: Build Europe HDD outlook
-        run: python -u scripts/europe/europe_weather.py
+        run: timeout 1800 python -u scripts/europe/europe_weather.py
 
       - name: Upload outputs (non-main refs)
         if: github.ref_name != 'main'
