@@ -335,6 +335,30 @@ def fetch_era5_cities_batch(
     return city_data
 
 
+
+# Open-Meteo publishes, per model, the initialisation time of the run it is
+# serving (data/<dir>/static/meta.json, field last_run_initialisation_time).
+# Labelling runs from it replaces wall-clock guessing, which stored the newest
+# ECMWF ENS run under yesterday's 00z label. Directory names match the API
+# model names except where mapped here.
+OM_META_DIRS = {"ecmwf_ifs025": "ecmwf_ifs025_ensemble"}
+OM_META_HOST = "https://ensemble-api.open-meteo.com"
+
+
+def om_latest_run(model, host=OM_META_HOST, timeout=15):
+    """Run id (YYYYMMDD_HH) Open-Meteo currently serves for `model`, or None."""
+    import datetime as _dt
+    import requests as _rq
+    d = OM_META_DIRS.get(model, model)
+    try:
+        r = _rq.get(f"{host}/data/{d}/static/meta.json", timeout=timeout)
+        if r.status_code != 200:
+            return None
+        t = int(r.json()["last_run_initialisation_time"])
+        return _dt.datetime.fromtimestamp(t, _dt.timezone.utc).strftime("%Y%m%d_%H")
+    except Exception:
+        return None
+
 def is_duplicate_run(base_dir, run_id, city_data, tol_f=0.01, min_points=50):
     """
     True when `city_data` (Celsius, as returned by fetch_all_cities_batch) is

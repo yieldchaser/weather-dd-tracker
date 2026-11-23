@@ -155,6 +155,11 @@ def sync_all_aigefs():
         date_str = (now - datetime.timedelta(days=1)).strftime("%Y%m%d")
         cycle = "18"
 
+    # Exact label from Open-Meteo's own run metadata when available.
+    from om_batch_fetch import om_latest_run
+    _rid = om_latest_run("ncep_aigefs025")
+    if _rid:
+        date_str, cycle = _rid.split("_")
     fetch_run(date_str, cycle)
 
 
