@@ -341,15 +341,19 @@ def fetch_era5_cities_batch(
 # Labelling runs from it replaces wall-clock guessing, which stored the newest
 # ECMWF ENS run under yesterday's 00z label. Directory names match the API
 # model names except where mapped here.
-OM_META_DIRS = {"ecmwf_ifs025": "ecmwf_ifs025_ensemble"}
+OM_META_DIRS = {"ecmwf_ifs025": "ecmwf_ifs025_ensemble", "gem_global_ensemble": "cmc_gem_geps",
+                "icon_seamless": "dwd_icon"}  # ICON seamless: label by its global (6-hourly) component
+OM_META_HOSTS = {"ecmwf_ec46": "https://seasonal-api.open-meteo.com",
+                 "dwd_icon": "https://api.open-meteo.com", "icon_seamless": "https://api.open-meteo.com"}
 OM_META_HOST = "https://ensemble-api.open-meteo.com"
 
 
-def om_latest_run(model, host=OM_META_HOST, timeout=15):
+def om_latest_run(model, host=None, timeout=15):
     """Run id (YYYYMMDD_HH) Open-Meteo currently serves for `model`, or None."""
     import datetime as _dt
     import requests as _rq
     d = OM_META_DIRS.get(model, model)
+    host = host or OM_META_HOSTS.get(model, OM_META_HOST)
     try:
         r = _rq.get(f"{host}/data/{d}/static/meta.json", timeout=timeout)
         if r.status_code != 200:
