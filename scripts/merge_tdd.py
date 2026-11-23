@@ -115,6 +115,45 @@ def load_all():
     return combined
 
 
+LEGACY_PATH = "outputs/tdd_master_legacy.csv"
+
+
+def archive_legacy(rows, reason):
+    """Move superseded rows to the legacy archive instead of deleting them.
+
+    Their raw inputs are gone (per-run files keep only the aggregated totals,
+    and past ensemble runs cannot be re-downloaded with all members), so they
+    cannot be recomputed under the current definition. They stay on record,
+    out of every live comparison."""
+    if rows is None or rows.empty:
+        return
+    rows = rows.copy()
+    rows["legacy_reason"] = reason
+    if os.path.exists(LEGACY_PATH):
+        try:
+            old = pd.read_csv(LEGACY_PATH, dtype={"run_id": str}, low_memory=False)
+            rows = pd.concat([old, rows], ignore_index=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [WARN] Could not read {LEGACY_PATH} ({e}); rewriting it.")
+    rows["run_id"] = rows["run_id"].astype(str)
+    rows = rows.drop_duplicates(subset=["model", "run_id", "date"], keep="first")
+    rows.sort_values(["model", "run_id", "date"]).to_csv(LEGACY_PATH, index=False)
+
+
+def drop_unweighted_runs(df):
+    """Runs from before gas weighting existed (Feb-May 2026) have no hdd_gw at
+    all. Downstream code would fall back to the unweighted CONUS mean for them,
+    a different index, so they are archived."""
+    if df.empty or "hdd_gw" not in df.columns:
+        return df
+    key = df["model"].astype(str) + "|" + df["run_id"].astype(str)
+    all_na = df["hdd_gw"].isna().groupby(key).transform("all")
+    if all_na.any():
+        print(f"  [GW] Archiving pre-gas-weighting runs: {df.loc[all_na].groupby('model')['run_id'].nunique().to_dict()}")
+        archive_legacy(df.loc[all_na], "no gas-weighted values (pre gas weighting)")
+    return df[~all_na]
+
+
 def drop_control_only_runs(df):
     """Drop pre-fix control-member runs of models that now have true ensemble means.
 
@@ -134,7 +173,8 @@ def drop_control_only_runs(df):
     stale = df["model"].isin(upgraded) & em.isna()
     if stale.any():
         dropped = df.loc[stale].groupby("model")["run_id"].nunique().to_dict()
-        print(f"  [ENS] Dropping control-only legacy runs superseded by ensemble means: {dropped}")
+        print(f"  [ENS] Archiving control-only legacy runs superseded by ensemble means: {dropped}")
+        archive_legacy(df.loc[stale], "control member only (pre ensemble-mean fix)")
     return df[~stale]
 
 
@@ -153,7 +193,8 @@ def drop_superseded_calc_versions(df):
     stale = df["model"].isin(upgraded) & cv.isna()
     if stale.any():
         dropped = df.loc[stale].groupby("model")["run_id"].nunique().to_dict()
-        print(f"  [CALC] Dropping v1 (grid-weighted) runs superseded by city-weighted v2: {dropped}")
+        print(f"  [CALC] Archiving v1 (grid-weighted) runs superseded by city-weighted v2: {dropped}")
+        archive_legacy(df.loc[stale], "grid-area weighted (calc v1, superseded by city weighting)")
     return df[~stale]
 
 
@@ -221,6 +262,7 @@ def main():
     if not df.empty:
         df["run_id"] = df["run_id"].astype(str)
         df = drop_identical_runs(df)
+        df = drop_unweighted_runs(df)
         df = drop_control_only_runs(df)
         df = drop_superseded_calc_versions(df)
         df = df.sort_values(["model", "run_id", "date"])
