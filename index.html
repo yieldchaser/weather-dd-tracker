@@ -3031,9 +3031,11 @@
                 valEl.className = 'tc-val tc-zero';
                 return;
             }
-            // In cooling season (CDD), warm (>0) is bullish, cold (<0) is bearish (except PNA where <0 is bullish).
-            // In heating season (HDD), cold (<0) is bullish, warm (>0) is bearish (except PNA where >0 is bullish).
+            // Heating season: cold East is bullish (AO/NAO/EPO < 0, PNA > 0).
+            // Cooling season: these indices steer cold-season flow and their
+            // link to US summer heat is weak, so no colour (same as Telegram).
             const isCooling = (typeof CURRENT_METRIC !== 'undefined' && CURRENT_METRIC === 'CDD');
+            if (isCooling) { valEl.className = 'tc-val tc-zero'; return; }
             const isPna = (key && key.toLowerCase() === 'pna');
             // For AO, NAO, EPO: heating cold (<0) is bullish; cooling warm (>0) is bullish.
             // For PNA: heating cold East (>0) is bullish; cooling warm East (<0) is bullish.
@@ -3123,7 +3125,7 @@
                         if (sub && val !== null && !isNaN(Number(val))) {
                             const v = Number(val), ch = (tcData.change_7d || {})[key];
                             const lean = Math.abs(v) < 0.5 ? 'near neutral' : (v < 0 ? LEAN[key][0] : LEAN[key][1]);
-                            sub.textContent = lean + (ch === null || ch === undefined || isNaN(ch) ? '' : ` · 7d ${formatNum(Number(ch), 1, true)}`);
+                            sub.textContent = lean + (CURRENT_METRIC === 'CDD' ? ', weak summer link' : '') + (ch === null || ch === undefined || isNaN(ch) ? '' : ` · 7d ${formatNum(Number(ch), 1, true)}`);
                         }
                     }
                 }
