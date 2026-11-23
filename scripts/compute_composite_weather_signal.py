@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, UTC
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
     if df is None or len(df) < min_rows:
-        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        print(f"[SKIP] {path}, insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
         return False
     df.to_csv(path, index=False)
     print(f"[OK] Written {path} ({len(df)} rows)")
@@ -17,12 +17,12 @@ def safe_write_csv(df, path, min_rows=1):
 def safe_write_json(data, path, required_keys=None):
     """Only write if data has required keys and is non-empty."""
     if not data:
-        print(f"[SKIP] {path} — empty data, preserving last state")
+        print(f"[SKIP] {path}, empty data, preserving last state")
         return False
     if required_keys:
         missing = [k for k in required_keys if k not in data]
         if missing:
-            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            print(f"[SKIP] {path}, missing keys {missing}, preserving last state")
             return False
     Path(path).parent.mkdir(parents=True, exist_ok=True) # Ensure directory exists
     with open(path, "w") as f:
@@ -113,7 +113,7 @@ def _is_connected(data, system_name, threshold_hours=36):
         logging.warning(f"[Composite] {system_name} has stale=True flag.")
         return False, "stale_flag"
     if data.get("data_source") == "synthetic_proxy":
-        logging.warning(f"[Composite] {system_name} is using synthetic proxy data — excluded from confidence.")
+        logging.warning(f"[Composite] {system_name} is using synthetic proxy data, excluded from confidence.")
         return False, "synthetic_proxy"
     if _is_stale(data, system_name, threshold_hours):
         return False, "stale"
@@ -305,7 +305,7 @@ def compute_composite_weather_signal():
                 # Mild East now; a high-latitude block keeps cold loaded upstream.
                 val = 0.75 * sw
                 bear_score += val
-                components.append({"name": f"Mild East, Block Aloft — latent cold ({regime_lbl})", "score": -round(val, 2)})
+                components.append({"name": f"Mild East, Block Aloft, latent cold ({regime_lbl})", "score": -round(val, 2)})
             elif ridge_east:
                 val = 2.0 * sw
                 bear_score += val
@@ -313,7 +313,7 @@ def compute_composite_weather_signal():
             elif has_block:
                 val = 1.5 * sw
                 bull_score += val
-                components.append({"name": f"High-Latitude Block — cold risk ({regime_lbl})", "score": round(val, 2)})
+                components.append({"name": f"High-Latitude Block, cold risk ({regime_lbl})", "score": round(val, 2)})
             elif has_pv or zonal or trough_west:
                 val = (1.0 if trough_west and not (has_pv or zonal) else 2.0) * sw
                 bear_score += val
@@ -322,7 +322,7 @@ def compute_composite_weather_signal():
                 components.append({"name": f"Regime Neutral ({regime_lbl})", "score": 0.0})
 
         if not regimes.get('in_training_domain', True) and not cooling:
-            logging.warning("[Composite] Regime classified outside its Nov-Mar training domain — seasonal damping applied.")
+            logging.warning("[Composite] Regime classified outside its Nov-Mar training domain, seasonal damping applied.")
     else:
         stale_systems.append(f"regimes ({regime_reason})")
 
@@ -375,16 +375,12 @@ def compute_composite_weather_signal():
                     same = (net_score > 0) == (t_score > 0)
                     agreement_pct = 100.0 if same else 0.0
                     if same:
-                        divergence_note = "Tactical and subseasonal views are ALIGNED."
+                        divergence_note = (f"Aligned: 0-15 day consensus {t_bias} ({t_score:+.2f}) and "
+                                           f"weeks 2-6 composite {signal} ({net_score:+.2f}) point the same way.")
                     else:
-                        if t_score < 0:
-                            divergence_note = ("DIVERGENT: front of the curve (0-15d) prices BELOW-normal demand; "
-                                               "subseasonal risk (10-45d) leans the other way. Trade the front, "
-                                               "respect the back — do not average them into one number.")
-                        else:
-                            divergence_note = ("DIVERGENT: front of the curve (0-15d) prices ABOVE-normal demand; "
-                                               "subseasonal risk (10-45d) leans the other way. Trade the front, "
-                                               "respect the back — do not average them into one number.")
+                        divergence_note = (f"Divergent: 0-15 day consensus is {t_bias} ({t_score:+.2f}, "
+                                           f"{'below' if t_score < 0 else 'above'}-normal demand); weeks 2-6 composite is "
+                                           f"{signal} ({net_score:+.2f}).")
     except Exception as e:
         logging.warning(f"[Composite] Tactical reconciliation skipped: {e}")
 

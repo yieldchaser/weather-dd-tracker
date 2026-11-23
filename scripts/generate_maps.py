@@ -263,7 +263,7 @@ def render_anomaly_gif(model_name, run_id, city_temps, normals):
             sc = ax.scatter(lons, lats, c=an, s=[60 + 18 * w for w in wts], cmap='RdBu_r', vmin=-20, vmax=20,
                             transform=ccrs.PlateCarree(), edgecolor='black', linewidth=0.5)
             cbar = plt.colorbar(sc, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
-            cbar.set_label("Temperature Anomaly vs 1991-2020 Normal (°F)  —  bubble size = gas-demand weight", fontsize=9)
+            cbar.set_label("Temperature Anomaly vs 1991-2020 Normal (°F) ,  bubble size = gas-demand weight", fontsize=9)
             tag = "colder" if gw < 0 else "warmer"
             plt.title(f"{model_name} {run_id}  ·  Day {i + 1}: {ts.strftime('%a %b %d')}\n"
                       f"Gas-weighted anomaly {gw:+.1f}°F ({tag} than normal)", fontsize=12, fontweight='bold')
@@ -334,7 +334,7 @@ def generate_gifs_for_model(model_name, folder, manifest):
 
     latest_run = available_runs[0]
     if _is_stale(latest_run):
-        print(f"Latest {model_name} run {latest_run} is older than {STALE_RUN_DAYS} days — feed stale, no maps.")
+        print(f"Latest {model_name} run {latest_run} is older than {STALE_RUN_DAYS} days, feed stale, no maps.")
         return
     latest_path = os.path.join(folder, latest_run)
     
@@ -487,7 +487,7 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
 
     latest_run = available_runs[0]
     if _is_stale(latest_run):
-        print(f"Latest {model_name} run {latest_run} is older than {STALE_RUN_DAYS} days — feed stale, no maps.")
+        print(f"Latest {model_name} run {latest_run} is older than {STALE_RUN_DAYS} days, feed stale, no maps.")
         return
     cities_dir = Path(folder) / "cities"
     
@@ -523,7 +523,7 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
         diffs = [abs(curr_data[c][d] - prev_data[c][d]) for c in curr_data if c in prev_data
                  for d in common_dates if d in curr_data[c] and d in prev_data[c]]
         if diffs and max(diffs) < 0.01:
-            print(f"  [SKIP] {latest_run} and {prev_run} are identical (duplicate archive) — no map.")
+            print(f"  [SKIP] {latest_run} and {prev_run} are identical (duplicate archive), no map.")
             continue
 
         os.makedirs(MAPS_DIR, exist_ok=True)

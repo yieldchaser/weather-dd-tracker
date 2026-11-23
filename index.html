@@ -462,12 +462,12 @@
                 font-size: 1.6rem;
             }
 
-            /* Fix: Top 4 Runs chart — reduce height on mobile so legend + axes fit properly */
+            /* Fix: Top 4 Runs chart, reduce height on mobile so legend + axes fit properly */
             #runChartWrapper {
                 height: 260px;
             }
 
-            /* Fix: Shift table — ensure cells never wrap so text doesn't overlap */
+            /* Fix: Shift table, ensure cells never wrap so text doesn't overlap */
             #shift-table th,
             #shift-table td {
                 white-space: nowrap;
@@ -477,7 +477,7 @@
         }
 
         /* Consensus shift table: compact enough that every model column fits
-           on one screen — no horizontal scrolling to reach later models. */
+           on one screen, no horizontal scrolling to reach later models. */
         #shift-table th,
         #shift-table td {
             padding: 4px 6px;
@@ -845,7 +845,7 @@
             </div>
 
             <!-- MODEL SCORECARD -->
-            <h2 class="section-title has-tooltip" data-tooltip-key="Model Scorecard">Model Scorecard — Recent Forecast Accuracy</h2>
+            <h2 class="section-title has-tooltip" data-tooltip-key="Model Scorecard">Model Scorecard: Recent Forecast Accuracy</h2>
             <div class="week-card" style="margin-bottom:30px;">
                 <div id="skill-headline" class="chg-headline"></div>
                 <div class="table-responsive">
@@ -945,7 +945,7 @@
                         onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
                     <div id="mapError"
                         style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
-                        No spatial map for this model yet — maps build automatically once two runs of the model are archived.
+                        No spatial map for this model yet, maps build automatically once two runs of the model are archived.
                     </div>
                     <div id="mapNote" style="font-size:0.72rem; color:#888; margin-top:6px; line-height:1.4;"></div>
                 </div>
@@ -1243,7 +1243,7 @@
                     sub.innerText = sc === null ? '' : `${formatNum(sc, 2, true)} · days 1-15 avg ${an === null ? '–' : formatNum(an, 1, true)} ${DD_LABEL}/day vs 30y`;
                     const card = biasEl.closest('.summary-card');
                     if (card && sc !== null) {
-                        card.setAttribute('data-dyn-title', 'Algorithmic Market Bias — 0-15 day');
+                        card.setAttribute('data-dyn-title', 'Algorithmic Market Bias: 0-15 day');
                         card.setAttribute('data-dyn-body', `Score <strong>${formatNum(sc, 2, true)}</strong> = weather <strong>${wt === null ? '–' : formatNum(wt, 2, true)}</strong> (15-day mean anomaly ${an === null ? '–' : formatNum(an, 2, true)} ${DD_LABEL}/day × Bcf/DD sensitivity, discounted by physics-vs-AI disagreement) + wind <strong>${wi === null ? '–' : formatNum(wi, 2, true)}</strong> (latest complete-day national wind anomaly ${b0.wind_anomaly_gw ?? 'n/a'} GW, capped ±0.10) + burn <strong>${bu === null ? '–' : formatNum(bu, 2, true)}</strong> (28-day non-weather burn bias ${b0.burn_bias_28d ?? 'n/a'} Bcf/d, ±1 Bcf/d deadband, capped ±0.10). BULLISH/BEARISH beyond ±0.10, STRONG beyond ±0.50.`);
                     }
                 }
@@ -1571,7 +1571,7 @@
                         const direction = val > 0 
                             ? (IS_CDD ? 'hotter (higher cooling load)' : (IS_BOTH ? 'higher demand' : 'colder (higher heating load)'))
                             : (IS_CDD ? 'cooler (lower cooling load)' : (IS_BOTH ? 'lower demand' : 'warmer (lower heating load)'));
-                        td.setAttribute('data-dyn-title', `${c} Run Shift — ${String(row["date"] || "").substring(0, 10)}`);
+                        td.setAttribute('data-dyn-title', `${c} Run Shift, ${String(row["date"] || "").substring(0, 10)}`);
                         td.setAttribute('data-dyn-body', `The model run shifted by <strong>${formatNum(val, 1, true)} ${DD_LABEL}s</strong> (${direction}) compared to the previous run on this date.`);
                     }
                     tr.appendChild(td);
@@ -1580,7 +1580,7 @@
             });
         }
 
-        // Spaghetti chart instance — kept at module scope so SEASON changes can destroy+re-init
+        // Spaghetti chart instance, kept at module scope so SEASON changes can destroy+re-init
         let spaghettiChartInstance = null;
 
         // ── Run-change engine (shared by the change matrix and the run chart) ──
@@ -2073,7 +2073,7 @@
             if (st.bench.n5 && recent5.length) datasets.push({ label: `5-yr Avg (${recent5[0]}…${recent5[recent5.length - 1]})`, data: avg5, borderColor: '#e0e0e0', borderWidth: 1.5, borderDash: [2, 4], pointRadius: 0, fill: false, order: 3 });
             if (st.current) {
                 datasets.push({
-                    label: `Current Season (${currentSeasonKey})${lastIdx > lastObsIdx ? ' — dashed = ' + (forecastMeta.label || 'forecast') : ''}`,
+                    label: `Current Season (${currentSeasonKey})${lastIdx > lastObsIdx ? ' (dashed = ' + (forecastMeta.label || 'forecast') + ')' : ''}`,
                     data: curSeries, borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1, fill: false, order: 1,
                     segment: { borderDash: ctx => (ctx.p0DataIndex >= lastObsIdx && lastObsIdx >= 0) ? [6, 4] : undefined }
                 });
@@ -2206,7 +2206,7 @@
                     const extreme = rank <= 5 || rank > allTotals.length - 5;
                     colors.push(extreme ? '#f44336' : '#ff9800');
                     const word = targetMetric === 'CDD' ? 'hottest' : (targetMetric === 'TDD' ? 'highest' : 'coldest');
-                    rankTxt = ` — ${liveYear} projected ${liveTotal.toFixed(0)} (#${rank} ${word} of ${allTotals.length}` +
+                    rankTxt = `: ${liveYear} projected ${liveTotal.toFixed(0)} (#${rank} ${word} of ${allTotals.length}` +
                         (n30 !== null ? `, ${(liveTotal - n30 >= 0 ? '+' : '')}${(liveTotal - n30).toFixed(0)} vs 30y` : '') + ')';
                 }
 
@@ -2283,7 +2283,7 @@
                 sel.appendChild(opt);
             });
 
-            // Compute base normals across the forecast horizon — resolved dynamically via normVal
+            // Compute base normals across the forecast horizon, resolved dynamically via normVal
             let normalMap = {};
             let normal10Map = {};
             if (vsNormal && vsNormal.length > 0) {
@@ -2384,7 +2384,7 @@
                 if (note) {
                     const stale = modelLatestRun && run && String(run).slice(0, 11) < String(modelLatestRun).slice(0, 11);
                     note.innerHTML = stale
-                        ? `<span style="color:#ff9800;">⚠ Map built from ${fmtRunLabel(run)}; model's latest run is ${fmtRunLabel(modelLatestRun)} — map refreshes on the next pipeline pass.</span>`
+                        ? `<span style="color:#ff9800;">⚠ Map built from ${fmtRunLabel(run)}; model's latest run is ${fmtRunLabel(modelLatestRun)}, map refreshes on the next pipeline pass.</span>`
                         : `Map run: ${fmtRunLabel(run)}. Blue = colder / cooler, red = warmer. Frames step one forecast day at a time.`;
                 }
             };
@@ -2424,7 +2424,7 @@
                     } else if (SUBSEASONAL.includes(selectedModel)) {
                         labels = globalLabels.filter(d => d >= startClip).slice(0, 35);
                     } else {
-                        // Standard global models — 16-day window
+                        // Standard global models, 16-day window
                         labels = globalLabels.filter(d => d >= startClip).slice(0, 16);
                     }
                 }
@@ -2433,7 +2433,7 @@
             // Re-sort labels to ensure chronological order for the selected model window
             labels.sort();
 
-            // Colors for 6 runs — latest is solid cyan, older runs fade through palette
+            // Colors for 6 runs, latest is solid cyan, older runs fade through palette
             const colors = ['#66fcf1', '#4caf50', '#ff9800', '#f44336', '#ab47bc', '#42a5f5'];
 
             let datasets = top6Runs.map((r_id, idx) => {
@@ -2691,7 +2691,7 @@
                 fetchJSON('outputs/regimes/current_regime.json')
             ]);
 
-            // Task 1 — Teleconnection Panel
+            // Task 1, Teleconnection Panel
             if (tcData) {
                 const keys = { ao: 'tc-ao-val', nao: 'tc-nao-val', pna: 'tc-pna-val', epo: 'tc-epo-val' };
                 for (const [key, elId] of Object.entries(keys)) {
@@ -2704,7 +2704,7 @@
                 document.getElementById('telecon-panel').classList.add('visible');
             }
 
-            // Task 2 — Intelligence Signal Banner
+            // Task 2, Intelligence Signal Banner
             if (signalData) {
                 const sig = String(signalData.signal || 'NEUTRAL').toUpperCase();
                 const score = signalData.composite_score;
@@ -2748,10 +2748,10 @@
                         dynBody = "Indicates whether wind generation is forecast to run below the seasonal climatology for this calendar window (multi-year GFS hindcast of the node fleet), with drought thresholds that move by season \u2014 winter fleet runs stronger, summer fleet weaker.";
                     } else if (label.includes("Ridge") || label.includes("Trough") || label.includes("Block") || label.includes("Pattern") || label.includes("PV ") || label.includes("Polar Vortex")) {
                         dynTitle = "Atmospheric Flow Regime";
-                        dynBody = "The current large-scale 500mb flow pattern. Heating season: polarity follows the EASTERN US anomaly, where the load is — Trough East = cold delivery (bullish), Ridge East = mild (bearish); a high-latitude block over an eastern ridge is scored mildly bearish (latent cold risk). Cooling season: a ridge means heat demand (bullish). Off-season signals are damped.";
+                        dynBody = "The current large-scale 500mb flow pattern. Heating season: polarity follows the EASTERN US anomaly, where the load is, Trough East = cold delivery (bullish), Ridge East = mild (bearish); a high-latitude block over an eastern ridge is scored mildly bearish (latent cold risk). Cooling season: a ridge means heat demand (bullish). Off-season signals are damped.";
                     } else if (label.includes("Teleconnections")) {
                         dynTitle = "Teleconnection Alignment";
-                        dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration. Weighted by season — these indices only translate into gas demand when heating degree days are in play.";
+                        dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration. Weighted by season, these indices only translate into gas demand when heating degree days are in play.";
                     } else if (label.includes("Freeze")) {
                         dynTitle = "Freeze-Off Alert System";
                         dynBody = "Production freeze-offs curtail supply, which is bullish. Tiers: EMERGENCY > WARNING > WATCH.";
@@ -2770,13 +2770,13 @@
                     const compList = components.map(c => `&#8226; ${c.name || c} ${typeof c === 'object' && c.score ? `(${c.score > 0 ? '+' : ''}${Number(c.score).toFixed(2)})` : ''}`).join('<br>');
                     let body = `<strong>Subseasonal composite (weeks 2-6):</strong> ${sig} (${score >= 0 ? '+' : ''}${Number(score).toFixed(1)})<br>Confidence blends system connectivity with internal agreement among signed components.<br><br><strong>Breakdown:</strong><br>${compList}`;
                     if (signalData.tactical_signal) {
-                        body += `<br><br><strong>Tactical (0-15d):</strong> ${signalData.tactical_signal.bias} (${signalData.tactical_signal.score >= 0 ? '+' : ''}${Number(signalData.tactical_signal.score).toFixed(2)}). The tactical signal reads the ensemble anomaly vs normals; this banner reads the subseasonal setup. When they diverge, the front of the curve trades the ensemble and the back prices the pattern — they are different bets, not a contradiction.`;
+                        body += `<br><br><strong>Tactical (0-15d):</strong> ${signalData.tactical_signal.bias} (${signalData.tactical_signal.score >= 0 ? '+' : ''}${Number(signalData.tactical_signal.score).toFixed(2)}). The tactical signal reads the ensemble anomaly vs normals; this banner reads the subseasonal setup. When they diverge, the front of the curve trades the ensemble and the back prices the pattern, they are different bets, not a contradiction.`;
                     }
                     TOOLTIPS["Weather Intelligence Signal"].body = body;
                 }
             }
 
-            // Task 3 — Regime Badge
+            // Task 3, Regime Badge
             if (regimeData && regimeData.regime_label) {
                 // Strip the leading "Regime N (...)" wrapper if present, show the clean name
                 const raw = (regimeData.regime_label || '').trim();
@@ -2799,7 +2799,7 @@
             },
             "Model Scorecard": {
                 title: "Model Scorecard",
-                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Use it to decide which models to lean on when they disagree. Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; both histories are replaced as corrected runs accumulate, so expect those models' bias figures to move toward zero over the next 1-2 weeks."
+                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; both histories are replaced as corrected runs accumulate, so expect those models' bias figures to move toward zero over the next 1-2 weeks."
             },
             "Run Change Matrix": {
                 title: "Run-to-Run Change by Window",
@@ -2835,7 +2835,7 @@
             },
             "Flow Regime Pattern": {
                 title: "Flow Regime Pattern",
-                body: "The dominant large-scale circulation pattern (analyzed via K-Means clustering of 500hPa heights). Dictates persistent weather anomalies and energy demand:<br><br>• <strong>Arctic Block</strong>: High pressure over northern latitudes. Blocks the jet stream and forces freezing arctic air south into the Central/Eastern US (High winter HDD).<br>• <strong>Polar Vortex</strong>: Displaced polar low pressure system bringing bitter, sub-freezing air masses deep into the CONUS.<br>• <strong>Ridge West / Trough East</strong>: Warm, dry conditions in the West; persistent cold anomalies and high heating demand in the Eastern US.<br>• <strong>Trough West / Ridge East</strong>: Cold/wet in the West; mild winter temperatures or intense summer heatwaves in the East/Midwest (High CDD).<br>Labels combine tags (e.g. <em>Arctic Block / Ridge East / Trough West</em>): for gas demand the eastern tag decides the sign — a block aloft only adds latent cold risk.<br>• <strong>Zonal Flow</strong>: Fast-moving, west-to-east flow bringing mild, seasonal, and low-volatility weather."
+                body: "The dominant large-scale circulation pattern (analyzed via K-Means clustering of 500hPa heights). Dictates persistent weather anomalies and energy demand:<br><br>• <strong>Arctic Block</strong>: High pressure over northern latitudes. Blocks the jet stream and forces freezing arctic air south into the Central/Eastern US (High winter HDD).<br>• <strong>Polar Vortex</strong>: Displaced polar low pressure system bringing bitter, sub-freezing air masses deep into the CONUS.<br>• <strong>Ridge West / Trough East</strong>: Warm, dry conditions in the West; persistent cold anomalies and high heating demand in the Eastern US.<br>• <strong>Trough West / Ridge East</strong>: Cold/wet in the West; mild winter temperatures or intense summer heatwaves in the East/Midwest (High CDD).<br>Labels combine tags (e.g. <em>Arctic Block / Ridge East / Trough West</em>): for gas demand the eastern tag decides the sign, a block aloft only adds latent cold risk.<br>• <strong>Zonal Flow</strong>: Fast-moving, west-to-east flow bringing mild, seasonal, and low-volatility weather."
             },
             "Horizon Tables": {
                 title: "Horizon Forecast Tables",
@@ -2947,7 +2947,7 @@
             },
             "Weather Intelligence Signal": {
                 title: "Weather Intelligence Signal (Subseasonal)",
-                body: "A five-system subseasonal composite (weeks 2-6) combining teleconnections, freeze-off alerts, grid weather sensitivity, wind-drought probability and 500mb flow regimes. Every component is seasonally weighted — teleconnection cold risk in deep summer, for example, is damped to near-zero because it does not translate into gas demand — and flow-regime polarity flips with the season. Confidence blends system connectivity with internal agreement among signed components. It answers a different question than the Algorithmic Market Bias (0-15d ensemble anomaly): when they diverge, trade the front of the curve and respect the pattern behind it."
+                body: "A five-system subseasonal composite (weeks 2-6) combining teleconnections, freeze-off alerts, grid weather sensitivity, wind-drought probability and 500mb flow regimes. Every component is seasonally weighted, teleconnection cold risk in deep summer, for example, is damped to near-zero because it does not translate into gas demand, and flow-regime polarity flips with the season. Confidence blends system connectivity with internal agreement among signed components. It covers weeks 2-6; the Algorithmic Market Bias covers days 0-15 from the model consensus. When the two point in opposite directions the banner marks them DIVERGENT and shows both scores."
             },
             "ECMWF": {
                 title: "ECMWF (Deterministic)",
@@ -3043,7 +3043,7 @@
             },
             "EC46": {
                 title: "ECMWF EC46 (Sub-Seasonal)",
-                body: "ECMWF's 46-day coupled sub-seasonal ensemble: 51 members updated daily. Bridges the weeks 3-6 gap beyond GEFS 35-day. Bias-corrected anomaly guidance — treat as a directional signal rather than absolute temperature truth."
+                body: "ECMWF's 46-day coupled sub-seasonal ensemble: 51 members updated daily. Bridges the weeks 3-6 gap beyond GEFS 35-day. Bias-corrected anomaly guidance, treat as a directional signal rather than absolute temperature truth."
             },
             "ICON": {
                 title: "ICON (German Global)",
@@ -3215,7 +3215,7 @@
                     "EPO": { neg: "cold risk", pos: "mild risk" },
                     "PNA": { neg: "mild East risk", pos: "cold East risk" }
                 }[keyUpper] || { neg: "negative phase", pos: "positive phase" };
-                const trend = val < -0.5 ? `<em>strong negative phase — ${riskHint.neg}</em>` : (val > 0.5 ? `<em>strong positive phase — ${riskHint.pos}</em>` : "neutral phase");
+                const trend = val < -0.5 ? `<em>strong negative phase: ${riskHint.neg}</em>` : (val > 0.5 ? `<em>strong positive phase: ${riskHint.pos}</em>` : "neutral phase");
             TOOLTIPS[keyUpper].body = `Today's Value: <strong>${val.toFixed(2)}</strong> (${trend}).<br><br>${descMap[keyUpper]}`;
         }
 

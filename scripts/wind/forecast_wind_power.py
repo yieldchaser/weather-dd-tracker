@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
     if df is None or len(df) < min_rows:
-        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        print(f"[SKIP] {path}, insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
         return False
     df.to_csv(path, index=False)
     print(f"[OK] Written {path} ({len(df)} rows)")
@@ -31,12 +31,12 @@ def _sanitize_for_json(obj):
 def safe_write_json(data, path, required_keys=None):
     """Only write if data has required keys and is non-empty."""
     if not data:
-        print(f"[SKIP] {path} — empty data, preserving last state")
+        print(f"[SKIP] {path}, empty data, preserving last state")
         return False
     if required_keys:
         missing = [k for k in required_keys if k not in data]
         if missing:
-            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            print(f"[SKIP] {path}, missing keys {missing}, preserving last state")
             return False
     with open(path, "w") as f:
         json.dump(_sanitize_for_json(data), f, indent=2)
@@ -177,7 +177,7 @@ def smooth_climatology(climo, window=31):
 
 
 def build_wind_climatology():
-    logging.info("Climatology not found or outdated — starting GFS Historical bootstrap (one-time, ~2 min)")
+    logging.info("Climatology not found or outdated, starting GFS Historical bootstrap (one-time, ~2 min)")
     end_date = date.today() - timedelta(days=5)
     start_date = end_date - timedelta(days=365 * 5)
     
@@ -276,7 +276,7 @@ def main_logic():
                 climo_data = json.load(f)
             # Migration check: if old flat schema (MM-DD: float), rebuild
             if climo_data and isinstance(list(climo_data.values())[0], (float, int)):
-                logging.info("Old flat climatology detected — rebuilding with peak/offpeak schema")
+                logging.info("Old flat climatology detected, rebuilding with peak/offpeak schema")
                 os.remove(CLIMO_PATH)
                 climo_data = build_wind_climatology()
         except Exception:

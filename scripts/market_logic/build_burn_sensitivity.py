@@ -38,12 +38,12 @@ ERCOT_CITIES = [
 
 def safe_write_json(data, path, required_keys=None):
     if not data:
-        print(f"[SKIP] {path} — empty data, preserving last state")
+        print(f"[SKIP] {path}, empty data, preserving last state")
         return False
     if required_keys:
         missing = [k for k in required_keys if k not in data]
         if missing:
-            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            print(f"[SKIP] {path}, missing keys {missing}, preserving last state")
             return False
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
@@ -190,18 +190,42 @@ def ercot_load_vs_temp(hourly_df, temps):
         return {"coverage_days": int(len(df)), "min_required": MIN_ERCOT_DAYS}
     x = df["temp"].values
     y = df["load_mw"].values / 1000.0
-    slope, intercept = np.polyfit(x, y, 1)
-    preds = slope * x + intercept
+    # Two-arm (heating + cooling degree) fit with the balance temperature
+    # chosen by least squares. ERCOT load is U-shaped (electric heating in
+    # winter); a single straight line fitted mostly to summer days misstates
+    # every winter day's weather-implied load.
+    best = None
+    for tb in np.arange(55.0, 68.5, 0.5):
+        hd, cd = np.maximum(tb - x, 0), np.maximum(x - tb, 0)
+        X = np.column_stack([np.ones_like(x), hd, cd])
+        coef, *_ = np.linalg.lstsq(X, y, rcond=None)
+        if coef[1] < 0:  # heating response cannot be negative: refit without it
+            c2, *_ = np.linalg.lstsq(np.column_stack([np.ones_like(x), cd]), y, rcond=None)
+            coef = np.array([c2[0], 0.0, c2[1]])
+        sse = float(np.sum((y - X @ coef) ** 2))
+        if best is None or sse < best[0]:
+            best = (sse, tb, coef)
+    _, base_f, (intercept, heat_slope, slope) = best
+    n_heat_days = int(np.sum(x < base_f - 3))
+    def model(t):
+        return intercept + heat_slope * max(base_f - t, 0.0) + slope * max(t - base_f, 0.0)
+    preds = np.array([model(t) for t in x])
     ss_res = float(np.sum((y - preds) ** 2))
     ss_tot = float(np.sum((y - y.mean()) ** 2))
     r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
     cur_t = float(x[-1])
     cur_load = float(y[-1])
-    implied = float(slope * cur_t + intercept)
-    fit_pts = [{"t": float(v), "load_gw": round(float(slope * v + intercept), 2)}
-               for v in sorted({round(float(min(x)), 1), 55.0, round(float(max(x)), 1)})]
+    implied = float(model(cur_t))
+    lo, hi = float(min(x)), float(max(x))
+    fit_pts = [{"t": round(t, 1), "load_gw": round(model(t), 2)}
+               for t in np.linspace(lo, hi, 40)]
     return {
         "slope_gw_per_f": round(float(slope), 3),
+        # Unidentified until the archive holds real heating days.
+        "heating_gw_per_f": round(float(heat_slope), 3) if n_heat_days >= 15 else None,
+        "heating_days": n_heat_days,
+        "balance_temp_f": round(float(base_f), 1),
+        "model": "two-arm degree-day",
         "intercept_gw": round(float(intercept), 2),
         "r2": round(r2, 4),
         "n": int(len(df)),
@@ -223,7 +247,15 @@ def build_burn_sensitivity():
         print(f"  [ERR] {BURN_FILE} not found.")
         return
     burn_df = pd.read_csv(BURN_FILE)
-    burn_df = burn_df.dropna(subset=["gas_burn_bcfd", "mean_temp_gw"]).sort_values("date").tail(FIT_WINDOW_DAYS)
+    burn_df = burn_df.dropna(subset=["gas_burn_bcfd", "mean_temp_gw"]).sort_values("date").reset_index(drop=True)
+    # Drop coverage-outage days (EIA days with most ISOs missing read as
+    # 8-12 Bcf/d against a ~20 Bcf/d neighbourhood) before fitting.
+    med = burn_df["gas_burn_bcfd"].rolling(15, center=True, min_periods=5).median()
+    bad = (burn_df["gas_burn_bcfd"] < 0.6 * med) | (burn_df["gas_burn_bcfd"] > 1.8 * med)
+    if bad.any():
+        print(f"  [QC] Excluding {int(bad.sum())} coverage-outage day(s) from the burn fit: "
+              f"{burn_df.loc[bad, 'date'].astype(str).tolist()[:10]}")
+    burn_df = burn_df[~bad].tail(FIT_WINDOW_DAYS)
     burn_df["month"] = pd.to_datetime(burn_df["date"]).dt.month
 
     fit = fit_quadratic(burn_df["mean_temp_gw"], burn_df["gas_burn_bcfd"])
@@ -287,7 +319,7 @@ def build_burn_sensitivity():
                     entry["burn_normal_delta"] = round(implied - curve_eval(fit, nt), 3)
                 forecast_series.append(entry)
         elif not TDD_FILE.exists():
-            print(f"  [WARN] {TDD_FILE} not found — no forward forecast overlay.")
+            print(f"  [WARN] {TDD_FILE} not found, no forward forecast overlay.")
 
     result = {
         "generated_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -306,7 +338,7 @@ def build_burn_sensitivity():
             hourly_df = pd.read_csv(HOURLY_FILE)
             ercot_fit = ercot_load_vs_temp(hourly_df, temps)
         else:
-            print(f"  [WARN] {HOURLY_FILE} not found — skipping ERCOT load-temp fit.")
+            print(f"  [WARN] {HOURLY_FILE} not found, skipping ERCOT load-temp fit.")
     except Exception as e:
         print(f"  [WARN] ERCOT analysis skipped: {e}")
     result["ercot_fit"] = ercot_fit

@@ -441,7 +441,7 @@ def run_model(key, label, om_model, cycles, lag_h, days):
             b = {d: v for d, v in zip(p["dates"], p["hdd_mean"])}
             diffs = [abs(a[d] - b[d]) for d in common if a[d] is not None and b[d] is not None]
             if diffs and max(diffs) < 0.005:
-                print(f"[Europe] {key}: payload identical to {p['run_id']} — Open-Meteo has not ingested {run_id} yet; not archiving.")
+                print(f"[Europe] {key}: payload identical to {p['run_id']}, Open-Meteo has not ingested {run_id} yet; not archiving.")
                 return None
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(run, separators=(",", ":")))

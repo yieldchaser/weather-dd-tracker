@@ -370,7 +370,7 @@
                     ctx.restore();
                 }
             };
-            document.getElementById('chartTitle').innerText = `Daily HDD outlook — ${M.label} ${runLabel(L.run_id)}${C ? ' · change vs ' + runLabel(C.run_id) : ''}`;
+            document.getElementById('chartTitle').innerText = `Daily HDD outlook: ${M.label} ${runLabel(L.run_id)}${C ? ' · change vs ' + runLabel(C.run_id) : ''}`;
             if (mainChart) mainChart.destroy();
             const mobile = window.innerWidth <= 768;
             mainChart = new Chart(document.getElementById('mainChart'), {
@@ -439,7 +439,7 @@
                 const a = Math.min(0.75, 0.08 + Math.abs(v) / 6);
                 return `<td class="${extra}" style="background:${v < 0 ? `rgba(66,165,245,${a})` : `rgba(239,83,80,${a})`}; color:#fff;">${fmt(v, 1, true)}</td>`;
             };
-            document.getElementById('ctyTitle').innerText = `Country temperature anomaly (°C vs 1991-2020${normTag() ? ', provisional baseline' : ''}) — ${M.label} ${runLabel(L.run_id)}`;
+            document.getElementById('ctyTitle').innerText = `Country temperature anomaly (°C vs 1991-2020${normTag() ? ', provisional baseline' : ''}: ${M.label} ${runLabel(L.run_id)}`;
             document.getElementById('ctyHead').innerHTML = '<th>Country</th><th>Wt</th><th>1-5</th><th>6-10</th><th>11-15</th>' +
                 days.map((d, i) => { const x = new Date(d + 'T00:00:00Z'); return `<th class="day${i === 0 ? ' sep' : ''}">${DOW[x.getUTCDay()].substring(0, 2)}<br>${x.getUTCDate()}</th>`; }).join('');
             // Weighted Europe row first
@@ -518,7 +518,7 @@
             const ds = UI.years.map(k => ({ label: k, data: cum[k].map(U), borderColor: color(k), borderWidth: 1.5, pointRadius: 0, tension: 0.1 }));
             ds.push({ label: '30-yr normal' + (n30k.length < 30 ? ` (${n30k.length} seasons so far)` : ''), data: n30.map(U), borderColor: '#66fcf1', borderDash: [5, 5], borderWidth: 2, pointRadius: 0 });
             ds.push({ label: '10-yr avg', data: n10.map(U), borderColor: '#a39171', borderDash: [3, 3], borderWidth: 2, pointRadius: 0 });
-            ds.push({ label: `Current (${cur})${il > io ? ' — dashed = forecast' : ''}`, data: cum[cur].map(U), borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1,
+            ds.push({ label: `Current (${cur})${il > io ? ' (dashed = forecast)' : ''}`, data: cum[cur].map(U), borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1,
                 segment: { borderDash: c => c.p0DataIndex >= io ? [6, 4] : undefined } });
             const starts = {}; axis.forEach(([m]) => { const p = labels.indexOf(String(m).padStart(2, '0') + '-01'); if (p >= 0) starts[p] = MON[m - 1]; });
             const xmax = il >= 0 ? labels[Math.min(labels.length - 1, il + 40)] : undefined;

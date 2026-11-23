@@ -572,7 +572,7 @@ def _fmt_wind():
         w_cf     = wd.get("worst_cf_pct", 0.0)
         w_mod    = wd.get("worst_model", "N/A")
         w_anom   = wd.get("worst_anomaly_cf_pct", 0.0)
-        lines.append(f"  Worst: {_esc(str(worst))} — {w_cf:.1f}% CF ({_esc(str(w_mod))}), {w_anom:+.1f}pp vs climo")
+        lines.append(f"  Worst: {_esc(str(worst))}, {w_cf:.1f}% CF ({_esc(str(w_mod))}), {w_anom:+.1f}pp vs climo")
 
         agree = wd.get("model_agreement_today_pct")
         if agree is not None:
@@ -604,7 +604,7 @@ def _fmt_solar():
             parts.append(f"Solar 10d: {int(solar_risk*100)}% risk")
         if gas_loss is not None:
             direction = "bull↑" if gas_loss > 0 else "bear↓"
-            parts.append(f"Gas disp: {gas_loss:+.1f} GW vs climo ({direction})")
+            parts.append(f"Gas backfill (7d avg): {gas_loss:+.1f} GW vs climo ({direction})")
 
         header = "<b>☀️ SOLAR</b>  " + "  │  ".join(parts) if parts else "<b>☀️ SOLAR</b>"
         lines = [header]
@@ -631,7 +631,7 @@ def _fmt_freeze():
 
         lines = []
         if status == "stale":
-            lines.append("<b>🧊 FREEZE</b>: ⚠️ Data stale — fetch failed")
+            lines.append("<b>🧊 FREEZE</b>: ⚠️ Data stale, fetch failed")
         elif status == "partial":
             sources = freeze.get("sources", {})
             working = [k for k, v in sources.items() if v == "ok"]
@@ -707,9 +707,9 @@ def _fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s):
     line1 = (f"<b>{_esc(model)}</b>{stale_tag} [{_esc(display_run_id)}] {n_days}d  "
              f"NT:{nt_str}  EX:{ex_str}  Avg:{fa:.1f}({vs:+.1f}{_signal(vs)})")
     if prev_rows.empty:
-        line2 = "  First run — no prior run to compare"
+        line2 = "  First run, no prior run to compare"
     else:
-        line2 = f"  {run_chg} — {trend_str}"
+        line2 = f"  {run_chg}, {trend_str}"
     return line1 + "\n" + line2
 
 
@@ -721,7 +721,7 @@ def main():
 
     master = Path("outputs/tdd_master.csv")
     if not master.exists():
-        print("tdd_master.csv missing — aborting.")
+        print("tdd_master.csv missing, aborting.")
         return
 
     df = pd.read_csv(master, parse_dates=["date"])
@@ -796,7 +796,7 @@ def main():
     # ── Header ─────────────────────────────────────────────────────────────
     sections = []
     sections.append(
-        f"<b>🌡️ WEATHER DESK — {today_str}</b>\n"
+        f"<b>🌡️ WEATHER DESK, {today_str}</b>\n"
         f"<i>{mode_tag}  │  {season_tag}  │  {metric_lbl}</i>"
     )
 
@@ -923,7 +923,7 @@ def main():
         n_stale    = int(ai_models_df["stale_run"].sum())
         stale_note = f"  <i>({n_stale} stale run(s) excluded)</i>" if n_stale else ""
         if ai_total == 0:
-            cons = f"N/A — no fresh runs ⏳"
+            cons = f"N/A, no fresh runs ⏳"
         elif bull_ai == ai_total:        cons = f"BULLISH 🟢 ({bull_ai}/{ai_total})"
         elif bear_ai == ai_total:        cons = f"BEARISH 🔴 ({bear_ai}/{ai_total})"
         elif bull_ai > bear_ai:          cons = f"LEAN BULL 🟢 ({bull_ai}/{ai_total})"
@@ -1027,7 +1027,7 @@ def main():
     if token and chat_id:
         _send_telegram(token, chat_id, msg)
     else:
-        print("[INFO] TELEGRAM_TOKEN or TELEGRAM_CHAT_ID not set — skipping send.")
+        print("[INFO] TELEGRAM_TOKEN or TELEGRAM_CHAT_ID not set, skipping send.")
 
 
 if __name__ == "__main__":

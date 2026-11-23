@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
     if df is None or len(df) < min_rows:
-        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        print(f"[SKIP] {path}, insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
         return False
     df.to_csv(path, index=False)
     print(f"[OK] Written {path} ({len(df)} rows)")
@@ -30,12 +30,12 @@ def safe_write_csv(df, path, min_rows=1):
 def safe_write_json(data, path, required_keys=None):
     """Only write if data has required keys and is non-empty."""
     if not data:
-        print(f"[SKIP] {path} — empty data, preserving last state")
+        print(f"[SKIP] {path}, empty data, preserving last state")
         return False
     if required_keys:
         missing = [k for k in required_keys if k not in data]
         if missing:
-            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            print(f"[SKIP] {path}, missing keys {missing}, preserving last state")
             return False
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
@@ -55,7 +55,7 @@ def is_valid_model_data(df, value_col, min_daylight_pct=0.20):
     valid = df[value_col].notna() & (df[value_col] > 0.001)
     valid_pct = valid.sum() / len(df)
     if valid_pct < min_daylight_pct:
-        logging.warning(f"Solar model data only {valid_pct:.1%} positive hours (min {min_daylight_pct:.1%}) — skipping")
+        logging.warning(f"Solar model data only {valid_pct:.1%} positive hours (min {min_daylight_pct:.1%}), skipping")
         return False
     return True
 
@@ -120,7 +120,7 @@ def get_solar_drought_threshold(month: int, climo_peak_cf: float = None) -> floa
         return 0.20
 
 def build_solar_climatology():
-    logging.info("Solar Climatology not found — bootstrapping via GFS Historical API...")
+    logging.info("Solar Climatology not found, bootstrapping via GFS Historical API...")
     end_date = date.today() - timedelta(days=5)
     start_date = end_date - timedelta(days=365 * 2) 
     

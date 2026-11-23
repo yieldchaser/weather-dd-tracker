@@ -18,7 +18,7 @@ from resilience_layer import resilient_get
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
     if df is None or len(df) < min_rows:
-        print(f"[SKIP] {path} — insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
+        print(f"[SKIP] {path}, insufficient data ({len(df) if df is not None else 0} rows), preserving last state")
         return False
     df.to_csv(path, index=False)
     print(f"[OK] Written {path} ({len(df)} rows)")
@@ -27,12 +27,12 @@ def safe_write_csv(df, path, min_rows=1):
 def safe_write_json(data, path, required_keys=None):
     """Only write if data has required keys and is non-empty."""
     if not data:
-        print(f"[SKIP] {path} — empty data, preserving last state")
+        print(f"[SKIP] {path}, empty data, preserving last state")
         return False
     if required_keys:
         missing = [k for k in required_keys if k not in data]
         if missing:
-            print(f"[SKIP] {path} — missing keys {missing}, preserving last state")
+            print(f"[SKIP] {path}, missing keys {missing}, preserving last state")
             return False
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
@@ -207,7 +207,7 @@ def fetch_live_grid():
         n_hours = int(day_counts.get(target_date, 0))
         matching_rows = daily[daily["date_only"] == target_date]
         if matching_rows.empty:
-            print(f"  [WARN] No data for {target_date} in {iso_code} — skipping")
+            print(f"  [WARN] No data for {target_date} in {iso_code}, skipping")
             continue
 
         # Anomaly logic — like-for-like on UTC hours (partial days happen
