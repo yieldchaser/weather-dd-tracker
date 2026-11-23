@@ -167,47 +167,55 @@ def _max_run_age(model):
     return MAX_RUN_AGE_DAYS.get(m, 3)
 
 
+TG_VISIBLE_LIMIT = 4000  # Telegram caps 4096 chars of parsed text (tags excluded)
+
+
+def _visible_len(text):
+    import html as _html
+    return len(_html.unescape(re.sub(r"<[^>]+>", "", text)))
+
+
+def _fit_single_message(text):
+    """Always one message. The old sender measured RAW length including HTML
+    tags (a ~3.7k-visible message read as 4.3k) and split it, sending a second
+    message that opened with a bare separator. If the visible text really is
+    too long, compact in priority order instead of splitting."""
+    if _visible_len(text) <= TG_VISIBLE_LIMIT:
+        return text
+    lines = text.split("\n")
+    drop_prefixes = [
+        ("  Extended 35d", "  Model agreement", "  Next →", "  <i>through "),
+        ("  ▲", "  ▼", "  ±", "  First run"),           # per-model streak lines
+    ]
+    for prefixes in drop_prefixes:
+        lines = [l for l in lines if not l.startswith(prefixes)]
+        t = "\n".join(lines)
+        if _visible_len(t) <= TG_VISIBLE_LIMIT:
+            return t
+    # Drop the extended (sub-seasonal) model block
+    t = "\n".join(lines)
+    t = re.sub(r"\n<b>📅 EXTENDED</b>.*?(?=\n\n|\n<b>|$)", "", t, flags=re.S)
+    if _visible_len(t) <= TG_VISIBLE_LIMIT:
+        return t
+    # Last resort: cut on a line boundary, still one message
+    out = []
+    for l in t.split("\n"):
+        if _visible_len("\n".join(out + [l])) > TG_VISIBLE_LIMIT - 20:
+            break
+        out.append(l)
+    return "\n".join(out) + "\n<i>(trimmed)</i>"
+
+
 def _send_telegram(token, chat_id, text):
-    """Send a message; split at SECTION boundaries first so a chunk never
-    cuts a section mid-line (the old newline-rfind split once ended a
-    message mid-sentence inside the freeze block)."""
+    """Send the desk update as ONE Telegram message."""
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-
-    PACK_LIMIT = MAX_MSG_CHARS - 60  # headroom for the '(cont.)' prefix
-    blocks = [b.strip() for b in text.split("\n\n") if b.strip()]
-
-    chunks, cur = [], ""
-    for b in blocks:
-        cand = f"{cur}\n\n{b}" if cur else b
-        if len(cand) <= PACK_LIMIT:
-            cur = cand
-            continue
-        if cur:
-            chunks.append(cur)
-            cur = ""
-        while len(b) > PACK_LIMIT:
-            cut = b.rfind("\n", 0, PACK_LIMIT)
-            cut = cut if cut != -1 else PACK_LIMIT
-            chunks.append(b[:cut].strip())
-            b = b[cut:].strip()
-        cur = b
-    if cur:
-        chunks.append(cur)
-
-    for i, chunk in enumerate(chunks):
-        if not chunk:
-            continue
-        body = chunk if i == 0 else f"<i>(cont. {i + 1}/{len(chunks)})</i>\n\n{chunk}"
-        try:
-            resp = requests.post(
-                url,
-                json={"chat_id": chat_id, "text": body, "parse_mode": "HTML"},
-                timeout=15,
-            )
-            if not resp.ok:
-                print(f"[WARN] Telegram returned {resp.status_code}: {resp.text[:200]}")
-        except Exception as e:
-            print(f"[ERR] Telegram send failed: {e}")
+    body = _fit_single_message(text)
+    try:
+        resp = requests.post(url, json={"chat_id": chat_id, "text": body, "parse_mode": "HTML"}, timeout=15)
+        if not resp.ok:
+            print(f"[WARN] Telegram returned {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        print(f"[ERR] Telegram send failed: {e}")
 
 
 # ── Live Grid loader ────────────────────────────────────────────────────────
@@ -1025,7 +1033,8 @@ def main():
 
     print("\n--- TELEGRAM MESSAGE PREVIEW ---")
     print(msg)
-    print(f"\n--- LENGTH: {len(msg)} chars ---")
+    final = _fit_single_message(msg)
+    print(f"\n--- LENGTH: {len(msg)} raw / {_visible_len(msg)} visible chars; sent as 1 message of {_visible_len(final)} visible chars ---")
 
     if token and chat_id:
         _send_telegram(token, chat_id, msg)

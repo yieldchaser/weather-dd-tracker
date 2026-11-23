@@ -29,7 +29,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 sys.path.insert(0, str(Path(__file__).parent))
 from demand_constants import DEMAND_CITIES
 from maps_manifest import write_manifest, hours_between, RUN_RE, run_to_dt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 STALE_RUN_DAYS = 10  # never render maps from a dead feed's archive
 import re
@@ -158,7 +158,7 @@ def build_daily_mean_dataset(run_dir, model_name):
 
 def _is_stale(run_id):
     t = run_to_dt(run_id)
-    return t is not None and datetime.utcnow() - t > timedelta(days=STALE_RUN_DAYS)
+    return t is not None and datetime.now(UTC).replace(tzinfo=None) - t > timedelta(days=STALE_RUN_DAYS)
 
 
 def _warm_cartopy_cache():
@@ -301,26 +301,39 @@ def _write_gif(frames, out_path):
             pass
 
 
-def sample_grid_at_cities(grid_by_date, lats, lons):
-    """Nearest-grid-point city temperatures from a {date: 2D grid} dict."""
-    out = {}
-    lat_a = np.asarray(lats); lon_a = np.asarray(lons)
+def city_grid_indices(lats, lons):
+    """Nearest grid index per demand city, computed ONCE per grid (1-D or 2-D)."""
+    lat_a = np.asarray(lats, dtype=float)
+    lon_a = np.asarray(lons, dtype=float)
     lon_a = np.where(lon_a > 180, lon_a - 360, lon_a)
+    idx = {}
     for name, clat, clon, _w in DEMAND_CITIES:
-        series = {}
-        for d, grid in grid_by_date.items():
+        if lat_a.ndim == 2:
+            idx[name] = np.unravel_index(int(np.nanargmin((lat_a - clat) ** 2 + ((lon_a - clon) * np.cos(np.radians(clat))) ** 2)), lat_a.shape)
+        else:
+            idx[name] = (int(np.nanargmin(np.abs(lat_a - clat))), int(np.nanargmin(np.abs(lon_a - clon))))
+    return idx
+
+
+def sample_cities_streaming(dates, get_grid, idx):
+    """City temperatures without holding every day's full grid in memory:
+    get_grid(d) returns one day's (lon-aligned) grid, sampled and discarded.
+    Holding all days for 4 parallel workers is what killed the CI runner."""
+    out = {}
+    for d in dates:
+        try:
+            grid = get_grid(d)
+        except Exception:
+            continue
+        key = pd.Timestamp(d).strftime('%Y-%m-%d')
+        for name, ij in idx.items():
             try:
-                if lat_a.ndim == 2:
-                    idx = np.unravel_index(np.argmin((lat_a - clat) ** 2 + (lon_a - clon) ** 2), lat_a.shape)
-                    v = grid[idx]
-                else:
-                    v = grid[int(np.argmin(np.abs(lat_a - clat))), int(np.argmin(np.abs(lon_a - clon)))]
-                if np.isfinite(v):
-                    series[pd.Timestamp(d).strftime('%Y-%m-%d')] = round(float(v), 2)
+                v = float(grid[ij])
             except Exception:
                 continue
-        if series:
-            out[name] = series
+            if np.isfinite(v):
+                out.setdefault(name, {})[key] = round(v, 2)
+        del grid
     return out
 
 
@@ -368,13 +381,14 @@ def generate_gifs_for_model(model_name, folder, manifest):
     normals = load_city_normals()
     if normals:
         try:
+            idx = city_grid_indices(lats, lons)
             if is_single_file:
-                grids = {pd.Timestamp(d): ds_curr.sel(date=d).values for d in ds_curr.date.values}
+                dates_ = list(ds_curr.date.values)
+                getter = lambda d: align_lons(np.asarray(ds_curr.sel(date=d).values))
             else:
-                grids = dict(ds_curr)
-            # lons were re-sorted to -180..180 above; columns must follow.
-            grids = {k: align_lons(np.asarray(v)) for k, v in grids.items()}
-            render_anomaly_gif(model_name, latest_run, sample_grid_at_cities(grids, lats, lons), normals)
+                dates_ = sorted(ds_curr.keys())
+                getter = lambda d: align_lons(np.asarray(ds_curr[d]))
+            render_anomaly_gif(model_name, latest_run, sample_cities_streaming(dates_, getter, idx), normals)
         except Exception as e:
             print(f"  [WARN] {model_name} anomaly map failed: {e}")
 
@@ -635,7 +649,9 @@ def main():
     ]
 
     _warm_cartopy_cache()
-    with ProcessPoolExecutor(max_workers=4) as pool:
+    # 2 workers: 4 concurrent cartopy renders plus GRIB datasets exhausted
+    # runner memory once anomaly maps were added.
+    with ProcessPoolExecutor(max_workers=2) as pool:
         futures = {pool.submit(_generate_worker, m): m["name"] for m in MODELS_TO_GENERATE}
         for fut in as_completed(futures):
             model_name = futures[fut]

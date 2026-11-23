@@ -111,7 +111,9 @@ print("\n5c. Building Model Shift Table...")
 subprocess.run(f"{PY} scripts/build_model_shift_table.py", shell=True)
 
 print("\n5d. Generating Run-to-Run Delta Maps...")
-subprocess.run(f"{PY} scripts/generate_maps.py", shell=True)
+# Maps are generated once, by the workflow step after poll_models (it was
+# also run here, doubling the slowest, most memory-hungry step).
+# subprocess.run(f"{PY} scripts/generate_maps.py", shell=True)
 
 print("\n5e. Estimating USA Freeze-Offs...")
 # Removed: subprocess.run(f"{PY} scripts/build_freeze_offs.py", shell=True)
