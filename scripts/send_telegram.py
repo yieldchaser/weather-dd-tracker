@@ -216,8 +216,11 @@ def _send_telegram(token, chat_id, text):
         resp = requests.post(url, json={"chat_id": chat_id, "text": body, "parse_mode": "HTML"}, timeout=15)
         if not resp.ok:
             print(f"[WARN] Telegram returned {resp.status_code}: {resp.text[:200]}")
+            return False
+        return True
     except Exception as e:
         print(f"[ERR] Telegram send failed: {e}")
+        return False
 
 
 # ── Live Grid loader ────────────────────────────────────────────────────────
@@ -1076,8 +1079,22 @@ def main():
     final = _fit_single_message(msg)
     print(f"\n--- LENGTH: {len(msg)} raw / {_visible_len(msg)} visible chars; sent as 1 message of {_visible_len(final)} visible chars ---")
 
+    # One message per update: skip when no model has a new run since the last
+    # message (a re-fetch retry or a no-change pipeline pass changes nothing).
+    fp_path = Path("outputs/health/telegram_last_runs.json")
+    fingerprint = {str(r["model"]): str(r["run_id"]) for _, r in latest.iterrows()}
+    try:
+        last_fp = json.loads(fp_path.read_text()) if fp_path.exists() else {}
+    except Exception:
+        last_fp = {}
+    if fingerprint == last_fp:
+        print("[INFO] No model has a new run since the last message; Telegram not sent.")
+        return
+
     if token and chat_id:
-        _send_telegram(token, chat_id, msg)
+        if _send_telegram(token, chat_id, msg):
+            fp_path.parent.mkdir(parents=True, exist_ok=True)
+            fp_path.write_text(json.dumps(fingerprint, indent=1, sort_keys=True))
     else:
         print("[INFO] TELEGRAM_TOKEN or TELEGRAM_CHAT_ID not set, skipping send.")
 
