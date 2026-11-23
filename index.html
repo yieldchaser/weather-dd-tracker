@@ -74,7 +74,7 @@
 
         .summary-card {
             background-color: var(--card-bg);
-            border-left: 4px solid var(--accent);
+            border: 1px solid #2f3b47;
             padding: 20px;
             flex: 1;
             border-radius: 4px;
@@ -668,11 +668,11 @@
             border-bottom-color: var(--accent);
         }
             .ekg-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:12px; }
-        .ekg-card { background:#1b232c; border-left:3px solid #45a29e; border-radius:4px; padding:8px 10px; }
+        .ekg-card { background:#1b232c; border:1px solid #2f3b47; border-radius:4px; padding:8px 10px; }
         .ekg-card .k { font-size:0.7rem; letter-spacing:0.06em; color:#8a99a8; text-transform:uppercase; }
         .ekg-card .v { font-size:1.35rem; font-weight:700; color:#e0e0e0; margin-top:2px; }
         .ekg-card .s { font-size:0.75rem; color:#8a99a8; margin-top:2px; }
-        .ekg-card.hot { border-left-color:#ef5350; } .ekg-card.cold { border-left-color:#42a5f5; }
+        .ekg-card.hot .v { color:#ef5350; } .ekg-card.cold .v { color:#42a5f5; }
 </style>
 </head>
 
