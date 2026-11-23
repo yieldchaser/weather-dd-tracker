@@ -288,18 +288,38 @@ def compute_composite_weather_signal():
             else:
                 components.append({"name": f"Regime Neutral ({regimes.get('regime_label','')})", "score": 0.0})
         else:
-            # Heating-season polarity: block/trough = cold delivery (bull);
-            # established PV / ridge-zonal mildness = cold locked north (bear).
-            if has_block or trough:
+            # Heating-season polarity is set by the EASTERN US 500mb anomaly,
+            # because that is where the heating load sits. Labels come from
+            # train_regimes.py centroid geometry (East/West = CONUS 100W split,
+            # block/PV = >55N). The old rule scored any "Trough" or "Arctic
+            # Block" tag as cold delivery, so "Arctic Block / Ridge East /
+            # Trough West" — a warm-East pattern — printed +1.75 bullish.
+            trough_east = "Trough East" in regime_lbl
+            ridge_east = "Ridge East" in regime_lbl
+            trough_west = "Trough West" in regime_lbl
+            if trough_east:
                 val = 2.5 * sw
                 bull_score += val
-                components.append({"name": f"Cold Delivery Pattern ({regimes.get('regime_label','')})", "score": round(val, 2)})
-            elif has_pv or ridge or zonal:
+                components.append({"name": f"Cold Delivery: Eastern Trough ({regime_lbl})", "score": round(val, 2)})
+            elif ridge_east and has_block:
+                # Mild East now; a high-latitude block keeps cold loaded upstream.
+                val = 0.75 * sw
+                bear_score += val
+                components.append({"name": f"Mild East, Block Aloft — latent cold ({regime_lbl})", "score": -round(val, 2)})
+            elif ridge_east:
                 val = 2.0 * sw
                 bear_score += val
-                components.append({"name": f"Mild Pattern ({regimes.get('regime_label','')})", "score": -round(val, 2)})
+                components.append({"name": f"Mild Pattern: Eastern Ridge ({regime_lbl})", "score": -round(val, 2)})
+            elif has_block:
+                val = 1.5 * sw
+                bull_score += val
+                components.append({"name": f"High-Latitude Block — cold risk ({regime_lbl})", "score": round(val, 2)})
+            elif has_pv or zonal or trough_west:
+                val = (1.0 if trough_west and not (has_pv or zonal) else 2.0) * sw
+                bear_score += val
+                components.append({"name": f"Mild Pattern: Cold Locked North/West ({regime_lbl})", "score": -round(val, 2)})
             else:
-                components.append({"name": f"Regime Neutral ({regimes.get('regime_label','')})", "score": 0.0})
+                components.append({"name": f"Regime Neutral ({regime_lbl})", "score": 0.0})
 
         if not regimes.get('in_training_domain', True) and not cooling:
             logging.warning("[Composite] Regime classified outside its Nov-Mar training domain — seasonal damping applied.")

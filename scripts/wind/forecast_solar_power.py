@@ -359,30 +359,47 @@ def generate_combined_drought(solar_df):
         prob_7d = near_term["both_drought"].mean() if not near_term.empty else 0.0
         days_7d = int(near_term["both_drought"].sum()) if not near_term.empty else 0
         
-        today_row = merged[merged["date"] == today_str]
-        combined_drought_today = False
-        gas_loss = 0.0
-        if not today_row.empty:
-            combined_drought_today = bool(today_row.iloc[0]["both_drought"])
-            w_loss = (today_row.iloc[0]["climo_cf_pct_w"] - today_row.iloc[0]["national_cf_pct_w"]) * WIND_FLEET_GW / 100.0
-            
-            with open(CLIMO_PATH, "r") as f: c_full = json.load(f)
-            mm_dd = utc_now.strftime("%m-%d")
-            c_today = c_full.get(mm_dd, {"all": 0.09, "peak": 0.28})
-            
-            s_loss = (c_today["all"] - (today_row.iloc[0]["national_cf_pct_s"]/100)) * TOTAL_SOLAR_GW
-            gas_loss = round(w_loss + s_loss, 1)
+        # Gas displacement (GW of renewable shortfall vs climatology that gas
+        # must backfill), averaged over the next 7 days. It used to be TODAY
+        # only, against a single-sample wind "climatology" (Nov 22: 34% fcst
+        # vs a 10% 'normal' = -26 GW surplus) and that one day overrode a
+        # 6-of-7-day combined drought into MODERATE BEAR.
+        from forecast_wind_power import smooth_climatology, CLIMO_PATH as WIND_CLIMO_PATH
+        try:
+            with open(WIND_CLIMO_PATH, "r") as f:
+                w_climo = smooth_climatology(json.load(f))
+        except Exception:
+            w_climo = {}
+        with open(CLIMO_PATH, "r") as f:
+            s_climo = json.load(f)
 
-        signal = "NEUTRAL"
-        if combined_drought_today and prob_7d >= 0.40: 
+        def _disp(r):
+            mmdd = str(r["date"])[5:10]
+            wc = (w_climo.get(mmdd) or {}).get("all")
+            wc_pct = wc * 100 if wc is not None else r["climo_cf_pct_w"]
+            sc = (s_climo.get(mmdd) or {}).get("all", 0.09)
+            return ((wc_pct - r["national_cf_pct_w"]) * WIND_FLEET_GW / 100.0
+                    + (sc - r["national_cf_pct_s"] / 100.0) * TOTAL_SOLAR_GW)
+
+        merged["gas_displacement_gw"] = merged.apply(_disp, axis=1)
+        week = merged[(merged["date"] >= today_str) &
+                      (merged["date"] <= (utc_now.date() + timedelta(days=6)).strftime("%Y-%m-%d"))]
+        gas_loss = round(float(week["gas_displacement_gw"].mean()), 1) if not week.empty else 0.0
+        today_row = merged[merged["date"] == today_str]
+        combined_drought_today = bool(today_row.iloc[0]["both_drought"]) if not today_row.empty else False
+        gas_today = round(float(today_row.iloc[0]["gas_displacement_gw"]), 1) if not today_row.empty else None
+
+        if prob_7d >= 0.40 and gas_loss > 2.0:
             signal = "STRONG BULL"
-        elif gas_loss > 5.0: 
+        elif prob_7d >= 0.25 or gas_loss > 5.0:
             signal = "MODERATE BULL"
-        elif gas_loss < -5.0: 
+        elif gas_loss < -5.0 and prob_7d < 0.15:
             signal = "MODERATE BEAR"
-        elif combined_drought_today or prob_7d >= 0.25: 
-            signal = "MODERATE BULL"
-        
+        else:
+            signal = "NEUTRAL"
+        combined["gas_displacement_today_gw"] = gas_today
+        combined["gas_displacement_basis"] = "7-day mean vs smoothed 31-day climatology"
+
         worst = merged.loc[merged["combined_cf"].idxmin()]
 
         # Label says 10d — compute it over the next 10 days, not whatever

@@ -151,6 +151,31 @@ def get_node_wind_speed(hourly_data, preferred_height):
             
     return None, []
 
+def smooth_climatology(climo, window=31):
+    """31-day circular smoothing of a {MM-DD: {period: cf}} climatology.
+    The GFS hindcast bootstrap can return a single sample per calendar day,
+    leaving day-to-day noise (e.g. 10% → 20% → 34% → 28% for Nov 22-25)
+    that turned the 75%-of-normal drought threshold into a coin flip."""
+    try:
+        keys = sorted(k for k in climo if isinstance(climo[k], dict))
+        if len(keys) < 300:
+            return climo
+        periods = ["all", "peak", "offpeak", "shoulder"]
+        out = {}
+        half = window // 2
+        n = len(keys)
+        for i, k in enumerate(keys):
+            out[k] = {}
+            for p in periods:
+                vals = [climo[keys[(i + j) % n]].get(p) for j in range(-half, half + 1)]
+                vals = [v for v in vals if isinstance(v, (int, float)) and v == v]
+                out[k][p] = sum(vals) / len(vals) if vals else climo[k].get(p)
+        return out
+    except Exception as e:
+        logging.warning(f"Climatology smoothing failed: {e}")
+        return climo
+
+
 def build_wind_climatology():
     logging.info("Climatology not found or outdated — starting GFS Historical bootstrap (one-time, ~2 min)")
     end_date = date.today() - timedelta(days=5)
@@ -259,6 +284,8 @@ def main_logic():
     else:
         climo_data = build_wind_climatology()
             
+    if climo_data:
+        climo_data = smooth_climatology(climo_data)
     if not climo_data:
         logging.error("No climatology data. Exiting.")
         return
@@ -517,8 +544,14 @@ def main_logic():
     drought_prob_16d = round(drought_days_16d / 16.0, 2)
     drought_prob_7d  = round(drought_days_7d / 7.0, 2)
     
-    worst_idx = df_future["national_cf_pct"].idxmin()
-    worst_row = df_future.loc[worst_idx]
+    # Worst day within the 16-day skill window (the 35-day GFS_CFS tail is
+    # low-skill and was headlining day-26 single-day extremes).
+    _end16 = (datetime.now(UTC).date() + timedelta(days=15)).strftime("%Y-%m-%d")
+    _pool = df_future[df_future["date"].astype(str) <= _end16]
+    if _pool.empty:
+        _pool = df_future
+    worst_idx = _pool["national_cf_pct"].idxmin()
+    worst_row = _pool.loc[worst_idx]
     
     df_today = df_future[df_future["date"] == today_str]
     if not df_today.empty:

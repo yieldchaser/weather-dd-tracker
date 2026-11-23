@@ -138,6 +138,25 @@ def drop_control_only_runs(df):
     return df[~stale]
 
 
+def drop_superseded_calc_versions(df):
+    """GRIB-derived models switched (calc_version 2) from the gridded EIA×HDD30
+    weight field to the same 79-city weighting used by the normals, ERA5
+    observations and Open-Meteo models. Once a model has v2 runs, its
+    unstamped v1 runs are a different index (1-4 HDD/day colder) and are
+    dropped so no delta, anomaly or score mixes the two definitions."""
+    if df.empty or "calc_version" not in df.columns:
+        return df
+    cv = pd.to_numeric(df["calc_version"], errors="coerce")
+    upgraded = set(df.loc[cv >= 2, "model"].unique())
+    if not upgraded:
+        return df
+    stale = df["model"].isin(upgraded) & cv.isna()
+    if stale.any():
+        dropped = df.loc[stale].groupby("model")["run_id"].nunique().to_dict()
+        print(f"  [CALC] Dropping v1 (grid-weighted) runs superseded by city-weighted v2: {dropped}")
+    return df[~stale]
+
+
 def drop_identical_runs(df, min_overlap=5, tol=0.005):
     """Remove runs that are numerically identical to the model's previous run.
 
@@ -203,6 +222,7 @@ def main():
         df["run_id"] = df["run_id"].astype(str)
         df = drop_identical_runs(df)
         df = drop_control_only_runs(df)
+        df = drop_superseded_calc_versions(df)
         df = df.sort_values(["model", "run_id", "date"])
         df.to_csv(MASTER_PATH, index=False)
         print("\nMASTER UPDATED:")

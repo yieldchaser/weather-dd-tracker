@@ -81,100 +81,72 @@ def fetch_cpc_csv(index_name, urls):
             logging.error(f"Error fetching {index_name} from {url}: {e}")
     return pd.DataFrame()
 
-# The old ANALOG_OUTCOMES dict hardcoded invented March/April HDD anomalies
-# and narrative strings for 12 cherry-picked years; whichever years the real
-# distance matching surfaced, fabricated numbers were stapled onto them in
-# production alerts. Outcomes are now computed from the same ERA5 archive
-# that builds the normals, cached per year, and omitted entirely when a year
-# has no coverage.
+# Analog outcomes come from the ERA5 gas-weighted series in
+# outputs/historical_degree_days.csv (no invented numbers, no API calls).
 _ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
-ANALOG_OUTCOMES_CACHE = os.path.join(_ROOT, 'data', 'analog_outcomes.csv')
 NORMALS_FILE = os.path.join(_ROOT, 'data', 'normals', 'us_gas_weighted_normals.csv')
+HIST_DD_FILE = os.path.join(_ROOT, 'outputs', 'historical_degree_days.csv')
+ANALOG_WINDOW_DAYS = 15
 
-def _load_outcome_cache():
-    if os.path.exists(ANALOG_OUTCOMES_CACHE):
-        try:
-            df = pd.read_csv(ANALOG_OUTCOMES_CACHE)
-            return {
-                int(r.year): {
-                    "mar_hdd_anomaly": round(float(r.mar_hdd_anomaly), 1),
-                    "apr_hdd_anomaly": round(float(r.apr_hdd_anomaly), 1),
-                }
-                for r in df.itertuples()
-            }
-        except Exception as e:
-            logging.warning(f"Analog outcome cache unreadable ({e}); recomputing.")
-    return {}
 
-def _append_outcome_cache(year, mar_anom, apr_anom):
-    row = pd.DataFrame([{"year": int(year), "mar_hdd_anomaly": round(mar_anom, 2), "apr_hdd_anomaly": round(apr_anom, 2)}])
-    os.makedirs(os.path.dirname(ANALOG_OUTCOMES_CACHE), exist_ok=True)
-    header = not os.path.exists(ANALOG_OUTCOMES_CACHE)
-    row.to_csv(ANALOG_OUTCOMES_CACHE, mode='a', header=header, index=False)
-
-def _compute_real_outcomes(years):
-    """
-    Real March/April gas-weighted HDD anomalies (base 65F vs 1991-2020
-    normals) for analog years. Methodology matches build_historical_normals:
-    weight-average city temps first, then apply max(65 - T, 0). Years
-    without archive coverage get NO anomaly keys rather than made-up ones.
-    """
-    import sys
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-    try:
-        from om_batch_fetch import fetch_era5_cities_batch
-    except ImportError as e:
-        logging.error(f"[Analog] helpers unavailable: {e}")
-        return {}
-
-    cache = _load_outcome_cache()
-    normals = None
-    if os.path.exists(NORMALS_FILE):
-        normals = pd.read_csv(NORMALS_FILE)
-    else:
-        logging.warning(f"[Analog] normals file missing: {NORMALS_FILE}")
-
-    URL = "https://archive-api.open-meteo.com/v1/archive"
-    current_year = datetime.now().year
-    out = {}
-    for y in years:
-        if y in cache:
-            out[int(y)] = cache[y]
+def compute_analogs(historical_data, data, current_vec, top_n=3, today=None):
+    today = pd.Timestamp(today or datetime.now(UTC).date())
+    keys = [k for k in ['AO', 'NAO', 'PNA', 'EPO'] if k in current_vec and k in historical_data]
+    if len(keys) < 2 or not os.path.exists(HIST_DD_FILE) or not os.path.exists(NORMALS_FILE):
+        return []
+    merged = None
+    for k in keys:
+        df = historical_data[k][['date', 'value']].copy()
+        m, sd = data[k].get('hist_mean'), data[k].get('hist_std')
+        if m is None or not sd:
             continue
-        if y >= current_year or normals is None:
-            continue  # incomplete season or no baseline — never fabricate
+        df[k] = (df['value'] - m) / sd
+        df = df[['date', k]]
+        merged = df if merged is None else merged.merge(df, on='date', how='inner')
+    if merged is None or merged.empty:
+        return []
+    merged['date'] = pd.to_datetime(merged['date'])
+    keys = [k for k in keys if k in merged.columns]
+    cur = np.array([current_vec[k] for k in keys])
+
+    hdd = pd.read_csv(HIST_DD_FILE, usecols=['date', 'hdd_gw'])
+    hdd['date'] = pd.to_datetime(hdd['date'])
+    hdd = hdd.set_index('date')['hdd_gw']
+    nrm = pd.read_csv(NORMALS_FILE)
+    nmap = {(int(r.month), int(r.day)): float(r.hdd_normal_gw) for r in nrm.itertuples()}
+
+    def anomaly(start, end):
+        s = hdd[(hdd.index >= start) & (hdd.index <= end)]
+        if len(s) < 0.9 * ((end - start).days + 1):
+            return None
+        n = np.array([nmap.get((d.month, d.day), nmap.get((2, 28))) for d in s.index])
+        return float(np.mean(s.values - n))
+
+    cands = []
+    first_year = max(1991, int(hdd.index.min().year))
+    for y in range(first_year, today.year):
         try:
-            city_data = fetch_era5_cities_batch(URL, f"{y}-03-01", f"{y}-04-30", ["temperature_2m_mean"])
-            if not city_data:
-                logging.warning(f"[Analog] ERA5 coverage insufficient for {y}; outcome omitted.")
-                continue
-            temp_sums = {}
-            w_total = 0.0
-            for _city, (w, series) in city_data.items():
-                w_total += float(w)
-                for d, t in series.items():
-                    if t is None:
-                        continue
-                    t_f = float(t) * 9.0 / 5.0 + 32.0  # archive API returns Celsius
-                    temp_sums[d] = temp_sums.get(d, 0.0) + float(w) * t_f
-            if w_total <= 0 or not temp_sums:
-                continue
-            daily_t = pd.Series({d: v / w_total for d, v in temp_sums.items()})
-            daily_t.index = pd.to_datetime(daily_t.index)
-            daily_hdd = np.maximum(65.0 - daily_t, 0.0)
-            mar = daily_hdd[daily_hdd.index.month == 3].mean()
-            apr = daily_hdd[daily_hdd.index.month == 4].mean()
-            n_mar = float(normals[normals["month"] == 3]["hdd_normal_gw"].mean())
-            n_apr = float(normals[normals["month"] == 4]["hdd_normal_gw"].mean())
-            if pd.isna(mar) or pd.isna(apr):
-                continue
-            mar_a, apr_a = float(mar) - n_mar, float(apr) - n_apr
-            out[int(y)] = {"mar_hdd_anomaly": round(mar_a, 1), "apr_hdd_anomaly": round(apr_a, 1)}
-            _append_outcome_cache(y, mar_a, apr_a)
-            logging.info(f"[Analog] Computed real outcomes for {y}: Mar {mar_a:+.1f}, Apr {apr_a:+.1f} HDD")
-        except Exception as e:
-            logging.error(f"[Analog] Outcome computation failed for {y}: {e}")
-    return out
+            anchor = today.replace(year=y)
+        except ValueError:  # Feb 29
+            anchor = today.replace(year=y, day=28)
+        win = merged[(merged['date'] >= anchor - pd.Timedelta(days=ANALOG_WINDOW_DAYS)) &
+                     (merged['date'] <= anchor + pd.Timedelta(days=ANALOG_WINDOW_DAYS))]
+        if len(win) < ANALOG_WINDOW_DAYS:
+            continue
+        dist = float(np.linalg.norm(win[keys].to_numpy() - cur, axis=1).mean())
+        a30 = anomaly(anchor + pd.Timedelta(days=1), anchor + pd.Timedelta(days=30))
+        a60 = anomaly(anchor + pd.Timedelta(days=31), anchor + pd.Timedelta(days=60))
+        if a30 is None:
+            continue
+        cands.append({
+            "year": int(y), "distance": round(dist, 2),
+            "window": f"{(anchor + pd.Timedelta(days=1)).strftime('%b %d')}–{(anchor + pd.Timedelta(days=60)).strftime('%b %d')}",
+            "next30_hdd_anomaly": round(a30, 1),
+            "next31_60_hdd_anomaly": None if a60 is None else round(a60, 1),
+        })
+    cands.sort(key=lambda c: c["distance"])
+    return cands[:top_n]
+
 
 def run_system1():
     PSL = "https://downloads.psl.noaa.gov/Public/map/teleconnections/"
@@ -276,73 +248,21 @@ def run_system1():
     score = int(round(50 + forcing * 3.5))
     score = min(max(score, 0), 100)
 
-    # Build analog year matching
-    analog_years = []
+    # ── Analog years ─────────────────────────────────────────────────────────
+    # Match today's z-scored index vector against each past year's state in a
+    # ±15-day window around the same calendar date (seasonally comparable),
+    # then report what actually FOLLOWED in that year: gas-weighted HDD
+    # anomaly vs 1991-2020 normals over the next 1-30 and 31-60 days, from
+    # the ERA5 series already in outputs/historical_degree_days.csv. The old
+    # version compared against whole-winter averages and always reported
+    # March/April outcomes, which in November says nothing about the next
+    # two months.
+    enriched_analogs = []
     try:
-        # Merge historical data on date
-        merged = None
-        for idx in ['AO', 'NAO', 'PNA', 'EPO']:
-            if idx in historical_data:
-                subset = historical_data[idx][['date', 'value']].rename(columns={'value': idx})
-                if merged is None:
-                    merged = subset
-                else:
-                    merged = pd.merge(merged, subset, on='date', how='inner')
-        
-        if merged is not None and not merged.empty:
-            merged['date'] = pd.to_datetime(merged['date'])
-            merged['year'] = merged['date'].dt.year
-            merged['month'] = merged['date'].dt.month
-            
-            # Find similar winters (Nov-Mar)
-            winter_mask = merged['month'].isin([1, 2, 3, 11, 12])
-            winter_data = merged[winter_mask].copy()
-            
-            # Current state vector
-            present_keys = [k for k in ['AO', 'NAO', 'PNA', 'EPO'] if k in current_vec]
-            curr_arr = np.array([current_vec[k] for k in present_keys])
-
-            # Distance must be computed in sigma-space on BOTH sides. The old
-            # code compared z-scored current values against RAW historical
-            # values; raw EPO spans ~-90..+200 dam while z-scores span +-3,
-            # so EPO noise flooded the Euclidean distance.
-            norm_stats = {k: (data[k]['hist_mean'], data[k]['hist_std'])
-                          for k in present_keys if k in data and 'hist_mean' in data[k]}
-            winter_data = winter_data.dropna(subset=present_keys)
-            for k in present_keys:
-                if k in norm_stats:
-                    m, s = norm_stats[k]
-                    if s and s > 0:
-                        winter_data[k] = (winter_data[k] - m) / s
-
-            def calc_dist(row):
-                r_arr = np.array([row[k] for k in present_keys])
-                return np.linalg.norm(r_arr - curr_arr)
-                
-            winter_data['dist'] = winter_data.apply(calc_dist, axis=1)
-            # Exclude current year
-            current_year = datetime.now().year
-            winter_data = winter_data[winter_data['year'] < current_year]
-            
-            # Find best analogs by year avg distance
-            yearly_dist = winter_data.groupby('year')['dist'].mean().sort_values()
-            analog_years = [int(y) for y in yearly_dist.head(3).index.tolist()]
+        enriched_analogs = compute_analogs(historical_data, data, current_vec)
     except Exception as e:
         logging.error(f"Analog matching error: {e}")
-
-    # Enrich analogs with REAL historical outcomes (ERA5-derived, cached).
-    # Analogs are only meaningful for demand in the heating season; outside
-    # Nov-Mar the archive fetch is skipped and years ship bare.
-    enriched_analogs = []
-    if analog_years:
-        if datetime.now().month in (11, 12, 1, 2, 3):
-            real_outcomes = _compute_real_outcomes(analog_years)
-        else:
-            real_outcomes = _load_outcome_cache()
-        for y in analog_years:
-            entry = {"year": int(y)}
-            entry.update(real_outcomes.get(int(y), {}))
-            enriched_analogs.append(entry)
+    analog_years = [a["year"] for a in enriched_analogs]
 
     def _idx(key):
         v = data.get(key, {}).get('current')

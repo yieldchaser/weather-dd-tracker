@@ -1227,13 +1227,25 @@
 
             // 1. Bias Card
             if (biasData && biasData.length > 0) {
-                let biasStr = String(biasData[0].market_bias).toUpperCase();
+                const b0 = biasData[0];
+                let biasStr = String(b0.market_bias).toUpperCase();
                 let biasEl = document.getElementById('macro-bias');
                 if (biasEl) {
                     biasEl.innerText = biasStr;
                     biasEl.classList.remove('bullish-text', 'bearish-text');
                     if (biasStr.includes('BULL')) biasEl.classList.add('bullish-text');
                     if (biasStr.includes('BEAR')) biasEl.classList.add('bearish-text');
+                    // Score + what produced it (0-15 day horizon, not just today)
+                    let sub = document.getElementById('macro-bias-sub');
+                    if (!sub) { sub = document.createElement('div'); sub.id = 'macro-bias-sub'; sub.style.cssText = 'font-size:0.72rem;color:#888;margin-top:4px;'; biasEl.parentElement.appendChild(sub); }
+                    const n = v => (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v);
+                    const sc = n(b0.composite_score), an = n(b0.avg_anomaly_15d), wt = n(b0.weather_term), wi = n(b0.wind_term), bu = n(b0.burn_term);
+                    sub.innerText = sc === null ? '' : `${formatNum(sc, 2, true)} · days 1-15 avg ${an === null ? '–' : formatNum(an, 1, true)} ${DD_LABEL}/day vs 30y`;
+                    const card = biasEl.closest('.summary-card');
+                    if (card && sc !== null) {
+                        card.setAttribute('data-dyn-title', 'Algorithmic Market Bias — 0-15 day');
+                        card.setAttribute('data-dyn-body', `Score <strong>${formatNum(sc, 2, true)}</strong> = weather <strong>${wt === null ? '–' : formatNum(wt, 2, true)}</strong> (15-day mean anomaly ${an === null ? '–' : formatNum(an, 2, true)} ${DD_LABEL}/day × Bcf/DD sensitivity, discounted by physics-vs-AI disagreement) + wind <strong>${wi === null ? '–' : formatNum(wi, 2, true)}</strong> (latest complete-day national wind anomaly ${b0.wind_anomaly_gw ?? 'n/a'} GW, capped ±0.10) + burn <strong>${bu === null ? '–' : formatNum(bu, 2, true)}</strong> (28-day non-weather burn bias ${b0.burn_bias_28d ?? 'n/a'} Bcf/d, ±1 Bcf/d deadband, capped ±0.10). BULLISH/BEARISH beyond ±0.10, STRONG beyond ±0.50.`);
+                    }
                 }
             }
 
@@ -2736,7 +2748,7 @@
                         dynBody = "Indicates whether wind generation is forecast to run below the seasonal climatology for this calendar window (multi-year GFS hindcast of the node fleet), with drought thresholds that move by season \u2014 winter fleet runs stronger, summer fleet weaker.";
                     } else if (label.includes("Ridge") || label.includes("Trough") || label.includes("Block") || label.includes("Pattern") || label.includes("PV ") || label.includes("Polar Vortex")) {
                         dynTitle = "Atmospheric Flow Regime";
-                        dynBody = "The current large-scale 500mb flow pattern, scored with season-correct polarity: in heating season a block/trough means cold delivery (bullish); in cooling season a ridge means heat demand (bullish). Off-season signals are damped.";
+                        dynBody = "The current large-scale 500mb flow pattern. Heating season: polarity follows the EASTERN US anomaly, where the load is — Trough East = cold delivery (bullish), Ridge East = mild (bearish); a high-latitude block over an eastern ridge is scored mildly bearish (latent cold risk). Cooling season: a ridge means heat demand (bullish). Off-season signals are damped.";
                     } else if (label.includes("Teleconnections")) {
                         dynTitle = "Teleconnection Alignment";
                         dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration. Weighted by season — these indices only translate into gas demand when heating degree days are in play.";
@@ -2787,7 +2799,7 @@
             },
             "Model Scorecard": {
                 title: "Model Scorecard",
-                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Use it to decide which models to lean on when they disagree. Ensemble models were scored on control-member runs before the Nov 2026 fix, so their scores firm up as true-mean runs accumulate."
+                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Use it to decide which models to lean on when they disagree. Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; both histories are replaced as corrected runs accumulate, so expect those models' bias figures to move toward zero over the next 1-2 weeks."
             },
             "Run Change Matrix": {
                 title: "Run-to-Run Change by Window",
@@ -2823,11 +2835,11 @@
             },
             "Flow Regime Pattern": {
                 title: "Flow Regime Pattern",
-                body: "The dominant large-scale circulation pattern (analyzed via K-Means clustering of 500hPa heights). Dictates persistent weather anomalies and energy demand:<br><br>• <strong>Arctic Block</strong>: High pressure over northern latitudes. Blocks the jet stream and forces freezing arctic air south into the Central/Eastern US (High winter HDD).<br>• <strong>Polar Vortex</strong>: Displaced polar low pressure system bringing bitter, sub-freezing air masses deep into the CONUS.<br>• <strong>Ridge West / Trough East</strong>: Warm, dry conditions in the West; persistent cold anomalies and high heating demand in the Eastern US.<br>• <strong>Trough West / Ridge East</strong>: Cold/wet in the West; mild winter temperatures or intense summer heatwaves in the East/Midwest (High CDD).<br>• <strong>Zonal Flow</strong>: Fast-moving, west-to-east flow bringing mild, seasonal, and low-volatility weather."
+                body: "The dominant large-scale circulation pattern (analyzed via K-Means clustering of 500hPa heights). Dictates persistent weather anomalies and energy demand:<br><br>• <strong>Arctic Block</strong>: High pressure over northern latitudes. Blocks the jet stream and forces freezing arctic air south into the Central/Eastern US (High winter HDD).<br>• <strong>Polar Vortex</strong>: Displaced polar low pressure system bringing bitter, sub-freezing air masses deep into the CONUS.<br>• <strong>Ridge West / Trough East</strong>: Warm, dry conditions in the West; persistent cold anomalies and high heating demand in the Eastern US.<br>• <strong>Trough West / Ridge East</strong>: Cold/wet in the West; mild winter temperatures or intense summer heatwaves in the East/Midwest (High CDD).<br>Labels combine tags (e.g. <em>Arctic Block / Ridge East / Trough West</em>): for gas demand the eastern tag decides the sign — a block aloft only adds latent cold risk.<br>• <strong>Zonal Flow</strong>: Fast-moving, west-to-east flow bringing mild, seasonal, and low-volatility weather."
             },
             "Horizon Tables": {
                 title: "Horizon Forecast Tables",
-                body: "Compares current weather model forecasts (ECMWF, GFS, NBM, etc.) against 30-year and 10-year normals across Short-Term (1-5 days), Medium-Term (6-10 days), and Long-Term (11-15 days) horizons."
+                body: "Compares current weather model forecasts (ECMWF, GFS, NBM, etc.) against 30-year (1991-2020) and 10-year (2016-2025) normals across Short-Term (days 1-5), Medium-Term (days 6-15) and Long-Term (days 16+, sub-seasonal models only) horizons, counted from each model\u2019s run date. Δ Chg is the average per-day shift versus the previous run on the same valid dates."
             },
             "Historical Monthly": {
                 title: "Historical Monthly Degree Days",
@@ -2883,7 +2895,7 @@
             },
             "Algorithmic Market Bias": {
                 title: "Algorithmic Market Bias",
-                body: "Directional bias score from \u22121.0 (max bearish) to +1.0 (max bullish), blending: season-polarity-aware TDD consensus anomaly, physics-vs-AI ensemble volatility discount, live wind-generation anomaly, and non-weather power-burn strength (symmetric \u00B11 Bcf/d deadband). Verdicts flip to BULLISH/BEARISH beyond \u00B10.10; inside that band it reads NEUTRAL."
+                body: "Tactical 0-15 day bias from \u22121.0 (max bearish) to +1.0 (max bullish). Weather term: the mean daily gas-weighted anomaly vs the 30-yr normal over the next 15 days (physics and AI consensus, season-aware: colder = bullish in HDD season, hotter = bullish in CDD season), converted to Bcf/d with the live sensitivity coefficient and discounted when physics and AI models disagree. Wind (latest complete-day national anomaly) and non-weather power burn (28-day bias, \u00B11 Bcf/d deadband) add at most \u00B10.10 each. BULLISH/BEARISH beyond \u00B10.10, STRONG beyond \u00B10.50."
             },
             "Total Forecast DDs (Gas-Weighted)": {
                 title: "Total Forecast DDs",
@@ -2915,7 +2927,7 @@
             },
             "Δ Chg": {
                 title: "Run-to-Run Change (Δ Chg)",
-                body: "The average day-by-day run-to-run shift. Reflects the rate of change in the model's outlook between the latest two runs."
+                body: "Average per-day shift between the model's latest two runs, measured on the valid dates both runs cover (so a newer run's extra day at the end cannot masquerade as a revision)."
             },
             "AO": {
                 title: "Arctic Oscillation (AO)",
@@ -3047,7 +3059,7 @@
             },
             "GW CDD": {
                 title: "Gas-Weighted CDD",
-                body: "Gas-Weighted Cooling Degree Days. Represents the daily cooling degree days scaled across the CONUS by local natural gas consumption density, reflecting power burn demand."
+                body: "Gas-Weighted Cooling Degree Days: max(0, daily mean temp − 65°F) of the gas-demand-weighted temperature across 79 US demand cities. Every model, the normals and the ERA5 observations use the same city weights, so values are directly comparable."
             },
             "TDD": {
                 title: "Total Degree Days (TDD)",

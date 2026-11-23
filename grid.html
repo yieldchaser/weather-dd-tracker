@@ -1331,10 +1331,11 @@
                         cont.style.display = "block";
                         let risk = Math.round(data.combined_drought_prob_7d * 100);
                         let loss = formatNum(data.gas_displacement_loss_gw, 1, true);
-                        badge.innerHTML = `☀️💨 COMBINED RENEWABLE DROUGHT: ${risk}% risk (${data.combined_drought_days_7d}/7 days) | Gas displacement: ${loss} GW vs climo | Signal: ${data.signal} 🔴`;
+                        const sigDot = String(data.signal).includes('BULL') ? '🟢' : (String(data.signal).includes('BEAR') ? '🔴' : '⚪');
+                        badge.innerHTML = `☀️💨 COMBINED RENEWABLE DROUGHT: ${risk}% risk (${data.combined_drought_days_7d}/7 days) | Gas backfill (7-day avg): ${loss} GW vs climo | Signal: ${data.signal} ${sigDot}`;
                         
                         if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Combined Renewable Drought"]) {
-                            TOOLTIPS["Combined Renewable Drought"].body = `Current Risk: <strong>${risk}%</strong> (${data.combined_drought_days_7d}/7 days forecast drought).<br>Expected loss displacement: <strong>${loss} GW</strong> vs climo.<br>Signal: <strong>${data.signal}</strong>.<br><br>Occurs when both wind and solar output fall significantly below normal simultaneously, forcing heavy natural gas power burn dispatch.`;
+                            TOOLTIPS["Combined Renewable Drought"].body = `Current Risk: <strong>${risk}%</strong> (${data.combined_drought_days_7d}/7 days forecast drought).<br>Gas backfill needed: <strong>${loss} GW</strong> (7-day mean renewable shortfall vs smoothed climatology; positive = gas must cover the gap).<br>Signal: <strong>${data.signal}</strong>.<br><br>Occurs when both wind and solar output fall significantly below normal simultaneously, forcing heavy natural gas power burn dispatch.`;
                         }
                     }
                 }
@@ -2714,7 +2715,7 @@
             },
             "GW CDD": {
                 title: "Gas-Weighted CDD",
-                body: "Gas-Weighted Cooling Degree Days. Represents the daily cooling degree days scaled across the CONUS by local natural gas consumption density, reflecting power burn demand."
+                body: "Gas-Weighted Cooling Degree Days: max(0, daily mean temp − 65°F) of the gas-demand-weighted temperature across 79 US demand cities. Every model, the normals and the ERA5 observations use the same city weights, so values are directly comparable."
             },
             "TDD": {
                 title: "Total Degree Days (TDD)",

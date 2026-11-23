@@ -67,77 +67,57 @@ def _run_is_fresh(df, label):
         return False
     return True
 
+PHYSICS_MODELS = ["ECMWF", "ECMWF_ENS", "GFS", "GEFS", "CMC_ENS", "UKMO_ENS", "ICON"]
+AI_MODELS = ["ECMWF_AIFS", "AIFS_ENS", "AIGFS", "AIGEFS", "HGEFS", "GOOGLE_WN2", "GOOGLE_WN3", "FOURCASTNETV2-SMALL"]
+MASTER_FILE = OUTPUT_DIR / "tdd_master.csv"
+
+
+def _value_field(df):
+    """Gas-weighted value for the active season (HDD / CDD / TDD)."""
+    try:
+        import sys as _s
+        _s.path.insert(0, str(Path(__file__).parent.parent))
+        from season_utils import active_metric
+        met = active_metric(datetime.now(timezone.utc).date())
+    except Exception:
+        met = "TDD"
+    col = {"HDD": "hdd_gw", "CDD": "cdd_gw"}.get(met, "tdd_gw")
+    if col not in df.columns:
+        col = col.replace("_gw", "")
+    return col
+
+
 def load_data():
-    """Loads the absolute latest run from all available models."""
-    dfs = []
-    
-    # 1. Load Physics
-    ecmwf_cf = get_latest_file(ECMWF_DIR, "tdd.csv")
-    if ecmwf_cf:
-        try:
-            df = pd.read_csv(ecmwf_cf)
-            if "model" not in df.columns: df["model"] = "ECMWF"
-            if _run_is_fresh(df, "ECMWF"):
-                dfs.append(df)
-        except Exception as e:
-            print(f"[WARN] Could not load ECMWF: {e}")
-        
-    gfs_cf = get_latest_file(GFS_DIR, "tdd.csv")
-    if gfs_cf:
-        try:
-            df = pd.read_csv(gfs_cf)
-            if "model" not in df.columns: df["model"] = "GFS"
-            if _run_is_fresh(df, "GFS"):
-                dfs.append(df)
-        except Exception as e:
-            print(f"[WARN] Could not load GFS: {e}")
+    """Latest fresh run of every physics and AI model from tdd_master.csv.
 
-    # 2. Load Native AI (AIFS)
-    aifs_cf = get_latest_file(AIFS_DIR, "tdd.csv")
-    if aifs_cf:
-        try:
-            df = pd.read_csv(aifs_cf)
-            df["model"] = "ECMWF_AIFS"
-            if _run_is_fresh(df, "ECMWF_AIFS"):
-                dfs.append(df)
-        except Exception as e:
-            print(f"[WARN] Could not load AIFS: {e}")
-
-    # 3. Load Kaggle GPU AI (GraphCast, Pangu)
-    ai_cf = get_latest_file(AI_DIR, "ai_tdd_latest.csv")
-    if ai_cf:
-        try:
-            dfs.append(pd.read_csv(ai_cf))
-        except Exception as e:
-            print(f"[WARN] Could not load AI models: {e}")
-
-    # 4. Load Google WeatherNext
-    for model_label, m_dir in [("GOOGLE_WN2", GOOGLE_WN2_DIR), ("GOOGLE_WN3", GOOGLE_WN3_DIR)]:
-        cf = get_latest_file(m_dir, "tdd.csv")
-        if cf:
-            try:
-                df_m = pd.read_csv(cf)
-                if "model" not in df_m.columns:
-                    df_m["model"] = model_label
-                if _run_is_fresh(df_m, model_label):
-                    dfs.append(df_m)
-            except Exception as e:
-                print(f"[WARN] Could not load {model_label}: {e}")
-        
-    if not dfs:
-        print("[ERR] No model data available to compare.")
+    Previously this globbed per-model folders and picked the "latest" file by
+    mtime — meaningless after a CI checkout, where every file shares one
+    mtime — read the simple-average `tdd` column although downstream
+    compares against gas-weighted normals, and saw only ECMWF/GFS/AIFS/WN2/WN3.
+    The master file is already deduplicated and gas-weighted.
+    """
+    if not MASTER_FILE.exists():
+        print("[ERR] tdd_master.csv missing.")
         return None
-        
-    combined = pd.concat(dfs, ignore_index=True)
-    # Normalize dates to YYYY-MM-DD string
-    # Strip dashes if any, then parse as YYYYMMDD for consistency
-    combined["date"] = pd.to_datetime(combined["date"].astype(str).str.replace("-", ""), format="%Y%m%d").dt.strftime("%Y-%m-%d")
-    
-    for m in combined["model"].unique():
-        m_df = combined[combined["model"] == m]
-        # print(f"       - {m:12}: {m_df['date'].min()} to {m_df['date'].max()} ({len(m_df)} rows)")
-    
+    m = pd.read_csv(MASTER_FILE, dtype={"run_id": str})
+    m = m[m["model"].isin(PHYSICS_MODELS + AI_MODELS)]
+    if m.empty:
+        return None
+    col = _value_field(m)
+    out = []
+    for model, g in m.groupby("model"):
+        latest = g["run_id"].max()
+        run = g[g["run_id"] == latest]
+        if not _run_is_fresh(run, model):
+            continue
+        out.append(pd.DataFrame({"date": run["date"].astype(str).str[:10], "model": model,
+                                 "tdd": pd.to_numeric(run[col], errors="coerce"), "run_id": latest}))
+    if not out:
+        return None
+    combined = pd.concat(out, ignore_index=True).dropna(subset=["tdd"])
+    print(f"[INFO] Disagreement inputs ({col}): " + ", ".join(sorted(combined["model"].unique())))
     return combined
+
 
 def compute_disagreement():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -159,8 +139,8 @@ def compute_disagreement():
     pivot = df.pivot_table(index="date", columns="model", values="tdd", aggfunc="last")
     
     # Categorize
-    physics_cols = [c for c in pivot.columns if c in ["ECMWF_HRES", "GFS_HRES", "NAM", "HRRR", "ICON", "CMC_ENS", "GFS", "ECMWF", "UKMO_ENS"]]
-    ai_cols = [c for c in pivot.columns if c in ["ECMWF_AIFS", "AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL", "GOOGLE_WN2", "AIGEFS", "AIFS_ENS"]]
+    physics_cols = [c for c in pivot.columns if c in PHYSICS_MODELS]
+    ai_cols = [c for c in pivot.columns if c in AI_MODELS]
     
     # Calculate means where possible
     if physics_cols:

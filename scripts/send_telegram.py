@@ -23,11 +23,13 @@ GW_NORMALS          = Path("data/normals/us_gas_weighted_normals.csv")
 STD_NORMALS         = Path("data/normals/us_daily_normals.csv")
 COMBINED_DROUGHT_PATH = Path("outputs/wind/combined_drought.json")
 
-PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "CMC_ENS", "UKMO_ENS"]
+PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "GEFS", "CMC_ENS", "UKMO_ENS"]
 SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
+EXTENDED_MODELS   = ["GEFS_35D", "EC46"]   # sub-seasonal physics, weeks 3-6
 AI_MODELS         = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL",
                      "FOURCASTNETV2", "AURORA", "ECMWF_AIFS", "GOOGLE_WN2",
-                     "AIGEFS", "AIFS_ENS"]
+                     "GOOGLE_WN3", "AIGEFS", "AIFS_ENS", "AIGFS", "HGEFS"]
+DEAD_FEED_DAYS    = 7  # runs older than this are a dead feed: not displayed at all
 
 MAX_MSG_CHARS = 4000  # Telegram hard limit is 4096; leave margin
 
@@ -136,7 +138,11 @@ def _get_classification(model):
         return "PRIMARY"
     if m in SHORT_TERM_MODELS:
         return "SHORT"
-    return "AI"
+    if m in EXTENDED_MODELS:
+        return "EXTENDED"
+    # Physics models used to fall through to "AI" (GEFS, GEFS_35D and EC46
+    # were printed under AI BASE SPACE and counted in the AI consensus).
+    return "AI" if m in AI_MODELS else "PRIMARY"
 
 
 # A run older than its cadence allows is displayed for transparency but
@@ -414,10 +420,20 @@ def _fmt_regime():
             else:
                 bias = "⚪ Neutral off-season"
         else:
-            if has_block or trough:
-                bias = "🟢 Bullish (cold delivery)"
-            elif has_pv or ridge or zonal:
-                bias = "🔴 Bearish (mild pattern)"
+            # Heating season: polarity follows the EASTERN US anomaly (the
+            # load centre) — same rule as compute_composite_weather_signal.
+            # The old "any trough or block = cold delivery" rule called
+            # "Arctic Block / Ridge East / Trough West" (warm East) bullish.
+            if "Trough East" in clean_label:
+                bias = "🟢 Bullish (eastern trough, cold delivery)"
+            elif "Ridge East" in clean_label and has_block:
+                bias = "🔴 Mild East (block aloft: latent cold risk)"
+            elif "Ridge East" in clean_label:
+                bias = "🔴 Bearish (eastern ridge, mild)"
+            elif has_block:
+                bias = "🟢 Bullish (high-latitude block)"
+            elif has_pv or zonal or "Trough West" in clean_label:
+                bias = "🔴 Bearish (cold locked north/west)"
             else:
                 bias = "⚪ Neutral"
 
@@ -500,22 +516,21 @@ def _fmt_teleconnections(season="HDD"):
             stale_note = f" · ⚠️ stale: {', '.join(stale)}" if stale else ""
             lines.append(f"  <i>through {latest}{stale_note}</i>")
 
-        # Analog years are matched from real teleconnection distances;
-        # their March/April HDD outcomes are real ERA5-derived anomalies
-        # vs the 1991-2020 normals (absent when coverage is missing).
-        # Demand-relevant only in heating season.
+        # Analog years: closest index state within ±15 days of today's date;
+        # outcomes are what actually followed (ERA5 gas-weighted HDD/day vs
+        # 1991-2020 normals) over the next 1-30 and 31-60 days.
         analogs = td.get("analogs", [])
-        if date.today().month in (11, 12, 1, 2, 3):
-            for a in analogs[:2]:
-                if isinstance(a, dict):
-                    year = a.get("year")
-                    anom = a.get("mar_hdd_anomaly")
-                    apr  = a.get("apr_hdd_anomaly")
-                    if anom is None:
-                        lines.append(f"  Analog {year}: outcome data unavailable")
-                    else:
-                        tail = f" · Apr {apr:+.1f}" if apr is not None else ""
-                        lines.append(f"  Analog {year}: Mar {anom:+.1f} HDD vs 30yr normal{tail}")
+        if date.today().month in (10, 11, 12, 1, 2, 3):
+            shown = [a for a in analogs[:3] if isinstance(a, dict) and a.get("next30_hdd_anomaly") is not None]
+            for a in shown:
+                n30 = a["next30_hdd_anomaly"]
+                n60 = a.get("next31_60_hdd_anomaly")
+                tail = f", then {n60:+.1f}" if n60 is not None else ""
+                lines.append(f"  Analog {a.get('year')}: next 30d {n30:+.1f} HDD/day vs normal{tail}")
+            if shown:
+                avg = sum(a["next30_hdd_anomaly"] for a in shown) / len(shown)
+                lean = "colder" if avg > 0.5 else ("milder" if avg < -0.5 else "near-normal")
+                lines.append(f"  <i>Analog lean next 30d: {lean} ({avg:+.1f} HDD/day)</i>")
         return "\n".join(lines)
     except Exception as e:
         print(f"[WARN] Teleconnection block failed: {e}")
@@ -768,6 +783,10 @@ def main():
 
     sorted_s = summary.sort_values("run_id")
     latest   = sorted_s.groupby("model").last().reset_index()
+    dead = latest[latest["run_age"] > DEAD_FEED_DAYS]["model"].tolist()
+    if dead:
+        print(f"[INFO] Dead feeds omitted from message (> {DEAD_FEED_DAYS}d): {dead}")
+    latest = latest[latest["run_age"] <= DEAD_FEED_DAYS].reset_index(drop=True)
     prev     = sorted_s.groupby("model").nth(-2).reset_index()
 
     today_str  = date.today().strftime("%Y-%m-%d")
@@ -838,9 +857,15 @@ def main():
                 hd["year"]  = pd.to_datetime(hd["date"]).dt.year
                 hd["day"]   = pd.to_datetime(hd["date"]).dt.day
                 hdd_col_h   = dd_col if dd_col in hd.columns else ("hdd_gw" if season == "HDD" else "tdd_gw")
+                # Same day window for every year: observations lag (ERA5 ends
+                # yesterday), so rank on days 1..last-observed-day, not 1..today
+                # (22 days of 2026 were being ranked against 23 of other years).
+                cur_obs = hd[(hd["year"] == cur_year) & (hd["month"] == cur_month)]
+                if not cur_obs.empty:
+                    cur_day = int(cur_obs["day"].max())
                 hd_mtd = hd[(hd["month"] == cur_month) & (hd["day"] <= cur_day)]
                 ycounts = hd_mtd.groupby("year")["date"].count()
-                valid_y = ycounts[ycounts >= max(cur_day - 1, 1)].index
+                valid_y = ycounts[ycounts >= cur_day].index
                 yearly  = hd_mtd[hd_mtd["year"].isin(valid_y)].groupby("year")[hdd_col_h].sum()
                 if not yearly.empty and cur_year in yearly.index:
                     sorted_vals = yearly.sort_values(ascending=False)
@@ -888,7 +913,7 @@ def main():
 
     ai_models_df = latest[latest["category"] == "AI"]
     if not ai_models_df.empty:
-        ai_lines = [f"\n<b>🤖 AI BASE SPACE</b> (10–15 Day)"]
+        ai_lines = [f"\n<b>🤖 AI MODELS</b>"]
         for _, row in ai_models_df.iterrows():
             ai_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
         ai_signals = ai_models_df[~ai_models_df["stale_run"]]["signal"].tolist()
@@ -906,6 +931,13 @@ def main():
         else:                            cons = f"MIXED ⚪ ({ai_total} models)"
         ai_lines.append(f"  <b>AI Consensus: {cons}</b>{stale_note}")
         model_sections.append("\n".join(ai_lines))
+
+    ext_df = latest[latest["category"] == "EXTENDED"]
+    if not ext_df.empty:
+        ext_lines = [f"\n<b>📅 EXTENDED</b> (sub-seasonal physics)"]
+        for _, row in ext_df.iterrows():
+            ext_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
+        model_sections.append("\n".join(ext_lines))
 
     short_df = latest[latest["category"] == "SHORT"]
     if not short_df.empty:
