@@ -366,6 +366,11 @@ def poll():
                          ("UKMO_ENS", "ukmo_global_ensemble_20km"), ("ECMWF_ENS", "ecmwf_ifs025"),
                          ("CMC_ENS", "gem_global_ensemble")):
         _rid = om_latest_run(_model)
+        if _rid and _key == "ECMWF_ENS" and _rid.endswith(("_06", "_18")):
+            # Short 144 h run spliced onto the previous 00z/12z: not a new
+            # 15-day run. Hold detection at the run it extends.
+            _d = datetime.datetime.strptime(_rid, "%Y%m%d_%H") - datetime.timedelta(hours=6)
+            _rid = _d.strftime("%Y%m%d_%H")
         if _rid:
             META_RUNS[_key] = _rid
             print(f"  [META] {_key}: Open-Meteo serves run {_rid}")

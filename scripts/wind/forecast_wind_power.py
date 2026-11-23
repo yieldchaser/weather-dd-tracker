@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import requests
+import numpy as np
 import pandas as pd
 from datetime import datetime, date, timedelta, UTC
 
@@ -107,20 +108,21 @@ CLIMO_PATH = "outputs/wind/wind_climo_30d.json"
 OUTPUT_CSV = "outputs/wind/wind_power_forecast.csv"
 OUTPUT_JSON = "outputs/wind/drought.json"
 
+# Normalised fleet power curve (IEC Class II, smoothed for wake losses and
+# spatial wind variability within a node). A pure cubic from cut-in to rated
+# underestimates output by roughly half at 6-9 m/s, which is where most US
+# hub-height hours fall.
+_PC_WS = [3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0]
+_PC_CF = [0.0, 0.03, 0.08, 0.16, 0.27, 0.40, 0.55, 0.70, 0.84, 0.94, 0.99, 1.0]
+CURVE_VERSION = "iec2_smoothed_v2"
+
+
 def wind_power_curve(ws_ms):
-    """
-    Returns capacity factor (0.0–1.0) for wind speed in m/s.
-    IEC Class II: cut-in 3 m/s, rated 12.5 m/s, cut-out 25 m/s.
-    Cubic interpolation between cut-in and rated.
-    """
-    CUT_IN  = 3.0
-    RATED   = 12.5
-    CUT_OUT = 25.0
-    if ws_ms < CUT_IN or ws_ms >= CUT_OUT:
+    """Capacity factor (0.0-1.0) for a hub-height wind speed in m/s.
+    Cut-in 3 m/s, rated about 13-14 m/s, cut-out 25 m/s."""
+    if ws_ms is None or not np.isfinite(ws_ms) or ws_ms < 3.0 or ws_ms >= 25.0:
         return 0.0
-    if ws_ms >= RATED:
-        return 1.0
-    return ((ws_ms - CUT_IN) / (RATED - CUT_IN)) ** 3
+    return float(np.interp(ws_ms, _PC_WS, _PC_CF))
 
 def get_wind_drought_threshold(month: int, climo_cf: float = None) -> float:
     """
@@ -276,6 +278,7 @@ def build_wind_climatology():
             "shoulder": float(group[group["period"] == "shoulder"]["cf"].mean())
         }
     
+    doy_climo["_curve"] = CURVE_VERSION
     os.makedirs(os.path.dirname(CLIMO_PATH), exist_ok=True)
     try:
         with open(CLIMO_PATH, "w") as f:
@@ -296,7 +299,8 @@ def main_logic():
             with open(CLIMO_PATH, "r") as f:
                 climo_data = json.load(f)
             # Migration check: if old flat schema (MM-DD: float), rebuild
-            if climo_data and isinstance(list(climo_data.values())[0], (float, int)):
+            if climo_data and (isinstance(list(climo_data.values())[0], (float, int))
+                               or climo_data.get("_curve") != CURVE_VERSION):
                 logging.info("Old flat climatology detected, rebuilding with peak/offpeak schema")
                 os.remove(CLIMO_PATH)
                 climo_data = build_wind_climatology()
@@ -381,29 +385,16 @@ def main_logic():
                 try:
                     member_cols = [c for c in hourly_data.keys() if c.startswith(f"{h_var}_member")]
                     if member_cols:
-                        # Create a temporary DF for members to compute quantiles
-                        member_data = {}
+                        # Keep each member's node output so the national
+                        # spread is taken across members AFTER summing nodes.
+                        # Summing per-node P10s assumes every node is at its own
+                        # P10 at once and gave an implausible 0-97 GW band.
                         for col in member_cols:
-                            member_data[col] = hourly_data[col]
-                        m_df = pd.DataFrame(member_data)
-                        
-                        # Ensure alignment with mean times
-                        m_p10_ws = m_df.quantile(0.10, axis=1)
-                        m_p90_ws = m_df.quantile(0.90, axis=1)
-                        
-                        df["ws_p10"] = m_p10_ws
-                        df["ws_p90"] = m_p90_ws
-                        df["cf_p10"] = df["ws_p10"].apply(wind_power_curve)
-                        df["cf_p90"] = df["ws_p90"].apply(wind_power_curve)
-                        df["gw_p10"] = df["cf_p10"] * node[4]
-                        df["gw_p90"] = df["cf_p90"] * node[4]
-                    else:
-                        df["gw_p10"] = None
-                        df["gw_p90"] = None
+                            mws = pd.to_numeric(pd.Series(hourly_data[col]), errors="coerce")
+                            df["mgw_" + col[len(h_var) + 1:]] = mws.reindex(df.index).apply(
+                                lambda v: wind_power_curve(v) if pd.notna(v) else np.nan) * node[4]
                 except Exception as e:
                     logging.warning(f"Ensemble member fetch/process failed for {node[0]}: {e}")
-                    df["gw_p10"] = None
-                    df["gw_p90"] = None
 
             node_dfs.append(df)
 
@@ -425,11 +416,15 @@ def main_logic():
         # Renormalize by capacity ACTUALLY reporting at each hour — dividing
         # partial-node sums by full fleet capacity fabricates CF dips.
         agg_hourly = {"gw": ("gw", "sum"), "inst": ("inst", "sum")}
-        if "gw_p10" in all_model_data.columns and all_model_data["gw_p10"].notna().any():
-            agg_hourly["gw_p10"] = ("gw_p10", "sum")
-            agg_hourly["gw_p90"] = ("gw_p90", "sum")
+        mcols = [c for c in all_model_data.columns if c.startswith("mgw_")]
+        for c in mcols:
+            agg_hourly[c] = (c, lambda x: x.sum(min_count=1))
         national_hourly = all_model_data.groupby("time").agg(**agg_hourly).reset_index()
         national_hourly["cf"] = national_hourly["gw"] / national_hourly["inst"].replace(0, float("nan"))
+        if len(mcols) >= 5:
+            inst = national_hourly["inst"].replace(0, float("nan"))
+            mcf = national_hourly[mcols].div(inst, axis=0)
+            national_hourly[[c.replace("mgw_", "mcf_") for c in mcols]] = mcf.values
         national_hourly = national_hourly.dropna(subset=["cf"])
         national_hourly["date"] = national_hourly["time"].dt.date
         national_hourly["hour"] = national_hourly["time"].dt.hour
@@ -447,12 +442,19 @@ def main_logic():
         national_hourly = national_hourly[national_hourly["date"].isin(full_days)]
 
         # Aggregate metrics
-        agg_dict = {"gw": "mean", "cf": "mean"}
-        if "gw_p10" in national_hourly.columns:
-            agg_dict["gw_p10"] = "mean"
-            agg_dict["gw_p90"] = "mean"
+        agg_dict = {"gw": "mean", "cf": "mean", "inst": "mean"}
+        mcf_cols = [c for c in national_hourly.columns if c.startswith("mcf_")]
+        for c in mcf_cols:
+            agg_dict[c] = "mean"
 
         daily_sum = national_hourly.groupby("date").agg(agg_dict).reset_index()
+        if mcf_cols:
+            # Member daily national CF -> P10/P90 across members, in GW of the
+            # capacity reporting that day.
+            mem = daily_sum[mcf_cols]
+            ok = mem.notna().sum(axis=1) >= 5
+            daily_sum["gw_p10"] = (mem.quantile(0.10, axis=1) * daily_sum["inst"]).where(ok)
+            daily_sum["gw_p90"] = (mem.quantile(0.90, axis=1) * daily_sum["inst"]).where(ok)
 
         period_metrics = national_hourly.groupby(["date", "period"])["cf"].mean().unstack(fill_value=0)
         

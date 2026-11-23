@@ -1122,7 +1122,7 @@
             const ddL = DD_LABEL;
             const el = (id) => document.getElementById(id);
             if (el('macro-dd-label')) el('macro-dd-label').innerText = `15-Day ${ddL}s, Ensemble Consensus`;
-            if (el('macro-delta-label')) el('macro-delta-label').innerText = `Consensus Change, Same 15 Days`;
+            if (el('macro-delta-label')) el('macro-delta-label').innerText = `Ensemble Consensus Change, Same 15 Days`;
             if (el('horizon-title')) el('horizon-title').innerText = `Gas-Weighted ${ddL}s by Horizon (All Models)`;
             if (el('spaghetti-title')) el('spaghetti-title').innerText = `Season Cumulative ${ddL}s (Gas-Weighted)`;
             if (el('monthly-matrix-title')) el('monthly-matrix-title').innerText = `Historical Monthly ${ddL}s`;
@@ -1207,7 +1207,8 @@
         function formatNum(num, dec = 1, showSign = false) {
             if (num === null || num === undefined || isNaN(num)) return "-";
             let str = Number(num).toFixed(dec);
-            if (showSign && num > 0) str = "+" + str;
+            if (Number(str) === 0) str = Math.abs(0).toFixed(dec);  // no "-0.0"
+            else if (showSign && num > 0) str = "+" + str;
             return str;
         }
 
@@ -1788,7 +1789,7 @@
                     if (v === null) return '';
                     return `<span>${label}: <b class="${v > 0 ? 'pos-val' : (v < 0 ? 'neg-val' : '')}">${formatNum(v, 1, true)}</b> ${DD_LABEL}s <small style="color:#777">(${arr.length})</small></span>`;
                 };
-                hl.innerHTML = `<span style="color:#888">Consensus 15-day change</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']) + fmtC('72h', consHeadline['72']);
+                hl.innerHTML = `<span style="color:#888">All-model 15-day change (ensembles + deterministic)</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']) + fmtC('72h', consHeadline['72']);
             }
 
             // ── Top cards: 15-day ensemble consensus and its same-day change ──
@@ -2818,7 +2819,7 @@
                 const valid = labels.map((d, i) => ({ d, v: chgData[i] })).filter(o => o.v !== null && o.d >= d1t);
                 if (cmpRun && valid.length) {
                     const col = v => v > 0 ? '#4caf50' : (v < 0 ? '#f44336' : '#c5c6c7');
-                    const sgn = v => (v > 0 ? '+' : '') + v.toFixed(1);
+                    const sgn = v => formatNum(v, 1, true);
                     const tot = valid.reduce((a, o) => a + o.v, 0);
                     const parts = wins.map(([t, a, b]) => {
                         const lo = addDaysIso(d1t, a), hi = addDaysIso(d1t, b);
@@ -2900,7 +2901,7 @@
                     meta.data.forEach((el, i) => {
                         const v = chart.data.datasets[di].data[i];
                         if (v === null || v === undefined || Math.abs(v) < minLbl) return;
-                        ctx.fillText((v > 0 ? '+' : '') + v.toFixed(1), el.x, v >= 0 ? el.y - 3 : el.y + 11);
+                        ctx.fillText(formatNum(v, 1, true), el.x, v >= 0 ? el.y - 3 : el.y + 11);
                     });
                     ctx.restore();
                 }
@@ -2958,7 +2959,7 @@
                                         const o = REC.rec[labels[c.dataIndex].substring(5)];
                                         return `Record ${c.dataset.isRecord === 'hi' ? 'high' : 'low'}: ${c.parsed.y.toFixed(1)} ${DD_LABEL}s (${o ? (c.dataset.isRecord === 'hi' ? o.hiY : o.loY) : ''})`;
                                     }
-                                    return `${c.dataset.label}: ${c.parsed.y !== null ? (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`;
+                                    return `${c.dataset.label}: ${c.parsed.y !== null ? formatNum(c.parsed.y, 1, c.dataset.yAxisID === 'y1') : '-'} ${DD_LABEL}s`;
                                 },
                                 footer: (items) => {
                                     const i = items[0]?.dataIndex;
@@ -3025,7 +3026,7 @@
                 return;
             }
             const num = Number(value);
-            valEl.textContent = (num > 0 ? '+' : '') + num.toFixed(1);
+            valEl.textContent = formatNum(num, 1, true);
             if (Math.abs(num) < 0.5) {  // same ±0.5 neutral band as the Telegram signal
                 valEl.className = 'tc-val tc-zero';
                 return;
@@ -3122,7 +3123,7 @@
                         if (sub && val !== null && !isNaN(Number(val))) {
                             const v = Number(val), ch = (tcData.change_7d || {})[key];
                             const lean = Math.abs(v) < 0.5 ? 'near neutral' : (v < 0 ? LEAN[key][0] : LEAN[key][1]);
-                            sub.textContent = lean + (ch === null || ch === undefined || isNaN(ch) ? '' : ` · 7d ${ch > 0 ? '+' : ''}${Number(ch).toFixed(1)}`);
+                            sub.textContent = lean + (ch === null || ch === undefined || isNaN(ch) ? '' : ` · 7d ${formatNum(Number(ch), 1, true)}`);
                         }
                     }
                 }
