@@ -19,78 +19,21 @@ from om_batch_fetch import fetch_era5_cities_batch
 CACHE_PATH = Path("data/normals/era5_10yr_normals.csv")
 
 def get_10yr_normals():
-    """Fetches or loads real 10Y normals (2016-2025) from Open-Meteo Archive."""
+    """10-year normal (last 10 complete years) from the shared normals file,
+    which build_normals_from_history.py keeps on the live 79-city index and
+    rolls each January. Returns month, day, mean_temp_gw, hdd_10yr, cdd_10yr.
+    The cached ERA5 download (fixed at 2016-2025) is only a fallback."""
+    gw_path = Path("data/normals/us_gas_weighted_normals.csv")
+    if gw_path.exists():
+        df = pd.read_csv(gw_path)
+        if {"mean_temp_gw_10yr", "hdd_normal_gw_10yr", "cdd_normal_gw_10yr"} <= set(df.columns):
+            return df[["month", "day"]].assign(mean_temp_gw=df["mean_temp_gw_10yr"],
+                                               hdd_10yr=df["hdd_normal_gw_10yr"], cdd_10yr=df["cdd_normal_gw_10yr"])
     if CACHE_PATH.exists():
-        # Check if cache is older than 90 days
-        mtime = datetime.fromtimestamp(CACHE_PATH.stat().st_mtime)
-        if (datetime.now() - mtime).days < 90:
-            print("  [OK] Using cached 10Y normals.")
-            return pd.read_csv(CACHE_PATH)
+        print("  [WARN] Using cached 10Y normals (fallback).")
+        return pd.read_csv(CACHE_PATH)
+    return None
 
-    print("  [INFO] Fetching real 10Y normals (2016-2025) from Open-Meteo...")
-    URL = "https://archive-api.open-meteo.com/v1/archive"
-
-    city_data_raw = fetch_era5_cities_batch(
-        endpoint=URL,
-        start_date="2016-01-01",
-        end_date="2025-12-31",
-        variables=["temperature_2m_mean"],
-    )
-
-    if not city_data_raw:
-        print("  [ERR] ERA5 batch fetch failed — weight coverage too low.")
-        return None
-
-    # Convert from {city_name: (weight, {date_str: temp_value})} to dataframes
-    # Note: fetch_era5_cities_batch returns Celsius; convert to Fahrenheit
-    def celsius_to_f(c):
-        return c * 9 / 5 + 32
-
-    city_dfs = []
-    for name, (weight, temps_dict) in city_data_raw.items():
-        dates = sorted(temps_dict.keys())
-        temps = [temps_dict[d] for d in dates]
-        temps_f = [celsius_to_f(t) if t is not None else np.nan for t in temps]
-        df = pd.DataFrame({
-            "date": pd.to_datetime(dates),
-            "temp": temps_f,
-            "weight": weight
-        })
-        city_dfs.append(df)
-
-    if not city_dfs: return None
-
-    # Merge and weight
-    master_df = city_dfs[0][["date"]].drop_duplicates().sort_values("date").reset_index(drop=True)
-    weighted_temp_sum = np.zeros(len(master_df))
-    w_sum = np.zeros(len(master_df))
-    for df in city_dfs:
-        w = df["weight"].iloc[0]
-        m = pd.merge(master_df[["date"]], df[["date", "temp"]], on="date", how="left")
-        col = m["temp"].fillna(m["temp"].mean())
-        valid = col.notna()
-        weighted_temp_sum += np.where(valid, col * w, 0.0)
-        w_sum += np.where(valid, w, 0.0)
-    
-    master_df["mean_temp_gw"] = np.where(w_sum > 0, weighted_temp_sum / w_sum, np.nan)
-    
-    # Group by MM-DD to get daily normals
-    master_df["month"] = master_df["date"].dt.month
-    master_df["day"] = master_df["date"].dt.day
-    
-    # Mean temperature per calendar day across 2016-2025
-    normals_10y = master_df.groupby(["month", "day"])["mean_temp_gw"].mean().reset_index()
-    
-    # Compute HDD/CDD on the 10Y normals
-    base = 65.0
-    normals_10y["hdd_10yr"] = np.maximum(base - normals_10y["mean_temp_gw"], 0).round(2)
-    normals_10y["cdd_10yr"] = np.maximum(normals_10y["mean_temp_gw"] - base, 0).round(2)
-    
-    # Save to cache
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    normals_10y.to_csv(CACHE_PATH, index=False)
-    print(f"  [OK] Cached 10Y normals to {CACHE_PATH}")
-    return normals_10y
 
 def load_normals():
     gw_path = Path("data/normals/us_gas_weighted_normals.csv")

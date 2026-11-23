@@ -265,7 +265,11 @@ def build_normals_and_history():
         return smooth_circular(pd.Series(vals).interpolate(limit_direction="both").to_numpy()), s.index.year.nunique()
 
     n30, y30 = clim(hdd, 1991, 2020)
-    n10, y10 = clim(hdd, 2016, 2025)
+    # Last 10 complete calendar years, rolling each January.
+    _y1 = pd.Timestamp.utcnow().year - 1
+    while _y1 > 2020 and (hdd.index.year == _y1).sum() < 365:
+        _y1 -= 1
+    n10, y10 = clim(hdd, _y1 - 9, _y1)
     sd30, _ = clim(hdd, 1991, 2020, "std")
     if n30 is None and n10 is not None:  # very first runs: lean on what exists
         n30 = n10
@@ -292,8 +296,8 @@ def build_normals_and_history():
                 if (d.month, d.day) == (2, 28):
                     crow.append((name, 2, 29, round(float(v), 2)))
         pd.DataFrame(crow, columns=["city", "month", "day", "normal_c"]).to_csv(CITY_NORMALS_PATH, index=False)
-    print(f"[Europe] History through {hdd.index.max().date()}; normals from {y30} yr (1991-2020) / {y10} yr (2016-2025).")
-    return {"years_30y": int(y30), "years_10y": int(y10)}
+    print(f"[Europe] History through {hdd.index.max().date()}; normals from {y30} yr (1991-2020) / {y10} yr ({_y1 - 9}-{_y1}).")
+    return {"years_30y": int(y30), "years_10y": int(y10), "ten_year": [_y1 - 9, _y1]}
 
 
 def recent_observed(days=7):

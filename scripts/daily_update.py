@@ -94,6 +94,9 @@ r4b = subprocess.run(f"{PY} scripts/select_latest_run.py", shell=True)
 if r4b.returncode != 0:
     print("  [ERR] select_latest_run.py exited non-zero")
 
+print("\n4bb. Normals from the observed 79-city ERA5 history (30y 1991-2020, 10y last complete decade)...")
+subprocess.run(f"{PY} scripts/build_normals_from_history.py", shell=True)
+
 print("\n4c. Comparing to normals (HDD + CDD, simple + gas-weighted)...")
 subprocess.run(f"{PY} scripts/compare_to_normal.py", shell=True)
 
