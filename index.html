@@ -1524,7 +1524,8 @@
             const SHORT_NAMES = {
                 'GOOGLE_WN2': 'WN2',
                 'GOOGLE_WN3': 'WN3',
-                'GOOGLE WN3 CHG': 'WN3',
+                'GOOGLE WN3 CHG': 'WN3 CHG',
+                'GOOGLE AI CHG': 'WN2 CHG',
                 'FOURCASTNETV2-SMALL': 'FCNv2',
                 'FOURCASTNETV2': 'FCNv2',
                 'ECMWF_ENS': 'EC-ENS',
@@ -1856,7 +1857,7 @@
                 note.innerHTML = parts.length ? `<span style="color:#888">Skill-weighted consensus (latest runs, weight 1/MAE²)</span>${parts.join('')}` : '';
             }
             const sub = document.getElementById('skill-sub');
-            if (sub) sub.innerText = `Verification window ${start} → ${end} (ERA5 gas-weighted ${DD_LABEL}). Sorted by days 6-10 error. ★ = lowest error in that window. Bias: blue = forecasts ran ${hotWord}, red = ${coldWord}. Models need ≥${SKILL_MIN_N} scored forecasts per window to be ranked.`;
+            if (sub) sub.innerText = `Verification window ${start} → ${end} (ERA5 gas-weighted ${DD_LABEL}). Sorted by days 6-10 error. ★ = lowest error in that window. Bias: blue = forecasts ran ${hotWord}, red = ${coldWord}. Models need ≥${SKILL_MIN_N} scored forecasts per window to be ranked. Runs from before the 2026-11-23 method change (area-weighted grids, control-member ensembles) are archived and not scored, so those models rejoin as new runs verify.`;
         }
 
         function indexMasterRunsActive(masterData) {
