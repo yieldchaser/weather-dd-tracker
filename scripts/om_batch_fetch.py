@@ -48,6 +48,12 @@ _TIMEOUT   = 60          # seconds; ensemble endpoint is slower than forecast en
 # 50% means losing the entire Northeast chunk still triggers an abort.
 MIN_WEIGHT_COVERAGE_PCT = 0.50
 
+# Number of series (control + members) averaged in the most recent
+# fetch_all_cities_batch call; fetchers stamp it on every row as
+# `ens_members` so merge_tdd can tell true ensemble means from the
+# control-only runs archived before Nov 2026.
+LAST_MEMBER_COUNT = 0
+
 
 def _member_keys(daily, var):
     """Keys for `var` and its ensemble members (`var_member01`, ...)."""
@@ -94,6 +100,8 @@ def fetch_all_cities_batch(
          Returns {} if active weight coverage < MIN_WEIGHT_COVERAGE_PCT × TOTAL_WEIGHT.
          Caller MUST check for empty dict and abort rather than write a biased CSV.
     """
+    global LAST_MEMBER_COUNT
+    LAST_MEMBER_COUNT = 0
     city_data: dict = {}
     extra_params = extra_params or {}
     failed_chunk_weight = 0.0   # track weight lost to whole-chunk HTTP failures
@@ -156,6 +164,8 @@ def fetch_all_cities_batch(
             daily = entry.get("daily", {})
             dates = daily.get("time", [])
             temps_clean = member_mean(daily, "temperature_2m_mean", dates)
+            global LAST_MEMBER_COUNT
+            LAST_MEMBER_COUNT = max(LAST_MEMBER_COUNT, len(_member_keys(daily, "temperature_2m_mean")))
             if i == 0 and chunk_start == 0:
                 n_mem = len(_member_keys(daily, "temperature_2m_mean"))
                 print(f"  [INFO] {model}: {n_mem} series per city "

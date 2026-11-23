@@ -125,6 +125,18 @@ def c_to_f(c):
 
 
 # ─────────────────────── Normals & history ───────────────────────
+# Open-Meteo weights archive calls by locations × span, so 35 years × 38
+# cities in one go (~35k call-equivalents) blows the free daily budget and
+# stalls in 429 back-off. History is therefore cached per calendar year
+# (data/europe/era5/<year>.csv, one column per city) and filled a few years
+# per run, newest first; normals use whatever years are cached and report
+# the count until 1991-2020 is complete.
+ERA5_DIR = DATA_DIR / "era5"
+FIRST_YEAR = 1991
+YEARS_PER_RUN = 3
+REQ_PAUSE_S = 20  # keeps archive usage under the per-minute limit
+
+
 def fetch_city_archive(start, end):
     """{city: pd.Series(date -> temp °C)} from ERA5 (batched by 8 cities)."""
     out = {}
@@ -134,22 +146,76 @@ def fetch_city_archive(start, end):
             "longitude": ",".join(str(c[3]) for c in chunk),
             "start_date": start, "end_date": end,
             "daily": "temperature_2m_mean", "timezone": "UTC",
-        }, timeout=180)
+        }, timeout=120, attempts=4)
         if isinstance(js, dict):
             js = [js]
         for city, res in zip(chunk, js):
             d = res.get("daily", {})
-            s = pd.Series(d.get("temperature_2m_mean", []), index=pd.to_datetime(d.get("time", [])), dtype=float)
-            out[city[0]] = s
-        time.sleep(2)
+            out[city[0]] = pd.Series(d.get("temperature_2m_mean", []), index=pd.to_datetime(d.get("time", [])), dtype=float)
+        time.sleep(REQ_PAUSE_S)
     return out
 
 
-def weighted_temp_frame(city_series):
-    """DataFrame of daily weighted mean temp (°C) using only cities with data."""
-    df = pd.DataFrame(city_series)
+def _year_path(y):
+    return ERA5_DIR / f"{y}.csv"
+
+
+def update_era5_cache():
+    """Fill missing complete years (newest first, YEARS_PER_RUN per call) and
+    extend the current year's file to the archive edge (today - 6 days)."""
+    ERA5_DIR.mkdir(parents=True, exist_ok=True)
+    edge = dt.date.today() - dt.timedelta(days=6)
+    # 1) current-year tail
+    y = edge.year
+    path = _year_path(y)
+    start = dt.date(y, 1, 1)
+    old = None
+    if path.exists():
+        old = pd.read_csv(path, index_col=0, parse_dates=True)
+        if len(old):
+            start = old.index.max().date() + dt.timedelta(days=1)
+    if start <= edge:
+        try:
+            cs = fetch_city_archive(start.isoformat(), edge.isoformat())
+            df = pd.DataFrame(cs).round(2)
+            if old is not None:
+                df = pd.concat([old, df]).groupby(level=0).last()
+            df.to_csv(path)
+            print(f"[Europe] ERA5 {y}: cached through {df.index.max().date()}.")
+        except Exception as e:  # noqa: BLE001
+            print(f"[Europe][WARN] ERA5 {y} tail failed: {e}")
+    # 2) missing complete years, newest first
+    missing = [yy for yy in range(edge.year - 1, FIRST_YEAR - 1, -1) if not _year_path(yy).exists()]
+    for yy in missing[:YEARS_PER_RUN]:
+        try:
+            cs = fetch_city_archive(f"{yy}-01-01", f"{yy}-12-31")
+            pd.DataFrame(cs).round(2).to_csv(_year_path(yy))
+            print(f"[Europe] ERA5 {yy}: cached.")
+        except Exception as e:  # noqa: BLE001
+            print(f"[Europe][WARN] ERA5 {yy} failed ({e}); will retry next run.")
+            break
+    left = len([yy for yy in range(FIRST_YEAR, edge.year) if not _year_path(yy).exists()])
+    print(f"[Europe] ERA5 cache: {left} historical year(s) still to fetch.")
+
+
+def load_era5_cache():
+    frames = []
+    for p in sorted(ERA5_DIR.glob("*.csv")):
+        try:
+            frames.append(pd.read_csv(p, index_col=0, parse_dates=True))
+        except Exception:
+            continue
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames).sort_index()
+
+
+def weighted_temp_frame(city_df):
+    """Series of daily weighted mean temp (°C) using only cities with data."""
+    df = pd.DataFrame(city_df)
     w = pd.Series({c[0]: c[4] for c in CITIES})
-    w = w[df.columns]
+    cols = [c for c in df.columns if c in w.index]
+    df, w = df[cols], w[cols]
     valid = df.notna()
     num = (df.fillna(0) * w).sum(axis=1)
     den = (valid * w).sum(axis=1)
@@ -164,66 +230,63 @@ def smooth_circular(arr, window=15):
     return np.convolve(ext, np.ones(window) / window, mode="valid")
 
 
-def build_normals_and_history(force=False):
-    """ERA5 1991→(today-6). Writes normals, city normals and the HDD history."""
-    if NORMALS_PATH.exists() and CITY_NORMALS_PATH.exists() and HISTORY_PATH.exists() and not force:
-        return update_history_tail()
-    end = (dt.date.today() - dt.timedelta(days=6)).isoformat()
-    print(f"[Europe] Building ERA5 normals + history 1991-01-01 → {end} for {len(CITIES)} cities ...")
-    cs = fetch_city_archive("1991-01-01", end)
-    wt = weighted_temp_frame(cs)
+def build_normals_and_history():
+    """Update the ERA5 cache, then (re)derive history, normals and city normals.
+    Returns a dict describing normal coverage for the payload."""
+    try:
+        update_era5_cache()
+    except Exception as e:  # noqa: BLE001
+        print(f"[Europe][WARN] ERA5 cache update failed: {e}")
+    cache = load_era5_cache()
+    if cache.empty:
+        return {"years_30y": 0, "years_10y": 0}
+    wt = weighted_temp_frame(cache)
     hdd = (BASE_F - c_to_f(wt)).clip(lower=0)
-    hist = pd.DataFrame({"date": hdd.index.strftime("%Y-%m-%d"), "temp_c": wt.round(2).values, "hdd": hdd.round(2).values})
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    hist.to_csv(HISTORY_PATH, index=False)
+    pd.DataFrame({"date": hdd.index.strftime("%Y-%m-%d"), "temp_c": wt.round(2).values,
+                  "hdd": hdd.round(2).values}).to_csv(HISTORY_PATH, index=False)
 
     ref = pd.date_range("2001-01-01", "2001-12-31")
+
     def clim(series, y0, y1, fn="mean"):
         s = series[(series.index.year >= y0) & (series.index.year <= y1)]
+        if s.empty:
+            return None, 0
         g = s.groupby([s.index.month, s.index.day])
         g = g.mean() if fn == "mean" else g.std()
         vals = np.array([g.get((d.month, d.day), np.nan) for d in ref])
-        return smooth_circular(pd.Series(vals).interpolate(limit_direction="both").to_numpy())
-    n30, n10, sd30 = clim(hdd, 1991, 2020), clim(hdd, 2016, 2025), clim(hdd, 1991, 2020, "std")
-    rows = [(d.month, d.day, round(a, 3), round(b, 3), round(c, 3)) for d, a, b, c in zip(ref, n30, n10, sd30)]
-    i28 = list(ref).index(pd.Timestamp("2001-02-28"))
-    rows.insert(i28 + 1, (2, 29, round((n30[i28] + n30[i28 + 1]) / 2, 3), round((n10[i28] + n10[i28 + 1]) / 2, 3),
-                          round((sd30[i28] + sd30[i28 + 1]) / 2, 3)))
-    pd.DataFrame(rows, columns=["month", "day", "hdd_30y", "hdd_10y", "sd_30y"]).to_csv(NORMALS_PATH, index=False)
+        return smooth_circular(pd.Series(vals).interpolate(limit_direction="both").to_numpy()), s.index.year.nunique()
 
-    crow = []
-    for name, s in cs.items():
-        s = s[(s.index.year >= 1991) & (s.index.year <= 2020)]
-        g = s.groupby([s.index.month, s.index.day]).mean()
-        vals = smooth_circular(pd.Series([g.get((d.month, d.day), np.nan) for d in ref]).interpolate(limit_direction="both").to_numpy())
-        for d, v in zip(ref, vals):
-            crow.append((name, d.month, d.day, round(float(v), 2)))
-    pd.DataFrame(crow, columns=["city", "month", "day", "normal_c"]).to_csv(CITY_NORMALS_PATH, index=False)
-    print(f"[Europe] Normals written ({len(rows)} days), history {len(hist)} days.")
+    n30, y30 = clim(hdd, 1991, 2020)
+    n10, y10 = clim(hdd, 2016, 2025)
+    sd30, _ = clim(hdd, 1991, 2020, "std")
+    if n30 is None and n10 is not None:  # very first runs: lean on what exists
+        n30 = n10
+    if n30 is not None:
+        n10 = n10 if n10 is not None else n30
+        sd30 = sd30 if sd30 is not None else np.zeros(len(ref))
+        rows = [(d.month, d.day, round(a, 3), round(b, 3), round(c, 3)) for d, a, b, c in zip(ref, n30, n10, np.nan_to_num(sd30))]
+        i28 = list(ref).index(pd.Timestamp("2001-02-28"))
+        rows.insert(i28 + 1, (2, 29, rows[i28][2], rows[i28][3], rows[i28][4]))
+        pd.DataFrame(rows, columns=["month", "day", "hdd_30y", "hdd_10y", "sd_30y"]).to_csv(NORMALS_PATH, index=False)
 
-
-def update_history_tail():
-    """Append newly archived ERA5 days (archive lags ~5 days)."""
-    hist = pd.read_csv(HISTORY_PATH)
-    last = pd.to_datetime(hist["date"]).max().date()
-    end = dt.date.today() - dt.timedelta(days=6)
-    if end <= last:
-        return
-    start = last + dt.timedelta(days=1)
-    try:
-        cs = fetch_city_archive(start.isoformat(), end.isoformat())
-    except Exception as e:  # noqa: BLE001
-        print(f"[Europe][WARN] history tail update failed: {e}")
-        return
-    wt = weighted_temp_frame(cs)
-    if wt.empty:
-        return
-    hdd = (BASE_F - c_to_f(wt)).clip(lower=0)
-    add = pd.DataFrame({"date": hdd.index.strftime("%Y-%m-%d"), "temp_c": wt.round(2).values, "hdd": hdd.round(2).values})
-    hist = pd.concat([hist, add]).drop_duplicates("date", keep="last").sort_values("date")
-    hist.to_csv(HISTORY_PATH, index=False)
-    print(f"[Europe] History extended to {hist['date'].iloc[-1]} (+{len(add)} days).")
+        base = cache[(cache.index.year >= 1991) & (cache.index.year <= 2020)]
+        if base.empty:
+            base = cache
+        crow = []
+        for name in base.columns:
+            s = base[name].dropna()
+            if s.empty:
+                continue
+            g = s.groupby([s.index.month, s.index.day]).mean()
+            vals = smooth_circular(pd.Series([g.get((d.month, d.day), np.nan) for d in ref]).interpolate(limit_direction="both").to_numpy())
+            for d, v in zip(ref, vals):
+                crow.append((name, d.month, d.day, round(float(v), 2)))
+                if (d.month, d.day) == (2, 28):
+                    crow.append((name, 2, 29, round(float(v), 2)))
+        pd.DataFrame(crow, columns=["city", "month", "day", "normal_c"]).to_csv(CITY_NORMALS_PATH, index=False)
+    print(f"[Europe] History through {hdd.index.max().date()}; normals from {y30} yr (1991-2020) / {y10} yr (2016-2025).")
+    return {"years_30y": int(y30), "years_10y": int(y10)}
 
 
 def recent_observed(days=7):
@@ -304,7 +367,7 @@ def weighted_series(city_vals, n):
     return out
 
 
-def run_model(key, label, om_model, cycles, lag_h, days, normals_c):
+def run_model(key, label, om_model, cycles, lag_h, days):
     run_id = expected_run_id(cycles, lag_h)
     if run_id is None:
         return None
@@ -337,20 +400,6 @@ def run_model(key, label, om_model, cycles, lag_h, days, normals_c):
         if vals:
             a = np.array([[np.nan if x is None else x for x in v[:n]] for v in vals], dtype=float)
             city_mean[name] = np.nanmean(a, axis=0)
-    countries = {}
-    for country, (cw, lst) in COUNTRIES.items():
-        an = []
-        for i in range(n):
-            num = den = 0.0
-            md = pd.Timestamp(dates[i])
-            for (c, _la, _lo, share) in lst:
-                nrm = normals_c.get((c, md.month, md.day)) if normals_c else None
-                if c in city_mean and nrm is not None and not np.isnan(city_mean[c][i]):
-                    num += share * (city_mean[c][i] - nrm)
-                    den += share
-            an.append(round(num / den, 2) if den > 0 else None)
-        countries[country] = an
-
     run = {
         "model": key, "label": label, "run_id": run_id, "fetched_utc": dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%MZ"),
         "dates": dates, "members": len(mem_hdd),
@@ -358,7 +407,7 @@ def run_model(key, label, om_model, cycles, lag_h, days, normals_c):
         "hdd_p10": [None if np.isnan(v) else round(float(v), 2) for v in p10],
         "hdd_p90": [None if np.isnan(v) else round(float(v), 2) for v in p90],
         "member_hdd": [[None if v is None else round(v, 1) for v in m] for m in mem_hdd],
-        "country_anom_c": countries,
+        "city_mean_c": {c: [None if np.isnan(v) else round(float(v), 2) for v in arr] for c, arr in city_mean.items()},
     }
     # Duplicate guard: identical to the previous archived run = stale re-fetch.
     prev = sorted(RUNS_DIR.glob(f"{key}_*.json"))
@@ -382,11 +431,44 @@ def run_model(key, label, om_model, cycles, lag_h, days, normals_c):
     return run
 
 
+def country_anomalies(run, normals_c):
+    """Share-weighted per-country anomaly (°C) of the ensemble-mean city
+    temperatures vs the cached 1991-2020 city normals (None where unknown)."""
+    cm = run.get("city_mean_c") or {}
+    if not cm or not normals_c:
+        return run.get("country_anom_c", {})
+    out = {}
+    for country, (_cw, lst) in COUNTRIES.items():
+        an = []
+        for i, d in enumerate(run["dates"]):
+            md = pd.Timestamp(d)
+            num = den = 0.0
+            for (c, _la, _lo, share) in lst:
+                arr = cm.get(c)
+                nrm = normals_c.get((c, md.month, md.day))
+                if arr is None or i >= len(arr) or arr[i] is None or nrm is None:
+                    continue
+                num += share * (arr[i] - nrm)
+                den += share
+            an.append(round(num / den, 2) if den > 0 else None)
+        out[country] = an
+    return out
+
+
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Forecasts first: they are the product and cost little API budget.
+    for spec in MODELS:
+        try:
+            run_model(*spec)
+        except Exception as e:  # noqa: BLE001
+            print(f"[Europe][WARN] {spec[0]} failed: {e}")
+
+    coverage = {"years_30y": 0, "years_10y": 0}
     try:
-        build_normals_and_history()
+        coverage = build_normals_and_history()
     except Exception as e:  # noqa: BLE001
         print(f"[Europe][WARN] normals/history build failed: {e}")
 
@@ -394,12 +476,6 @@ def main():
     if CITY_NORMALS_PATH.exists():
         cn = pd.read_csv(CITY_NORMALS_PATH)
         normals_c = {(r.city, int(r.month), int(r.day)): float(r.normal_c) for r in cn.itertuples(index=False)}
-
-    for spec in MODELS:
-        try:
-            run_model(*spec, normals_c=normals_c)
-        except Exception as e:  # noqa: BLE001
-            print(f"[Europe][WARN] {spec[0]} failed: {e}")
 
     # Assemble dashboard payload from archived runs
     models_out = {}
@@ -414,6 +490,9 @@ def main():
             # members only for the newest 2 runs (page size)
             for r in runs[2:]:
                 r.pop("member_hdd", None)
+            for r in runs:
+                r["country_anom_c"] = country_anomalies(r, normals_c)
+                r.pop("city_mean_c", None)
             models_out[key] = {"label": label, "runs": runs}
 
     normals = {}
@@ -427,6 +506,7 @@ def main():
         "weights": {c: COUNTRIES[c][0] for c in COUNTRIES},
         "cities": [{"city": c[0], "country": c[1], "lat": c[2], "lon": c[3], "weight": round(c[4], 3)} for c in CITIES],
         "normals": normals,  # MM-DD -> [30y, 10y, sd30]
+        "normals_coverage": coverage,
         "recent_observed": recent_observed(),
         "models": models_out,
     }

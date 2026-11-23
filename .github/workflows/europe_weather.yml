@@ -50,7 +50,7 @@ jobs:
           PY
 
       - name: Build Europe HDD outlook
-        run: python scripts/europe/europe_weather.py
+        run: python -u scripts/europe/europe_weather.py
 
       - name: Upload outputs (non-main refs)
         if: github.ref_name != 'main'

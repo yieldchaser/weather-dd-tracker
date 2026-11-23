@@ -100,6 +100,9 @@ def fetch_run(date_str, cycle):
             return False
         if is_duplicate_run(BASE_DIR, run_id, city_data):
             return False
+        import om_batch_fetch as _omb
+        for _r in rows:
+            _r["ens_members"] = _omb.LAST_MEMBER_COUNT
         pd.DataFrame(rows).to_csv(out_path, index=False)
         
         # Save raw city data to json for map generation
