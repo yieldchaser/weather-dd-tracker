@@ -126,7 +126,7 @@
                     <button class="pill" data-unit="C">HDD °C (base 18.3)</button></span>
                 <span><label>Show</label>
                     <button class="pill" data-tog="members">Ens members</button>
-                    <button class="pill" data-tog="band">P10–P90</button>
+                    <button class="pill" data-tog="band">P10-P90</button>
                     <button class="pill" data-tog="sd">30y ±1σ</button>
                     <button class="pill" data-tog="n10">10y normal</button>
                     <button class="pill" data-tog="rec">Records</button></span>
@@ -142,7 +142,7 @@
             <h2 class="section-title" id="chartTitle">Daily HDD outlook</h2>
             <div class="panel">
                 <div style="position:relative; height:440px;"><canvas id="mainChart"></canvas></div>
-                <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10–P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and last-10-complete-years daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ. Records = highest and lowest observed daily HDD for each calendar day in the ERA5 history loaded so far (the span is shown in the legend).</div>
+                <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10-P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and last-10-complete-years daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ. Records = highest and lowest observed daily HDD for each calendar day in the ERA5 history loaded so far (the span is shown in the legend).</div>
             </div>
 
             <h2 class="section-title">Run-to-run change by window (all models)</h2>
@@ -167,7 +167,7 @@
                 <div class="panel-note">Ensemble-mean 2 m temperature vs 1991-2020 ERA5 city normals for the selected model's latest run, by country and day; window columns are averages. Blue = colder than normal. Wt = share of the heating-gas weight. Rows sorted by weight.</div>
             </div>
 
-            <h2 class="section-title">Season cumulative HDD (Sep–Apr)</h2>
+            <h2 class="section-title">Season cumulative HDD (Sep-Apr)</h2>
             <div class="panel">
                 <div class="stats" id="seasonStats"></div>
                 <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
@@ -344,7 +344,7 @@
             ds.push({ label: `${M.label} ${runLabel(L.run_id)} (mean)`, data: labels.map(d => U(Lm[d])), borderColor: '#66fcf1', backgroundColor: '#66fcf1', borderWidth: 3, pointRadius: 3, tension: 0.35, order: 1 });
             if (C) ds.push({ label: `${runLabel(C.run_id)} (mean)`, data: labels.map(d => U(Cm[d])), borderColor: '#ff9800', borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0, tension: 0.35, order: 2 });
             if (UI.tog.band) {
-                ds.push({ label: 'P10–P90', data: labels.map(d => U(p90[d])), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(102,252,241,0.10)', tension: 0.35, order: 9 });
+                ds.push({ label: 'P10-P90', data: labels.map(d => U(p90[d])), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(102,252,241,0.10)', tension: 0.35, order: 9 });
                 ds.push({ label: '__p10', data: labels.map(d => U(p10[d])), borderWidth: 0, pointRadius: 0, fill: false, tension: 0.35, order: 9 });
             }
             if (UI.tog.sd) {
@@ -424,7 +424,7 @@
 
         function renderMatrix() {
             const W = windows();
-            document.getElementById('mxHead').innerHTML = '<th>Model · run</th>' + W.map(w => `<th>${w.l}<br><small style="font-weight:400;color:#888">${MON[+w.dates[0].substring(5, 7) - 1]} ${+w.dates[0].substring(8)}–${MON[+w.dates[w.dates.length - 1].substring(5, 7) - 1]} ${+w.dates[w.dates.length - 1].substring(8)}</small></th>`).join('') + '<th>1-15 vs<br>30y N</th>';
+            document.getElementById('mxHead').innerHTML = '<th>Model · run</th>' + W.map(w => `<th>${w.l}<br><small style="font-weight:400;color:#888">${MON[+w.dates[0].substring(5, 7) - 1]} ${+w.dates[0].substring(8)}-${MON[+w.dates[w.dates.length - 1].substring(5, 7) - 1]} ${+w.dates[w.dates.length - 1].substring(8)}</small></th>`).join('') + '<th>1-15 vs<br>30y N</th>';
             const rows = [], cons = W.map(() => []);
             Object.entries(DATA.models).forEach(([k, M]) => {
                 const L = M.runs[0], C = pickCompare(M.runs, UI.cmp), Lm = seriesMap(L), Cm = C ? seriesMap(C) : null;

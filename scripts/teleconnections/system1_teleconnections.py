@@ -324,6 +324,8 @@ def run_system1():
         'stale_indices': sorted(k for k, v in data.items() if isinstance(v, dict) and v.get('stale')),
         'analogs': enriched_analogs,
         'mjo': mjo,
+        'change_7d': {k.lower(): (float(round(v['roc'], 3)) if isinstance(v, dict) and v.get('roc') is not None else None)
+                      for k, v in data.items() if k in ('AO', 'NAO', 'PNA', 'EPO')},
         'status': 'success'
     }
 
