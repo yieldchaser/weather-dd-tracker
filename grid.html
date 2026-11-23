@@ -1426,11 +1426,16 @@
             let badgeEl = document.getElementById("wind-badge");
             let p16 = droughtJSON.drought_prob_16d || 0;
             
+            // Same thresholds as the composite score and the Telegram message:
+            // a wind drought means more gas burn (bullish), a strong wind
+            // surplus means less (bearish).
             let badgeColor = "var(--neutral)";
             let biasLbl = "NEUTRAL ⚪";
-            if (p16 >= 0.5) { badgeColor = "var(--bearish)"; biasLbl = "STRONG BULL 🔴"; }
-            else if (p16 >= 0.3) { badgeColor = "#ff9800"; biasLbl = "MODERATE BULL 🟡"; }
-            else if ((droughtJSON.anomaly_today || 0) < -0.05) { badgeColor = "#ffeb3b"; biasLbl = "MILD BULL 🟡"; }
+            const anomToday = droughtJSON.anomaly_today || 0;  // pp of capacity factor vs normal
+            if (p16 >= 0.60) { badgeColor = "var(--bullish)"; biasLbl = "STRONG BULL 🟢"; }
+            else if (p16 >= 0.35) { badgeColor = "var(--bullish)"; biasLbl = "MODERATE BULL 🟢"; }
+            else if (p16 > 0.20) { badgeColor = "var(--bullish)"; biasLbl = "MILD BULL 🟢"; }
+            else if (p16 < 0.15 && anomToday > 5.0) { badgeColor = "var(--bearish)"; biasLbl = "BEARISH (windy) 🔴"; }
             
             let pdToday = droughtJSON.peak_drought_today ? " <span style='color:var(--bearish)'>[PEAK DROUGHT]</span>" : "";
             
@@ -1464,23 +1469,18 @@
         function updateSolarBadge() {
             let badgeEl = document.getElementById("solar-badge");
             let solarGfs = rawSolarData.filter(r => r.model === 'GFS');
+            const nDays = solarGfs.length;
             let droughtCount = solarGfs.filter(r => r.drought_flag).length;
-            let risk = Math.round((droughtCount / 16) * 100);
-            
+            let risk = nDays ? Math.round((droughtCount / nDays) * 100) : 0;
+
             let badgeColor = "var(--neutral)";
             if (risk > 30) badgeColor = "var(--solar-accent)";
-            
+
             badgeEl.style.borderColor = badgeColor;
-            let badgeText = `☀️ SOLAR DROUGHT RISK (16d): ${risk}% | Model: GFS Consensus`;
-            const agreement = droughtJSON.model_agreement_today_pct;
-            if (agreement != null) {
-                badgeText += ` | Model Agreement: ${agreement}%`;
-            }
-            badgeEl.innerHTML = badgeText;
+            badgeEl.innerHTML = `☀️ SOLAR DROUGHT RISK (${nDays}d): ${risk}% (${droughtCount}/${nDays} days below normal) | Model: GFS`;
 
             if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Forward Solar Forecast"]) {
-                const agreementStr = agreement != null ? `Model Agreement: <strong>${agreement}%</strong>` : 'N/A';
-                TOOLTIPS["Forward Solar Forecast"].body = `16-Day Solar Drought Risk: <strong>${risk}%</strong>.<br>Agreement: <strong>${agreementStr}</strong>.<br><br>Forward solar capacity factor from GHI at 12 utility-scale solar hubs (GFS, ECMWF, HRRR) against the smoothed 30-day climatology. Shaded days are below the seasonal drought threshold.`;
+                TOOLTIPS["Forward Solar Forecast"].body = `${nDays}-day solar drought risk: <strong>${risk}%</strong> (${droughtCount} of ${nDays} GFS forecast days below the seasonal drought threshold).<br><br>Forward solar capacity factor from GHI at 12 utility-scale solar hubs (GFS, ECMWF, HRRR) against the smoothed 30-day climatology. Shaded days are below the threshold. Less solar means more gas burn to fill the gap.`;
             }
         }
 

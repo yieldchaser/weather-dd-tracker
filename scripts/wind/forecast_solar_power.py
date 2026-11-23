@@ -355,11 +355,13 @@ def generate_combined_drought(solar_df):
 
         # Seasonal thresholds from the same functions that set the flags —
         # the old hardcoded 35%/25% ignored winter/summer recalibration.
-        s_thresh_pct = get_solar_drought_threshold(utc_now.month) * 100
-        w_thresh_pct = float(wind_json.get("drought_threshold_cf_pct", 35.0))
 
-        # First, pivot solar to get all models for consensus
-        solar_pivoted = solar_df.pivot(index="date", columns="model", values="national_cf_peak_pct")
+        # Use the same per-day drought flags the wind and solar panels show
+        # (output below 75% of the normal for that date). Comparing against
+        # fixed seasonal floors instead flagged every late-autumn day for
+        # solar (normal winter peak CF sits below the floor) and printed a
+        # 100% "combined drought" while the solar panel showed 1 day in 16.
+        solar_pivoted = solar_df.pivot_table(index="date", columns="model", values="drought_flag", aggfunc="max")
         
         # Check which models are actually present
         available_models = [m for m in ["GFS", "ECMWF", "HRRR"] if m in solar_pivoted.columns]
@@ -369,12 +371,12 @@ def generate_combined_drought(solar_df):
             row = solar_pivoted.loc[d]
             active_models = [m for m in available_models if m in row and pd.notna(row[m])]
             if not active_models: return False
-            mid = sum(1 for m in active_models if row[m] < s_thresh_pct)
+            mid = sum(1 for m in active_models if row[m] >= 1)
             needed_for_consensus = 2 if len(active_models) >= 2 else 1
             return mid >= needed_for_consensus
 
         merged["solar_consensus"] = merged["date"].apply(check_solar_consensus)
-        merged["both_drought"] = (merged["national_cf_pct_w"] < w_thresh_pct) & (merged["solar_consensus"])
+        merged["both_drought"] = (merged["drought_flag_w"] >= 1) & (merged["solar_consensus"])
         
         near_term = merged[merged["date"] <= (utc_now.date() + timedelta(days=6)).strftime("%Y-%m-%d")]
         prob_7d = near_term["both_drought"].mean() if not near_term.empty else 0.0
