@@ -27,6 +27,13 @@
             "hours": 6
         },
         {
+            "latest": "20261123_12",
+            "file": "AIGFS_shift_20261123_12_vs_20261123_00.gif",
+            "kind": "shift",
+            "previous": "20261123_00",
+            "hours": 12
+        },
+        {
             "latest": "20261123_06",
             "file": "AIGFS_shift_20261123_06_vs_20261123_00.gif",
             "kind": "shift",
@@ -197,6 +204,25 @@
     ],
     "ECMWF_AIFS": [
         {
+            "latest": "20261123_12",
+            "file": "ECMWF_AIFS_anom_20261123_12.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261123_12",
+            "file": "ECMWF_AIFS_shift_20261123_12_vs_20261123_06.gif",
+            "kind": "shift",
+            "previous": "20261123_06",
+            "hours": 6
+        },
+        {
+            "latest": "20261123_12",
+            "file": "ECMWF_AIFS_shift_20261123_12_vs_20261123_00.gif",
+            "kind": "shift",
+            "previous": "20261123_00",
+            "hours": 12
+        },
+        {
             "latest": "20261123_06",
             "file": "ECMWF_AIFS_anom_20261123_06.gif",
             "kind": "anom"
@@ -255,20 +281,6 @@
             "file": "ECMWF_AIFS_shift_20261122_12_vs_20261122_00.gif",
             "kind": "shift",
             "previous": "20261122_00",
-            "hours": 12
-        },
-        {
-            "latest": "20261122_06",
-            "file": "ECMWF_AIFS_shift_20261122_06_vs_20261122_00.gif",
-            "kind": "shift",
-            "previous": "20261122_00",
-            "hours": 6
-        },
-        {
-            "latest": "20261122_06",
-            "file": "ECMWF_AIFS_shift_20261122_06_vs_20261121_18.gif",
-            "kind": "shift",
-            "previous": "20261121_18",
             "hours": 12
         }
     ],
@@ -745,6 +757,32 @@
     ],
     "HRRR": [
         {
+            "latest": "20261123_16",
+            "file": "HRRR_anom_20261123_16.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261123_16",
+            "file": "HRRR_shift_20261123_16_vs_20261123_15.gif",
+            "kind": "shift",
+            "previous": "20261123_15",
+            "hours": 1
+        },
+        {
+            "latest": "20261123_16",
+            "file": "HRRR_shift_20261123_16_vs_20261123_14.gif",
+            "kind": "shift",
+            "previous": "20261123_14",
+            "hours": 2
+        },
+        {
+            "latest": "20261123_16",
+            "file": "HRRR_shift_20261123_16_vs_20261123_13.gif",
+            "kind": "shift",
+            "previous": "20261123_13",
+            "hours": 3
+        },
+        {
             "latest": "20261123_14",
             "file": "HRRR_anom_20261123_14.gif",
             "kind": "anom"
@@ -797,30 +835,21 @@
             "kind": "shift",
             "previous": "20261123_10",
             "hours": 1
-        },
-        {
-            "latest": "20261123_11",
-            "file": "HRRR_shift_20261123_11_vs_20261123_09.gif",
-            "kind": "shift",
-            "previous": "20261123_09",
-            "hours": 2
-        },
-        {
-            "latest": "20261123_11",
-            "file": "HRRR_shift_20261123_11_vs_20261123_08.gif",
-            "kind": "shift",
-            "previous": "20261123_08",
-            "hours": 3
-        },
-        {
-            "latest": "20261123_00",
-            "file": "HRRR_shift_20261123_00_vs_20261122_23.gif",
-            "kind": "shift",
-            "previous": "20261122_23",
-            "hours": 1
         }
     ],
     "ICON": [
+        {
+            "latest": "20261123_12",
+            "file": "ICON_anom_20261123_12.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261123_12",
+            "file": "ICON_shift_20261123_12_vs_20261123_06.gif",
+            "kind": "shift",
+            "previous": "20261123_06",
+            "hours": 6
+        },
         {
             "latest": "20261123_06",
             "file": "ICON_anom_20261123_06.gif",
