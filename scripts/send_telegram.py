@@ -187,7 +187,7 @@ def _fit_single_message(text):
     lines = text.split("\n")
     drop_prefixes = [
         ("  Extended 35d", "  Model agreement", "  Next →", "  <i>through "),
-        ("<i>* run older", "Spread across", "<i>D1-7, D8-14"),
+        ("<i>* run older", "<i>Spread", "<i>D1-7, D8-14", "Analog years", "<i>Lowest wind"),
     ]
     for prefixes in drop_prefixes:
         lines = [l for l in lines if not l.startswith(prefixes)]
@@ -288,113 +288,7 @@ def _load_live_grid():
     return result
 
 
-def _fmt_grid_section(grid):
-    """Render the LIVE GRID banner block (HTML)."""
-    lines = [f"<b>⚡ LIVE GRID</b>  <i>({_esc(grid.get('grid_date', 'N/A'))})</i>"]
-
-    parts = []
-    bcfd = grid.get("gas_burn_bcfd")
-    if bcfd is not None and not pd.isna(bcfd):
-        parts.append(f"Gas: <b>{bcfd:.1f} Bcf/d</b>")
-
-    load = grid.get("load_mw")
-    if load is not None and not pd.isna(load):
-        parts.append(f"Load: <b>{load/1000:.1f} GW</b>")
-
-    wind = grid.get("wind_mw")
-    if wind is not None and not pd.isna(wind):
-        parts.append(f"Wind: <b>{wind/1000:.1f} GW</b>")
-
-    if parts:
-        lines.append("  " + "  │  ".join(parts))
-
-    parts2 = []
-    gpt = grid.get("gas_pct_thermal")
-    if gpt is not None and not pd.isna(gpt):
-        parts2.append(f"Gas-to-Thermal: {gpt:.1f}%")
-
-    gpl = grid.get("gas_pct_load")
-    if gpl is not None and not pd.isna(gpl):
-        parts2.append(f"Gas-of-Load: {gpl:.1f}%")
-
-    pk = grid.get("peaker_pct")
-    pk_date = grid.get("peaker_date", "")
-    if pk is not None and not pd.isna(pk):
-        arrow = "▲" if pk > 0 else "▼"
-        emoji = "🔴" if pk > 5 else ("🟢" if pk < -5 else "⚪")
-        parts2.append(f"Peaker Proxy: {arrow}{abs(pk):.1f}% {emoji} ({_esc(str(pk_date))})")
-
-    if parts2:
-        lines.append("  " + "  │  ".join(parts2))
-
-    temp = grid.get("mean_temp_gw")
-    hdd  = grid.get("hdd_gw")
-    if temp is not None and not pd.isna(temp):
-        t_str = f"GW Temp: {temp:.1f}°F"
-        if hdd is not None and not pd.isna(hdd):
-            t_str += f"  HDD: {hdd:.1f}"
-        lines.append(f"  {t_str}")
-
-    return "\n".join(lines)
-
-
 # ── Composite signal section ────────────────────────────────────────────────
-
-def _fmt_composite(comp_data):
-    lines = []
-    val = comp_data.get("signal", "NEUTRAL").upper()
-    if "STRONG BULL" in val:
-        bias_str = "STRONG BULLISH 🟢🔥"
-    elif "STRONG BEAR" in val:
-        bias_str = "STRONG BEARISH 🔴🧊"
-    elif "BULL" in val:
-        bias_str = "BULLISH 🟢"
-    elif "BEAR" in val:
-        bias_str = "BEARISH 🔴"
-    else:
-        bias_str = "NEUTRAL ⚪"
-
-    score      = comp_data.get("composite_score", 0.0)
-    confidence = comp_data.get("confidence", 100.0)
-    lines.append(f"<b>⚡ PATTERN, WEEKS 2-6: {_esc(bias_str)}</b>")
-    lines.append(f"  Score {score:+.1f} (neutral inside ±1.5)  │  Confidence {confidence:.0f}%")
-
-    # Tactical reconciliation: the 0-15d ensemble signal vs this subseasonal
-    # composite. Divergence is structure, not error — surface it, don't hide it.
-    tac = comp_data.get("tactical_signal")
-    if tac and tac.get("bias"):
-        ts = tac.get("score", 0.0) or 0.0
-        agree = comp_data.get("agreement_pct")
-        badge = ""
-        if agree == 100:
-            badge = "  ✅ ALIGNED"
-        elif agree == 0:
-            badge = "  ⚠️ DIVERGENT"
-        lines.append(
-            f"  Models, days 0-15: <b>{_esc(str(tac['bias']))} ({ts:+.2f})</b>{badge}"
-        )
-        note = comp_data.get("divergence_note")
-        if note and agree == 0:
-            lines.append(f"  <i>{_esc(note)}</i>")
-
-    components    = comp_data.get("components", [])
-    stale_systems = comp_data.get("stale_systems", [])
-    if components:
-        def _short(n):
-            # 'Summer Ridge Heat (Regime 5 (Arctic Block / ...))' -> 'Summer Ridge Heat'
-            return re.sub(r"\s*\(Regime\s+\d+.*$", "", n).strip()
-        bull_items = [(_short(c["name"]), c["score"]) for c in components if c.get("score", 0) > 0]
-        bear_items = [(_short(c["name"]), c["score"]) for c in components if c.get("score", 0) < 0]
-        if bull_items:
-            bulls = "  │  ".join(f"{_esc(n)} (+{s:.1f})" for n, s in sorted(bull_items, key=lambda x: -x[1]))
-            lines.append(f"  🟢 {bulls}")
-        if bear_items:
-            bears = "  │  ".join(f"{_esc(n)} ({s:.1f})" for n, s in sorted(bear_items, key=lambda x: x[1]))
-            lines.append(f"  🔴 {bears}")
-    if stale_systems:
-        lines.append(f"  ⚠️ Excluded: {_esc(', '.join(stale_systems))}")
-    return "\n".join(lines)
-
 
 # ── Weather pattern section ─────────────────────────────────────────────────
 
@@ -484,169 +378,7 @@ def _fmt_regime():
         return ""
 
 
-def _fmt_teleconnections(season="HDD"):
-    tele_file = Path("outputs/teleconnections/latest.json")
-    if not tele_file.exists():
-        return ""
-    try:
-        with open(tele_file) as f:
-            td = json.load(f)
-
-        def _arr(val):
-            if val is None: return "N/A"
-            return f"{val:+.2f}{'↑' if val > 0 else '↓'}"
-
-        def _sig(val, cold_when_positive=False):
-            if val is None: return ""
-            # PNA+ means a West ridge and East trough: cold East. Flip it so
-            # every index is coloured by what it means for eastern demand.
-            if cold_when_positive:
-                val = -val
-            if season == "CDD":
-                if val > 0.5:  return "🟢"
-                if val < -0.5: return "🔴"
-            else:
-                if val < -0.5: return "🟢"
-                if val > 0.5:  return "🔴"
-            return "⚪"
-
-        ao  = td.get("ao")
-        nao = td.get("nao")
-        pna = td.get("pna")
-        epo = td.get("epo")
-        cold_risk = td.get("composite_score", 0)
-        risk_emoji = "🥶" if cold_risk > 60 else ("🌡️" if cold_risk < 30 else "⚖️")
-
-        idx_line = (f"AO {_arr(ao)}{_sig(ao)}  NAO {_arr(nao)}{_sig(nao)}  "
-                    f"PNA {_arr(pna)}{_sig(pna, cold_when_positive=True)}  EPO {_arr(epo)}{_sig(epo)}")
-        # The index arrows use the cold-bullish convention year-round; label
-        # it explicitly in the off-season so green cold-arrows in August are
-        # not read as near-term gas demand signal (the composite already
-        # damps teleconnection weight to 0.15 in summer).
-        off_season = date.today().month in (5, 6, 7, 8, 9)
-        cr_suffix = " <i>(off-season: pattern-seeding only, damped in composite)</i>" if off_season else ""
-        mjo = td.get("mjo") or {}
-        if mjo.get("phase"):
-            mon = date.today().month
-            winter = mon >= 11 or mon <= 3
-            ph, amp = int(mjo["phase"]), float(mjo.get("amplitude") or 0)
-            if amp >= 1 and winter and ph in (8, 1, 2, 3):
-                msig = "🟢" if season != "CDD" else "🔴"
-            elif amp >= 1 and winter and ph in (4, 5, 6):
-                msig = "🔴" if season != "CDD" else "🟢"
-            else:
-                msig = "⚪"
-            idx_line += f"  MJO P{ph} {amp:.1f}{'' if amp >= 1 else ' (weak)'}{msig}"
-        lines = [f"<b>📡 TELECONNECTIONS</b>: {idx_line}",
-                 f"  Cold Risk: {cold_risk}/100 {risk_emoji}{cr_suffix}"]
-        as_of = td.get("as_of") or {}
-        if as_of:
-            latest = max(str(d) for d in as_of.values())
-            stale = td.get("stale_indices") or []
-            stale_note = f" · ⚠️ stale: {', '.join(stale)}" if stale else ""
-            lines.append(f"  <i>through {latest}{stale_note}</i>")
-
-        # Analog years: closest index state within ±15 days of today's date;
-        # outcomes are what actually followed (ERA5 gas-weighted HDD/day vs
-        # 1991-2020 normals) over the next 1-30 and 31-60 days.
-        analogs = td.get("analogs", [])
-        if date.today().month in (10, 11, 12, 1, 2, 3):
-            shown = [a for a in analogs[:3] if isinstance(a, dict) and a.get("next30_hdd_anomaly") is not None]
-            for a in shown:
-                n30 = a["next30_hdd_anomaly"]
-                n60 = a.get("next31_60_hdd_anomaly")
-                tail = f", then {n60:+.1f}" if n60 is not None else ""
-                lines.append(f"  Analog {a.get('year')}: next 30d {n30:+.1f} HDD/day vs normal{tail}")
-            if shown:
-                avg = sum(a["next30_hdd_anomaly"] for a in shown) / len(shown)
-                lean = "colder" if avg > 0.5 else ("milder" if avg < -0.5 else "near-normal")
-                lines.append(f"  <i>Analog lean next 30d: {lean} ({avg:+.1f} HDD/day)</i>")
-        return "\n".join(lines)
-    except Exception as e:
-        print(f"[WARN] Teleconnection block failed: {e}")
-        return ""
-
-
 # ── Renewable risk section ──────────────────────────────────────────────────
-
-def _fmt_wind():
-    wind_file = Path("outputs/wind/drought.json")
-    if not wind_file.exists():
-        return ""
-    try:
-        with open(wind_file) as f:
-            wd = json.load(f)
-        d7  = wd.get("drought_prob_7d", 0.0)
-        d16 = wd.get("drought_prob_16d", 0.0)
-        dd7  = wd.get("drought_days_7d", 0)
-        dd16 = wd.get("drought_days_16d", 0)
-
-        if d16 >= 0.60:
-            impact = "STRONG BULL 🟢🔥"
-        elif d16 >= 0.35:
-            impact = "MODERATE BULL 🟢"
-        elif d16 > 0.20:
-            impact = "MILD BULL 🟡"
-        elif d16 < 0.15 and wd.get("anomaly_today", 0) > 5.0:
-            impact = "STRONG BEAR 🔴"
-        else:
-            impact = "NEUTRAL ⚪"
-
-        risk_label = "🚨 WIND DROUGHT" if d16 > 0.35 else "💨 WIND"
-        lines = [f"<b>{risk_label}</b>  7d: {int(d7*100)}% ({dd7}/7d)  │  16d: {int(d16*100)}% ({dd16}/16d)  │  {impact}"]
-
-        if wd.get("peak_drought_today"):
-            lines.append("  🚨 PEAK-HOUR DROUGHT ACTIVE: Low daytime generation today!")
-
-        worst    = wd.get("worst_day", "N/A")
-        w_cf     = wd.get("worst_cf_pct", 0.0)
-        w_mod    = wd.get("worst_model", "N/A")
-        w_anom   = wd.get("worst_anomaly_cf_pct", 0.0)
-        lines.append(f"  Worst: {_esc(str(worst))}, {w_cf:.1f}% CF ({_esc(str(w_mod))}), {w_anom:+.1f}pp vs climo")
-
-        agree = wd.get("model_agreement_today_pct")
-        if agree is not None:
-            agreeing = wd.get("models_agreeing_today", [])
-            lines.append(f"  Model agreement: {agree}%  ({_esc(', '.join(agreeing)) if agreeing else 'none'})")
-
-        core = wd.get("core_models")
-        if core is not None and len(core) < 4:
-            lines.append(f"  Based on {_esc(', '.join(core))} only")
-        return "\n".join(lines)
-    except Exception as e:
-        print(f"[WARN] Wind block failed: {e}")
-        return ""
-
-
-def _fmt_solar():
-    comb_file = COMBINED_DROUGHT_PATH
-    if not comb_file.exists():
-        return ""
-    try:
-        with open(comb_file) as f:
-            cd = json.load(f)
-        solar_risk    = cd.get("solar_drought_prob_10d")
-        combined_today = cd.get("combined_drought_today", False)
-        gas_loss      = cd.get("gas_displacement_loss_gw")
-        signal        = cd.get("signal", "NEUTRAL")
-
-        parts = []
-        if solar_risk is not None:
-            parts.append(f"Solar 10d: {int(solar_risk*100)}% risk")
-        if gas_loss is not None:
-            direction = "bull↑" if gas_loss > 0 else "bear↓"
-            parts.append(f"Gas backfill (7d avg): {gas_loss:+.1f} GW vs climo ({direction})")
-
-        header = "<b>☀️ SOLAR</b>  " + "  │  ".join(parts) if parts else "<b>☀️ SOLAR</b>"
-        lines = [header]
-        if combined_today:
-            lines.append("  🚨 COMBINED RENEWABLE DROUGHT ACTIVE")
-        lines.append(f"  Combined Signal: {_esc(signal)}")
-        return "\n".join(lines)
-    except Exception as e:
-        print(f"[WARN] Solar block failed: {e}")
-        return ""
-
 
 # ── Freeze section ──────────────────────────────────────────────────────────
 
@@ -815,9 +547,203 @@ def _model_table(rows, df, prev, tdd_col, norm_col, sorted_s):
 
 
 def _table_legend():
-    return ("<i>D1-7, D8-14: forecast minus normal. Chg: vs prior run on shared days. "
-            "new: first run on the current method. ↑3: third run in a row moving that way.</i>")
+    return ("<i>D1-7, D8-14 = forecast minus normal. Chg = vs prior run, shared days. "
+            "new = first run since the method change. ↓2 = 2nd run in a row that way.</i>")
 
+
+
+# ── Compact sections for the desk message ──────────────────────────────────
+
+CONS15_MODELS = ["ECMWF_ENS", "GEFS", "AIFS_ENS", "CMC_ENS", "GOOGLE_WN2", "GOOGLE_WN3"]
+
+
+def _run_dt(run_id):
+    try:
+        p = str(run_id).split("_")
+        hh = int(p[1]) if len(p) > 1 and p[1].isdigit() else 0
+        return datetime.datetime.strptime(p[0], "%Y%m%d") + datetime.timedelta(hours=hh)
+    except Exception:
+        return None
+
+
+def _fmt_consensus(df, tdd_col, season):
+    """15-day ensemble consensus (same models and days as the website card):
+    total vs 30y and 10y normals, change vs runs 24h and 72h earlier on shared
+    valid dates, model range."""
+    try:
+        d0 = pd.Timestamp(date.today())
+        days = [d0 + pd.Timedelta(days=i) for i in range(15)]
+        norms = pd.read_csv(GW_NORMALS)
+        if season == "CDD":
+            n30c, n10c = "cdd_normal_gw", "cdd_normal_gw_10yr"
+        elif season == "BOTH":
+            norms["t30"] = norms["hdd_normal_gw"] + norms["cdd_normal_gw"]
+            norms["t10"] = norms["hdd_normal_gw_10yr"] + norms["cdd_normal_gw_10yr"]
+            n30c, n10c = "t30", "t10"
+        else:
+            n30c, n10c = "hdd_normal_gw", "hdd_normal_gw_10yr"
+        nk = norms.set_index(["month", "day"])
+        def nsum(col):
+            vals = [nk[col].get((d.month, d.day), nk[col].get((2, 28)) if (d.month, d.day) == (2, 29) else None) for d in days]
+            return None if any(v is None or pd.isna(v) for v in vals) else float(sum(vals))
+        n30, n10 = nsum(n30c), nsum(n10c)
+        totals, ch = [], {24: [], 72: []}
+        for m in CONS15_MODELS:
+            sub = df[df["model"] == m]
+            if sub.empty:
+                continue
+            runs = sorted(sub["run_id"].unique(), reverse=True)
+            L = runs[0]; Lt = _run_dt(L)
+            if Lt is None or (pd.Timestamp(d0) - pd.Timestamp(Lt)).days > 3:
+                continue
+            ser = lambda rid: sub[sub["run_id"] == rid].groupby("date")[tdd_col].mean()
+            Ls = ser(L)
+            have = [d for d in days if d in Ls.index and pd.notna(Ls[d])]
+            if len(have) < 13:
+                continue
+            totals.append((m, float(sum(Ls[d] for d in have)) * 15 / len(have)))
+            for lag in (24, 72):
+                best, err = None, None
+                for r in runs[1:]:
+                    t = _run_dt(r)
+                    if t is None:
+                        continue
+                    e = abs((Lt - t).total_seconds() / 3600 - lag)
+                    if err is None or e < err:
+                        best, err = r, e
+                if best is None or err > 6:
+                    continue
+                Cs = ser(best)
+                both = [d for d in days if d in Ls.index and d in Cs.index and pd.notna(Ls[d]) and pd.notna(Cs[d])]
+                if len(both) >= 10:
+                    ch[lag].append(float(sum(Ls[d] - Cs[d] for d in both)) * 15 / len(both))
+        if not totals:
+            return ""
+        avg = sum(v for _, v in totals) / len(totals)
+        lo = min(totals, key=lambda x: x[1]); hi = max(totals, key=lambda x: x[1])
+        lbl = season if season != "BOTH" else "TDD"
+        dot = lambda v: "🟢" if v > 0.5 else ("🔴" if v < -0.5 else "⚪")
+        span = f"{days[0].strftime('%b %-d')} to {days[-1].strftime('%b %-d')}"
+        lines = [f"<b>📊 NEXT 15 DAYS</b>  <i>{span}, ensemble consensus</i>",
+                 f"<b>{avg:.0f} {lbl}</b>" + (f"  │  vs 30y <b>{avg - n30:+.0f}</b> {dot(avg - n30)}" if n30 is not None else "")
+                 + (f"  │  vs 10y <b>{avg - n10:+.0f}</b>" if n10 is not None else "")]
+        chg = []
+        for lag in (24, 72):
+            if ch[lag]:
+                v = sum(ch[lag]) / len(ch[lag])
+                chg.append(f"{lag}h <b>{v:+.1f}</b> {dot(v)} <i>({len(ch[lag])})</i>")
+        if chg:
+            lines.append("Change: " + "  │  ".join(chg))
+        short = lambda m: SHORT_NAMES.get(m, m)
+        lines.append(f"<i>{len(totals)} ensembles, {lo[1]:.0f} ({short(lo[0])}) to {hi[1]:.0f} ({short(hi[0])})</i>")
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[WARN] Consensus block failed: {e}")
+        return ""
+
+
+def _regime_line():
+    """One line: pattern, persistence, what it means for the East."""
+    full = _fmt_regime()
+    if not full:
+        return ""
+    first = full.split("\n")[0]
+    first = first.replace("<b>🗺️ REGIME</b>: ", "")
+    first = re.sub(r"\s*\[[A-Za-z]+\]\s*", "  ", first)  # season tag
+    return f"Regime: {first}"
+
+
+def _tele_line(season):
+    try:
+        td = json.loads(Path("outputs/teleconnections/latest.json").read_text())
+    except Exception:
+        return ""
+    def sig(v, cold_pos=False):
+        if v is None:
+            return ""
+        x = -v if cold_pos else v
+        if season == "CDD":
+            return "🟢" if x > 0.5 else ("🔴" if x < -0.5 else "⚪")
+        return "🟢" if x < -0.5 else ("🔴" if x > 0.5 else "⚪")
+    parts = []
+    for k, cp in (("ao", False), ("nao", False), ("pna", True), ("epo", False)):
+        v = td.get(k)
+        if v is not None:
+            parts.append(f"{k.upper()} {v:+.1f}{sig(v, cp)}")
+    m = td.get("mjo") or {}
+    if m.get("phase"):
+        amp = float(m.get("amplitude") or 0)
+        winter = date.today().month in (11, 12, 1, 2, 3)
+        ph = int(m["phase"])
+        if amp >= 1 and winter and ph in (8, 1, 2, 3):
+            ms = "🟢" if season != "CDD" else "🔴"
+        elif amp >= 1 and winter and ph in (4, 5, 6):
+            ms = "🔴" if season != "CDD" else "🟢"
+        else:
+            ms = "⚪"
+        parts.append(f"MJO P{ph} {amp:.1f}{'' if amp >= 1 else ' weak'}{ms}")
+    return "  ".join(parts)
+
+
+def _fmt_power(grid):
+    lines = []
+    if grid:
+        bits = []
+        if grid.get("gas_burn_bcfd") is not None and not pd.isna(grid.get("gas_burn_bcfd")):
+            bits.append(f"Burn <b>{grid['gas_burn_bcfd']:.1f} Bcf/d</b>")
+        if grid.get("load_mw") is not None and not pd.isna(grid.get("load_mw")):
+            bits.append(f"load {grid['load_mw']/1000:.0f} GW")
+        if grid.get("wind_mw") is not None and not pd.isna(grid.get("wind_mw")):
+            bits.append(f"wind {grid['wind_mw']/1000:.0f} GW")
+        if bits:
+            try:
+                gd = pd.Timestamp(grid.get("grid_date")).strftime("%b %-d")
+            except Exception:
+                gd = str(grid.get("grid_date", ""))
+            lines.append(", ".join(bits) + f"  <i>({_esc(gd)})</i>")
+        # Peaker share vs its own 30-day average: more peak-hour gas = more burn.
+        try:
+            ph = pd.read_csv("outputs/peaker_history.csv").sort_values("date")
+            ph = ph[pd.to_numeric(ph["peaker_proxy_pct"], errors="coerce").notna()]
+            if len(ph) >= 10:
+                last = float(ph["peaker_proxy_pct"].iloc[-1])
+                avg30 = float(ph["peaker_proxy_pct"].iloc[-31:-1].mean())
+                d = last - avg30
+                e = "🟢" if d > 3 else ("🔴" if d < -3 else "⚪")
+                lines.append(f"Peak-hour gas share {last:.1f}% vs 30d avg {avg30:.1f}% {e}")
+        except Exception:
+            pass
+    try:
+        wd = json.loads(Path("outputs/wind/drought.json").read_text())
+        dd7, dd16 = wd.get("drought_days_7d", 0), wd.get("drought_days_16d", 0)
+        d16 = wd.get("drought_prob_16d", 0.0)
+        if d16 >= 0.60:
+            imp = "STRONG BULL 🟢"
+        elif d16 >= 0.35:
+            imp = "MODERATE BULL 🟢"
+        elif d16 > 0.20:
+            imp = "MILD BULL 🟢"
+        elif d16 < 0.15 and wd.get("anomaly_today", 0) > 5.0:
+            imp = "BEAR 🔴 (windy)"
+        else:
+            imp = "NEUTRAL ⚪"
+        lines.append(f"Wind drought: {dd7}/7 and {dd16}/16 days  │  {imp}")
+        worst = wd.get("worst_day")
+        if worst and wd.get("worst_cf_pct") is not None:
+            wday = pd.Timestamp(worst).strftime("%b %-d")
+            lines.append(f"<i>Lowest wind {wday}, {wd['worst_cf_pct']:.0f}% capacity ({wd.get('worst_anomaly_cf_pct', 0):+.0f} pts vs normal)"
+                         + ("; peak hours short today" if wd.get("peak_drought_today") else "") + "</i>")
+    except Exception:
+        pass
+    try:
+        cd = json.loads(COMBINED_DROUGHT_PATH.read_text())
+        gl = cd.get("gas_displacement_loss_gw")
+        if gl is not None:
+            e = "🟢" if gl > 2 else ("🔴" if gl < -2 else "⚪")
+            lines.append(f"Wind + solar shortfall to backfill (7d): {gl:+.1f} GW vs normal {e}")
+    except Exception:
+        pass
+    return ("<b>⚡ POWER & RENEWABLES</b>\n" + "\n".join(lines)) if lines else ""
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
@@ -899,109 +825,43 @@ def main():
     mode_tag   = "Gas-Weighted" if ("gw" in tdd_col and gw_mode) else "CONUS avg"
     season_tag = f"{season} Season" if season != "BOTH" else "Shoulder/TDD"
 
-    # ── Header ─────────────────────────────────────────────────────────────
+    # ── Assemble: what matters most first, one thought per line ─────────────
     sections = []
-    sections.append(
-        f"<b>🌡️ WEATHER DESK, {today_str}</b>\n"
-        f"<i>{mode_tag}  │  {season_tag}  │  {metric_lbl}</i>"
-    )
+    dd_lbl = season if season != "BOTH" else "TDD"
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    season_word = {"HDD": "Heating season", "CDD": "Cooling season"}.get(season, "Shoulder season (HDD + CDD)")
+    sections.append(f"<b>🌡️ WEATHER DESK</b>  {now_utc.strftime('%a %b %-d, %H:%M UTC')}\n"
+                    f"<i>{season_word}, gas-weighted {dd_lbl}, 79 demand cities</i>")
 
-    # ── Health alerts (prepend if any failures) ─────────────────────────────
     health_alerts = []
     health_dir = Path("outputs/health")
     if health_dir.exists():
         for hf in health_dir.glob("*.json"):
             try:
-                with open(hf) as f:
-                    hs = json.load(f)
-                if hs.get("status") == "failed":
+                hs = json.loads(hf.read_text())
+                if isinstance(hs, dict) and hs.get("status") == "failed":
                     sname = Path(hs.get("script", hf.stem)).name
-                    err   = hs.get("error", "unknown")[:80]
-                    health_alerts.append(f"⚠️ <b>{_esc(sname)}</b> FAILED: {_esc(err)}")
+                    health_alerts.append(f"⚠️ {_esc(sname)}: {_esc(str(hs.get('error', 'unknown'))[:80])}")
             except Exception:
                 pass
-
     if health_alerts:
-        sections.insert(0, "🚨 <b>SYSTEM HEALTH ALERTS</b>\n" + "\n".join(health_alerts))
+        sections.append("🚨 <b>PIPELINE ISSUES</b>\n" + "\n".join(health_alerts))
 
-    # ── Composite signal ────────────────────────────────────────────────────
-    bias_file = Path("outputs/composite_signal.json")
-    if bias_file.exists():
-        try:
-            with open(bias_file) as f:
-                comp_data = json.load(f)
-            sections.append(_fmt_composite(comp_data))
-        except Exception as e:
-            print(f"[WARN] Composite block: {e}")
+    # 1. The number that moves the market: next 15 days vs normal and vs yesterday
+    comp_data = {}
+    try:
+        comp_data = json.loads(Path("outputs/composite_signal.json").read_text())
+    except Exception:
+        pass
+    cons = _fmt_consensus(df, tdd_col, season)
+    tac = (comp_data or {}).get("tactical_signal") or {}
+    if tac.get("bias"):
+        cons += f"\nModels' 0-15 day bias: <b>{_esc(str(tac['bias']))}</b> ({float(tac.get('score') or 0):+.2f})"
+    if cons:
+        sections.append(cons.strip())
 
-    # ── Live grid ───────────────────────────────────────────────────────────
-    grid = _load_live_grid()
-    if grid:
-        sections.append(_fmt_grid_section(grid))
-
-    SEP = "─" * 28
-
-    # ── Weather pattern ─────────────────────────────────────────────────────
-    weather_parts = []
-    regime_str = _fmt_regime()
-    if regime_str:
-        weather_parts.append(regime_str)
-    tele_str = _fmt_teleconnections(season)
-    if tele_str:
-        weather_parts.append(tele_str)
-
-    # Historical magnitude matrix
-    hist_file = Path("outputs/historical_degree_days.csv")
-    if hist_file.exists():
-        try:
-            hd = pd.read_csv(hist_file)
-            cur_month = date.today().month
-            cur_day   = date.today().day
-            cur_year  = date.today().year
-            if cur_day >= 7:
-                hd["month"] = pd.to_datetime(hd["date"]).dt.month
-                hd["year"]  = pd.to_datetime(hd["date"]).dt.year
-                hd["day"]   = pd.to_datetime(hd["date"]).dt.day
-                hdd_col_h   = dd_col if dd_col in hd.columns else ("hdd_gw" if season == "HDD" else "tdd_gw")
-                # Same day window for every year: observations lag (ERA5 ends
-                # yesterday), so rank on days 1..last-observed-day, not 1..today
-                # (22 days of 2026 were being ranked against 23 of other years).
-                cur_obs = hd[(hd["year"] == cur_year) & (hd["month"] == cur_month)]
-                if not cur_obs.empty:
-                    cur_day = int(cur_obs["day"].max())
-                hd_mtd = hd[(hd["month"] == cur_month) & (hd["day"] <= cur_day)]
-                ycounts = hd_mtd.groupby("year")["date"].count()
-                valid_y = ycounts[ycounts >= cur_day].index
-                yearly  = hd_mtd[hd_mtd["year"].isin(valid_y)].groupby("year")[hdd_col_h].sum()
-                if not yearly.empty and cur_year in yearly.index:
-                    sorted_vals = yearly.sort_values(ascending=False)
-                    rank        = list(sorted_vals.index).index(cur_year) + 1
-                    total       = len(yearly)
-                    mname       = date.today().strftime("%B")
-                    mtd_lbl     = f"Day 1-{cur_day}"
-                    metric_tag  = season if season != "BOTH" else "TDD"
-                    if rank <= 5:
-                        weather_parts.append(
-                            f"🚨 <b>HISTORICAL</b>: #{rank} COLDEST {mname} MTD ({mtd_lbl})"
-                            f" in last {total}yrs 🥶 [{metric_tag}]"
-                        )
-                    elif rank > total - 5:
-                        bottom = total - rank + 1
-                        weather_parts.append(
-                            f"🚨 <b>HISTORICAL</b>: #{bottom} WARMEST {mname} MTD ({mtd_lbl})"
-                            f" in last {total}yrs 🌡️ [{metric_tag}]"
-                        )
-        except Exception as e:
-            print(f"[WARN] Historical matrix: {e}")
-
-    if weather_parts:
-        sections.append(SEP + "\n" + "\n".join(weather_parts))
-
-    # ── Model tables ────────────────────────────────────────────────────────
+    # 2. Model tables
     model_sections = []
-    dd_lbl = season if season != "BOTH" else "TDD"
-    model_sections.append(f"{SEP}\n<b>📊 MODELS</b>  <i>vs normal, {metric_lbl}; Chg = vs prior run</i>")
-
     primaries = latest[latest["category"] == "PRIMARY"]
     if not primaries.empty:
         block = ["<b>Physics</b>", _model_table(primaries, df, prev, tdd_col, norm_col, sorted_s)]
@@ -1009,80 +869,111 @@ def main():
         if len(fresh) >= 2:
             spread = fresh["fa_gw"].max() - fresh["fa_gw"].min()
             spread_l = "tight" if spread <= 0.5 else ("moderate" if spread <= 1.5 else "wide")
-            block.append(f"Spread across physics models: {spread:.1f} {dd_lbl}/day ({spread_l})")
+            block.append(f"<i>Spread {spread:.1f} {dd_lbl}/day ({spread_l})</i>")
         model_sections.append("\n".join(block))
-
     ai_models_df = latest[latest["category"] == "AI"]
     if not ai_models_df.empty:
         block = ["<b>AI</b>", _model_table(ai_models_df, df, prev, tdd_col, norm_col, sorted_s)]
         ai_signals = ai_models_df[~ai_models_df["stale_run"]]["signal"].tolist()
-        bull_ai = sum("BULLISH" in s for s in ai_signals)
-        bear_ai = sum("BEARISH" in s for s in ai_signals)
+        bull_ai = sum("BULLISH" in s_ for s_ in ai_signals)
+        bear_ai = sum("BEARISH" in s_ for s_ in ai_signals)
         ai_total = len(ai_signals)
-        if ai_total == 0:
-            cons = "no fresh runs"
-        elif bull_ai == ai_total:
-            cons = f"BULLISH 🟢 ({bull_ai}/{ai_total} colder than normal)"
-        elif bear_ai == ai_total:
-            cons = f"BEARISH 🔴 ({bear_ai}/{ai_total} warmer than normal)"
-        elif bull_ai > bear_ai:
-            cons = f"LEAN BULL 🟢 ({bull_ai} colder, {bear_ai} warmer of {ai_total})"
-        elif bear_ai > bull_ai:
-            cons = f"LEAN BEAR 🔴 ({bear_ai} warmer, {bull_ai} colder of {ai_total})"
-        else:
-            cons = f"MIXED ⚪ ({ai_total} models)"
-        block.append(f"AI consensus: <b>{cons}</b>")
+        word = {"HDD": ("colder", "warmer"), "CDD": ("hotter", "cooler")}.get(season, ("above", "below"))
+        if ai_total:
+            if bull_ai == ai_total:
+                c = f"BULLISH 🟢, {bull_ai}/{ai_total} {word[0]} than normal"
+            elif bear_ai == ai_total:
+                c = f"BEARISH 🔴, {bear_ai}/{ai_total} {word[1]} than normal"
+            elif bull_ai > bear_ai:
+                c = f"LEAN BULL 🟢, {bull_ai} {word[0]}, {bear_ai} {word[1]}"
+            elif bear_ai > bull_ai:
+                c = f"LEAN BEAR 🔴, {bear_ai} {word[1]}, {bull_ai} {word[0]}"
+            else:
+                c = f"MIXED ⚪, {ai_total} models"
+            block.append(f"<i>AI consensus: {c}</i>")
         model_sections.append("\n".join(block))
-
     ext_df = latest[latest["category"] == "EXTENDED"]
     if not ext_df.empty:
-        model_sections.append("\n".join(["<b>Sub-seasonal</b>",
-                                         _model_table(ext_df, df, prev, tdd_col, norm_col, sorted_s)]))
-
+        model_sections.append("\n".join(["<b>Sub-seasonal</b>", _model_table(ext_df, df, prev, tdd_col, norm_col, sorted_s)]))
     short_df = latest[latest["category"] == "SHORT"]
-    valid_short = short_df[short_df["fa_gw"].notna() & (~short_df["stale_run"])] if not short_df.empty else short_df
-    if not valid_short.empty:
-        model_sections.append("\n".join(["<b>Short range</b>",
-                                         _model_table(valid_short, df, prev, tdd_col, norm_col, sorted_s)]))
+    if not short_df.empty:
+        short_df = short_df[short_df["fa_gw"].notna() & (~short_df["stale_run"]) & (short_df["days"] >= 3)]
+        if not short_df.empty:
+            model_sections.append("\n".join(["<b>Short range</b>", _model_table(short_df, df, prev, tdd_col, norm_col, sorted_s)]))
+    if model_sections:
+        model_sections.append(_table_legend())
+        sections.append("\n\n".join(model_sections))
 
-    model_sections.append(_table_legend())
-    sections.append("\n\n".join(model_sections))
+    # 3. Drivers, one line each
+    drv = []
+    tl = _tele_line(season)
+    if tl:
+        drv.append(tl)
+    rl = _regime_line()
+    if rl:
+        drv.append(rl)
+    if comp_data.get("signal"):
+        drv.append(f"Weeks 2-6 pattern: <b>{_esc(str(comp_data['signal']).upper())}</b> ({float(comp_data.get('composite_score') or 0):+.1f}, neutral inside ±1.5)")
+    try:
+        td = json.loads(Path("outputs/teleconnections/latest.json").read_text())
+        an = [a for a in (td.get("analogs") or [])[:3] if isinstance(a, dict) and a.get("next30_hdd_anomaly") is not None]
+        if an and date.today().month in (10, 11, 12, 1, 2, 3):
+            avg_an = sum(a["next30_hdd_anomaly"] for a in an) / len(an)
+            yrs = ", ".join(str(a.get("year")) for a in an)
+            drv.append(f"Analog years ({yrs}): next 30 days {avg_an:+.1f} HDD/day vs normal")
+    except Exception:
+        pass
+    # Month to date rank on the observed series
+    try:
+        hd = pd.read_csv("outputs/historical_degree_days.csv", parse_dates=["date"])
+        today_d = date.today()
+        if today_d.day >= 7:
+            col_h = dd_col if dd_col in hd.columns else "hdd_gw"
+            cur = hd[(hd["date"].dt.year == today_d.year) & (hd["date"].dt.month == today_d.month)]
+            if not cur.empty:
+                last_day = int(cur["date"].dt.day.max())
+                m = hd[(hd["date"].dt.month == today_d.month) & (hd["date"].dt.day <= last_day)]
+                cnt = m.groupby(m["date"].dt.year)["date"].count()
+                yrs_ok = cnt[cnt >= last_day].index
+                tot = m[m["date"].dt.year.isin(yrs_ok)].groupby(m["date"].dt.year)[col_h].sum().sort_values(ascending=False)
+                if today_d.year in tot.index:
+                    rk = list(tot.index).index(today_d.year) + 1
+                    n = len(tot)
+                    hi_w, lo_w = {"HDD": ("coldest", "warmest"), "CDD": ("hottest", "coolest")}.get(season, ("highest demand", "lowest demand"))
+                    mname = today_d.strftime("%B")
+                    if rk <= n / 2:
+                        drv.append(f"{mname} so far (days 1-{last_day}): #{rk} {hi_w} of {n} years")
+                    else:
+                        drv.append(f"{mname} so far (days 1-{last_day}): #{n - rk + 1} {lo_w} of {n} years")
+    except Exception as e:
+        print(f"[WARN] month-to-date rank: {e}")
+    if drv:
+        sections.append("<b>🌀 DRIVERS</b>\n" + "\n".join(drv))
 
-    # Run-over-run changes are in each table's Chg column; the separate
-    # fast-revision list repeated them.
-    rev_lines = []
+    # 4. Power and renewables
+    pw = _fmt_power(_load_live_grid())
+    if pw:
+        sections.append(pw)
+
+    # 5. Freeze and convergence, one line each
+    tail = []
+    fz = _fmt_freeze()
+    if fz:
+        tail.append(fz)
     conv_file = Path("outputs/convergence_alert.csv")
     if conv_file.exists():
         try:
             cv = pd.read_csv(conv_file)
             if not cv.empty:
                 parts = []
-                for _, r in cv.head(5).iterrows():
-                    arrow = "🥶" if str(r["direction"]) == "COLDER" else ("🌡️" if str(r["direction"]) in ("WARMER", "LOWER DEMAND") else "↕")
+                for _, r in cv.head(3).iterrows():
                     cnt = f" {int(r['models'])}/{int(r['of'])}" if "models" in cv.columns and pd.notna(r.get("models")) else ""
-                    parts.append(f"{_esc(str(r['date'])[5:])} {_esc(str(r['direction']))}{cnt} {arrow}")
-                rev_lines.append("🎯 <b>CONVERGENCE</b>: " + "  │  ".join(parts))
+                    parts.append(f"{pd.Timestamp(r['date']).strftime('%b %-d')} {_esc(str(r['direction']).lower())}{cnt}")
+                tail.append("🎯 <b>Models shifting together</b>: " + ", ".join(parts))
         except Exception as e:
             print(f"[WARN] convergence_alert.csv: {e}")
-
-    if rev_lines:
-        sections.append(SEP + "\n" + "\n".join(rev_lines))
-
-    # ── Renewable risks ─────────────────────────────────────────────────────
-    ren_parts = []
-    wind_str = _fmt_wind()
-    if wind_str:
-        ren_parts.append(wind_str)
-    solar_str = _fmt_solar()
-    if solar_str:
-        ren_parts.append(solar_str)
-    if ren_parts:
-        sections.append(SEP + "\n" + "\n".join(ren_parts))
-
-    # ── Freeze ──────────────────────────────────────────────────────────────
-    freeze_str = _fmt_freeze()
-    if freeze_str:
-        sections.append(freeze_str)
+    if tail:
+        sections.append("\n".join(tail))
 
     msg = ("\n\n").join(sections).strip()
 

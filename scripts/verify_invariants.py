@@ -341,7 +341,7 @@ def test_telegram_message_contract():
         record_pass("Telegram NaN Leaks", "Zero raw NaNs in generated Telegram message")
 
     # Check for active season tag
-    if "HDD Season" in stdout or "CDD Season" in stdout or "Shoulder/TDD" in stdout:
+    if any(t in stdout for t in ("Heating season", "Cooling season", "Shoulder season")):
         record_pass("Telegram Season Tag", "Valid dynamic season detected in message header")
     else:
         record_failure("Telegram Season Tag", "No valid season tag in Telegram header")
