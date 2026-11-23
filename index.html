@@ -89,6 +89,7 @@
             margin-bottom: 10px;
         }
 
+        .summary-card .sub { font-size: 0.78rem; color: #8a99a8; margin-top: 6px; line-height: 1.45; }
         .summary-card .val {
             font-size: 2rem;
             font-weight: bold;
@@ -525,6 +526,7 @@
             font-weight: bold;
         }
 
+        .telecon-card .tc-sub { font-size: 0.7rem; color: #8a99a8; margin-top: 4px; line-height: 1.35; }
         .telecon-card .tc-arrow {
             font-size: 0.78rem;
             margin-left: 4px;
@@ -727,22 +729,27 @@
                 <div class="telecon-card has-tooltip" id="tc-ao" data-tooltip-key="AO">
                     <div class="tc-name">AO</div>
                     <div class="tc-val tc-zero" id="tc-ao-val">--</div>
+                    <div class="tc-sub" id="tc-ao-sub"></div>
                 </div>
                 <div class="telecon-card has-tooltip" id="tc-nao" data-tooltip-key="NAO">
                     <div class="tc-name">NAO</div>
                     <div class="tc-val tc-zero" id="tc-nao-val">--</div>
+                    <div class="tc-sub" id="tc-nao-sub"></div>
                 </div>
                 <div class="telecon-card has-tooltip" id="tc-pna" data-tooltip-key="PNA">
                     <div class="tc-name">PNA</div>
                     <div class="tc-val tc-zero" id="tc-pna-val">--</div>
+                    <div class="tc-sub" id="tc-pna-sub"></div>
                 </div>
                 <div class="telecon-card has-tooltip" id="tc-epo" data-tooltip-key="EPO">
                     <div class="tc-name">EPO</div>
                     <div class="tc-val tc-zero" id="tc-epo-val">--</div>
+                    <div class="tc-sub" id="tc-epo-sub"></div>
                 </div>
                 <div class="telecon-card has-tooltip" id="tc-mjo" data-tooltip-key="MJO">
                     <div class="tc-name">MJO</div>
                     <div class="tc-val tc-zero" id="tc-mjo-val">--</div>
+                    <div class="tc-sub" id="tc-mjo-sub"></div>
                 </div>
             </div>
             <div class="week-card" id="mjo-panel" style="display:none;margin-bottom:16px;">
@@ -769,10 +776,12 @@
                 <div class="summary-card has-tooltip" data-tooltip-key="Total Forecast DDs (Gas-Weighted)">
                     <h3 id="macro-dd-label">Total Forecast DDs (Gas-Weighted)</h3>
                     <div class="val" id="macro-total-hdd">--</div>
+                    <div class="sub" id="macro-total-sub"></div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="Avg Daily DD Shift (Run-to-Run)">
                     <h3 id="macro-delta-label">Avg Daily DD Shift (Run-to-Run)</h3>
                     <div class="val" id="macro-delta">--</div>
+                    <div class="sub" id="macro-delta-sub"></div>
                 </div>
             </div>
  
@@ -847,6 +856,7 @@
                             <option value="prev">vs previous run</option>
                             <option value="12">vs 12h ago</option>
                             <option value="24">vs 24h ago (same cycle)</option>
+                            <option value="72">vs 72h ago (same cycle)</option>
                         </select>
                     </div>
                     <div id="chg-headline" class="chg-headline"></div>
@@ -931,7 +941,7 @@
                     <button class="yr-btn" data-bench="n30">30y Normal</button>
                     <button class="yr-btn" data-bench="n10">10y Avg</button>
                     <button class="yr-btn" data-bench="n5">5y Avg</button>
-                    <button class="yr-btn" data-bench="band">Min–Max Range</button>
+                    <button class="yr-btn" data-bench="band">Min-Max Range</button>
                     <span class="lbl" style="margin-left:10px;">View</span>
                     <button class="yr-btn" data-bench="zoom" title="Zoom the x-axis to the season so far plus ~5 weeks">Zoom to Date</button>
                 </div>
@@ -1111,8 +1121,8 @@
             // Dynamic section titles
             const ddL = DD_LABEL;
             const el = (id) => document.getElementById(id);
-            if (el('macro-dd-label')) el('macro-dd-label').innerText = `Total Forecast ${ddL}s (Gas-Weighted)`;
-            if (el('macro-delta-label')) el('macro-delta-label').innerText = `Avg Daily ${ddL} Shift (Run-to-Run)`;
+            if (el('macro-dd-label')) el('macro-dd-label').innerText = `15-Day ${ddL}s, Ensemble Consensus`;
+            if (el('macro-delta-label')) el('macro-delta-label').innerText = `Consensus Change, Same 15 Days`;
             if (el('horizon-title')) el('horizon-title').innerText = `Gas-Weighted ${ddL}s by Horizon (All Models)`;
             if (el('spaghetti-title')) el('spaghetti-title').innerText = `Season Cumulative ${ddL}s (Gas-Weighted)`;
             if (el('monthly-matrix-title')) el('monthly-matrix-title').innerText = `Historical Monthly ${ddL}s`;
@@ -1491,7 +1501,7 @@
                     shortTermHtml += `<tr>
                         <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h1}d)</small>${gwWarning}</strong></td>
                         <td class="has-tooltip" data-dyn-title="${m} Short-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f1} ${DD_LABEL}s</strong> over this horizon.">${f1}</td>
-                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n1} ${DD_LABEL}s</strong>.">${n1}</td>
+                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991-2020) for this period is <strong>${n1} ${DD_LABEL}s</strong>.">${n1}</td>
                         <td class="has-tooltip ${a1_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a1}</td>
                         <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (${TEN_YR}) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
                         <td class="has-tooltip ${a1_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a1_10}</td>
@@ -1511,7 +1521,7 @@
                     medTermHtml += `<tr>
                         <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h2}d)</small>${gwWarning}</strong></td>
                         <td class="has-tooltip" data-dyn-title="${m} Medium-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f2} ${DD_LABEL}s</strong> over this horizon.">${f2}</td>
-                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n2} ${DD_LABEL}s</strong>.">${n2}</td>
+                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991-2020) for this period is <strong>${n2} ${DD_LABEL}s</strong>.">${n2}</td>
                         <td class="has-tooltip ${a2_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a2}</td>
                         <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (${TEN_YR}) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
                         <td class="has-tooltip ${a2_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a2_10}</td>
@@ -1532,7 +1542,7 @@
                     longTermHtml += `<tr>
                         <td class="has-tooltip" data-tooltip-key="${m}"><strong>${m} <small>(${h3}d)</small>${gwWarning}</strong></td>
                         <td class="has-tooltip" data-dyn-title="${m} Long-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f3} ${DD_LABEL}s</strong> over this horizon.">${f3}</td>
-                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n3} ${DD_LABEL}s</strong>.">${n3}</td>
+                        <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991-2020) for this period is <strong>${n3} ${DD_LABEL}s</strong>.">${n3}</td>
                         <td class="has-tooltip ${a3_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a3}</td>
                         <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (${TEN_YR}) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
                         <td class="has-tooltip ${a3_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a3_10}</td>
@@ -1551,8 +1561,6 @@
             document.getElementById('med-term-body').innerHTML = medTermHtml || '<tr><td colspan="7" style="text-align:center; color:#888;">No data available.</td></tr>';
             document.getElementById('long-term-body').innerHTML = longTermHtml || '<tr><td colspan="7" style="text-align:center; color:#888;">No 15+ day forecasts available.</td></tr>';
 
-            renderVal('macro-total-hdd', macroFcst, 1);
-            renderVal('macro-delta', macroDays > 0 ? macroChg / macroDays : 0, 1, true);
         }
 
         function renderShiftTable(shiftTable, shiftMeta) {
@@ -1706,7 +1714,7 @@
             const normByDate = {};
             (vsNormal || []).forEach(r => { if (r.date) normByDate[String(r.date).substring(0, 10)] = normVal(r, false); });
 
-            head.innerHTML = `<th>Model · run</th>` + windows.map(w => `<th>${w.lbl}<br><small style="font-weight:400;color:#888">${fmtD(w.dates[0])}–${fmtD(w.dates[w.dates.length - 1])}</small></th>`).join('') + `<th title="Latest run, days 1-15 total vs 30-yr normal">1-15 vs<br>30y N</th>`;
+            head.innerHTML = `<th>Model · run</th>` + windows.map(w => `<th>${w.lbl}<br><small style="font-weight:400;color:#888">${fmtD(w.dates[0])}-${fmtD(w.dates[w.dates.length - 1])}</small></th>`).join('') + `<th title="Latest run, days 1-15 total vs 30-yr normal">1-15 vs<br>30y N</th>`;
 
             const idx = indexMasterRuns(masterData);
             const cutoff = addDaysIso(d1, -2);
@@ -1720,11 +1728,11 @@
 
             const rows = [];
             const cons = { w1: [], w2: [], w3: [], wt: [] };
-            const consHeadline = { prev: [], '12': [], '24': [] };
+            const consHeadline = { prev: [], '12': [], '24': [], '72': [] };
             models.forEach(m => {
                 const e = idx[m];
                 const L = e.runsDesc[0], Lrun = e.byRun[L];
-                ['prev', '12', '24'].forEach(mode => {
+                ['prev', '12', '24', '72'].forEach(mode => {
                     const C = pickCompareRun(e.runsDesc, mode);
                     if (!C) return;
                     const Crun = e.byRun[C];
@@ -1780,8 +1788,52 @@
                     if (v === null) return '';
                     return `<span>${label}: <b class="${v > 0 ? 'pos-val' : (v < 0 ? 'neg-val' : '')}">${formatNum(v, 1, true)}</b> ${DD_LABEL}s <small style="color:#777">(${arr.length})</small></span>`;
                 };
-                hl.innerHTML = `<span style="color:#888">Consensus 15-day change</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']);
+                hl.innerHTML = `<span style="color:#888">Consensus 15-day change</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']) + fmtC('72h', consHeadline['72']);
             }
+
+            // ── Top cards: 15-day ensemble consensus and its same-day change ──
+            // Same models and the same 15 valid days (desk day 1 to 15) for the
+            // total, the normals and the 24h / 72h comparisons.
+            try {
+                const CONS15 = ['ECMWF_ENS', 'GEFS', 'AIFS_ENS', 'CMC_ENS', 'GOOGLE_WN2', 'GOOGLE_WN3'];
+                const days = windows[3].dates;
+                const norm10 = {};
+                (vsNormal || []).forEach(r => { if (r.date) norm10[String(r.date).substring(0, 10)] = normVal(r, true); });
+                const totals = [], ch24 = [], ch72 = [];
+                CONS15.forEach(m => {
+                    const e = idx[m]; if (!e) return;
+                    const L = e.runsDesc[0], Lr = e.byRun[L];
+                    if ((Date.parse(d1 + 'T00:00:00Z') - (runTimeMs(L) || 0)) > 3 * 86400000) return;  // stale run
+                    const have = days.filter(d => Lr[d] !== undefined);
+                    if (have.length < 13) return;
+                    totals.push({ m, v: have.reduce((a, d) => a + Lr[d], 0) * 15 / have.length });
+                    [['24', ch24], ['72', ch72]].forEach(([mode, arr]) => {
+                        const C = pickCompareRun(e.runsDesc, mode); if (!C) return;
+                        const Cr = e.byRun[C], both = days.filter(d => Lr[d] !== undefined && Cr[d] !== undefined);
+                        if (both.length >= 10) arr.push(both.reduce((a, d) => a + Lr[d] - Cr[d], 0) * 15 / both.length);
+                    });
+                });
+                const n30 = days.every(d => normByDate[d] !== undefined) ? days.reduce((a, d) => a + normByDate[d], 0) : null;
+                const n10 = days.every(d => norm10[d] !== undefined) ? days.reduce((a, d) => a + norm10[d], 0) : null;
+                const totEl = document.getElementById('macro-total-hdd'), totSub = document.getElementById('macro-total-sub');
+                if (totals.length) {
+                    const avg = mean(totals.map(t => t.v)), lo = totals.reduce((a, b) => b.v < a.v ? b : a), hi = totals.reduce((a, b) => b.v > a.v ? b : a);
+                    totEl.textContent = avg.toFixed(0);
+                    const cls = v => v > 0 ? 'pos-val' : (v < 0 ? 'neg-val' : '');
+                    const plural = n => `${n} ensemble${n === 1 ? '' : 's'}`;
+                    totSub.innerHTML = (n30 !== null ? `vs 30y normal <b class="${cls(avg - n30)}">${formatNum(avg - n30, 0, true)}</b>` : '') +
+                        (n10 !== null ? ` · vs 10y <b class="${cls(avg - n10)}">${formatNum(avg - n10, 0, true)}</b>` : '') +
+                        `<br>${plural(totals.length)}, range ${lo.v.toFixed(0)} (${lo.m}) to ${hi.v.toFixed(0)} (${hi.m}), ${fmtD(days[0])} to ${fmtD(days[14])}`;
+                } else { totEl.textContent = 'n/a'; totSub.textContent = 'no fresh ensemble covers the next 15 days'; }
+                const dEl = document.getElementById('macro-delta'), dSub = document.getElementById('macro-delta-sub');
+                const m24 = mean(ch24), m72 = mean(ch72);
+                const pl = n => `${n} ensemble${n === 1 ? '' : 's'}`;
+                const col = v => v > 0.05 ? 'var(--bullish)' : (v < -0.05 ? 'var(--bearish)' : 'var(--text-br)');
+                dEl.textContent = m24 === null ? 'n/a' : formatNum(m24, 1, true);
+                dEl.style.color = m24 === null ? '' : col(m24);
+                dSub.innerHTML = `${DD_LABEL}s vs runs 24h earlier (${pl(ch24.length)})` +
+                    (m72 === null ? '' : `<br>72h: <b style="color:${col(m72)}">${formatNum(m72, 1, true)}</b> (${pl(ch72.length)})`);
+            } catch (e) { console.error('consensus cards', e); }
         }
 
         // ── Model scorecard: forecast vs ERA5 observed over the last 30 verifying days ──
@@ -2911,7 +2963,7 @@
                                 footer: (items) => {
                                     const i = items[0]?.dataIndex;
                                     if (i === undefined || envMin[i] === null) return '';
-                                    return `Other models' range: ${envMin[i].toFixed(1)} – ${envMax[i].toFixed(1)} (${(env[labels[i]] || []).length} models)`;
+                                    return `Other models' range: ${envMin[i].toFixed(1)} to ${envMax[i].toFixed(1)} (${(env[labels[i]] || []).length} models)`;
                                 }
                             }
                         }
@@ -2974,7 +3026,7 @@
             }
             const num = Number(value);
             valEl.textContent = (num > 0 ? '+' : '') + num.toFixed(1);
-            if (num === 0) {
+            if (Math.abs(num) < 0.5) {  // same ±0.5 neutral band as the Telegram signal
                 valEl.className = 'tc-val tc-zero';
                 return;
             }
@@ -2999,6 +3051,7 @@
             if (!el) return;
             if (!m || !m.phase) { el.textContent = 'n/a'; return; }
             el.textContent = `P${m.phase} · ${Number(m.amplitude).toFixed(1)}`;
+            const msub = document.getElementById('tc-mjo-sub');
             const mon = new Date().getUTCMonth() + 1, winter = (mon >= 11 || mon <= 3);
             const coldP = [8, 1, 2, 3].includes(m.phase), warmP = [4, 5, 6].includes(m.phase);
             let cls = 'tc-zero', lean = 'little signal';
@@ -3007,6 +3060,7 @@
             else if (!m.active) lean = 'inactive (amplitude below 1)';
             else if (!winter) lean = 'weak US link outside winter';
             el.className = 'tc-val ' + cls;
+            if (msub) msub.textContent = m.active ? lean.replace(' 1-3 weeks out', '') : 'weak';
             const fd = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
             const region = { 1: 'Western Hemisphere/Africa', 2: 'Indian Ocean', 3: 'Indian Ocean', 4: 'Maritime Continent', 5: 'Maritime Continent', 6: 'West Pacific', 7: 'West Pacific', 8: 'Western Hemisphere' }[m.phase];
             if (TOOLTIPS['MJO']) TOOLTIPS['MJO'].body = `Phase <strong>${m.phase}</strong> (${region}), amplitude <strong>${Number(m.amplitude).toFixed(2)}</strong>: ${lean}. Data through ${fd(m.as_of)}${m.stale ? ' (stale)' : ''}.<br><br>` + TOOLTIPS['MJO'].base;
@@ -3056,11 +3110,20 @@
             // Task 1, Teleconnection Panel
             if (tcData) {
                 const keys = { ao: 'tc-ao-val', nao: 'tc-nao-val', pna: 'tc-pna-val', epo: 'tc-epo-val' };
+                // What each sign means for eastern US temperatures (PNA is the
+                // reverse of the others: positive = East trough = cold East).
+                const LEAN = { ao: ['cold East', 'mild East'], nao: ['cold East', 'mild East'], pna: ['mild East', 'cold East'], epo: ['cold central/East', 'mild central/East'] };
                 for (const [key, elId] of Object.entries(keys)) {
                     if (tcData[key] !== undefined) {
                         const val = tcData[key];
                         setTcCard(document.getElementById(elId), val, key);
                         updateTcTooltip(key, val);
+                        const sub = document.getElementById(`tc-${key}-sub`);
+                        if (sub && val !== null && !isNaN(Number(val))) {
+                            const v = Number(val), ch = (tcData.change_7d || {})[key];
+                            const lean = Math.abs(v) < 0.5 ? 'near neutral' : (v < 0 ? LEAN[key][0] : LEAN[key][1]);
+                            sub.textContent = lean + (ch === null || ch === undefined || isNaN(ch) ? '' : ` · 7d ${ch > 0 ? '+' : ''}${Number(ch).toFixed(1)}`);
+                        }
                     }
                 }
                 document.getElementById('telecon-panel').classList.add('visible');
@@ -3269,12 +3332,12 @@
                 body: "Tactical 0-15 day bias from \u22121.0 (max bearish) to +1.0 (max bullish). Weather term: the mean daily gas-weighted anomaly vs the 30-yr normal over the next 15 days (physics and AI consensus, season-aware: colder = bullish in HDD season, hotter = bullish in CDD season), converted to Bcf/d with the live sensitivity coefficient and discounted when physics and AI models disagree. Wind (latest complete-day national anomaly) and non-weather power burn (28-day bias, \u00B11 Bcf/d deadband) add at most \u00B10.10 each. BULLISH/BEARISH beyond \u00B10.10, STRONG beyond \u00B10.50."
             },
             "Total Forecast DDs (Gas-Weighted)": {
-                title: "Total Forecast DDs",
-                body: "Cumulative Degree Days over the active forecast window weighted by spatial natural gas consumption density. Models standard HDD, CDD, or shoulder TDD based on season."
+                title: "15-Day Ensemble Consensus",
+                body: "Mean 15-day total of gas-weighted degree days over the next 15 days (desk day 1 to 15) across the latest ECMWF ENS, GEFS, AIFS ENS, CMC ENS, WeatherNext 2 and WeatherNext 3 runs, against the 30-year (1991-2020) and 10-year normals for the same days. A model joins only if its latest run is under 3 days old and covers at least 13 of the 15 days (then scaled to 15). The range shows the lowest and highest model. HDD, CDD or TDD follows the active season."
             },
             "Avg Daily DD Shift (Run-to-Run)": {
-                title: "Avg Daily DD Shift",
-                body: "The average daily degree day difference between the current model run and the previous model run. A positive value indicates a colder shift, whereas a negative value indicates a warmer shift."
+                title: "Consensus Change, Same 15 Days",
+                body: "How much the same ensembles' 15-day totals moved against their runs 24 hours earlier, and 72 hours earlier, counted only on valid dates both runs cover (scaled to 15 days). Positive = more degree days than before (colder in heating season)."
             },
             "Fcst": {
                 title: "Forecast Value",
@@ -3282,7 +3345,7 @@
             },
             "30y N": {
                 title: "30-Year Normal",
-                body: "The 30-year daily historical normals (1991–2020) mapped to this forecast period."
+                body: "The 30-year daily historical normals (1991-2020) mapped to this forecast period."
             },
             "30y A": {
                 title: "30-Year Anomaly",
@@ -3431,7 +3494,7 @@
             },
             "Climatology": {
                 title: "30-Year Climatology",
-                body: "The historical normal baseline (1991–2020) for the current calendar day, representing normal weather behavior."
+                body: "The historical normal baseline (1991-2020) for the current calendar day, representing normal weather behavior."
             },
             "GW CDD": {
                 title: "Gas-Weighted CDD",
