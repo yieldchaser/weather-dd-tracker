@@ -1,6 +1,9 @@
 name: Europe Weather (Gas-Weighted HDD)
 
 on:
+  push:  # TEMP: branch validation run — removed before merge
+    branches: [claude/peaceful-cori-avfgpu]
+    paths: ['scripts/europe/**', '.github/workflows/europe_weather.yml']
   schedule:
     # ECMWF ENS / AIFS ENS land on Open-Meteo ~7-8h after 00z/12z; GEFS ~5-6h after each cycle.
     - cron: "40 2,8,14,20 * * *"
