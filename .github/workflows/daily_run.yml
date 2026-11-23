@@ -162,7 +162,12 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add data/pipeline_state.json outputs/ outputs/health/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ data/google_wn3/ data/fourcastnetv2-small/ || true
+          # Add only paths that exist: a single missing pathspec makes `git add`
+          # abort entirely, which silently discarded every no-new-data run's
+          # grid/burn/outage updates ("Nothing to commit").
+          for p in data/pipeline_state.json outputs/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ data/google_wn3/ data/fourcastnetv2-small/; do
+            [ -e "$p" ] && git add "$p"
+          done
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Pipeline state & metrics $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4 5; do

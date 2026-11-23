@@ -28,7 +28,10 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 sys.path.insert(0, str(Path(__file__).parent))
 from demand_constants import DEMAND_CITIES
-from maps_manifest import write_manifest, hours_between, RUN_RE
+from maps_manifest import write_manifest, hours_between, RUN_RE, run_to_dt
+from datetime import datetime, timedelta
+
+STALE_RUN_DAYS = 10  # never render maps from a dead feed's archive
 import re
 
 CITY_NORMALS_PATH = "data/normals/city_daily_normals.csv"
@@ -151,6 +154,22 @@ def build_daily_mean_dataset(run_dir, model_name):
             res[d] = (res[d] - 273.15) * 9/5 + 32
             
         return res, lat_vals, lon_vals
+
+
+def _is_stale(run_id):
+    t = run_to_dt(run_id)
+    return t is not None and datetime.utcnow() - t > timedelta(days=STALE_RUN_DAYS)
+
+
+def _warm_cartopy_cache():
+    """Download/parse the Natural Earth layers once in the parent process.
+    Four workers fetching the same shapefiles concurrently corrupted reads
+    ("unpack requires a buffer of N bytes") and dropped frames."""
+    try:
+        for feat in (cfeature.COASTLINE, cfeature.BORDERS, cfeature.STATES):
+            list(feat.geometries())[:1]
+    except Exception as e:
+        print(f"[WARN] Cartopy cache warm-up failed: {e}")
 
 
 def pick_comparisons(latest_run, older_runs, max_n=3):
@@ -314,6 +333,9 @@ def generate_gifs_for_model(model_name, folder, manifest):
         return
 
     latest_run = available_runs[0]
+    if _is_stale(latest_run):
+        print(f"Latest {model_name} run {latest_run} is older than {STALE_RUN_DAYS} days — feed stale, no maps.")
+        return
     latest_path = os.path.join(folder, latest_run)
     
     print(f"Latest run is {latest_run}")
@@ -464,6 +486,9 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
         return
 
     latest_run = available_runs[0]
+    if _is_stale(latest_run):
+        print(f"Latest {model_name} run {latest_run} is older than {STALE_RUN_DAYS} days — feed stale, no maps.")
+        return
     cities_dir = Path(folder) / "cities"
     
     try:
@@ -609,6 +634,7 @@ def main():
         {"name": "FOURCASTNETV2-SMALL", "path": "data/fourcastnetv2-small", "is_bubble": True},
     ]
 
+    _warm_cartopy_cache()
     with ProcessPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_generate_worker, m): m["name"] for m in MODELS_TO_GENERATE}
         for fut in as_completed(futures):
