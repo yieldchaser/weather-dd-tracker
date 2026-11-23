@@ -844,6 +844,19 @@
                 </div>
             </div>
 
+            <!-- MODEL SCORECARD -->
+            <h2 class="section-title has-tooltip" data-tooltip-key="Model Scorecard">Model Scorecard — Recent Forecast Accuracy</h2>
+            <div class="week-card" style="margin-bottom:30px;">
+                <div id="skill-headline" class="chg-headline"></div>
+                <div class="table-responsive">
+                    <table class="horizon-table chg-table">
+                        <thead><tr id="skill-head"></tr></thead>
+                        <tbody id="skill-body"></tbody>
+                    </table>
+                </div>
+                <div class="chg-foot" id="skill-sub"></div>
+            </div>
+
             <!-- HISTORICAL MONTHLY OUTLIER CHART -->
             <h2 class="section-title has-tooltip" id="monthly-matrix-title" data-tooltip-key="Historical Monthly">Historical Monthly Degree Days</h2>
             <div class="chart-section" style="position: relative;">
@@ -1277,6 +1290,7 @@
             // 6. Run-change matrix + Forecast Model Chart
             if (masterData && masterData.length > 0) {
                 try { renderChangeMatrix(masterData, vsNormal); } catch (e) { console.error('change matrix', e); }
+                try { renderModelScorecard(masterData, historicalData); } catch (e) { console.error('model scorecard', e); }
                 initChart(masterData, vsNormal, mapManifest);
             }
         }
@@ -1712,6 +1726,124 @@
                 };
                 hl.innerHTML = `<span style="color:#888">Consensus 15-day change</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']);
             }
+        }
+
+        // ── Model scorecard: forecast vs ERA5 observed over the last 30 verifying days ──
+        // Lead = valid date minus run date (days). Each run of each model counts
+        // once per verifying date, so models that run 4×/day carry more samples
+        // but not more weight in the MAE. Bias > 0 = forecast too high
+        // (too cold in HDD mode, too hot in CDD mode).
+        const SKILL_BUCKETS = [['1-5', 1, 5], ['6-10', 6, 10], ['11-15', 11, 15]];
+        const SKILL_MIN_N = 30;
+
+        function computeModelSkill(masterData, historicalData, days = 30) {
+            const field = DD_FIELD;
+            const obs = {};
+            historicalData.forEach(r => { if (r.date && r[field] !== undefined && r[field] !== null && !isNaN(r[field])) obs[String(r.date).substring(0, 10)] = +r[field]; });
+            const obsDates = Object.keys(obs).sort();
+            if (!obsDates.length) return { rows: [], end: null };
+            const end = obsDates[obsDates.length - 1];
+            const start = addDaysIso(end, -days + 1);
+            const acc = {};
+            masterData.forEach(r => {
+                if (!r.model || !r.date || !r.run_id) return;
+                const d = String(r.date).substring(0, 10);
+                if (d < start || d > end || obs[d] === undefined) return;
+                const t0 = runTimeMs(r.run_id);
+                if (t0 === null) return;
+                const lead = Math.round((Date.parse(d + 'T00:00:00Z') - (t0 - (t0 % 86400000))) / 86400000);
+                const b = SKILL_BUCKETS.find(([, lo, hi]) => lead >= lo && lead <= hi);
+                if (!b) return;
+                const v = ddVal(r);
+                if (v === null || v === undefined || isNaN(v)) return;
+                const e = v - obs[d];
+                const a = ((acc[r.model] = acc[r.model] || {})[b[0]] = acc[r.model][b[0]] || { n: 0, abs: 0, sum: 0 });
+                a.n++; a.abs += Math.abs(e); a.sum += e;
+            });
+            const rows = Object.entries(acc).map(([model, bk]) => ({
+                model,
+                b: Object.fromEntries(SKILL_BUCKETS.map(([k]) => {
+                    const a = bk[k];
+                    return [k, a && a.n ? { mae: a.abs / a.n, bias: a.sum / a.n, n: a.n } : null];
+                }))
+            }));
+            return { rows, start, end };
+        }
+
+        function renderModelScorecard(masterData, historicalData) {
+            const body = document.getElementById('skill-body'), head = document.getElementById('skill-head');
+            const note = document.getElementById('skill-headline');
+            if (!body || !historicalData || !historicalData.length) return;
+            const { rows, start, end } = computeModelSkill(masterData, historicalData);
+            const active = new Set(indexMasterRunsActive(masterData));
+            const shown = rows.filter(r => active.has(r.model) && SKILL_BUCKETS.some(([k]) => r.b[k] && r.b[k].n >= SKILL_MIN_N));
+            const sortKey = r => (r.b['6-10'] && r.b['6-10'].n >= SKILL_MIN_N) ? r.b['6-10'].mae : 99 + ((r.b['1-5'] || {}).mae || 0);
+            shown.sort((a, b) => sortKey(a) - sortKey(b));
+            const best = {};
+            SKILL_BUCKETS.forEach(([k]) => {
+                const v = shown.map(r => r.b[k]).filter(c => c && c.n >= SKILL_MIN_N).map(c => c.mae);
+                best[k] = v.length ? Math.min(...v) : null;
+            });
+            const hotWord = IS_CDD ? 'too hot' : (IS_BOTH ? 'too high' : 'too cold');
+            const coldWord = IS_CDD ? 'too cool' : (IS_BOTH ? 'too low' : 'too warm');
+            head.innerHTML = '<th>Model</th>' + SKILL_BUCKETS.map(([k]) => `<th title="Mean absolute error, ${DD_LABEL}/day">Days ${k}<br><small style="font-weight:400;color:#888">MAE · bias</small></th>`).join('') + '<th title="Forecast-days verified (one per run per valid date)">Fcst-days<br>scored</th>';
+            body.innerHTML = shown.map(r => {
+                const cells = SKILL_BUCKETS.map(([k]) => {
+                    const c = r.b[k];
+                    if (!c || c.n < SKILL_MIN_N) return '<td style="color:#555">–</td>';
+                    const isBest = best[k] !== null && Math.abs(c.mae - best[k]) < 1e-9;
+                    const worst = Math.max(...shown.map(x => x.b[k]).filter(z => z && z.n >= SKILL_MIN_N).map(z => z.mae));
+                    const t = worst > best[k] ? (c.mae - best[k]) / (worst - best[k]) : 0;
+                    const bg = `rgba(${Math.round(76 + 168 * t)},${Math.round(175 - 108 * t)},${Math.round(80 - 26 * t)},0.22)`;
+                    const bias = c.bias;
+                    const bTxt = Math.abs(bias) < 0.25 ? '<span style="color:#888">±0</span>' : `<span title="${bias > 0 ? hotWord : coldWord}" style="color:${bias > 0 ? '#64b5f6' : '#ef9a9a'}">${formatNum(bias, 1, true)}</span>`;
+                    return `<td style="background:${bg}">${isBest ? '<strong>' : ''}${c.mae.toFixed(2)}${isBest ? ' ★</strong>' : ''} <small>${bTxt}</small></td>`;
+                }).join('');
+                const n = SKILL_BUCKETS.reduce((a, [k]) => a + ((r.b[k] || {}).n || 0), 0);
+                return `<tr data-model="${escAttr(r.model)}"><td><strong>${r.model}</strong></td>${cells}<td style="color:#888">${n}</td></tr>`;
+            }).join('');
+            body.querySelectorAll('tr[data-model]').forEach(tr => {
+                tr.onclick = () => {
+                    const ms = document.getElementById('modelSelect');
+                    if (ms && [...ms.options].some(o => o.value === tr.dataset.model)) { ms.value = tr.dataset.model; if (ms.onchange) ms.onchange(); ms.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                };
+            });
+
+            // Skill-weighted consensus of the latest runs (weights 1/MAE², per window)
+            if (note) {
+                const idx = indexMasterRuns(masterData);
+                const d1 = deskDay1();
+                const wins = [['1-5', 0, 4], ['6-10', 5, 9], ['11-15', 10, 14]];
+                const normByDate = {};
+                (DASHBOARD_DATA && DASHBOARD_DATA.vsNormal || []).forEach(r => { if (r.date) normByDate[String(r.date).substring(0, 10)] = normVal(r, false); });
+                const parts = wins.map(([k, a, b]) => {
+                    const dates = Array.from({ length: b - a + 1 }, (_, i) => addDaysIso(d1, a + i));
+                    let wsum = 0, vsum = 0, simple = [], used = 0;
+                    shown.forEach(r => {
+                        const c = r.b[k], e = idx[r.model];
+                        if (!c || c.n < SKILL_MIN_N || !e) return;
+                        const L = e.byRun[e.runsDesc[0]];
+                        if (!dates.every(d => L[d] !== undefined)) return;
+                        const tot = dates.reduce((s, d) => s + L[d], 0);
+                        const w = 1 / Math.max(0.25, c.mae) ** 2;
+                        wsum += w; vsum += w * tot; simple.push(tot); used++;
+                    });
+                    if (!used) return null;
+                    const sw = vsum / wsum, sm = simple.reduce((x, y) => x + y, 0) / simple.length;
+                    const nrm = dates.every(d => normByDate[d] !== undefined) ? dates.reduce((s, d) => s + normByDate[d], 0) : null;
+                    return `<span>Days ${k}: <b>${sw.toFixed(1)}</b>${nrm !== null ? ` (<b class="${sw - nrm >= 0 ? 'pos-val' : 'neg-val'}">${formatNum(sw - nrm, 1, true)}</b> vs 30y)` : ''} <small style="color:#777">simple mean ${sm.toFixed(1)} · ${used} models</small></span>`;
+                }).filter(Boolean);
+                note.innerHTML = parts.length ? `<span style="color:#888">Skill-weighted consensus (latest runs, weight 1/MAE²)</span>${parts.join('')}` : '';
+            }
+            const sub = document.getElementById('skill-sub');
+            if (sub) sub.innerText = `Verification window ${start} → ${end} (ERA5 gas-weighted ${DD_LABEL}). Sorted by days 6-10 error. ★ = lowest error in that window. Bias: blue = forecasts ran ${hotWord}, red = ${coldWord}. Models need ≥${SKILL_MIN_N} scored forecasts per window to be ranked.`;
+        }
+
+        function indexMasterRunsActive(masterData) {
+            const cutoff = addDaysIso(deskDay1(), -2);
+            const s = new Set();
+            masterData.forEach(r => { if (r.model && r.date && String(r.date).substring(0, 10) >= cutoff) s.add(r.model); });
+            return [...s];
         }
 
         // Forecast tail appended to the observed ERA5 history for the season and
@@ -2652,6 +2784,10 @@
             "Weather Desk Nav": {
                 title: "Weather Desk Dashboard",
                 body: "Provides real-time spatial weather analysis, teleconnections, algorithmic market bias, temperature anomaly forecasts, and model run-to-run changes."
+            },
+            "Model Scorecard": {
+                title: "Model Scorecard",
+                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Use it to decide which models to lean on when they disagree. Ensemble models were scored on control-member runs before the Nov 2026 fix, so their scores firm up as true-mean runs accumulate."
             },
             "Run Change Matrix": {
                 title: "Run-to-Run Change by Window",
