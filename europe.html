@@ -128,7 +128,8 @@
                     <button class="pill" data-tog="members">Ens members</button>
                     <button class="pill" data-tog="band">P10–P90</button>
                     <button class="pill" data-tog="sd">30y ±1σ</button>
-                    <button class="pill" data-tog="n10">10y normal</button></span>
+                    <button class="pill" data-tog="n10">10y normal</button>
+                    <button class="pill" data-tog="rec">Records</button></span>
             </div>
 
             <div class="cards">
@@ -141,7 +142,7 @@
             <h2 class="section-title" id="chartTitle">Daily HDD outlook</h2>
             <div class="panel">
                 <div style="position:relative; height:440px;"><canvas id="mainChart"></canvas></div>
-                <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10–P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and 2016-2025 daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ.</div>
+                <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10–P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and 2016-2025 daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ. Records = highest and lowest observed daily HDD for each calendar day in the ERA5 history loaded so far (the span is shown in the legend).</div>
             </div>
 
             <h2 class="section-title">Run-to-run change by window (all models)</h2>
@@ -221,6 +222,22 @@
             return ` (provisional: ${(c.years_10y || 0)} recent yr${(c.years_10y || 0) === 1 ? '' : 's'}; 1991-2020 archive still loading)`;
         };
         const normFor = (iso, idx) => { const n = DATA.normals[mmdd(iso)]; return n ? n[idx] : null; };
+        // Record high/low daily HDD per calendar day from the observed history.
+        let RECORDS = null;
+        function records() {
+            if (RECORDS) return RECORDS;
+            const rec = {}, yrs = new Set();
+            HIST.forEach(o => {
+                const md = mmdd(o.date), y = o.date.substring(0, 4);
+                yrs.add(y);
+                const r = rec[md] || (rec[md] = { hi: -Infinity, hiY: '', lo: Infinity, loY: '' });
+                if (o.hdd > r.hi) { r.hi = o.hdd; r.hiY = y; }
+                if (o.hdd < r.lo) { r.lo = o.hdd; r.loY = y; }
+            });
+            const ys = [...yrs].sort();
+            RECORDS = { rec, span: ys.length ? `${ys[0]}-${ys[ys.length - 1]}, ${ys.length} yrs` : '' };
+            return RECORDS;
+        }
 
         function pickCompare(runs, mode) {
             if (!runs || runs.length < 2) return null;
@@ -334,8 +351,14 @@
                 ds.push({ label: '30y ±1σ', data: labels.map(d => { const n = normFor(d, 0), s = normFor(d, 2); return n === null ? null : U(n + s); }), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(197,198,199,0.10)', order: 10 });
                 ds.push({ label: '__sdlo', data: labels.map(d => { const n = normFor(d, 0), s = normFor(d, 2); return n === null ? null : U(Math.max(0, n - s)); }), borderWidth: 0, pointRadius: 0, fill: false, order: 10 });
             }
-            ds.push({ label: '30-yr normal (1991-2020)' + normTag(), data: labels.map(d => U(normFor(d, 0))), borderColor: '#c5c6c7', borderDash: [2, 3], borderWidth: 2, pointRadius: 0, order: 3 });
+            ds.push({ label: '30-yr normal (1991-2020)' + (normTag() ? ` (provisional, ${(DATA.normals_coverage || {}).years_30y || (DATA.normals_coverage || {}).years_10y || 0} yrs)` : ''), data: labels.map(d => U(normFor(d, 0))), borderColor: '#c5c6c7', borderDash: [2, 3], borderWidth: 2, pointRadius: 0, order: 3 });
             if (UI.tog.n10) ds.push({ label: '10-yr normal (2016-2025)', data: labels.map(d => U(normFor(d, 1))), borderColor: '#a39171', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, order: 3 });
+            const REC = records();
+            if (UI.tog.rec && HIST.length) {
+                const pick = (d, k) => { const r = REC.rec[mmdd(d)]; return r && isFinite(r[k]) ? U(r[k]) : null; };
+                ds.push({ label: `Record high (${REC.span})`, data: labels.map(d => pick(d, 'hi')), borderColor: '#42a5f5', borderDash: [1, 3], borderWidth: 1.5, pointRadius: 0, order: 4, isRecord: 'hi' });
+                ds.push({ label: `Record low (${REC.span})`, data: labels.map(d => pick(d, 'lo')), borderColor: '#ef5350', borderDash: [1, 3], borderWidth: 1.5, pointRadius: 0, order: 4, isRecord: 'lo' });
+            }
             if (UI.tog.members && L.member_hdd) {
                 const pts = [];
                 L.member_hdd.forEach(m => m.forEach((v, i) => { const d = L.dates[i]; const xi = labels.indexOf(d); if (xi >= 0 && v !== null) pts.push({ x: d, y: U(v) }); }));
@@ -365,8 +388,9 @@
                 },
                 afterDatasetsDraw(ch) {
                     const di = ch.data.datasets.findIndex(d => d.yAxisID === 'y1'); if (di < 0 || !ch.isDatasetVisible(di)) return;
-                    const ctx = ch.ctx; ctx.save(); ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#f0f0f0';
-                    ch.getDatasetMeta(di).data.forEach((el, i) => { const v = ch.data.datasets[di].data[i]; if (v === null || Math.abs(v) < 0.05) return; ctx.fillText((v > 0 ? '+' : '') + v.toFixed(1), el.x, v >= 0 ? el.y - 4 : el.y + 12); });
+                    const ctx = ch.ctx; ctx.save(); ctx.font = `bold ${window.innerWidth <= 768 ? 9 : 11}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#f0f0f0';
+                    const minLbl = window.innerWidth <= 768 ? (UI.unit === 'C' ? 0.6 : 1.0) : 0.05; // phones: label only material changes
+                    ch.getDatasetMeta(di).data.forEach((el, i) => { const v = ch.data.datasets[di].data[i]; if (v === null || Math.abs(v) < minLbl) return; ctx.fillText((v > 0 ? '+' : '') + v.toFixed(1), el.x, v >= 0 ? el.y - 4 : el.y + 12); });
                     ctx.restore();
                 }
             };
@@ -383,7 +407,10 @@
                         tooltip: {
                             backgroundColor: 'rgba(31,40,51,0.95)',
                             filter: i => !String(i.dataset.label).startsWith('__') && i.dataset.type !== 'scatter',
-                            callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y === null ? '–' : (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1)}` }
+                            callbacks: { label: c => {
+                                if (c.dataset.isRecord) { const r = REC.rec[mmdd(labels[c.dataIndex])]; return `Record ${c.dataset.isRecord === 'hi' ? 'high' : 'low'}: ${c.parsed.y === null ? '–' : c.parsed.y.toFixed(1)} (${r ? (c.dataset.isRecord === 'hi' ? r.hiY : r.loY) : ''})`; }
+                                return `${c.dataset.label}: ${c.parsed.y === null ? '–' : (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1)}`;
+                            } }
                         }
                     },
                     scales: {
