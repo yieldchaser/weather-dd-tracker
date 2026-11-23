@@ -667,7 +667,13 @@
         .has-tooltip:hover {
             border-bottom-color: var(--accent);
         }
-    </style>
+            .ekg-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:12px; }
+        .ekg-card { background:#1b232c; border-left:3px solid #45a29e; border-radius:4px; padding:8px 10px; }
+        .ekg-card .k { font-size:0.7rem; letter-spacing:0.06em; color:#8a99a8; text-transform:uppercase; }
+        .ekg-card .v { font-size:1.35rem; font-weight:700; color:#e0e0e0; margin-top:2px; }
+        .ekg-card .s { font-size:0.75rem; color:#8a99a8; margin-top:2px; }
+        .ekg-card.hot { border-left-color:#ef5350; } .ekg-card.cold { border-left-color:#42a5f5; }
+</style>
 </head>
 
 <body>
@@ -844,6 +850,14 @@
                 </div>
             </div>
 
+            <!-- DAILY DEGREE DAYS VS HISTORY -->
+            <h2 class="section-title has-tooltip" data-tooltip-key="Daily vs History" id="ekg-title">Daily Degree Days vs History</h2>
+            <div class="week-card" style="margin-bottom:30px;">
+                <div id="ekg-cards" class="ekg-cards"></div>
+                <div style="height:380px;position:relative;"><canvas id="ekgChart"></canvas></div>
+                <div id="ekg-foot" class="chg-foot"></div>
+            </div>
+
             <!-- MODEL SCORECARD -->
             <h2 class="section-title has-tooltip" data-tooltip-key="Model Scorecard">Model Scorecard: Recent Forecast Accuracy</h2>
             <div class="week-card" style="margin-bottom:30px;">
@@ -979,6 +993,9 @@
         let CURRENT_METRIC = 'HDD';
         let SEASON = 'HEATING';
         let DD_LABEL = 'HDD';
+        // 10-year normal period: read from data/normals/normals_meta.json (the
+        // pipeline rolls it each January); default = last 10 complete years.
+        let TEN_YR = `${new Date().getUTCFullYear() - 10}-${new Date().getUTCFullYear() - 1}`;
         let DD_FIELD = 'hdd_gw';
         let IS_CDD = false;
         let IS_BOTH = false;
@@ -1209,6 +1226,10 @@
 
                 DASHBOARD_DATA = { biasData, vsNormal, runDelta, shiftTable, runChange, convAlert, masterData, mapManifest, historicalData, shiftMeta };
 
+                try {
+                    const nm = await fetch("data/normals/normals_meta.json?t=" + Date.now());
+                    if (nm.ok) { const j = await nm.json(); if (Array.isArray(j.ten_year)) TEN_YR = `${j.ten_year[0]}-${j.ten_year[1]}`; }
+                } catch (e) { /* keep date-rule default */ }
                 updateMetricState(METRIC_MODE, masterData, vsNormal);
                 renderDashboard();
 
@@ -1311,6 +1332,7 @@
             if (masterData && masterData.length > 0) {
                 try { renderChangeMatrix(masterData, vsNormal); } catch (e) { console.error('change matrix', e); }
                 try { renderModelScorecard(masterData, historicalData); } catch (e) { console.error('model scorecard', e); }
+                try { renderDailyContext(masterData, historicalData); } catch (e) { console.error('daily context', e); }
                 initChart(masterData, vsNormal, mapManifest);
             }
         }
@@ -1458,7 +1480,7 @@
                         <td class="has-tooltip" data-dyn-title="${m} Short-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f1} ${DD_LABEL}s</strong> over this horizon.">${f1}</td>
                         <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n1} ${DD_LABEL}s</strong>.">${n1}</td>
                         <td class="has-tooltip ${a1_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a1}</td>
-                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2016–2025) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (${TEN_YR}) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
                         <td class="has-tooltip ${a1_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a1_10}</td>
                         ${chg1_td}
                     </tr>`;
@@ -1478,7 +1500,7 @@
                         <td class="has-tooltip" data-dyn-title="${m} Medium-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f2} ${DD_LABEL}s</strong> over this horizon.">${f2}</td>
                         <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n2} ${DD_LABEL}s</strong>.">${n2}</td>
                         <td class="has-tooltip ${a2_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a2}</td>
-                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2016–2025) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (${TEN_YR}) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
                         <td class="has-tooltip ${a2_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a2_10}</td>
                         ${chg2_td}
                     </tr>`;
@@ -1499,7 +1521,7 @@
                         <td class="has-tooltip" data-dyn-title="${m} Long-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f3} ${DD_LABEL}s</strong> over this horizon.">${f3}</td>
                         <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n3} ${DD_LABEL}s</strong>.">${n3}</td>
                         <td class="has-tooltip ${a3_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a3}</td>
-                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2016–2025) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (${TEN_YR}) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
                         <td class="has-tooltip ${a3_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a3_10}</td>
                         ${chg3_td}
                     </tr>`;
@@ -1789,6 +1811,119 @@
                 }))
             }));
             return { rows, start, end };
+        }
+
+        // ── Daily degree days vs history (per-date climatology bands) ─────────
+        // For each calendar date: 1991..last year, pooled over a centred 15-day
+        // window (the same smoothing as the normals), so the bands are not noise.
+        let ekgChart = null;
+        function renderDailyContext(masterData, historicalData) {
+            const canvas = document.getElementById('ekgChart');
+            if (!canvas || !historicalData || !historicalData.length) return;
+            const obs = new Map();
+            historicalData.forEach(r => { if (r.date) { const v = ddVal(r); if (!isNaN(v)) obs.set(String(r.date).substring(0, 10), v); } });
+            const obsDates = [...obs.keys()].sort();
+            const lastObs = obsDates[obsDates.length - 1];
+            const curY = +lastObs.substring(0, 4);
+            const firstY = +obsDates[0].substring(0, 4);
+            // consensus forecast after the last observed day
+            const CONS = ['ECMWF_ENS', 'GEFS', 'AIFS_ENS', 'CMC_ENS', 'GOOGLE_WN2', 'AIGEFS'];
+            const latest = {};
+            (masterData || []).forEach(r => {
+                if (!CONS.includes(r.model) || !r.run_id) return;
+                const t = runTimeMs(r.run_id); if (t === null) return;
+                if (!latest[r.model] || t > latest[r.model]) latest[r.model] = t;
+            });
+            const fc = {};
+            (masterData || []).forEach(r => {
+                if (!latest[r.model] || runTimeMs(r.run_id) !== latest[r.model]) return;
+                const d = String(r.date).substring(0, 10); if (d <= lastObs) return;
+                const v = ddVal(r); if (isNaN(v)) return;
+                (fc[d] = fc[d] || []).push(v);
+            });
+            const fcDates = Object.keys(fc).filter(d => fc[d].length >= 2).sort();
+            const start = addDaysIso(lastObs, -119);
+            const labels = [];
+            for (let d = start; d <= (fcDates.length ? fcDates[fcDates.length - 1] : lastObs); d = addDaysIso(d, 1)) labels.push(d);
+            const q = (arr, p) => { if (!arr.length) return null; const a = [...arr].sort((x, y) => x - y); const i = (a.length - 1) * p, lo = Math.floor(i); return a[lo] + (a[Math.min(lo + 1, a.length - 1)] - a[lo]) * (i - lo); };
+            const sameDate = (y, d) => `${y}${d.substring(4)}`;
+            const band = labels.map(d => {
+                const vals = [];
+                for (let y = firstY; y < curY; y++) {
+                    if (d.substring(5) === '02-29' && !obs.has(sameDate(y, d))) continue;
+                    const c = sameDate(y, d.substring(5) === '02-29' ? d.replace('02-29', '02-28') : d);
+                    for (let k = -7; k <= 7; k++) { const v = obs.get(addDaysIso(c, k)); if (v !== undefined) vals.push(v); }
+                }
+                const norm = [];
+                for (let y = 1991; y <= 2020; y++) { const c = sameDate(y, d.substring(5) === '02-29' ? d.replace('02-29', '02-28') : d); for (let k = -7; k <= 7; k++) { const v = obs.get(addDaysIso(c, k)); if (v !== undefined) norm.push(v); } }
+                return { min: q(vals, 0), p10: q(vals, 0.1), p25: q(vals, 0.25), med: q(vals, 0.5), p75: q(vals, 0.75), p90: q(vals, 0.9), max: q(vals, 1), norm: norm.length ? norm.reduce((a, b) => a + b, 0) / norm.length : null };
+            });
+            // exact-date ranks and records (no pooling): value vs the same calendar day of every earlier year
+            const exactPrior = d => { const out = []; for (let y = firstY; y < +d.substring(0, 4); y++) { const v = obs.get(sameDate(y, d)); if (v !== undefined) out.push(v); } return out; };
+            const hiWord = IS_CDD ? 'hottest' : (IS_BOTH ? 'highest' : 'coldest');
+            const loWord = IS_CDD ? 'coolest' : (IS_BOTH ? 'lowest' : 'warmest');
+            const recHi = [], recLo = [];
+            labels.forEach((d, i) => {
+                if (d > lastObs) { recHi.push(null); recLo.push(null); return; }
+                const v = obs.get(d), pr = exactPrior(d);
+                const isHi = v !== undefined && pr.length >= 20 && v > Math.max(...pr) && v > 0.5;
+                const isLo = v !== undefined && pr.length >= 20 && v < Math.min(...pr) && Math.min(...pr) > 0.5;
+                recHi.push(isHi ? v : null); recLo.push(isLo ? v : null);
+            });
+            const seasonStart = IS_CDD ? `${curY}-04-01` : (+lastObs.substring(5, 7) >= 7 ? `${curY}-09-01` : `${curY - 1}-09-01`);
+            let nHi = 0, nLo = 0;
+            obsDates.filter(d => d >= seasonStart).forEach(d => {
+                const v = obs.get(d), pr = exactPrior(d);
+                if (pr.length < 20) return;
+                if (v > Math.max(...pr) && v > 0.5) nHi++;
+                if (v < Math.min(...pr) && Math.min(...pr) > 0.5) nLo++;
+            });
+            const lv = obs.get(lastObs), pr = exactPrior(lastObs), allY = [...pr, lv].sort((a, b) => b - a);
+            const rank = allY.indexOf(lv) + 1, nYrs = allY.length;
+            const li = labels.indexOf(lastObs), nb = band[li] || {};
+            const anom = nb.norm !== null && nb.norm !== undefined ? lv - nb.norm : null;
+            const rankTxt = rank <= nYrs / 2 ? `#${rank} ${hiWord}` : `#${nYrs - rank + 1} ${loWord}`;
+            const isRec = rank === 1 || rank === nYrs;
+            const cls = anom === null ? '' : (anom > 0 ? (IS_CDD ? 'hot' : 'cold') : (IS_CDD ? 'cold' : 'hot'));
+            const fdTxt = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+            document.getElementById('ekg-title').innerText = `Daily ${DD_LABEL}s vs History (Gas-Weighted)`;
+            document.getElementById('ekg-cards').innerHTML = `
+                <div class="ekg-card"><div class="k">Latest observed</div><div class="v">${fdTxt(lastObs)}</div><div class="s">ERA5, 79 demand cities</div></div>
+                <div class="ekg-card"><div class="k">${DD_LABEL} that day</div><div class="v">${lv.toFixed(1)}</div><div class="s">gas-weighted ${DD_LABEL}/day</div></div>
+                <div class="ekg-card ${cls}"><div class="k">vs 1991-2020</div><div class="v">${anom === null ? 'n/a' : formatNum(anom, 1, true)}</div><div class="s">normal ${nb.norm == null ? 'n/a' : nb.norm.toFixed(1)}</div></div>
+                <div class="ekg-card ${isRec ? (rank === 1 ? (IS_CDD ? 'hot' : 'cold') : (IS_CDD ? 'cold' : 'hot')) : ''}"><div class="k">Rank for the date</div><div class="v">${isRec ? 'RECORD' : rankTxt}</div><div class="s">${isRec ? rankTxt + ' of ' : 'of '}${nYrs} years since ${firstY}</div></div>
+                <div class="ekg-card"><div class="k">Daily records this season</div><div class="v">${nHi + nLo}</div><div class="s">${nHi} ${hiWord}, ${nLo} ${loWord} since ${fdTxt(seasonStart)}</div></div>`;
+            const B = k => band.map(b => b[k]);
+            const obsLine = labels.map(d => (d <= lastObs && obs.has(d)) ? obs.get(d) : null);
+            const fcLine = labels.map(d => d === lastObs ? obs.get(d) : (fc[d] && fc[d].length >= 2 ? fc[d].reduce((a, b) => a + b, 0) / fc[d].length : null));
+            const yrSpan = `${firstY}-${curY - 1}`;
+            if (ekgChart) ekgChart.destroy();
+            ekgChart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets: [
+                    { label: 'max', data: B('max'), borderWidth: 0, pointRadius: 0, fill: false, isBand: true },
+                    { label: `${yrSpan} full range`, data: B('min'), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(197,198,199,0.10)', isBand: true },
+                    { label: 'p90', data: B('p90'), borderWidth: 0, pointRadius: 0, fill: false, isBand: true },
+                    { label: 'middle 80%', data: B('p10'), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(197,198,199,0.14)', isBand: true },
+                    { label: 'p75', data: B('p75'), borderWidth: 0, pointRadius: 0, fill: false, isBand: true },
+                    { label: 'middle half', data: B('p25'), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(197,198,199,0.20)', isBand: true },
+                    { label: 'median', data: B('med'), borderColor: '#9aa5b1', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false },
+                    { label: `Observed ${DD_LABEL}`, data: obsLine, borderColor: '#66fcf1', borderWidth: 2.2, pointRadius: 0, fill: false, spanGaps: false },
+                    { label: `Forecast (consensus of ${Object.keys(latest).length} ensembles)`, data: fcLine, borderColor: '#ffb74d', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, fill: false },
+                    { label: `Record ${hiWord} for the date`, data: recHi, showLine: false, pointStyle: 'triangle', pointRadius: 8, pointHoverRadius: 9, borderWidth: 1, backgroundColor: IS_CDD ? '#ef5350' : '#42a5f5', borderColor: '#111' },
+                    { label: `Record ${loWord} for the date`, data: recLo, showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 8, pointHoverRadius: 9, borderWidth: 1, backgroundColor: IS_CDD ? '#42a5f5' : '#ef5350', borderColor: '#111' }
+                ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#c5c6c7', boxWidth: 12, font: { size: window.innerWidth <= 600 ? 9 : 11 }, filter: it => !['max', 'p90', 'p75'].includes(it.text) } },
+                        tooltip: { backgroundColor: 'rgba(31,40,51,0.95)', filter: it => !['max', 'p90', 'p75'].includes(it.dataset.label) && it.parsed.y !== null,
+                            callbacks: { title: it => fdTxt(it[0].label) + (it[0].label > lastObs ? '  (forecast)' : ''),
+                                label: c => { const b = band[c.dataIndex]; if (c.dataset.label.includes('full range')) return `Range ${b.min.toFixed(1)} to ${b.max.toFixed(1)}`; if (c.dataset.label === 'middle 80%') return `Middle 80% ${b.p10.toFixed(1)} to ${b.p90.toFixed(1)}`; if (c.dataset.label === 'middle half') return `Middle half ${b.p25.toFixed(1)} to ${b.p75.toFixed(1)}`; return `${c.dataset.label}: ${c.parsed.y.toFixed(1)}`; } } }
+                    },
+                    scales: { x: { ticks: { color: '#c5c6c7', maxRotation: 0, autoSkip: true, maxTicksLimit: window.innerWidth <= 600 ? 5 : 10, callback: (v, i) => { const d = labels[i]; return new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); } }, grid: { color: '#2a3642' } },
+                        y: { min: 0, ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: true, text: `Gas-weighted ${DD_LABEL}/day`, color: '#c5c6c7' } } } }
+            });
+            document.getElementById('ekg-foot').innerText = `Bands: every year ${yrSpan} for each calendar date, pooled over a centred 15-day window. Rank and records compare the exact date with every earlier year since ${firstY}. Records need at least 20 earlier years and are not counted for days near zero ${DD_LABEL}. Forecast = mean of the latest ${Object.keys(latest).join(', ')} runs after the last observed day.`;
         }
 
         function renderModelScorecard(masterData, historicalData) {
@@ -2841,7 +2976,7 @@
                         dynBody = "Measured, not assumed: a trailing 90-day regression of realized national power burn on realized degree days (Bcf per degree), scored against season-banded reference ranges. The heating arm (Bcf/HDD) and cooling arm (Bcf/CDD) differ physically and are scored separately. High percentile means temperature anomalies are translating into large burn shifts right now.";
                     } else if (label.includes("Wind")) {
                         dynTitle = "Wind Generation Drought";
-                        dynBody = "Indicates whether wind generation is forecast to run below the seasonal climatology for this calendar window (multi-year GFS hindcast of the node fleet), with drought thresholds that move by season \u2014 winter fleet runs stronger, summer fleet weaker.";
+                        dynBody = "Indicates whether wind generation is forecast to run below the seasonal climatology for this calendar window (multi-year GFS hindcast of the node fleet), with drought thresholds that move by season: winter fleet runs stronger, summer fleet weaker.";
                     } else if (label.includes("Ridge") || label.includes("Trough") || label.includes("Block") || label.includes("Pattern") || label.includes("PV ") || label.includes("Polar Vortex")) {
                         dynTitle = "Atmospheric Flow Regime";
                         dynBody = "The current large-scale 500mb flow pattern. Heating season: polarity follows the EASTERN US anomaly, where the load is, Trough East = cold delivery (bullish), Ridge East = mild (bearish); a high-latitude block over an eastern ridge is scored mildly bearish (latent cold risk). Cooling season: a ridge means heat demand (bullish). Off-season signals are damped.";
@@ -2893,9 +3028,13 @@
                 title: "Weather Desk Dashboard",
                 body: "Provides real-time spatial weather analysis, teleconnections, algorithmic market bias, temperature anomaly forecasts, and model run-to-run changes."
             },
+            "Daily vs History": {
+                title: "Daily Degree Days vs History",
+                body: "Each observed day of the last 120 against what every year since 1991 did on the same dates: shaded bands are the full range, middle 80% and middle half, dashed grey is the median. The orange dashes continue with the ensemble consensus. Triangles mark days that set a record for their calendar date. The rank card places the latest observed day among all years for that exact date."
+            },
             "Model Scorecard": {
                 title: "Model Scorecard",
-                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; both histories are replaced as corrected runs accumulate, so expect those models' bias figures to move toward zero over the next 1-2 weeks."
+                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; those models are scored only on runs made since the change."
             },
             "Run Change Matrix": {
                 title: "Run-to-Run Change by Window",
@@ -2935,7 +3074,7 @@
             },
             "Horizon Tables": {
                 title: "Horizon Forecast Tables",
-                body: "Compares current weather model forecasts (ECMWF, GFS, NBM, etc.) against 30-year (1991-2020) and 10-year (2016-2025) normals across Short-Term (days 1-5), Medium-Term (days 6-15) and Long-Term (days 16+, sub-seasonal models only) horizons, counted from each model\u2019s run date. Δ Chg is the average per-day shift versus the previous run on the same valid dates."
+                body: "Compares current weather model forecasts (ECMWF, GFS, NBM, etc.) against 30-year (1991-2020) and 10-year (last 10 complete years) normals across Short-Term (days 1-5), Medium-Term (days 6-15) and Long-Term (days 16+, sub-seasonal models only) horizons, counted from each model\u2019s run date. Δ Chg is the average per-day shift versus the previous run on the same valid dates."
             },
             "Historical Monthly": {
                 title: "Historical Monthly Degree Days",
@@ -3015,7 +3154,7 @@
             },
             "10y N": {
                 title: "10-Year Normal",
-                body: "The 10-year daily historical normals (2016–2025) mapped to this forecast period."
+                body: "The 10-year daily historical normals (last 10 complete years) mapped to this forecast period."
             },
             "10y A": {
                 title: "10-Year Anomaly",

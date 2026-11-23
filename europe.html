@@ -142,7 +142,7 @@
             <h2 class="section-title" id="chartTitle">Daily HDD outlook</h2>
             <div class="panel">
                 <div style="position:relative; height:440px;"><canvas id="mainChart"></canvas></div>
-                <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10–P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and 2016-2025 daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ. Records = highest and lowest observed daily HDD for each calendar day in the ERA5 history loaded so far (the span is shown in the legend).</div>
+                <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10–P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and last-10-complete-years daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ. Records = highest and lowest observed daily HDD for each calendar day in the ERA5 history loaded so far (the span is shown in the legend).</div>
             </div>
 
             <h2 class="section-title">Run-to-run change by window (all models)</h2>
@@ -352,7 +352,7 @@
                 ds.push({ label: '__sdlo', data: labels.map(d => { const n = normFor(d, 0), s = normFor(d, 2); return n === null ? null : U(Math.max(0, n - s)); }), borderWidth: 0, pointRadius: 0, fill: false, order: 10 });
             }
             ds.push({ label: '30-yr normal (1991-2020)' + (normTag() ? ` (provisional, ${(DATA.normals_coverage || {}).years_30y || (DATA.normals_coverage || {}).years_10y || 0} yrs)` : ''), data: labels.map(d => U(normFor(d, 0))), borderColor: '#c5c6c7', borderDash: [2, 3], borderWidth: 2, pointRadius: 0, order: 3 });
-            if (UI.tog.n10) ds.push({ label: '10-yr normal (2016-2025)', data: labels.map(d => U(normFor(d, 1))), borderColor: '#a39171', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, order: 3 });
+            if (UI.tog.n10) ds.push({ label: (() => { const c = DATA.normals_coverage || {}, t = c.ten_year || [new Date().getUTCFullYear() - 10, new Date().getUTCFullYear() - 1]; return `10-yr normal (${t[0]}-${t[1]})` + ((c.years_10y || 10) < 10 ? ` (provisional, ${c.years_10y} yrs)` : ''); })(), data: labels.map(d => U(normFor(d, 1))), borderColor: '#a39171', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, order: 3 });
             const REC = records();
             if (UI.tog.rec && HIST.length) {
                 const pick = (d, k) => { const r = REC.rec[mmdd(d)]; return r && isFinite(r[k]) ? U(r[k]) : null; };

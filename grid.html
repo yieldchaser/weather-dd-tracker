@@ -103,6 +103,11 @@
             margin-bottom: 15px;
         }
 
+        .iso-sel { background:#1f2833; color:#e0e0e0; border:1px solid #45a29e; border-radius:4px; padding:3px 6px; font-size:0.85rem; }
+        table.iso-ctx { width:100%; border-collapse:collapse; font-size:0.85rem; min-width:560px; }
+        table.iso-ctx th, table.iso-ctx td { padding:6px 8px; text-align:right; border-bottom:1px solid #2a3642; white-space:nowrap; }
+        table.iso-ctx th:first-child, table.iso-ctx td:first-child { text-align:left; }
+        table.iso-ctx th { color:#66fcf1; font-weight:600; }
         .toggle-btn {
             background-color: var(--bg-color);
             color: var(--text-main);
@@ -698,9 +703,39 @@
 
             <div id="iso-breakdown-section" style="margin-bottom: 30px;">
                 <h2 class="section-title has-tooltip" data-tooltip-key="Gas Burn by ISO">ISO Generation Mix &amp; Gas Burn (<span id="iso-bar-date">Latest</span>)</h2>
+                <div class="chart-controls">
+                    <div style="font-size:0.9rem;color:var(--text-main);">
+                        Day <select id="iso-date-sel" class="iso-sel"></select>
+                        compared with <select id="iso-cmp-sel" class="iso-sel">
+                            <option value="30d">the 30 days before it</option>
+                            <option value="7d">7 days earlier</option>
+                            <option value="1y">same date last year</option>
+                        </select>
+                    </div>
+                </div>
                 <div id="iso-bar-container" style="min-height: 300px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="iso-bar-msg" class="loader">Loading regional data...</div>
                     <canvas id="isoBarChart"></canvas>
+                </div>
+                <div style="overflow-x:auto;margin-top:12px;">
+                    <table id="iso-ctx-table" class="iso-ctx"></table>
+                </div>
+                <div id="iso-ctx-note" style="font-size:0.8rem;color:#888;margin-top:6px;"></div>
+            </div>
+
+            <div id="iso-trend-section" style="margin-bottom: 30px;">
+                <h2 class="section-title has-tooltip" data-tooltip-key="Gas Generation by ISO Trend">Gas Generation by ISO, Daily (GW)</h2>
+                <div class="chart-controls">
+                    <div style="font-size:0.9rem;color:var(--text-main);" id="iso-trend-info">Tap a region in the legend to hide or show it</div>
+                    <div class="button-group">
+                        <button class="toggle-btn" data-iso-range="30">30d</button>
+                        <button class="toggle-btn active" data-iso-range="90">90d</button>
+                        <button class="toggle-btn" data-iso-range="0">All</button>
+                        <button class="toggle-btn" id="iso-share-btn">% of load</button>
+                    </div>
+                </div>
+                <div style="height: 340px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 12px;">
+                    <canvas id="isoTrendChart"></canvas>
                 </div>
             </div>
 
@@ -2311,6 +2346,136 @@
             });
         }
 
+        // ── ISO generation mix with history and context ──────────────────────
+        let isoTrendChart = null, ISO_ROWS = [], ISO_RANGE = 90, ISO_SHARE = false;
+        const ISO_COLORS = { PJM: '#ff9800', ERCOT: '#f44336', MISO: '#4caf50', CAISO: '#2196f3', NYISO: '#9c27b0', ISONE: '#00bcd4', SPP: '#ffeb3b', SE: '#795548', NW: '#8bc34a', SW: '#e91e63' };
+        const isoNum = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
+        const isoMean = a => { const v = a.filter(x => x !== null); return v.length ? v.reduce((p, c) => p + c, 0) / v.length : null; };
+        const isoAddDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+        function isoCoverageDates(rows) {
+            const score = {};
+            rows.forEach(r => {
+                if (r.iso === 'NATIONAL' || isoNum(r.natural_gas_mw) === null) return;
+                const s = score[r.date] || { n: 0, full: 0 };
+                s.n += 1;
+                if (isoNum(r.sample_hours) === null || isoNum(r.sample_hours) >= 18) s.full += 1;
+                score[r.date] = s;
+            });
+            const maxN = Math.max(0, ...Object.values(score).map(s => s.n));
+            // Days with broad coverage only, so bars never shrink to a few early-reporting regions.
+            return Object.keys(score).filter(d => score[d].n >= Math.max(3, maxN - 1) && score[d].full >= Math.max(3, maxN - 2)).sort().reverse();
+        }
+
+        function renderIsoSection(gridData) {
+            ISO_ROWS = gridData.filter(r => r.iso && r.iso !== 'NATIONAL' && r.date).map(r => ({ ...r, date: String(r.date).slice(0, 10) }));
+            const dates = isoCoverageDates(ISO_ROWS);
+            const msg = document.getElementById('iso-bar-msg');
+            if (!dates.length) { msg.textContent = 'Awaiting regional ISO data, check back after next pipeline run.'; msg.style.display = 'block'; return; }
+            msg.style.display = 'none';
+            const sel = document.getElementById('iso-date-sel'), cmp = document.getElementById('iso-cmp-sel');
+            sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
+            const oldest = dates[dates.length - 1];
+            const yearOpt = cmp.querySelector('option[value="1y"]');
+            const hasYear = isoAddDays(dates[0], -365) >= oldest;
+            yearOpt.disabled = !hasYear;
+            yearOpt.textContent = hasYear ? 'same date last year' : `same date last year (history starts ${oldest})`;
+            sel.onchange = cmp.onchange = () => drawIsoDay(sel.value, cmp.value);
+            drawIsoDay(dates[0], cmp.value === '1y' && !hasYear ? '30d' : cmp.value);
+            document.querySelectorAll('[data-iso-range]').forEach(b => b.onclick = () => {
+                ISO_RANGE = +b.dataset.isoRange;
+                document.querySelectorAll('[data-iso-range]').forEach(x => x.classList.toggle('active', x === b));
+                drawIsoTrend();
+            });
+            const shareBtn = document.getElementById('iso-share-btn');
+            shareBtn.onclick = () => { ISO_SHARE = !ISO_SHARE; shareBtn.classList.toggle('active', ISO_SHARE); drawIsoTrend(); };
+            drawIsoTrend();
+        }
+
+        function isoBaseline(iso, day, mode, col) {
+            const rows = ISO_ROWS.filter(r => r.iso === iso);
+            if (mode === '7d') { const r = rows.find(x => x.date === isoAddDays(day, -7)); return r ? isoNum(r[col]) : null; }
+            if (mode === '1y') { const r = rows.find(x => x.date === isoAddDays(day, -365)); return r ? isoNum(r[col]) : null; }
+            const lo = isoAddDays(day, -30);
+            return isoMean(rows.filter(x => x.date >= lo && x.date < day).map(x => isoNum(x[col])));
+        }
+
+        function drawIsoDay(day, mode) {
+            document.getElementById('iso-bar-date').textContent = day;
+            const isos = ISO_ROWS.filter(r => r.date === day && isoNum(r.natural_gas_mw) !== null)
+                .sort((a, b) => (isoNum(b.load_mw) || 0) - (isoNum(a.load_mw) || 0));
+            const gw = col => isos.map(r => { const v = isoNum(r[col]); return v === null ? null : v / 1000; });
+            if (isoBarChart) isoBarChart.destroy();
+            isoBarChart = new Chart(document.getElementById('isoBarChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: isos.map(r => r.iso), datasets: [
+                    { label: 'Gas', data: gw('natural_gas_mw'), backgroundColor: '#ff9800' },
+                    { label: 'Coal', data: gw('coal_mw'), backgroundColor: '#795548' },
+                    { label: 'Nuclear', data: gw('nuclear_mw'), backgroundColor: '#00bcd4' },
+                    { label: 'Solar', data: gw('solar_mw'), backgroundColor: '#ffeb3b' },
+                    { label: 'Wind', data: gw('wind_mw'), backgroundColor: '#4caf50' }
+                ] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.x === null ? 'n/a' : c.parsed.x.toFixed(1) + ' GW'}` } } },
+                    scales: { x: { stacked: true, title: { display: true, text: 'Generation (GW, daily mean)' } }, y: { stacked: true } } }
+            });
+            const cmpLbl = { '30d': '30d avg', '7d': '7d earlier', '1y': '1y earlier' }[mode];
+            const cell = (v, base, unit = ' GW') => {
+                if (v === null) return '<td>n/a</td><td></td>';
+                if (base === null) return `<td>${v.toFixed(1)}${unit}</td><td style="color:#666">n/a</td>`;
+                let d = v - base, pct = base ? d / base * 100 : null;
+                if (Math.abs(d) < 0.05) { d = 0; pct = pct === null ? null : 0; }
+                const col = Math.abs(d) < 0.05 ? '#888' : (d > 0 ? '#4caf50' : '#f44336');
+                return `<td>${v.toFixed(1)}${unit}</td><td style="color:${col}">${d > 0 ? '+' : ''}${d.toFixed(1)}${pct === null ? '' : ` (${pct > 0 ? '+' : ''}${Math.round(pct) === 0 ? '0' : pct.toFixed(0)}%)`}</td>`;
+            };
+            const rowsHtml = isos.map(r => {
+                const g = isoNum(r.natural_gas_mw), l = isoNum(r.load_mw), w = isoNum(r.wind_mw);
+                const gB = isoBaseline(r.iso, day, mode, 'natural_gas_mw'), lB = isoBaseline(r.iso, day, mode, 'load_mw'), wB = isoBaseline(r.iso, day, mode, 'wind_mw');
+                const share = g !== null && l ? g / l * 100 : null;
+                const shareB = gB !== null && lB ? gB / lB * 100 : null;
+                const shareCell = share === null ? '<td>n/a</td><td></td>' : cell(share, shareB, '%').replace(/ \([+-]?\d+%\)/, '');
+                return `<tr><td><strong>${r.iso}</strong></td>${cell(g === null ? null : g / 1000, gB === null ? null : gB / 1000)}${shareCell}${cell(l === null ? null : l / 1000, lB === null ? null : lB / 1000)}${cell(w === null ? null : w / 1000, wB === null ? null : wB / 1000)}</tr>`;
+            }).join('');
+            const tot = col => { const v = isos.map(r => isoNum(r[col])).filter(x => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
+            const totB = col => { const v = isos.map(r => isoBaseline(r.iso, day, mode, col)); return v.some(x => x === null) ? null : v.reduce((a, b) => a + b, 0); };
+            const gT = tot('natural_gas_mw'), lT = tot('load_mw'), wT = tot('wind_mw'), gTB = totB('natural_gas_mw'), lTB = totB('load_mw'), wTB = totB('wind_mw');
+            const shT = gT !== null && lT ? gT / lT * 100 : null, shTB = gTB !== null && lTB ? gTB / lTB * 100 : null;
+            const totRow = `<tr style="border-top:2px solid #45a29e"><td><strong>All shown</strong></td>${cell(gT === null ? null : gT / 1000, gTB === null ? null : gTB / 1000)}${shT === null ? '<td>n/a</td><td></td>' : cell(shT, shTB, '%').replace(/ \([+-]?\d+%\)/, '')}${cell(lT === null ? null : lT / 1000, lTB === null ? null : lTB / 1000)}${cell(wT === null ? null : wT / 1000, wTB === null ? null : wTB / 1000)}</tr>`;
+            document.getElementById('iso-ctx-table').innerHTML =
+                `<thead><tr><th>ISO</th><th>Gas</th><th>vs ${cmpLbl}</th><th>Gas % of load</th><th>vs ${cmpLbl} (pts)</th><th>Load</th><th>vs ${cmpLbl}</th><th>Wind</th><th>vs ${cmpLbl}</th></tr></thead><tbody>${rowsHtml}${totRow}</tbody>`;
+            document.getElementById('iso-ctx-note').textContent =
+                `Daily means from EIA-930 hourly data. Green = higher than the comparison, red = lower. More gas burn with flat load usually means less wind, solar, coal or nuclear output; more gas with higher load usually means weather-driven demand. History in this archive starts ${ISO_ROWS.map(r => r.date).sort()[0]}.`;
+        }
+
+        function drawIsoTrend() {
+            const dates = [...new Set(ISO_ROWS.map(r => r.date))].sort();
+            if (!dates.length) return;
+            const lo = ISO_RANGE ? isoAddDays(dates[dates.length - 1], -ISO_RANGE + 1) : dates[0];
+            const shown = dates.filter(d => d >= lo);
+            const isos = [...new Set(ISO_ROWS.map(r => r.iso))];
+            const by = {};
+            ISO_ROWS.forEach(r => { (by[r.iso] = by[r.iso] || {})[r.date] = r; });
+            const val = r => {
+                if (!r) return null;
+                if (isoNum(r.sample_hours) !== null && isoNum(r.sample_hours) < 18) return null;
+                const g = isoNum(r.natural_gas_mw), l = isoNum(r.load_mw);
+                if (g === null) return null;
+                return ISO_SHARE ? (l ? g / l * 100 : null) : g / 1000;
+            };
+            const ds = isos.map(iso => ({ label: iso, data: shown.map(d => val(by[iso][d])), borderColor: ISO_COLORS[iso] || '#aaa',
+                backgroundColor: ISO_COLORS[iso] || '#aaa', borderWidth: 1.6, pointRadius: 0, spanGaps: true, tension: 0.2 }))
+                .sort((a, b) => (isoMean(b.data) || 0) - (isoMean(a.data) || 0));
+            if (isoTrendChart) isoTrendChart.destroy();
+            isoTrendChart = new Chart(document.getElementById('isoTrendChart').getContext('2d'), {
+                type: 'line', data: { labels: shown, datasets: ds },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { boxWidth: 12, font: { size: window.innerWidth <= 600 ? 10 : 12 } } },
+                        tooltip: { itemSort: (a, b) => (b.parsed.y ?? -1) - (a.parsed.y ?? -1), callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y === null ? 'n/a' : c.parsed.y.toFixed(1)}${ISO_SHARE ? '%' : ' GW'}` } } },
+                    scales: { x: { ticks: { maxTicksLimit: window.innerWidth <= 600 ? 5 : 10, maxRotation: 0 } },
+                        y: { title: { display: true, text: ISO_SHARE ? 'Gas share of load (%)' : 'Gas generation (GW)' } } } }
+            });
+        }
+
         async function loadDashboard() {
             try {
                 // Load Live Grid, SINGLE fetch drives the summary cards, the
@@ -2369,57 +2534,7 @@
                             document.getElementById('ercot-asof').innerText = latestErcot.date;
                         }
 
-                        // ISO Fuel Mix, newest date that actually has broad
-                        // ISO coverage (complete samples preferred), not just
-                        // the raw max date, or bars silently shrink to a
-                        // handful of early-reporting regions.
-                        const dateScore = {};
-                        gridData.forEach(r => {
-                            if (r.iso === 'NATIONAL' || r.natural_gas_mw == null) return;
-                            const s = dateScore[r.date] || { isoCount: 0, fullBonus: 0 };
-                            s.isoCount += 1;
-                            if (r.sample_hours != null && !isNaN(Number(r.sample_hours)) && Number(r.sample_hours) >= 18) s.fullBonus += 1;
-                            dateScore[r.date] = s;
-                        });
-                        const bestDate = Object.entries(dateScore)
-                            .sort((a, b) => (b[1].fullBonus - a[1].fullBonus) || (b[1].isoCount - a[1].isoCount) || (b[0] > a[0] ? 1 : -1))
-                            .map(e => e[0])[0];
-                        const latestDate = bestDate || gridData.reduce((max, r) => (r.date > max ? r.date : max), '');
-                        const isos = gridData.filter(r => r.date === latestDate && r.iso !== 'NATIONAL' && r.natural_gas_mw != null);
-
-                        if (isos.length > 0) {
-                            document.getElementById("iso-bar-msg").style.display = 'none';
-                            document.getElementById("iso-bar-date").textContent = latestDate;
-                            const mw = (col) => isos.map(r => (r[col] != null && !isNaN(r[col])) ? r[col] : null);
-                            let ctx = document.getElementById('isoBarChart').getContext('2d');
-                            if (isoBarChart) isoBarChart.destroy();
-                            isoBarChart = new Chart(ctx, {
-                                type: 'bar',
-                                data: {
-                                    labels: isos.map(r => r.iso),
-                                    datasets: [
-                                        { label: 'Gas',     data: mw('natural_gas_mw'), backgroundColor: '#ff9800' },
-                                        { label: 'Coal',    data: mw('coal_mw'),        backgroundColor: '#795548' },
-                                        { label: 'Nuclear', data: mw('nuclear_mw'),     backgroundColor: '#00bcd4' },
-                                        { label: 'Solar',   data: mw('solar_mw'),       backgroundColor: '#ffeb3b' },
-                                        { label: 'Wind',    data: mw('wind_mw'),        backgroundColor: '#4caf50' }
-                                    ]
-                                },
-                                options: {
-                                    indexAxis: 'y',
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    interaction: { mode: 'index', intersect: false },
-                                    scales: {
-                                        x: { stacked: true, title: { display: true, text: 'Generation (MW)' } },
-                                        y: { stacked: true }
-                                    }
-                                }
-                            });
-                        } else {
-                            document.getElementById("iso-bar-msg").textContent = "Awaiting regional ISO data, check back after next pipeline run.";
-                            document.getElementById("iso-bar-msg").style.display = 'block';
-                        }
+                        renderIsoSection(gridData);
                     } else {
                         document.getElementById("iso-bar-msg").textContent = "Awaiting first pipeline run, check back soon.";
                         document.getElementById("iso-bar-msg").style.display = 'block';
@@ -2580,7 +2695,11 @@
             },
             "Gas Burn by ISO": {
                 title: "ISO Generation Mix & Gas Burn",
-                body: "Stacked per-fuel generation (gas, coal, nuclear, solar, wind) for each ISO region on the most recent day with data. Regional gas burn pinpoints where power-sector demand is concentrated; rising gas share vs coal signals fuel-switching."
+                body: "Stacked per-fuel generation (gas, coal, nuclear, solar, wind) for each ISO region on the chosen day, in GW (daily mean). The table compares each region with the 30 days before that day, 7 days earlier, or the same date last year once a year of history exists: gas, gas share of load, load and wind. Gas up with load flat points to less output from other fuels; gas up with load up points to weather-driven demand."
+            },
+            "Gas Generation by ISO Trend": {
+                title: "Gas Generation by ISO, Daily",
+                body: "Daily mean gas-fired generation per ISO region from EIA-930. Switch to % of load to see each region's dependence on gas independent of demand size. Partial days (fewer than 18 reported hours) are left out."
             },
             "Total NatGas Burn": {
                 title: "Total National Gas Burn",
