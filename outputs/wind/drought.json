@@ -8,8 +8,8 @@
   "worst_anomaly_cf_pct": -21.6,
   "worst_model": "ECMWF",
   "anomaly_today": -15.9,
-  "anomaly_today_peak": -20.5,
-  "anomaly_today_offpeak": -13.6,
+  "anomaly_today_peak": -20.4,
+  "anomaly_today_offpeak": -13.7,
   "peak_drought_today": true,
   "models_in_drought_today": [
     "GFS",
@@ -55,7 +55,7 @@
   "gfs_ensemble_spread_today": 9.37,
   "gfs_p10_today": 5.9,
   "gfs_p90_today": 15.2,
-  "timestamp": "2026-11-23T13:57:41Z",
+  "timestamp": "2026-11-23T18:40:19Z",
   "core_models": [
     "ECMWF",
     "GFS",
