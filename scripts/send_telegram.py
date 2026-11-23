@@ -993,9 +993,12 @@ def main():
         try:
             cv = pd.read_csv(conv_file)
             if not cv.empty:
-                direction = cv["direction"].iloc[0]
-                arrow = "🥶" if direction == "COLDER" else "🌡️"
-                rev_lines.append(f"🎯 <b>CONVERGENCE</b>: Models aligning {_esc(direction)} {arrow} on {len(cv)} day(s)")
+                parts = []
+                for _, r in cv.head(5).iterrows():
+                    arrow = "🥶" if str(r["direction"]) == "COLDER" else ("🌡️" if str(r["direction"]) in ("WARMER", "LOWER DEMAND") else "↕")
+                    cnt = f" {int(r['models'])}/{int(r['of'])}" if "models" in cv.columns and pd.notna(r.get("models")) else ""
+                    parts.append(f"{_esc(str(r['date'])[5:])} {_esc(str(r['direction']))}{cnt} {arrow}")
+                rev_lines.append("🎯 <b>CONVERGENCE</b>: " + "  │  ".join(parts))
         except Exception as e:
             print(f"[WARN] convergence_alert.csv: {e}")
 

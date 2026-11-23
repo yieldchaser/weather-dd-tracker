@@ -712,7 +712,7 @@
         <div id="app">
             <!-- ALERTS -->
             <div class="alerts-container">
-                <div id="alert-fast-rev" class="alert-box has-tooltip">⚡ FAST REVISION ALERT: <span id="rev-text"></span></div>
+                <div id="alert-fast-rev" class="alert-box has-tooltip">⚡ FAST REVISIONS: <span id="rev-text"></span></div>
                 <div id="alert-conv" class="alert-box conv has-tooltip">🎯 CONVERGENCE ALERT: <span id="conv-text"></span></div>
             </div>
 
@@ -1256,29 +1256,36 @@
                     alertConvEl.style.display = 'block';
                     const dir = String(convAlert[0].direction).toUpperCase();
                     alertConvEl.setAttribute('data-dyn-title', 'Convergence Alert');
-                    alertConvEl.setAttribute('data-dyn-body', `High consensus alert: <strong>${convAlert.length} day(s)</strong> are consistently shifting <strong>${dir}</strong> across different models, reinforcing the trend direction.`);
+                    alertConvEl.setAttribute('data-dyn-body', `Days where at least 3 models and at least half of the models with a run-to-run shift moved the same way by more than 0.5 DD, with none moving the other way:<br>` + convAlert.map(r => `${r.date}: <strong>${r.direction}</strong>${r.models ? ` (${r.models}/${r.of} models)` : ''}`).join('<br>'));
                     const convText = document.getElementById('conv-text');
-                    if (convText) convText.innerText = `${convAlert.length} day(s) aligning ${convAlert[0].direction}`;
+                    if (convText) { const dirs = [...new Set(convAlert.map(r => r.direction))]; convText.innerText = `${convAlert.length} day(s) with models shifting together: ${dirs.join(' / ')}`; }
                 }
             }
 
             if (runChange && runChange.length > 0) {
-                let fr = runChange.filter(r => r.fast_revision === true || r.fast_revision === 'True');
+                // Only each model's LATEST run, and only runs from the last 2 days.
+                // (The old code took the file's last flagged row: the
+                // alphabetically last model's flag from any date.)
+                const latestByModel = {};
+                runChange.forEach(r => { const id = String(r.run_id); if (r.model && (!latestByModel[r.model] || id > latestByModel[r.model].id)) latestByModel[r.model] = { id, row: r }; });
+                const freshCut = Date.now() - 2 * 86400e3;
+                const chgOf = r => {
+                    const v = r[`${DD_FIELD.replace('_gw', '')}_change_gw`] ?? r[`${DD_FIELD.replace('_gw', '')}_change`] ?? r.effective_change;
+                    return (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v);
+                };
+                const flagged = Object.values(latestByModel).map(o => o.row).filter(r => {
+                    const t = runTimeMs(r.run_id), c = chgOf(r);
+                    return t !== null && t >= freshCut && c !== null && Math.abs(c) > 1.0;
+                }).sort((x, y) => Math.abs(chgOf(y)) - Math.abs(chgOf(x)));
                 const alertFastEl = document.getElementById('alert-fast-rev');
-                if (fr.length > 0 && alertFastEl) {
-                    let latestFr = fr[fr.length - 1];
-                    alertFastEl.style.display = 'block';
-                    let chgCol = latestFr[`${DD_FIELD.replace('_gw', '')}_change_gw`]
-                        ?? latestFr[`${DD_FIELD.replace('_gw', '')}_change`]
-                        ?? latestFr.hdd_change_gw ?? latestFr.tdd_change_gw ?? latestFr.cdd_change_gw ?? latestFr.hdd_change ?? 0;
-                    let arr = chgCol > 0 ? "▲" : "▼";
-                    let direction = chgCol > 0 
-                        ? (IS_CDD ? "hotter" : (IS_BOTH ? "higher demand" : "colder")) 
-                        : (IS_CDD ? "cooler" : (IS_BOTH ? "lower demand" : "warmer"));
-                    alertFastEl.setAttribute('data-dyn-title', 'Fast Revision Alert');
-                    alertFastEl.setAttribute('data-dyn-body', `Rapid adjustment alert: <strong>${latestFr.model}</strong> shifted by <strong>${formatNum(chgCol, 1, true)} ${DD_LABEL}s</strong> (${direction}) in its latest run, indicating a significant short-term pattern revision.`);
+                if (alertFastEl) alertFastEl.style.display = flagged.length ? 'block' : 'none';
+                if (flagged.length && alertFastEl) {
+                    const word = c => c > 0 ? (IS_CDD ? 'hotter' : (IS_BOTH ? 'higher demand' : 'colder')) : (IS_CDD ? 'cooler' : (IS_BOTH ? 'lower demand' : 'warmer'));
+                    alertFastEl.setAttribute('data-dyn-title', 'Fast Revisions (latest runs, > 1.0 ' + DD_LABEL + '/day)');
+                    alertFastEl.setAttribute('data-dyn-body', 'Average per-day change of each model\u2019s latest run versus its previous run on the valid dates both cover:<br>' +
+                        flagged.map(r => `<strong>${r.model}</strong> ${fmtRunLabel(r.run_id)}: ${formatNum(chgOf(r), 1, true)} ${DD_LABEL}/day (${word(chgOf(r))})`).join('<br>'));
                     const revText = document.getElementById('rev-text');
-                    if (revText) revText.innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} ${DD_LABEL}s`;
+                    if (revText) revText.innerText = flagged.slice(0, 4).map(r => `${r.model} ${chgOf(r) > 0 ? '▲' : '▼'}${formatNum(chgOf(r), 1, true)}`).join('  ·  ') + (flagged.length > 4 ? `  +${flagged.length - 4} more` : '') + ` ${DD_LABEL}/day`;
                 }
             }
 
@@ -2668,7 +2675,7 @@
                 return;
             }
             const num = Number(value);
-            valEl.textContent = num.toFixed(1);
+            valEl.textContent = (num > 0 ? '+' : '') + num.toFixed(1);
             if (num === 0) {
                 valEl.className = 'tc-val tc-zero';
                 return;

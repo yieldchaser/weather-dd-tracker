@@ -1,3 +1,4 @@
+import sys
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -223,34 +224,39 @@ def main():
     print(f"  [OK] Saved Shift Metadata -> outputs/shift_meta.json")
 
     # ── Convergence Detector ──────────────────────────────────────────────────
-    # Fires when multi-model spread collapses: models that disagreed now align.
+    # A day converges when at least 3 models AND at least half of the models
+    # with a shift that day moved the same way by more than 0.5 DD, with none
+    # moving the other way by more than 0.5. Previously two same-signed models
+    # out of seventeen qualified, the whole alert took the first day's sign,
+    # and the file was never cleared, so an old alert lived on indefinitely.
+    conv_path = out_dir / "convergence_alert.csv"
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from season_utils import active_metric
+        from datetime import date as _d
+        metric = active_metric(_d.today())
+    except Exception:
+        metric = "HDD"
+    up_word, down_word = ("WARMER", "COOLER") if metric == "CDD" else (("HIGHER DEMAND", "LOWER DEMAND") if metric not in ("HDD", "CDD") else ("COLDER", "WARMER"))
     chg_cols = [c for c in shift_df.columns if "CHG" in c.upper() and shift_df[c].notna().any()]
-    if len(chg_cols) >= 2:
-        # Per-day: did all models with data shift in the SAME direction?
-        signs = shift_df[chg_cols].apply(lambda col: col.apply(
-            lambda x: 1 if x > 0.5 else (-1 if x < -0.5 else 0) if pd.notnull(x) else None
-        ))
-        def all_same_sign(row):
-            vals = [v for v in row if v not in (None, 0)]
-            return len(vals) >= 2 and len(set(vals)) == 1
-        convergence_days = shift_df[signs.apply(all_same_sign, axis=1)].index
-        if len(convergence_days) > 0:
-            first_day = convergence_days[0]
-            active_signs = [s for s in signs.loc[first_day] if s not in (None, 0) and pd.notnull(s)]
-            aligned_sign = active_signs[0] if active_signs else 0
-            direction = "WARMER" if aligned_sign < 0 else "COLDER"
-            print(f"\n[ALERT] CONVERGENCE ALERT: Models aligning {direction} on {len(convergence_days)} day(s):")
-            for d in convergence_days[:5]:
-                row_str = "  " + ", ".join(
-                    f"{c.split()[0]}: {shift_df.loc[d, c]:+.1f}" for c in chg_cols if pd.notnull(shift_df.loc[d, c])
-                )
-                print(f"  {d.strftime('%Y-%m-%d')} | {row_str}")
-            # Save convergence flag to outputs
-            conv_df = pd.DataFrame({"date": [d.strftime("%Y-%m-%d") for d in convergence_days], "direction": direction})
-            conv_df.to_csv(out_dir / "convergence_alert.csv", index=False)
-            print(f"  [OK] Saved -> outputs/convergence_alert.csv")
-        else:
-            print("\n  [INFO] No multi-model convergence detected in this run.")
+    rows_out = []
+    for d, row in shift_df[chg_cols].iterrows():
+        vals = [float(v) for v in row if pd.notnull(v)]
+        if len(vals) < 3:
+            continue
+        pos = sum(1 for v in vals if v > 0.5)
+        neg = sum(1 for v in vals if v < -0.5)
+        n_needed = max(3, -(-len(vals) // 2))
+        if pos >= n_needed and neg == 0:
+            rows_out.append({"date": d.strftime("%Y-%m-%d"), "direction": up_word, "models": pos, "of": len(vals)})
+        elif neg >= n_needed and pos == 0:
+            rows_out.append({"date": d.strftime("%Y-%m-%d"), "direction": down_word, "models": neg, "of": len(vals)})
+    conv_df = pd.DataFrame(rows_out, columns=["date", "direction", "models", "of"])
+    conv_df.to_csv(conv_path, index=False)
+    if rows_out:
+        print(f"\n[ALERT] CONVERGENCE on {len(rows_out)} day(s): " + ", ".join(f"{r['date']} {r['direction']} ({r['models']}/{r['of']})" for r in rows_out[:6]))
+    else:
+        print("\n  [INFO] No multi-model convergence detected; convergence_alert.csv cleared.")
 
 
 if __name__ == "__main__":
