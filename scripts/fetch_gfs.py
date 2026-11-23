@@ -156,7 +156,12 @@ def fetch_latest_gfs():
         
         # Skip if we already downloaded the manifest indicating full success
         mani_path = os.path.join(run_dir, "manifest.json")
-        if os.path.exists(mani_path):
+        # The manifest is committed but the GRIBs are not (gitignored), so on a
+        # fresh runner a "complete" manifest alone meant the previous runs were
+        # skipped and the maps had only one run to work with. Skip only when
+        # the GRIB files are actually on disk.
+        grib_files = [f for f in os.listdir(run_dir) if "pgrb2" in f] if os.path.isdir(run_dir) else []
+        if os.path.exists(mani_path) and len(grib_files) >= len(FORECAST_HOURS):
             try:
                 with open(mani_path, "r") as f:
                     mani = json.load(f)

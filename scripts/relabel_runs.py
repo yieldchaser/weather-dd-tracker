@@ -28,6 +28,11 @@ RELABELS = [
     # ICON moves from one daily "_seamless" label to its global cycle; the
     # 2026-11-23 fetches were served the 06z global run (12z lands ~15:30).
     ("ICON", "data/icon", "20261123_seamless", "20261123_06"),
+    # The first AIGEFS pass moved the city file but not the CSV: an old
+    # control-member-era 20261122_18_tdd.csv already held that name, so the
+    # 23_06 CSV (really the 22_18 ensemble mean) stayed and was re-merged.
+    # Second pass: replace the stale 22_18 data with it and drop the 23_06 copy.
+    ("AIGEFS", "data/aigefs", "20261123_06", "20261122_18", "overwrite"),
 ]
 
 
@@ -35,13 +40,19 @@ def main():
     done = set(json.loads(MARKER.read_text())) if MARKER.exists() else set()
     master = pd.read_csv(MASTER, dtype={"run_id": str}) if MASTER.exists() else None
     changed = False
-    for model, base, old, new in RELABELS:
-        key = f"{model}:{old}->{new}"
+    for entry in RELABELS:
+        model, base, old, new = entry[:4]
+        overwrite = len(entry) > 4 and entry[4] == "overwrite"
+        key = f"{model}:{old}->{new}" + (":overwrite" if overwrite else "")
         if key in done:
             continue
         if master is not None:
             have_new = ((master["model"] == model) & (master["run_id"] == new)).any()
             sel = (master["model"] == model) & (master["run_id"] == old)
+            if sel.any() and have_new and overwrite:
+                master = master[~((master["model"] == model) & (master["run_id"] == new))].copy()
+                sel = (master["model"] == model) & (master["run_id"] == old)
+                have_new = False
             if sel.any() and not have_new:
                 master.loc[sel, "run_id"] = new
                 changed = True
@@ -49,7 +60,7 @@ def main():
         for src, dst in ((b / f"{old}_tdd.csv", b / f"{new}_tdd.csv"),
                          (b / "cities" / f"{old}_cities.json", b / "cities" / f"{new}_cities.json"),
                          (b / "spread" / f"{old}_spread.json", b / "spread" / f"{new}_spread.json")):
-            if src.exists() and not dst.exists():
+            if src.exists() and (overwrite or not dst.exists()):
                 if src.suffix == ".csv":
                     df = pd.read_csv(src, dtype={"run_id": str})
                     if "run_id" in df.columns:
@@ -57,7 +68,7 @@ def main():
                     df.to_csv(dst, index=False)
                     src.unlink()
                 else:
-                    src.rename(dst)
+                    src.replace(dst)
         done.add(key)
         print(f"[relabel] {model} {old} -> {new}")
     if changed:

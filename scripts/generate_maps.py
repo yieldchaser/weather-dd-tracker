@@ -349,9 +349,9 @@ def sample_cities_streaming(dates, get_grid, idx):
 def generate_gifs_for_model(model_name, folder, manifest):
     print(f"\n--- Generating Maps for {model_name} ---")
     available_runs = get_available_runs(folder)
-    
-    if len(available_runs) < 2:
-        print(f"Not enough data for {model_name}.")
+
+    if not available_runs:
+        print(f"No GRIB data for {model_name}.")
         return
 
     latest_run = available_runs[0]
@@ -400,6 +400,10 @@ def generate_gifs_for_model(model_name, folder, manifest):
             render_anomaly_gif(model_name, latest_run, sample_cities_streaming(dates_, getter, idx), normals)
         except Exception as e:
             print(f"  [WARN] {model_name} anomaly map failed: {e}")
+
+    if len(available_runs) < 2:
+        print(f"Only one {model_name} run on disk; change maps need two.")
+        return
 
     for prev_run in pick_comparisons(latest_run, available_runs[1:13]):
         print(f"  Comparing {latest_run} to {prev_run}")
@@ -504,8 +508,8 @@ def get_available_bubble_runs(folder):
 def generate_bubble_maps_for_model(model_name, folder, manifest):
     print(f"\n--- Generating Bubble Maps for {model_name} ---")
     available_runs = get_available_bubble_runs(folder)
-    if len(available_runs) < 2:
-        print(f"Not enough bubble data for {model_name}.")
+    if not available_runs:
+        print(f"No bubble data for {model_name}.")
         return
 
     latest_run = available_runs[0]
@@ -525,6 +529,9 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
     city_coords = {c[0]: (c[1], c[2]) for c in DEMAND_CITIES}
     
     render_anomaly_gif(model_name, latest_run, curr_data, load_city_normals())
+    if len(available_runs) < 2:
+        print(f"Only one {model_name} run archived; change maps start with the next run.")
+        return
 
     for prev_run in pick_comparisons(latest_run, available_runs[1:13]):
         print(f"  Comparing {latest_run} to {prev_run}")

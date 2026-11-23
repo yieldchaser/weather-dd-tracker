@@ -89,6 +89,44 @@ HIST_DD_FILE = os.path.join(_ROOT, 'outputs', 'historical_degree_days.csv')
 ANALOG_WINDOW_DAYS = 15
 
 
+
+ROMI_URL = "https://psl.noaa.gov/mjo/mjoindex/romi.cpcolr.1x.txt"
+
+
+def fetch_mjo(trail_days=40):
+    """Madden-Julian Oscillation from NOAA PSL's real-time OMI (ROMI, CPC OLR).
+
+    ROMI PCs map onto the familiar RMM phase diagram as x = PC2, y = -PC1
+    (Kiladis et al. 2014). Phase 1-8 follows the RMM octants: atan2(y, x)
+    from -180 deg, 45 deg per phase. Amplitude >= 1 is an active MJO.
+    BoM's RMM file stopped updating in Feb 2024, so it is not used."""
+    import math
+    raw = _http_get(ROMI_URL)
+    rows = []
+    for line in raw.splitlines():
+        p = line.split()
+        if len(p) < 7:
+            continue
+        try:
+            y, m, d = int(p[0]), int(p[1]), int(p[2])
+            pc1, pc2, amp = float(p[4]), float(p[5]), float(p[6])
+        except ValueError:
+            continue
+        if abs(amp) > 50:  # missing-value markers
+            continue
+        x, yy = pc2, -pc1
+        ang = math.degrees(math.atan2(yy, x))
+        phase = int((ang + 180.0) // 45.0) + 1
+        rows.append({"date": f"{y:04d}-{m:02d}-{d:02d}", "x": round(x, 3), "y": round(yy, 3),
+                     "amplitude": round(math.hypot(x, yy), 3), "phase": min(max(phase, 1), 8)})
+    if not rows:
+        raise RuntimeError("ROMI file had no usable rows")
+    last = rows[-1]
+    age = (datetime.now(UTC).date() - datetime.strptime(last["date"], "%Y-%m-%d").date()).days
+    return {"phase": last["phase"], "amplitude": last["amplitude"], "active": last["amplitude"] >= 1.0,
+            "as_of": last["date"], "stale": age > 10, "source": "NOAA PSL ROMI (CPC OLR)",
+            "trail": rows[-trail_days:]}
+
 def compute_analogs(historical_data, data, current_vec, top_n=3, today=None):
     today = pd.Timestamp(today or datetime.now(UTC).date())
     keys = [k for k in ['AO', 'NAO', 'PNA', 'EPO'] if k in current_vec and k in historical_data]
@@ -264,6 +302,13 @@ def run_system1():
         logging.error(f"Analog matching error: {e}")
     analog_years = [a["year"] for a in enriched_analogs]
 
+    mjo = None
+    try:
+        mjo = fetch_mjo()
+        logging.info(f"MJO: phase {mjo['phase']}, amplitude {mjo['amplitude']} ({mjo['as_of']})")
+    except Exception as e:
+        logging.error(f"MJO fetch failed: {e}")
+
     def _idx(key):
         v = data.get(key, {}).get('current')
         return float(round(v, 3)) if v is not None else None
@@ -278,6 +323,7 @@ def run_system1():
         'as_of': {k: v.get('as_of') for k, v in data.items() if isinstance(v, dict) and v.get('as_of')},
         'stale_indices': sorted(k for k, v in data.items() if isinstance(v, dict) and v.get('stale')),
         'analogs': enriched_analogs,
+        'mjo': mjo,
         'status': 'success'
     }
 
