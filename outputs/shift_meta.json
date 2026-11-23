@@ -7,8 +7,8 @@
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20261123_06",
-      "prev": "20261123_00",
+      "latest": "20261123_00",
+      "prev": "20261122_12",
       "gap": false,
       "has_gw": true
     },
@@ -48,6 +48,12 @@
       "gap": false,
       "has_gw": true
     },
+    "AIGEFS CHG": {
+      "latest": "20261123_06",
+      "prev": "20261122_18",
+      "gap": false,
+      "has_gw": true
+    },
     "AIFS ENS CHG": {
       "latest": "20261123_06",
       "prev": "20261123_00",
@@ -79,8 +85,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20261123_12",
-      "prev": "20261123_06",
+      "latest": "20261123_18",
+      "prev": "20261123_12",
       "gap": false,
       "has_gw": true
     },
@@ -91,5 +97,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-23T19:01:15.607997"
+  "generated_at": "2026-11-23T19:47:43.116932"
 }

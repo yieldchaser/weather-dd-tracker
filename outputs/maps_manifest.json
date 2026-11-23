@@ -15,6 +15,18 @@
     ],
     "AIGEFS": [
         {
+            "latest": "20261123_06",
+            "file": "AIGEFS_anom_20261123_06.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261123_06",
+            "file": "AIGEFS_shift_20261123_06_vs_20261122_18.gif",
+            "kind": "shift",
+            "previous": "20261122_18",
+            "hours": 12
+        },
+        {
             "latest": "20261122_18",
             "file": "AIGEFS_anom_20261122_18.gif",
             "kind": "anom"
@@ -310,6 +322,11 @@
             "kind": "shift",
             "previous": "20261123_00",
             "hours": 6
+        },
+        {
+            "latest": "20261123_00",
+            "file": "ECMWF_ENS_anom_20261123_00.gif",
+            "kind": "anom"
         }
     ],
     "GEFS": [
@@ -882,6 +899,25 @@
     ],
     "NBM": [
         {
+            "latest": "20261123_18",
+            "file": "NBM_anom_20261123_18.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261123_18",
+            "file": "NBM_shift_20261123_18_vs_20261123_12.gif",
+            "kind": "shift",
+            "previous": "20261123_12",
+            "hours": 6
+        },
+        {
+            "latest": "20261123_18",
+            "file": "NBM_shift_20261123_18_vs_20261123_06.gif",
+            "kind": "shift",
+            "previous": "20261123_06",
+            "hours": 12
+        },
+        {
             "latest": "20261123_12",
             "file": "NBM_anom_20261123_12.gif",
             "kind": "anom"
@@ -940,20 +976,6 @@
             "file": "NBM_shift_20261122_00_vs_20261121_12.gif",
             "kind": "shift",
             "previous": "20261121_12",
-            "hours": 12
-        },
-        {
-            "latest": "20261122_00",
-            "file": "NBM_shift_20261122_00_vs_20261121_00.gif",
-            "kind": "shift",
-            "previous": "20261121_00",
-            "hours": 24
-        },
-        {
-            "latest": "20261121_12",
-            "file": "NBM_shift_20261121_12_vs_20261121_00.gif",
-            "kind": "shift",
-            "previous": "20261121_00",
             "hours": 12
         }
     ],
