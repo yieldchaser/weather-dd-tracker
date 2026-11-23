@@ -18,6 +18,27 @@ from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+
+def get_with_retry(url, params, timeout=60, attempts=4):
+    """Open-Meteo answers bursts with 429 and occasional 5xx; one failed call
+    used to drop a whole model for the day (2026-11-23: GFS, ECMWF, ICON and
+    HRRR all missing, wind drought read 0%)."""
+    last = None
+    for i in range(attempts):
+        try:
+            r = requests.get(url, params=params, timeout=timeout)
+            if r.status_code == 429 or r.status_code >= 500:
+                last = requests.HTTPError(f"{r.status_code} from {url}", response=r)
+            else:
+                r.raise_for_status()
+                return r
+        except requests.RequestException as e:
+            if getattr(e, "response", None) is not None and e.response.status_code == 400:
+                raise
+            last = e
+        time.sleep(20 * (i + 1))
+    raise last
+
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
     if df is None or len(df) < min_rows:
@@ -137,7 +158,7 @@ def build_solar_climatology():
     }
 
     try:
-        resp = requests.get(HISTORICAL_URL, params=params)
+        resp = get_with_retry(HISTORICAL_URL, params)
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
@@ -217,7 +238,7 @@ def main_logic():
         }
         
         try:
-            resp = requests.get(BASE_URL, params=params)
+            resp = get_with_retry(BASE_URL, params)
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:

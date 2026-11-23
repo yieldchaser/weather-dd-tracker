@@ -142,18 +142,22 @@ def fetch_run(date_str, cycle):
 
 
 def sync_all_ecmwf_ens():
+    """Fetch the single active cycle, as the other Open-Meteo fetchers do.
+
+    Open-Meteo always serves its newest run. The old loop also tried
+    yesterday's cycles; per-run files are not kept between CI runs, so the
+    newest forecast was written under yesterday's 00z label first and the true
+    cycle labels were then skipped as duplicates of it."""
     print("\n--- ECMWF ENS SYNC SERVICE ---")
     now = datetime.datetime.now(datetime.UTC)
-    for day_offset in range(-1, 1):
-        date_str = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
-        for cycle in ["00", "12"]:
-            # Open-Meteo mirrors 00z at ~08:30 UTC and 12z at ~20:30 UTC.
-            if day_offset == 0:
-                if cycle == "00" and now.hour < 8:
-                    continue
-                if cycle == "12" and now.hour < 20:
-                    continue
-            fetch_run(date_str, cycle)
+    # Open-Meteo mirrors 00z at ~08:30 UTC and 12z at ~20:30 UTC.
+    if now.hour >= 21:
+        date_str, cycle = now.strftime("%Y%m%d"), "12"
+    elif now.hour >= 9:
+        date_str, cycle = now.strftime("%Y%m%d"), "00"
+    else:
+        date_str, cycle = (now - datetime.timedelta(days=1)).strftime("%Y%m%d"), "12"
+    fetch_run(date_str, cycle)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,27 @@ from datetime import datetime, date, timedelta, UTC
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+
+def get_with_retry(url, params, timeout=60, attempts=4):
+    """Open-Meteo answers bursts with 429 and occasional 5xx; one failed call
+    used to drop a whole model for the day (2026-11-23: GFS, ECMWF, ICON and
+    HRRR all missing, wind drought read 0%)."""
+    last = None
+    for i in range(attempts):
+        try:
+            r = requests.get(url, params=params, timeout=timeout)
+            if r.status_code == 429 or r.status_code >= 500:
+                last = requests.HTTPError(f"{r.status_code} from {url}", response=r)
+            else:
+                r.raise_for_status()
+                return r
+        except requests.RequestException as e:
+            if getattr(e, "response", None) is not None and e.response.status_code == 400:
+                raise
+            last = e
+        time.sleep(20 * (i + 1))
+    raise last
+
 def safe_write_csv(df, path, min_rows=1):
     """Only write if dataframe has meaningful data."""
     if df is None or len(df) < min_rows:
@@ -193,7 +214,7 @@ def build_wind_climatology():
     }
 
     try:
-        resp = requests.get(HISTORICAL_FORECAST_URL, params=params)
+        resp = get_with_retry(HISTORICAL_FORECAST_URL, params)
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
@@ -318,7 +339,7 @@ def main_logic():
             params["ensemble"] = "true"
         
         try:
-            resp = requests.get(endpoint, params=params, timeout=30)
+            resp = get_with_retry(endpoint, params)
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:
@@ -609,6 +630,14 @@ def main_logic():
         "timestamp":        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     }
     
+    core_present = sorted(set(df_future["model"]) & set(models_checked))
+    if not core_present:
+        # Drought days are counted on GFS/ECMWF/ICON/HRRR only. With none of
+        # them the count reads 0% whatever the weather, so keep the last good
+        # file rather than publish that.
+        logging.error("No core wind model (GFS/ECMWF/ICON/HRRR) returned data; drought.json left unchanged.")
+        return len(all_rows)
+    out_json["core_models"] = core_present
     safe_write_json(out_json, OUTPUT_JSON, required_keys=["drought_prob_16d", "worst_day"])
     return len(all_rows)
 

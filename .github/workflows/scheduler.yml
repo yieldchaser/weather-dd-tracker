@@ -1,0 +1,32 @@
+name: Pipeline Scheduler
+
+# Dispatches each workflow at its slot when GitHub's cron has not started it
+# (scheduled runs are often hours late or skipped). Self-chaining: each run
+# lasts ~5h40m, then dispatches the next one. The cron below only restarts the
+# chain if it ever stops; a newer run replaces an older one.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */4 * * *"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: pipeline-scheduler
+  cancel-in-progress: true
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/scheduler.py
+          sparse-checkout-cone-mode: false
+      - name: Dispatch overdue workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/scheduler.py

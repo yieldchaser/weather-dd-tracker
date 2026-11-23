@@ -274,6 +274,10 @@ def fetch_from_open_meteo(om_model_name: str, date_str: str, cycle: str):
     )
     if not city_data:
         return False
+    from om_batch_fetch import is_duplicate_run
+    if is_duplicate_run(BASE_DIR, run_id, city_data):
+        # Open-Meteo still serves the previous run under this cycle's label.
+        return False
 
     all_dates = sorted(set(d for _, temps in city_data.values() for d in temps))
     rows = []
@@ -319,8 +323,14 @@ def sync_all_wn3():
     """
     from poll_models import check_open_meteo_wn3_live
     now = datetime.datetime.now(datetime.timezone.utc)
-    date_str = now.strftime("%Y%m%d")
-    cycle = "00" if now.hour < 12 else "12"
+    # Same windows as WeatherNext 2: Open-Meteo ingests each 00z/12z run ~7-8h
+    # after init, so an early-morning fetch still serves yesterday's 12z.
+    if now.hour >= 20:
+        date_str, cycle = now.strftime("%Y%m%d"), "12"
+    elif now.hour >= 8:
+        date_str, cycle = now.strftime("%Y%m%d"), "00"
+    else:
+        date_str, cycle = (now - datetime.timedelta(days=1)).strftime("%Y%m%d"), "12"
 
     # 1. Automatic Open-Meteo detection (Zero configuration required)
     om_model = check_open_meteo_wn3_live()
@@ -333,9 +343,7 @@ def sync_all_wn3():
         logging.info("--- GOOGLE WEATHERNEXT 3 SYNC (GCS AUTHENTICATED) ---")
         return fetch_run(date_str, cycle)
 
-    logging.info("--- GOOGLE WEATHERNEXT 3 STATUS: AWAITING OPEN-METEO LAUNCH ---")
-    logging.info("  [PROBE ACTIVE] Poller is continuously monitoring Open-Meteo for WeatherNext 3.")
-    logging.info("  [DESK RUNNING] WeatherNext 2 (GOOGLE_WN2) is providing active operational AI forecasts.")
+    logging.warning("--- GOOGLE WEATHERNEXT 3: not returned by Open-Meteo this run (probe failed); retried next poll ---")
     return False
 
 

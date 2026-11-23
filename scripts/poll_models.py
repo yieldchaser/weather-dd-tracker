@@ -129,12 +129,17 @@ def check_ecmwf_ens_complete(date_str, cycle):
     try:
         hh = cycle.zfill(2)
         dt_str = f"{date_str}{hh}0000"
-        url = (
-            f"https://data.ecmwf.int/forecasts/{date_str}/{hh}z/"
-            f"ifs/0p25/enfo/{dt_str}-360h-enfo-pf.index"
-        )
-        r = requests.head(url, timeout=10)
-        return r.status_code == 200
+        # Open data names ensemble files "-enfo-ef" (control + perturbed in
+        # one file). The "-enfo-pf" name never existed, so this check always
+        # failed and ECMWF_ENS state stayed empty.
+        for suffix in ("ef", "pf"):
+            url = (
+                f"https://data.ecmwf.int/forecasts/{date_str}/{hh}z/"
+                f"ifs/0p25/enfo/{dt_str}-360h-enfo-{suffix}.index"
+            )
+            if requests.head(url, timeout=10).status_code == 200:
+                return True
+        return False
     except Exception:
         return False
 
