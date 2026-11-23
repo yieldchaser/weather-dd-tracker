@@ -133,7 +133,7 @@
 
             <div class="cards">
                 <div class="card"><h3>Run total · days 1-15</h3><div class="v" id="c-total">--</div><div class="s" id="c-total-s"></div></div>
-                <div class="card"><h3>vs 30-yr normal</h3><div class="v" id="c-n30">--</div><div class="s" id="c-n30-s"></div></div>
+                <div class="card"><h3 id="c-n30-h">vs 30-yr normal</h3><div class="v" id="c-n30">--</div><div class="s" id="c-n30-s"></div></div>
                 <div class="card"><h3>vs 10-yr normal</h3><div class="v" id="c-n10">--</div><div class="s" id="c-n10-s"></div></div>
                 <div class="card"><h3 id="c-chg-h">Run change</h3><div class="v" id="c-chg">--</div><div class="s" id="c-chg-s"></div></div>
             </div>
@@ -213,6 +213,13 @@
         const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().substring(0, 10); };
         const today = () => new Date().toISOString().substring(0, 10);
         const mmdd = iso => iso.substring(5, 10);
+        // While the ERA5 cache is still filling, normals rest on fewer years; say so.
+        const normTag = () => {
+            const c = (DATA && DATA.normals_coverage) || {};
+            if ((c.years_30y || 0) >= 30) return '';
+            if ((c.years_30y || 0) > 0) return ` (building: ${c.years_30y}/30 yrs)`;
+            return ` (provisional: ${(c.years_10y || 0)} recent yr${(c.years_10y || 0) === 1 ? '' : 's'}; 1991-2020 archive still loading)`;
+        };
         const normFor = (iso, idx) => { const n = DATA.normals[mmdd(iso)]; return n ? n[idx] : null; };
 
         function pickCompare(runs, mode) {
@@ -292,7 +299,8 @@
             set('c-total', fmt(U(tot), 1));
             document.getElementById('c-total-s').innerText = `${DATA.models[UI.model].label} ${runLabel(L.run_id)} · ${ds.length} days · ${L.members} members`;
             set('c-n30', fmt(U(tot - n30), 1, true), cls(tot - n30));
-            document.getElementById('c-n30-s').innerText = `normal ${fmt(U(n30), 1)} ${unitLbl()}`;
+            document.getElementById('c-n30-h').innerText = 'vs 30-yr normal' + (normTag() ? ' *' : '');
+            document.getElementById('c-n30-s').innerText = `normal ${fmt(U(n30), 1)} ${unitLbl()}${normTag() ? ' · * normals provisional' : ''}`;
             set('c-n10', fmt(U(tot - n10), 1, true), cls(tot - n10));
             document.getElementById('c-n10-s').innerText = `normal ${fmt(U(n10), 1)} ${unitLbl()}`;
             if (C) {
@@ -311,7 +319,8 @@
         function renderMain() {
             const M = DATA.models[UI.model], runs = M.runs, L = runs[0], C = pickCompare(runs, UI.cmp);
             const d1 = today();
-            const labels = L.dates.filter(d => d >= d1);
+            const Lm0 = seriesMap(L);
+            const labels = L.dates.filter(d => d >= d1 && Lm0[d] !== undefined);
             const Lm = seriesMap(L), Cm = C ? seriesMap(C) : {};
             const p10 = seriesMap(L, 'hdd_p10'), p90 = seriesMap(L, 'hdd_p90');
             const ds = [];
@@ -325,7 +334,7 @@
                 ds.push({ label: '30y ±1σ', data: labels.map(d => { const n = normFor(d, 0), s = normFor(d, 2); return n === null ? null : U(n + s); }), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(197,198,199,0.10)', order: 10 });
                 ds.push({ label: '__sdlo', data: labels.map(d => { const n = normFor(d, 0), s = normFor(d, 2); return n === null ? null : U(Math.max(0, n - s)); }), borderWidth: 0, pointRadius: 0, fill: false, order: 10 });
             }
-            ds.push({ label: '30-yr normal (1991-2020)', data: labels.map(d => U(normFor(d, 0))), borderColor: '#c5c6c7', borderDash: [2, 3], borderWidth: 2, pointRadius: 0, order: 3 });
+            ds.push({ label: '30-yr normal (1991-2020)' + normTag(), data: labels.map(d => U(normFor(d, 0))), borderColor: '#c5c6c7', borderDash: [2, 3], borderWidth: 2, pointRadius: 0, order: 3 });
             if (UI.tog.n10) ds.push({ label: '10-yr normal (2016-2025)', data: labels.map(d => U(normFor(d, 1))), borderColor: '#a39171', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, order: 3 });
             if (UI.tog.members && L.member_hdd) {
                 const pts = [];
@@ -419,7 +428,7 @@
         function renderCountries() {
             const M = DATA.models[UI.model], L = M.runs[0];
             const d1 = today();
-            const days = L.dates.filter(d => d >= d1).slice(0, 15);
+            const days = L.dates.filter((d, i) => d >= d1 && L.hdd_mean[i] !== null).slice(0, 15);
             const wins = [[0, 4], [5, 9], [10, 14]].map(([a, b]) => Array.from({ length: b - a + 1 }, (_, i) => addDays(d1, a + i)));
             const idx = d => L.dates.indexOf(d);
             const avg = (arr, ds) => { const v = ds.map(idx).filter(i => i >= 0 && arr[i] !== null && arr[i] !== undefined).map(i => arr[i]); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
@@ -430,7 +439,7 @@
                 const a = Math.min(0.75, 0.08 + Math.abs(v) / 6);
                 return `<td class="${extra}" style="background:${v < 0 ? `rgba(66,165,245,${a})` : `rgba(239,83,80,${a})`}; color:#fff;">${fmt(v, 1, true)}</td>`;
             };
-            document.getElementById('ctyTitle').innerText = `Country temperature anomaly (°C vs 1991-2020) — ${M.label} ${runLabel(L.run_id)}`;
+            document.getElementById('ctyTitle').innerText = `Country temperature anomaly (°C vs 1991-2020${normTag() ? ', provisional baseline' : ''}) — ${M.label} ${runLabel(L.run_id)}`;
             document.getElementById('ctyHead').innerHTML = '<th>Country</th><th>Wt</th><th>1-5</th><th>6-10</th><th>11-15</th>' +
                 days.map((d, i) => { const x = new Date(d + 'T00:00:00Z'); return `<th class="day${i === 0 ? ' sep' : ''}">${DOW[x.getUTCDay()].substring(0, 2)}<br>${x.getUTCDate()}</th>`; }).join('');
             // Weighted Europe row first
@@ -507,7 +516,7 @@
             } else st.innerHTML = '';
 
             const ds = UI.years.map(k => ({ label: k, data: cum[k].map(U), borderColor: color(k), borderWidth: 1.5, pointRadius: 0, tension: 0.1 }));
-            ds.push({ label: '30-yr normal', data: n30.map(U), borderColor: '#66fcf1', borderDash: [5, 5], borderWidth: 2, pointRadius: 0 });
+            ds.push({ label: '30-yr normal' + (n30k.length < 30 ? ` (${n30k.length} seasons so far)` : ''), data: n30.map(U), borderColor: '#66fcf1', borderDash: [5, 5], borderWidth: 2, pointRadius: 0 });
             ds.push({ label: '10-yr avg', data: n10.map(U), borderColor: '#a39171', borderDash: [3, 3], borderWidth: 2, pointRadius: 0 });
             ds.push({ label: `Current (${cur})${il > io ? ' — dashed = forecast' : ''}`, data: cum[cur].map(U), borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1,
                 segment: { borderDash: c => c.p0DataIndex >= io ? [6, 4] : undefined } });
