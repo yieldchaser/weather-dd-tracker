@@ -350,6 +350,31 @@ def poll():
     print(f"--- WEATHER DESK POLLER ---")
     print(f"Time: {now_utc.isoformat()} UTC")
     
+    # Open-Meteo run metadata: exact init time of the run each model serves.
+    # Used for detection where available; the date-probe loops below are the
+    # fallback. (The probes only matched the first forecast date to today,
+    # so they could not tell 00z from 12z and missed WN3's 06z/18z runs.)
+    from om_batch_fetch import om_latest_run
+    try:
+        subprocess.run([sys.executable, "scripts/relabel_runs.py"], check=False)
+    except Exception as e:
+        print(f"  [WARN] relabel step failed: {e}")
+    META_RUNS = {}
+    for _key, _model in (("GOOGLE_WN2", "google_weathernext2_ensemble_mean"),
+                         ("GOOGLE_WN3", "google_weathernext3_ensemble_mean"),
+                         ("AIGEFS", "ncep_aigefs025"), ("AIFS_ENS", "ecmwf_aifs025_ensemble"),
+                         ("UKMO_ENS", "ukmo_global_ensemble_20km"), ("ECMWF_ENS", "ecmwf_ifs025")):
+        _rid = om_latest_run(_model)
+        if _rid:
+            META_RUNS[_key] = _rid
+            print(f"  [META] {_key}: Open-Meteo serves run {_rid}")
+            # A wall-clock label could run ahead of what Open-Meteo actually
+            # served, which would hide the next genuine runs. Pull it back.
+            if state.get(_key, "") > _rid:
+                print(f"  [META] {_key}: state {state.get(_key)} was ahead of the served run; reset to {_rid}")
+                state[_key] = _rid
+                new_state[_key] = _rid
+
     # 1. Check GFS & GEFS Synchronization
     latest_gfs_avail = None
     for d in dates_to_check:
@@ -386,13 +411,16 @@ def poll():
 
     # 3. Check ECMWF Ensemble
     latest_ens_avail = None
-    for d in dates_to_check:
-        for c in ECMWF_CYCLES:
-            run_id = f"{d}_{c}"
-            if run_id > state.get("ECMWF_ENS", ""):
-                print(f"  [PING] Checking ECMWF ENS {run_id} completion...")
-                if check_ecmwf_ens_complete(d, c):
-                    latest_ens_avail = run_id
+    if "ECMWF_ENS" in META_RUNS:
+        latest_ens_avail = META_RUNS["ECMWF_ENS"] if META_RUNS["ECMWF_ENS"] > state.get("ECMWF_ENS", "") else None
+    else:
+        for d in dates_to_check:
+            for c in ECMWF_CYCLES:
+                run_id = f"{d}_{c}"
+                if run_id > state.get("ECMWF_ENS", ""):
+                    print(f"  [PING] Checking ECMWF ENS {run_id} completion...")
+                    if check_ecmwf_ens_complete(d, c):
+                        latest_ens_avail = run_id
 
     if latest_ens_avail and latest_ens_avail > state.get("ECMWF_ENS", ""):
         print(f"  >>> [NEW] ECMWF Ensemble Run Detected: {latest_ens_avail} <<<")
@@ -444,13 +472,16 @@ def poll():
 
     # 7. Check Google WeatherNext 2
     latest_wn2_avail = None
-    for d in dates_to_check:
-        for c in ["00", "12"]:
-            run_id = f"{d}_{c}"
-            if run_id > state.get("GOOGLE_WN2", "") and cycle_ready(d, c, OM_MIN_LAG_H["GOOGLE_WN2"]):
-                print(f"  [PING] Checking GOOGLE_WN2 {run_id} availability...")
-                if check_google_wn2_complete(d, c):
-                    latest_wn2_avail = run_id
+    if "GOOGLE_WN2" in META_RUNS:
+        latest_wn2_avail = META_RUNS["GOOGLE_WN2"] if META_RUNS["GOOGLE_WN2"] > state.get("GOOGLE_WN2", "") else None
+    else:
+        for d in dates_to_check:
+            for c in ["00", "12"]:
+                run_id = f"{d}_{c}"
+                if run_id > state.get("GOOGLE_WN2", "") and cycle_ready(d, c, OM_MIN_LAG_H["GOOGLE_WN2"]):
+                    print(f"  [PING] Checking GOOGLE_WN2 {run_id} availability...")
+                    if check_google_wn2_complete(d, c):
+                        latest_wn2_avail = run_id
     if latest_wn2_avail and latest_wn2_avail > state.get("GOOGLE_WN2", ""):
         print(f"  >>> [NEW] Google WeatherNext 2 Run Detected: {latest_wn2_avail} <<<")
         new_state["GOOGLE_WN2"] = latest_wn2_avail
@@ -460,20 +491,23 @@ def poll():
     om_wn3 = check_open_meteo_wn3_live()
     if om_wn3:
         latest_wn3_avail = None
-        for d in dates_to_check:
-            for c in ["00", "12"]:
-                run_id = f"{d}_{c}"
-                if run_id > state.get("GOOGLE_WN3", "") and cycle_ready(d, c, OM_MIN_LAG_H["GOOGLE_WN3"]):
-                    url = f"https://ensemble-api.open-meteo.com/v1/ensemble?latitude=40&longitude=-100&daily=temperature_2m_mean&models={om_wn3}&forecast_days=1"
-                    try:
-                        r = requests.get(url, timeout=5)
-                        if r.status_code == 200:
-                            data = r.json()
-                            om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
-                            if om_date == d:
-                                latest_wn3_avail = run_id
-                    except Exception:
-                        pass
+        if "GOOGLE_WN3" in META_RUNS:
+            latest_wn3_avail = META_RUNS["GOOGLE_WN3"] if META_RUNS["GOOGLE_WN3"] > state.get("GOOGLE_WN3", "") else None
+        else:
+            for d in dates_to_check:
+                for c in ["00", "12"]:
+                    run_id = f"{d}_{c}"
+                    if run_id > state.get("GOOGLE_WN3", "") and cycle_ready(d, c, OM_MIN_LAG_H["GOOGLE_WN3"]):
+                        url = f"https://ensemble-api.open-meteo.com/v1/ensemble?latitude=40&longitude=-100&daily=temperature_2m_mean&models={om_wn3}&forecast_days=1"
+                        try:
+                            r = requests.get(url, timeout=5)
+                            if r.status_code == 200:
+                                data = r.json()
+                                om_date = data.get("daily", {}).get("time", [""])[0].replace("-", "")
+                                if om_date == d:
+                                    latest_wn3_avail = run_id
+                        except Exception:
+                            pass
         if latest_wn3_avail and latest_wn3_avail > state.get("GOOGLE_WN3", ""):
             print(f"  >>> [NEW MODEL DETECTED] Google WeatherNext 3 is NOW LIVE on Open-Meteo ({om_wn3}, run {latest_wn3_avail})! <<<")
             new_state["GOOGLE_WN3"] = latest_wn3_avail
@@ -481,13 +515,16 @@ def poll():
 
     # 8. Check NOAA AIGEFS
     latest_aigefs_avail = None
-    for d in dates_to_check:
-        for c in ["00", "06", "12", "18"]:
-            run_id = f"{d}_{c}"
-            if run_id > state.get("AIGEFS", "") and cycle_ready(d, c, OM_MIN_LAG_H["AIGEFS"]):
-                print(f"  [PING] Checking AIGEFS {run_id} availability...")
-                if check_aigefs_complete(d, c):
-                    latest_aigefs_avail = run_id
+    if "AIGEFS" in META_RUNS:
+        latest_aigefs_avail = META_RUNS["AIGEFS"] if META_RUNS["AIGEFS"] > state.get("AIGEFS", "") else None
+    else:
+        for d in dates_to_check:
+            for c in ["00", "06", "12", "18"]:
+                run_id = f"{d}_{c}"
+                if run_id > state.get("AIGEFS", "") and cycle_ready(d, c, OM_MIN_LAG_H["AIGEFS"]):
+                    print(f"  [PING] Checking AIGEFS {run_id} availability...")
+                    if check_aigefs_complete(d, c):
+                        latest_aigefs_avail = run_id
     if latest_aigefs_avail and latest_aigefs_avail > state.get("AIGEFS", ""):
         print(f"  >>> [NEW] NOAA AIGEFS Run Detected: {latest_aigefs_avail} <<<")
         new_state["AIGEFS"] = latest_aigefs_avail
@@ -495,13 +532,16 @@ def poll():
 
     # 9. Check ECMWF AIFS ENS
     latest_aifs_ens_avail = None
-    for d in dates_to_check:
-        for c in ["00", "12"]:
-            run_id = f"{d}_{c}"
-            if run_id > state.get("AIFS_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["AIFS_ENS"]):
-                print(f"  [PING] Checking AIFS_ENS {run_id} availability...")
-                if check_aifs_ens_complete(d, c):
-                    latest_aifs_ens_avail = run_id
+    if "AIFS_ENS" in META_RUNS:
+        latest_aifs_ens_avail = META_RUNS["AIFS_ENS"] if META_RUNS["AIFS_ENS"] > state.get("AIFS_ENS", "") else None
+    else:
+        for d in dates_to_check:
+            for c in ["00", "12"]:
+                run_id = f"{d}_{c}"
+                if run_id > state.get("AIFS_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["AIFS_ENS"]):
+                    print(f"  [PING] Checking AIFS_ENS {run_id} availability...")
+                    if check_aifs_ens_complete(d, c):
+                        latest_aifs_ens_avail = run_id
     if latest_aifs_ens_avail and latest_aifs_ens_avail > state.get("AIFS_ENS", ""):
         print(f"  >>> [NEW] ECMWF AIFS ENS Run Detected: {latest_aifs_ens_avail} <<<")
         new_state["AIFS_ENS"] = latest_aifs_ens_avail
@@ -509,13 +549,16 @@ def poll():
 
     # 10. Check UK Met Office Ensemble
     latest_ukmo_avail = None
-    for d in dates_to_check:
-        for c in ["00", "12"]:
-            run_id = f"{d}_{c}"
-            if run_id > state.get("UKMO_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["UKMO_ENS"]):
-                print(f"  [PING] Checking UKMO_ENS {run_id} availability...")
-                if check_ukmo_ens_complete(d, c):
-                    latest_ukmo_avail = run_id
+    if "UKMO_ENS" in META_RUNS:
+        latest_ukmo_avail = META_RUNS["UKMO_ENS"] if META_RUNS["UKMO_ENS"] > state.get("UKMO_ENS", "") else None
+    else:
+        for d in dates_to_check:
+            for c in ["00", "12"]:
+                run_id = f"{d}_{c}"
+                if run_id > state.get("UKMO_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["UKMO_ENS"]):
+                    print(f"  [PING] Checking UKMO_ENS {run_id} availability...")
+                    if check_ukmo_ens_complete(d, c):
+                        latest_ukmo_avail = run_id
     if latest_ukmo_avail and latest_ukmo_avail > state.get("UKMO_ENS", ""):
         print(f"  >>> [NEW] UKMO Ensemble Run Detected: {latest_ukmo_avail} <<<")
         new_state["UKMO_ENS"] = latest_ukmo_avail

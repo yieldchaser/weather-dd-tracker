@@ -336,6 +336,10 @@ def sync_all_wn3():
     om_model = check_open_meteo_wn3_live()
     if om_model:
         logging.info(f"--- GOOGLE WEATHERNEXT 3 DETECTED ON OPEN-METEO ({om_model}) ---")
+        from om_batch_fetch import om_latest_run
+        _rid = om_latest_run(om_model)  # WN3 runs 4x daily; label from Open-Meteo's metadata
+        if _rid:
+            date_str, cycle = _rid.split("_")
         return fetch_from_open_meteo(om_model, date_str, cycle)
 
     # 2. Direct GCP authenticated storage (if service account credentials configured)

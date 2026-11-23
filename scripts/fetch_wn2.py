@@ -147,6 +147,11 @@ def sync_all_wn2():
         date_str = (now - datetime.timedelta(days=1)).strftime("%Y%m%d")
         cycle = "12"
 
+    # Exact label from Open-Meteo's own run metadata when available.
+    from om_batch_fetch import om_latest_run
+    _rid = om_latest_run("google_weathernext2_ensemble_mean")
+    if _rid:
+        date_str, cycle = _rid.split("_")
     fetch_run(date_str, cycle)
 
 
