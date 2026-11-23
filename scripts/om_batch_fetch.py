@@ -164,7 +164,6 @@ def fetch_all_cities_batch(
             daily = entry.get("daily", {})
             dates = daily.get("time", [])
             temps_clean = member_mean(daily, "temperature_2m_mean", dates)
-            global LAST_MEMBER_COUNT
             LAST_MEMBER_COUNT = max(LAST_MEMBER_COUNT, len(_member_keys(daily, "temperature_2m_mean")))
             if i == 0 and chunk_start == 0:
                 n_mem = len(_member_keys(daily, "temperature_2m_mean"))
