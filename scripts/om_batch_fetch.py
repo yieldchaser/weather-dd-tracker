@@ -53,6 +53,8 @@ MIN_WEIGHT_COVERAGE_PCT = 0.50
 # `ens_members` so merge_tdd can tell true ensemble means from the
 # control-only runs archived before Nov 2026.
 LAST_MEMBER_COUNT = 0
+# Per-city member temperatures from the last fetch: {city: {date: [t_m0, t_m1, ...]}}
+LAST_MEMBERS = {}
 
 
 def _member_keys(daily, var):
@@ -100,8 +102,9 @@ def fetch_all_cities_batch(
          Returns {} if active weight coverage < MIN_WEIGHT_COVERAGE_PCT × TOTAL_WEIGHT.
          Caller MUST check for empty dict and abort rather than write a biased CSV.
     """
-    global LAST_MEMBER_COUNT
+    global LAST_MEMBER_COUNT, LAST_MEMBERS
     LAST_MEMBER_COUNT = 0
+    LAST_MEMBERS = {}
     city_data: dict = {}
     extra_params = extra_params or {}
     failed_chunk_weight = 0.0   # track weight lost to whole-chunk HTTP failures
@@ -164,7 +167,11 @@ def fetch_all_cities_batch(
             daily = entry.get("daily", {})
             dates = daily.get("time", [])
             temps_clean = member_mean(daily, "temperature_2m_mean", dates)
-            LAST_MEMBER_COUNT = max(LAST_MEMBER_COUNT, len(_member_keys(daily, "temperature_2m_mean")))
+            _keys = _member_keys(daily, "temperature_2m_mean")
+            LAST_MEMBER_COUNT = max(LAST_MEMBER_COUNT, len(_keys))
+            if len(_keys) > 1:
+                LAST_MEMBERS[name] = {d: [daily[k][i] if i < len(daily[k]) else None for k in _keys]
+                                      for i, d in enumerate(dates)}
             if i == 0 and chunk_start == 0:
                 n_mem = len(_member_keys(daily, "temperature_2m_mean"))
                 print(f"  [INFO] {model}: {n_mem} series per city "
@@ -382,3 +389,40 @@ def is_duplicate_run(base_dir, run_id, city_data, tol_f=0.01, min_points=50):
               f"(max diff {worst:.3f}°F) — Open-Meteo has not ingested the new cycle yet. Not writing; will retry next poll.")
         return True
     return False
+
+
+def member_dd_quantiles(city_data, base_f=65.0, q_lo=0.10, q_hi=0.90):
+    """Per-date P10/P90 of the gas-weighted national HDD and CDD across
+    ensemble members, from LAST_MEMBERS. Each member's national temperature
+    is the city-weighted mean (same weights as the ensemble mean), then
+    HDD/CDD are taken from it. Returns {date: {hdd_p10, hdd_p90, cdd_p10, cdd_p90}}
+    or {} for single-series models."""
+    if not LAST_MEMBERS:
+        return {}
+    import numpy as np
+    weights = {name: w for name, (w, _t) in city_data.items()}
+    dates = sorted({d for m in LAST_MEMBERS.values() for d in m})
+    out = {}
+    for d in dates:
+        rows, ws = [], []
+        for name, by_date in LAST_MEMBERS.items():
+            if name in weights and d in by_date:
+                rows.append([np.nan if v is None else v for v in by_date[d]])
+                ws.append(weights[name])
+        if not rows:
+            continue
+        n = min(len(r) for r in rows)
+        arr = np.array([r[:n] for r in rows], dtype=float)  # cities x members
+        w = np.array(ws)[:, None]
+        valid = ~np.isnan(arr)
+        num = np.nansum(arr * w, axis=0)
+        den = np.sum(valid * w, axis=0)
+        t_f = (num / np.where(den > 0, den, np.nan)) * 9 / 5 + 32
+        t_f = t_f[~np.isnan(t_f)]
+        if t_f.size < 5:
+            continue
+        hdd = np.maximum(base_f - t_f, 0)
+        cdd = np.maximum(t_f - base_f, 0)
+        out[d] = {"hdd_p10": round(float(np.quantile(hdd, q_lo)), 2), "hdd_p90": round(float(np.quantile(hdd, q_hi)), 2),
+                  "cdd_p10": round(float(np.quantile(cdd, q_lo)), 2), "cdd_p90": round(float(np.quantile(cdd, q_hi)), 2)}
+    return out

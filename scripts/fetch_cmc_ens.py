@@ -103,6 +103,12 @@ def fetch_run(date_str, cycle):
         import om_batch_fetch as _omb
         for _r in rows:
             _r["ens_members"] = _omb.LAST_MEMBER_COUNT
+        _q = _omb.member_dd_quantiles(city_data)
+        for _r in rows:
+            _qq = _q.get(_r["date"])
+            if _qq:
+                _r["hdd_gw_p10"], _r["hdd_gw_p90"] = _qq["hdd_p10"], _qq["hdd_p90"]
+                _r["cdd_gw_p10"], _r["cdd_gw_p90"] = _qq["cdd_p10"], _qq["cdd_p90"]
         pd.DataFrame(rows).to_csv(out_path, index=False)
         
         # Save raw city data to json for map generation

@@ -2513,6 +2513,19 @@
                 }
             }
 
+            // ── Ensemble P10-P90 of the latest run (member-ensembles only) ──
+            if (!IS_BOTH) {
+                const qf = IS_CDD ? 'cdd_gw' : 'hdd_gw';
+                const lat = {};
+                modelData.forEach(r => { if (String(r.run_id) === runs[0]) lat[r.date.substring(0, 10)] = r; });
+                const p10 = labels.map(d => { const v = lat[d] && lat[d][qf + '_p10']; return (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v); });
+                const p90 = labels.map(d => { const v = lat[d] && lat[d][qf + '_p90']; return (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v); });
+                if (p10.some(v => v !== null)) {
+                    datasets.push({ label: `${selectedModel} members P10-P90`, data: p90, borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(102,252,241,0.14)', order: 25, tension: 0.3 });
+                    datasets.push({ label: '__p10', data: p10, borderWidth: 0, pointRadius: 0, fill: false, order: 25, tension: 0.3 });
+                }
+            }
+
             // ── Multi-model envelope: min/max of every other active model's latest run ──
             const todayCut = addDaysIso(deskDay1(), -2);
             const latestByModel = {};
@@ -2602,12 +2615,12 @@
                                 boxWidth: isMobile ? 20 : 30,
                                 font: { size: isMobile ? 10 : 11 },
                                 padding: isMobile ? 6 : 8,
-                                filter: (item) => item.text !== '__envmin'
+                                filter: (item) => item.text !== '__envmin' && item.text !== '__p10'
                             }
                         },
                         tooltip: {
                             backgroundColor: 'rgba(31,40,51,0.95)',
-                            filter: (item) => item.dataset.label !== '__envmin' && !String(item.dataset.label).startsWith('Other models'),
+                            filter: (item) => item.dataset.label !== '__envmin' && item.dataset.label !== '__p10' && !String(item.dataset.label).startsWith('Other models') && !String(item.dataset.label).includes('P10-P90'),
                             callbacks: {
                                 label: (c) => `${c.dataset.label}: ${c.parsed.y !== null ? (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`,
                                 footer: (items) => {
