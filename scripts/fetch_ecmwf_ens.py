@@ -162,6 +162,11 @@ def sync_all_ecmwf_ens():
     _rid = om_latest_run("ecmwf_ifs025")
     if _rid:
         date_str, cycle = _rid.split("_")
+    # 06z/18z on Open-Meteo run only 144 h and reuse the previous 00z/12z run
+    # for days 7-15; store 00z and 12z only.
+    if cycle in ("06", "18"):
+        print(f"  [SKIP] Open-Meteo serves the {date_str}_{cycle} short run; keeping the 00z/12z runs only.")
+        return
     fetch_run(date_str, cycle)
 
 

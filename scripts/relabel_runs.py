@@ -71,6 +71,21 @@ def main():
                     src.replace(dst)
         done.add(key)
         print(f"[relabel] {model} {old} -> {new}")
+    # Standing rule, not one-time: Open-Meteo's ECMWF IFS ensemble 06z/18z
+    # "runs" extend only 144 h and are spliced onto the previous 00z/12z run
+    # beyond that (days 7-15 byte-identical), so they are not comparable runs.
+    if master is not None:
+        pseudo = (master["model"] == "ECMWF_ENS") & master["run_id"].astype(str).str.endswith(("_06", "_18"))
+        if pseudo.any():
+            print(f"[relabel] dropping ECMWF_ENS pseudo-runs {sorted(master.loc[pseudo, 'run_id'].unique())}")
+            master = master[~pseudo].copy()
+            changed = True
+    b = Path("data/ecmwf_ens")
+    for pat in ("*_06_tdd.csv", "*_18_tdd.csv", "cities/*_06_cities.json", "cities/*_18_cities.json",
+                "spread/*_06_spread.json", "spread/*_18_spread.json"):
+        for f in b.glob(pat):
+            f.unlink()
+            print(f"[relabel] removed {f}")
     if changed:
         master.to_csv(MASTER, index=False)
     MARKER.parent.mkdir(parents=True, exist_ok=True)

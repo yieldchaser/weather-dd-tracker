@@ -179,7 +179,7 @@
                 </div>
                 <div class="yr-chips" id="yrChips"></div>
                 <div style="position:relative; height:380px;"><canvas id="seasonChart"></canvas></div>
-                <div class="panel-note">Observed: ERA5 reanalysis (archive lags ~5 days), bridged to yesterday with the Open-Meteo analysis. Dashed tail = latest ECMWF ENS mean. Normal = mean cumulative path of 1991-2020 seasons.</div>
+                <div class="panel-note">Observed: ERA5 reanalysis (archive lags ~5 days), bridged to yesterday with the Open-Meteo analysis. Dashed tail = latest ECMWF ENS mean. Normal = mean cumulative path of the 1991-2020 seasons cached so far (ERA5 history backfills two years per run).</div>
             </div>
 
             <div class="panel-note" style="margin-top:20px;">Method: daily mean 2 m temperature per city from Open-Meteo (ECMWF IFS 0.25° ENS, NCEP GEFS 0.25°, ECMWF AIFS ENS; every member), weighted by approximate temperature-sensitive residential + commercial gas demand by country (UK, Germany, Italy, France lead), split across each country's main load centres. HDD = max(0, 65°F − T). Weights are a demand proxy, not an official index. Source: scripts/europe/europe_weather.py.</div>
@@ -543,7 +543,7 @@
             } else st.innerHTML = '';
 
             const ds = UI.years.map(k => ({ label: k, data: cum[k].map(U), borderColor: color(k), borderWidth: 1.5, pointRadius: 0, tension: 0.1 }));
-            ds.push({ label: '30-yr normal' + (n30k.length < 30 ? ` (${n30k.length} seasons so far)` : ''), data: n30.map(U), borderColor: '#66fcf1', borderDash: [5, 5], borderWidth: 2, pointRadius: 0 });
+            ds.push({ label: '30-yr normal' + (n30k.length < 30 ? ` (provisional, ${n30k.length} of 30 seasons)` : ''), data: n30.map(U), borderColor: '#66fcf1', borderDash: [5, 5], borderWidth: 2, pointRadius: 0 });
             ds.push({ label: '10-yr avg', data: n10.map(U), borderColor: '#a39171', borderDash: [3, 3], borderWidth: 2, pointRadius: 0 });
             ds.push({ label: `Current (${cur})${il > io ? ' (dashed = forecast)' : ''}`, data: cum[cur].map(U), borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1,
                 segment: { borderDash: c => c.p0DataIndex >= io ? [6, 4] : undefined } });

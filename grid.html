@@ -1959,7 +1959,15 @@
             const rows = [...rawScatterData].sort((a, b) => String(a.date).localeCompare(String(b.date)));
             const labels = rows.map(r => r.date);
             const burn = rows.map(r => (r.gas_burn_bcfd != null && !isNaN(r.gas_burn_bcfd)) ? r.gas_burn_bcfd : null);
-            const dd = rows.map(r => hddMap[r.date] ? hddMap[r.date][0] : null);
+            // Observed degree days come with each burn row (same gas-weighted
+            // basis as the forecast); the forecast map only covers future days.
+            const ddOf = r => {
+                const h = Number(r.hdd_gw), c = Number(r.cdd_gw);
+                if (DD_FIELD === 'tdd_gw') return (isNaN(h) && isNaN(c)) ? null : (isNaN(h) ? 0 : h) + (isNaN(c) ? 0 : c);
+                const v = Number(r[DD_FIELD]);
+                return (r[DD_FIELD] == null || isNaN(v)) ? (hddMap[r.date] ? hddMap[r.date][0] : null) : v;
+            };
+            const dd = rows.map(ddOf);
 
             let ctx = document.getElementById('gasBurnTrendChart').getContext('2d');
             if (gasBurnTrendChart) gasBurnTrendChart.destroy();
@@ -2137,10 +2145,19 @@
             // Compute axis bounds from actual data for iso-lines
             const allX = Object.values(byYear).flat().map(d => d.x);
             const allY = Object.values(byYear).flat().map(d => d.y);
-            const xMin = Math.max(0, Math.min(...allX) * 0.85);
-            const xMax = Math.max(...allX) * 1.15;
-            const yMin = Math.max(0, Math.min(...allY) * 0.85);
-            const yMax = Math.max(...allY) * 1.15;
+            const xMin = Math.max(0, Math.floor(Math.min(...allX) * 0.85 / 5) * 5);
+            const xMax = Math.ceil(Math.max(...allX) * 1.15 / 5) * 5;
+            const yMin = Math.max(0, Math.floor(Math.min(...allY) * 0.85 / 20) * 20);
+            const yMax = Math.ceil(Math.max(...allY) * 1.15 / 20) * 20;
+            // Gas-to-coal generation ratio guides chosen to bracket the data.
+            const ratios = allX.map((x, i) => x > 0 ? allY[i] / x : null).filter(v => v != null).sort((a, b) => a - b);
+            const lo = ratios.length ? ratios[Math.floor(ratios.length * 0.05)] : 1, hi = ratios.length ? ratios[Math.ceil(ratios.length * 0.95) - 1] : 3;
+            const nice = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10];
+            let pick = nice.filter(r => r >= lo * 0.9 && r <= hi * 1.1);
+            if (pick.length > 4) pick = pick.filter((_, i) => i % Math.ceil(pick.length / 4) === 0);
+            if (!pick.length) pick = [nice.reduce((a, b) => Math.abs(b - (lo + hi) / 2) < Math.abs(a - (lo + hi) / 2) ? b : a)];
+            isoLines.length = 0;
+            pick.forEach(r => isoLines.push({ ratio: r, label: `${r}× coal` }));
             
             scatterXMax = xMax; // Update global for plugin
 
@@ -2152,7 +2169,7 @@
                 // Only draw if line passes through visible area
                 if (y2 < yMin && y1 < yMin) return;
                 datasets.push({
-                    label: `HR ${line.label}`,
+                    label: `Gas ${line.label}`,
                     data: [{ x: x1, y: y1 }, { x: x2, y: y2 }],
                     borderColor: 'rgba(100, 220, 180, 0.35)',
                     borderWidth: 1,
@@ -2192,7 +2209,7 @@
                             callbacks: {
                                 label: ctx => {
                                     if (ctx.dataset.label.includes('Trend')) return null;
-                                    if (ctx.dataset.label.includes('HR ')) return null;
+                                    if (ctx.dataset.label.startsWith('Gas ') && ctx.dataset.label.endsWith('coal')) return null;
                                     const ratio = ctx.parsed.x > 0 
                                         ? (ctx.parsed.y / ctx.parsed.x).toFixed(2) 
                                         : 'N/A';
@@ -2420,12 +2437,12 @@
                     scales: { x: { stacked: true, title: { display: true, text: 'Generation (GW, daily mean)' } }, y: { stacked: true } } }
             });
             const cmpLbl = { '30d': '30d avg', '7d': '7d earlier', '1y': '1y earlier' }[mode];
-            const cell = (v, base, unit = ' GW') => {
+            const cell = (v, base, unit = ' GW', inv = false) => {
                 if (v === null) return '<td>n/a</td><td></td>';
                 if (base === null) return `<td>${v.toFixed(1)}${unit}</td><td style="color:#666">n/a</td>`;
                 let d = v - base, pct = base ? d / base * 100 : null;
                 if (Math.abs(d) < 0.05) { d = 0; pct = pct === null ? null : 0; }
-                const col = Math.abs(d) < 0.05 ? '#888' : (d > 0 ? '#4caf50' : '#f44336');
+                const col = Math.abs(d) < 0.05 ? '#888' : ((d > 0) !== inv ? '#4caf50' : '#f44336');
                 return `<td>${v.toFixed(1)}${unit}</td><td style="color:${col}">${d > 0 ? '+' : ''}${d.toFixed(1)}${pct === null ? '' : ` (${pct > 0 ? '+' : ''}${Math.round(pct) === 0 ? '0' : pct.toFixed(0)}%)`}</td>`;
             };
             const rowsHtml = isos.map(r => {
@@ -2434,17 +2451,17 @@
                 const share = g !== null && l ? g / l * 100 : null;
                 const shareB = gB !== null && lB ? gB / lB * 100 : null;
                 const shareCell = share === null ? '<td>n/a</td><td></td>' : cell(share, shareB, '%').replace(/ \([+-]?\d+%\)/, '');
-                return `<tr><td><strong>${r.iso}</strong></td>${cell(g === null ? null : g / 1000, gB === null ? null : gB / 1000)}${shareCell}${cell(l === null ? null : l / 1000, lB === null ? null : lB / 1000)}${cell(w === null ? null : w / 1000, wB === null ? null : wB / 1000)}</tr>`;
+                return `<tr><td><strong>${r.iso}</strong></td>${cell(g === null ? null : g / 1000, gB === null ? null : gB / 1000)}${shareCell}${cell(l === null ? null : l / 1000, lB === null ? null : lB / 1000)}${cell(w === null ? null : w / 1000, wB === null ? null : wB / 1000, ' GW', true)}</tr>`;
             }).join('');
             const tot = col => { const v = isos.map(r => isoNum(r[col])).filter(x => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
             const totB = col => { const v = isos.map(r => isoBaseline(r.iso, day, mode, col)); return v.some(x => x === null) ? null : v.reduce((a, b) => a + b, 0); };
             const gT = tot('natural_gas_mw'), lT = tot('load_mw'), wT = tot('wind_mw'), gTB = totB('natural_gas_mw'), lTB = totB('load_mw'), wTB = totB('wind_mw');
             const shT = gT !== null && lT ? gT / lT * 100 : null, shTB = gTB !== null && lTB ? gTB / lTB * 100 : null;
-            const totRow = `<tr style="border-top:2px solid #45a29e"><td><strong>All shown</strong></td>${cell(gT === null ? null : gT / 1000, gTB === null ? null : gTB / 1000)}${shT === null ? '<td>n/a</td><td></td>' : cell(shT, shTB, '%').replace(/ \([+-]?\d+%\)/, '')}${cell(lT === null ? null : lT / 1000, lTB === null ? null : lTB / 1000)}${cell(wT === null ? null : wT / 1000, wTB === null ? null : wTB / 1000)}</tr>`;
+            const totRow = `<tr style="border-top:2px solid #45a29e"><td><strong>All shown</strong></td>${cell(gT === null ? null : gT / 1000, gTB === null ? null : gTB / 1000)}${shT === null ? '<td>n/a</td><td></td>' : cell(shT, shTB, '%').replace(/ \([+-]?\d+%\)/, '')}${cell(lT === null ? null : lT / 1000, lTB === null ? null : lTB / 1000)}${cell(wT === null ? null : wT / 1000, wTB === null ? null : wTB / 1000, ' GW', true)}</tr>`;
             document.getElementById('iso-ctx-table').innerHTML =
                 `<thead><tr><th>ISO</th><th>Gas</th><th>vs ${cmpLbl}</th><th>Gas % of load</th><th>vs ${cmpLbl} (pts)</th><th>Load</th><th>vs ${cmpLbl}</th><th>Wind</th><th>vs ${cmpLbl}</th></tr></thead><tbody>${rowsHtml}${totRow}</tbody>`;
             document.getElementById('iso-ctx-note').textContent =
-                `Daily means from EIA-930 hourly data. Green = higher than the comparison, red = lower. More gas burn with flat load usually means less wind, solar, coal or nuclear output; more gas with higher load usually means weather-driven demand. History in this archive starts ${ISO_ROWS.map(r => r.date).sort()[0]}.`;
+                `Daily means from EIA-930 hourly data. Green = supports gas burn, red = cuts it (higher gas, gas share and load are green; higher wind is red). More gas burn with flat load usually means less wind, solar, coal or nuclear output; more gas with higher load usually means weather-driven demand. History in this archive starts ${ISO_ROWS.map(r => r.date).sort()[0]}.`;
         }
 
         function drawIsoTrend() {
