@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Power Grid Monitor — Weather DD Tracker</title>
+    <title>Power Grid Monitor</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.js"></script>
@@ -633,14 +633,14 @@
             </div>
 
             <!-- NATIONAL POWER GRID -->
-            <h2 class="section-title has-tooltip" style="margin-top: 25px;" data-tooltip-key="National Power Grid (Big 4 ISOs)">National Power Grid (Big 4 ISOs)</h2>
+            <h2 class="section-title has-tooltip" style="margin-top: 25px;" data-tooltip-key="National Power Grid (Big 4 ISOs)">National Power Grid (7 ISOs)</h2>
             <div class="summary-row">
                 <div class="summary-card has-tooltip" data-tooltip-key="Total NatGas Burn">
-                    <h3>Total NatGas Burn (MW)</h3>
+                    <h3>Gas Generation</h3>
                     <div class="val" id="national-gas-burn">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="Total Wind Generation">
-                    <h3>Total Wind Generation (MW)</h3>
+                    <h3>Wind Generation</h3>
                     <div class="val" id="national-wind-gen">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="National Wind Anomaly">
@@ -648,23 +648,23 @@
                     <div class="val" id="national-wind-anomaly">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="National Load">
-                    <h3>National Load (MW)</h3>
+                    <h3>Load</h3>
                     <div class="val" id="national-load">--</div>
                 </div>
             </div>
             <div style="color: #888; font-size: 0.75rem; text-align: right; margin-top: -12px;">
-                National as of: <span id="national-asof">—</span>
+                National as of: <span id="national-asof">n/a</span>
             </div>
 
             <!-- REAL-TIME GRID MONITOR (ERCOT) -->
             <h2 class="section-title has-tooltip" style="margin-top: 25px;" data-tooltip-key="Real-Time Grid Monitor (ERCOT)">Real-Time Grid Monitor (ERCOT)</h2>
             <div class="summary-row">
                 <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Gas Gen">
-                    <h3>NatGas Burn (MW)</h3>
+                    <h3>Gas Generation</h3>
                     <div class="val" id="live-gas-burn">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Wind Gen">
-                    <h3>Wind Generation (MW)</h3>
+                    <h3>Wind Generation</h3>
                     <div class="val" id="live-wind-gen">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="ERCOT Wind Anomaly">
@@ -676,12 +676,12 @@
                     <div class="val" id="live-grid-impact" style="font-size: 1.2rem;">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="ERCOT System Load">
-                    <h3>ERCOT System Load (MW)</h3>
+                    <h3>ERCOT Load</h3>
                     <div class="val" id="national-load-ercot">--</div>
                 </div>
             </div>
             <div style="color: #888; font-size: 0.75rem; text-align: right; margin-top: -12px;">
-                ERCOT as of: <span id="ercot-asof">—</span>
+                ERCOT as of: <span id="ercot-asof">n/a</span>
             </div>
 
             <!-- NATIONAL LOAD & ISO BREAKDOWN -->
@@ -754,7 +754,7 @@
             <div id="ercot-fit-section" style="margin-bottom: 30px;">
                 <h2 class="section-title has-tooltip" data-tooltip-key="ERCOT Load-Temp Fit" style="margin-top: 25px;">ERCOT Load vs Temperature Fit</h2>
                 <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
-                    Daily average ERCOT load vs population-weighted Texas temperature with a linear fit — quantifies GW per °F demand response and flags load running above or below weather-implied levels
+                    Daily average ERCOT load vs population-weighted Texas temperature with a two-arm (heating/cooling) degree-day fit, quantifies GW per °F demand response and flags load running above or below weather-implied levels
                 </div>
                 <div id="ercot-fit-stats" class="stat-line" style="font-size:0.85rem; color:#c5c6c7; margin-bottom:8px;"></div>
                 <div id="ercot-fit-container" style="min-height: 380px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
@@ -765,7 +765,7 @@
 
             <!-- VINTAGE COMPARISON (SELF-ACTIVATING) -->
             <div id="vintage-section" style="margin-bottom: 30px;">
-                <h2 class="section-title has-tooltip" data-tooltip-key="Vintage Comparison" style="margin-top: 25px;">Vintage Comparison — Wind / Nuclear / Peaker Drift</h2>
+                <h2 class="section-title has-tooltip" data-tooltip-key="Vintage Comparison" style="margin-top: 25px;">Vintage Comparison: Wind / Nuclear / Peaker Drift</h2>
                 <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
                     These render from day one and upgrade themselves: as soon as the retained archive spans a second calendar year, the prior-year overlay appears automatically (first full overlays land early 2027)
                 </div>
@@ -929,6 +929,32 @@
             updateGasBurnTrend();
         }
 
+        // Data-quality gate for daily history series. EIA occasionally ships a
+        // day with most ISOs missing while still reporting 24 hourly stamps
+        // (e.g. 2026-04-24: 16.7 GW gas, 0 coal, 1.4 GW nuclear), which drew
+        // spikes to ~0 / 90% through every history chart. A day is dropped
+        // when it has <20 sampled hours or any key field sits outside
+        // 0.5x-2x of its +-7 day median.
+        function qualityFilter(rows, fields, minHours = 20) {
+            if (!Array.isArray(rows) || rows.length < 5) return rows || [];
+            const sorted = [...rows].filter(r => r && r.date).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+            const vals = f => sorted.map(r => Number(r[f]));
+            const cols = Object.fromEntries(fields.map(f => [f, vals(f)]));
+            const med = arr => { const a = arr.filter(v => isFinite(v) && v > 0).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : null; };
+            return sorted.filter((r, i) => {
+                const h = Number(r.sample_hours);
+                if (r.sample_hours !== undefined && r.sample_hours !== null && r.sample_hours !== '' && isFinite(h) && h < minHours) return false;
+                for (const f of fields) {
+                    const v = cols[f][i];
+                    if (!isFinite(v)) continue;
+                    const win = cols[f].slice(Math.max(0, i - 7), i).concat(cols[f].slice(i + 1, i + 8));
+                    const m = med(win);
+                    if (m && (v < 0.5 * m || v > 2 * m)) return false;
+                }
+                return true;
+            });
+        }
+
         function formatNum(num, dec = 1, showSign = false) {
             if (num === null || num === undefined || isNaN(num)) return "-";
             let str = Number(num).toFixed(dec);
@@ -950,11 +976,30 @@
         let selectedPeriod = 'all';
         let rawWindData = [];
         let climoJSON = {};
+        // 31-day circular smoothing of a {MM-DD: {period: cf}} climatology
+        // (the wind hindcast holds ~1 sample per calendar day; unsmoothed it
+        // swings 10%->34% between neighbouring days). Mirrors the backend.
+        function smoothClimo(c, w = 31) {
+            try {
+                const keys = Object.keys(c).filter(k => c[k] && typeof c[k] === 'object').sort();
+                if (keys.length < 300) return c;
+                const half = Math.floor(w / 2), n = keys.length, out = {};
+                keys.forEach((k, i) => {
+                    out[k] = {};
+                    ['all', 'peak', 'offpeak', 'shoulder'].forEach(p => {
+                        const v = [];
+                        for (let j = -half; j <= half; j++) { const x = c[keys[(i + j + n) % n]][p]; if (typeof x === 'number' && isFinite(x)) v.push(x); }
+                        out[k][p] = v.length ? v.reduce((a, b) => a + b, 0) / v.length : c[k][p];
+                    });
+                });
+                return out;
+            } catch (e) { return c; }
+        }
         let droughtJSON = {};
         let hddMap = {};
         let windChart = null;
         let droughtDaysList = [];
-        const TOTAL_INSTALLED_GW = 110.0;
+        const TOTAL_INSTALLED_GW = 106.0;  // sum of the 15 wind nodes in forecast_wind_power.py (the GW basis of gfs_p10_gw / gfs_p90_gw)
 
         let selectedSolarPeriod = 'all';
         let rawSolarData = [];
@@ -992,7 +1037,7 @@
 
         // Aligns daily series by month-day across calendar years so a prior-
         // year overlay can be drawn on the current-year axis. Returns null
-        // overlays until the archive actually spans two years — callers show
+        // overlays until the archive actually spans two years, callers show
         // a coverage note meanwhile, and the overlay appears on its own the
         // day the data exists (no config change needed).
         function buildYearAlignedSeries(rows, field, scale) {
@@ -1042,7 +1087,7 @@
             const s = buildYearAlignedSeries(rows, cfg.field, cfg.scale);
 
             if (!s || s.nPoints < 10) {
-                msg.textContent = `Accumulating history — ${s ? s.nPoints : 0} days retained so far. The prior-year overlay switches on automatically once the archive spans two calendar years.`;
+                msg.textContent = `Accumulating history, ${s ? s.nPoints : 0} days retained so far. The prior-year overlay switches on automatically once the archive spans two calendar years.`;
                 msg.style.display = 'block';
                 stats.innerHTML = '';
                 return;
@@ -1182,7 +1227,7 @@
             }
             const denom = n * sumXX - sumX * sumX;
             // Zero x-variance (all points identical): a vertical trendline is
-            // undefined — fall back to a flat line at the mean y.
+            // undefined, fall back to a flat line at the mean y.
             if (denom === 0) return { slope: 0, intercept: sumY / n };
             const slope = (n * sumXY - sumX * sumY) / denom;
             const intercept = (sumY - slope * sumX) / n;
@@ -1281,7 +1326,7 @@
                 }
 
                 let climoRes = await fetch(basePath + "wind/wind_climo_30d.json" + ts);
-                if (climoRes.ok) climoJSON = await climoRes.json();
+                if (climoRes.ok) climoJSON = smoothClimo(await climoRes.json());
 
                 try {
                     let droughtRes = await fetch(basePath + "wind/drought.json" + ts);
@@ -1331,10 +1376,11 @@
                         cont.style.display = "block";
                         let risk = Math.round(data.combined_drought_prob_7d * 100);
                         let loss = formatNum(data.gas_displacement_loss_gw, 1, true);
-                        badge.innerHTML = `☀️💨 COMBINED RENEWABLE DROUGHT: ${risk}% risk (${data.combined_drought_days_7d}/7 days) | Gas displacement: ${loss} GW vs climo | Signal: ${data.signal} 🔴`;
+                        const sigDot = String(data.signal).includes('BULL') ? '🟢' : (String(data.signal).includes('BEAR') ? '🔴' : '⚪');
+                        badge.innerHTML = `☀️💨 COMBINED RENEWABLE DROUGHT: ${risk}% risk (${data.combined_drought_days_7d}/7 days) | Gas backfill (7-day avg): ${loss} GW vs climo | Signal: ${data.signal} ${sigDot}`;
                         
                         if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Combined Renewable Drought"]) {
-                            TOOLTIPS["Combined Renewable Drought"].body = `Current Risk: <strong>${risk}%</strong> (${data.combined_drought_days_7d}/7 days forecast drought).<br>Expected loss displacement: <strong>${loss} GW</strong> vs climo.<br>Signal: <strong>${data.signal}</strong>.<br><br>Occurs when both wind and solar output fall significantly below normal simultaneously, forcing heavy natural gas power burn dispatch.`;
+                            TOOLTIPS["Combined Renewable Drought"].body = `Current Risk: <strong>${risk}%</strong> (${data.combined_drought_days_7d}/7 days forecast drought).<br>Gas backfill needed: <strong>${loss} GW</strong> (7-day mean renewable shortfall vs smoothed climatology; positive = gas must cover the gap).<br>Signal: <strong>${data.signal}</strong>.<br><br>Occurs when both wind and solar output fall significantly below normal simultaneously, forcing heavy natural gas power burn dispatch.`;
                         }
                     }
                 }
@@ -1399,7 +1445,7 @@
 
             if (typeof TOOLTIPS !== "undefined" && TOOLTIPS["Forward Solar Forecast"]) {
                 const agreementStr = agreement != null ? `Model Agreement: <strong>${agreement}%</strong>` : 'N/A';
-                TOOLTIPS["Forward Solar Forecast"].body = `16-Day Solar Drought Risk: <strong>${risk}%</strong>.<br>Agreement: <strong>${agreementStr}</strong>.<br><br>Plots forward solar generation expectations scaled to 48 GW national solar capacity. Yellow shading indicates periods of solar drought (below climo thresholds).`;
+                TOOLTIPS["Forward Solar Forecast"].body = `16-Day Solar Drought Risk: <strong>${risk}%</strong>.<br>Agreement: <strong>${agreementStr}</strong>.<br><br>Forward solar capacity factor from GHI at 12 utility-scale solar hubs (GFS, ECMWF, HRRR) against the smoothed 30-day climatology. Shaded days are below the seasonal drought threshold.`;
             }
         }
 
@@ -1429,7 +1475,7 @@
             let dataGFSP10 = [], dataGFSP90 = [];
             
             dates.forEach(d => {
-                const getGW = (m) => (byModel[m]&&byModel[m][d]) ? (byModel[m][d][cfCol]/100 * TOTAL_INSTALLED_GW) : null;
+                const getGW = (m) => (byModel[m]&&byModel[m][d]) ? byModel[m][d][cfCol] : null;  // modelled fleet capacity factor (%)
                 dataECMWF.push(getGW('ECMWF'));
                 dataGFS.push(getGW('GFS'));
                 dataICON.push(getGW('ICON'));
@@ -1439,8 +1485,8 @@
                 const row = (byModel['GFS'] && byModel['GFS'][d]) ? byModel['GFS'][d] : 
                             (byModel['GFS_CFS'] && byModel['GFS_CFS'][d]) ? byModel['GFS_CFS'][d] : null;
                 if (row && row.gfs_p10_gw != null && row.gfs_p90_gw != null) {
-                    dataGFSP10.push(row.gfs_p10_gw);
-                    dataGFSP90.push(row.gfs_p90_gw);
+                    dataGFSP10.push(row.gfs_p10_gw / TOTAL_INSTALLED_GW * 100);
+                    dataGFSP90.push(row.gfs_p90_gw / TOTAL_INSTALLED_GW * 100);
                 } else {
                     dataGFSP10.push(null);
                     dataGFSP90.push(null);
@@ -1449,7 +1495,7 @@
                 let mm_dd = d.substring(5, 10);
                 let climoEntry = climoJSON[mm_dd] || climoJSON["02-28"] || {all: 0.4};
                 let climoCF = climoEntry[selectedPeriod] || climoEntry["all"] || 0.4;
-                dataClimo.push(climoCF * TOTAL_INSTALLED_GW);
+                dataClimo.push(climoCF * 100);
                 dataHDD.push(hddMap[d] ? hddMap[d][0] : null);
             });
 
@@ -1491,7 +1537,7 @@
                                     let dsLabel = ctx.dataset.label;
                                     let d = ctx.label;
                                     if (dsLabel === `GW ${DD_LABEL}`) {
-                                        if (ctx.raw === null) return `${DD_LABEL}: —`;
+                                        if (ctx.raw === null) return `${DD_LABEL}: n/a`;
                                         let diff = hddMap[d] ? hddMap[d][1] : null;
                                         let s = diff > 0 ? '+'+diff.toFixed(1) : (diff||0).toFixed(1);
                                         return `${DD_LABEL}: ${ctx.raw.toFixed(1)} (${s} vs norm)`;
@@ -1503,10 +1549,10 @@
                                         return `Climo (${selectedPeriod}): ${(cf*100).toFixed(1)}% CF → ${ctx.raw.toFixed(1)} GW`;
                                     }
                                     // Dataset labels carry horizon suffixes like
-                                    // "HRRR (2d)" — strip them to find the raw model row.
+                                    // "HRRR (2d)", strip them to find the raw model row.
                                     let modelKey = dsLabel.replace(/\s*\(.*\)$/, '');
                                     let r = byModel[modelKey] ? byModel[modelKey][d] : null;
-                                    if (!r || ctx.raw === null) return `${dsLabel}: —`;
+                                    if (!r || ctx.raw === null) return `${dsLabel}: n/a`;
                                     let cfVal = r[cfCol];
                                     let icon = (r.drought_flag && modelKey !== 'GFS_CFS') ? ' 🔴' : '';
                                     return `${dsLabel}: ${cfVal}% CF → ${ctx.raw.toFixed(1)} GW${icon}`;
@@ -1516,7 +1562,7 @@
                     },
                     scales: {
                         x: { grid: { color: 'rgba(255,255,255,0.05)' } },
-                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Wind Gen (GW)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Wind capacity factor (%)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } },
                         y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: `GW ${DD_LABEL} (Gas demand)`, color: '#f44336' }, grid: { drawOnChartArea: false } }
                     }
                 },
@@ -1559,14 +1605,14 @@
             let dataGFS = [], dataECMWF = [], dataHRRR = [], dataClimo = [], dataHDD = [];
 
             dates.forEach(d => {
-                const getGW = (m) => (byModel[m]&&byModel[m][d]) ? (byModel[m][d][cfCol]/100 * TOTAL_SOLAR_GW) : null;
+                const getGW = (m) => (byModel[m]&&byModel[m][d]) ? byModel[m][d][cfCol] : null;  // capacity factor (%)
                 dataGFS.push(getGW('GFS'));
                 dataECMWF.push(getGW('ECMWF'));
                 dataHRRR.push(getGW('HRRR'));
                 
                 let mm_dd = d.substring(5, 10);
                 let c = solarClimoJSON[mm_dd] || solarClimoJSON["02-28"] || {all: 0.18, peak: 0.3};
-                dataClimo.push((c[selectedSolarPeriod] || c["all"]) * TOTAL_SOLAR_GW);
+                dataClimo.push((c[selectedSolarPeriod] || c["all"]) * 100);
                 dataHDD.push(hddMap[d] ? hddMap[d][0] : null);
             });
 
@@ -1589,7 +1635,7 @@
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
-                        y: { title: { display: true, text: 'Solar Gen (GW)' } },
+                        y: { title: { display: true, text: 'Solar capacity factor (%)' } },
                         y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: `GW ${DD_LABEL} (Gas demand)`, color: '#f44336' }, grid: { drawOnChartArea: false } }
                     }
                 },
@@ -1682,8 +1728,18 @@
                 if (info && sens.current_temp_f != null) {
                     let parts = [`Fit R&sup2;=${f.r2} (n=${f.n})`,
                                  `dB/dT @${sens.current_temp_f}&deg;F: ${formatNum(sens.bcf_per_f_at_current, 2, true)} Bcf/&deg;F`];
-                    if (sens.heating_arm) parts.push(`Heating arm: ${sens.heating_arm.bcf_per_dd.toFixed(2)} Bcf/HDD`);
-                    if (sens.cooling_arm) parts.push(`Cooling arm: +${sens.cooling_arm.bcf_per_dd.toFixed(2)} Bcf/CDD`);
+                    // An arm whose fit explains <10% of the variance is not a
+                    // measured sensitivity (e.g. 52 shoulder days, R²=0.04 gave
+                    // a physically backwards -0.08 Bcf/HDD).
+                    const arm = (a, unit, label) => {
+                        if (!a) return null;
+                        const fit = `R²=${(a.r2 ?? 0).toFixed(2)}, n=${a.n ?? '?'}`;
+                        if ((a.r2 ?? 0) < 0.10) return `${label}: not yet measurable (${fit})`;
+                        return `${label}: ${a.bcf_per_dd >= 0 ? '+' : ''}${a.bcf_per_dd.toFixed(2)} Bcf/${unit} (${fit})`;
+                    };
+                    const ha = arm(sens.heating_arm, 'HDD', 'Heating arm'), ca = arm(sens.cooling_arm, 'CDD', 'Cooling arm');
+                    if (ha) parts.push(ha);
+                    if (ca) parts.push(ca);
                     info.innerHTML = parts.join(' &nbsp;|&nbsp; ');
                 }
             }
@@ -1747,7 +1803,7 @@
         function updateBurnPerfChart() {
             const msg = document.getElementById('burn-perf-msg');
             if (!burnSensJSON || !burnSensJSON.performance_series || burnSensJSON.performance_series.length < 5) {
-                msg.textContent = "Accumulating burn analytics — this section builds daily from the grid + temperature archives.";
+                msg.textContent = "Accumulating burn analytics, this section builds daily from the grid + temperature archives.";
                 msg.style.display = 'block';
                 return;
             }
@@ -1766,7 +1822,7 @@
             if (me.mae_28d != null) chips.push(`<span>28d MAE: <strong>${me.mae_28d.toFixed(2)}</strong> Bcf/d</span>`);
             if (me.bias_7d != null) chips.push(`<span>7d bias: <strong>${me.bias_7d > 0 ? '+' : ''}${me.bias_7d.toFixed(2)}</strong> Bcf/d</span>`);
             document.getElementById('burn-perf-stats').innerHTML =
-                chips.join(' &nbsp;•&nbsp; ') + ' <span style="color:#888">(positive = realized burn above its fitted temp-response at the actual weather — i.e. strength beyond what temperature explains)</span>';
+                chips.join(' &nbsp;•&nbsp; ') + ' <span style="color:#888">(positive = realized burn above its fitted temp-response at the actual weather, i.e. strength beyond what temperature explains)</span>';
 
             let ctx = document.getElementById('burnPerfChart').getContext('2d');
             if (burnPerfChart) burnPerfChart.destroy();
@@ -1800,13 +1856,13 @@
         }
 
         // ERCOT daily-average load vs population-weighted Texas temperature,
-        // linear fit — the "GW per °F" demand-response regression.
+        // linear fit, the "GW per °F" demand-response regression.
         function updateErcotFitChart() {
             const msg = document.getElementById('ercot-fit-msg');
             const stats = document.getElementById('ercot-fit-stats');
             const ef = burnSensJSON ? burnSensJSON.ercot_fit : null;
             if (!ef) {
-                msg.textContent = "ERCOT load-temperature fit pending — accumulating hourly archive.";
+                msg.textContent = "ERCOT load-temperature fit pending, accumulating hourly archive.";
                 msg.style.display = 'block';
                 stats.innerHTML = '';
                 return;
@@ -1818,7 +1874,7 @@
                 return;
             }
             msg.style.display = 'none';
-            stats.innerHTML = `Slope: <strong>${ef.slope_gw_per_f}</strong> GW/&deg;F &nbsp;|&nbsp; R&sup2;=<strong>${ef.r2}</strong> (n=${ef.n}, ${ef.first_date} &rarr; ${ef.last_date}) &nbsp;|&nbsp; Latest: ${ef.current_load_gw} GW actual vs ${ef.implied_load_gw} GW weather-implied (<strong>${ef.residual_gw > 0 ? '+' : ''}${ef.residual_gw}</strong> GW)`;
+            stats.innerHTML = (ef.balance_temp_f != null ? `Cooling: <strong>${ef.slope_gw_per_f}</strong> GW/&deg;F above ${ef.balance_temp_f}&deg;F &nbsp;|&nbsp; Heating: ${ef.heating_gw_per_f != null ? `<strong>${ef.heating_gw_per_f}</strong> GW/&deg;F below` : `not yet measurable (${ef.heating_days ?? 0} cold days)`} &nbsp;|&nbsp;` : `Slope: <strong>${ef.slope_gw_per_f}</strong> GW/&deg;F &nbsp;|&nbsp;`) + ` R&sup2;=<strong>${ef.r2}</strong> (n=${ef.n}, ${ef.first_date} &rarr; ${ef.last_date}) &nbsp;|&nbsp; Latest: ${ef.current_load_gw} GW actual vs ${ef.implied_load_gw} GW weather-implied (<strong>${ef.residual_gw > 0 ? '+' : ''}${ef.residual_gw}</strong> GW)`;
 
             let ctx = document.getElementById('ercotFitChart').getContext('2d');
             if (ercotFitChart) ercotFitChart.destroy();
@@ -1827,7 +1883,7 @@
                 data: {
                     datasets: [
                         { label: 'Daily Avg Load', data: ef.points.map(p => ({ x: p.t, y: p.load_gw, date: p.date })), backgroundColor: '#ff9800', pointRadius: 3, hoverRadius: 5, showLine: false },
-                        { label: 'Linear Fit', data: ef.fit_line.map(p => ({ x: p.t, y: p.load_gw })), borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0, showLine: true, fill: false, tension: 0 }
+                        { label: ef.balance_temp_f != null ? 'Degree-day fit' : 'Linear Fit', data: ef.fit_line.map(p => ({ x: p.t, y: p.load_gw })), borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0, showLine: true, fill: false, tension: 0 }
                     ]
                 },
                 options: {
@@ -1855,11 +1911,11 @@
 
         // Daily national power burn over time (from gas_burn_history.csv,
         // already fetched for the scatter) with the gas-weighted degree-day
-        // overlay on a secondary axis — the temporal counterpart to the
+        // overlay on a secondary axis, the temporal counterpart to the
         // temp-vs-burn scatter above.
         function updateGasBurnTrend() {
             if (!rawScatterData || rawScatterData.length < 2) {
-                document.getElementById("gas-burn-trend-msg").textContent = "Accumulating power burn history — check back after next pipeline run.";
+                document.getElementById("gas-burn-trend-msg").textContent = "Accumulating power burn history, check back after next pipeline run.";
                 document.getElementById("gas-burn-trend-msg").style.display = 'block';
                 return;
             }
@@ -1904,9 +1960,9 @@
 
             if (rawThermalData.length < minPoints) {
                 msgPct.style.display = 'block';
-                msgPct.innerText = `Accumulating data — check back in ${minPoints - rawThermalData.length} days`;
+                msgPct.innerText = `Accumulating data, check back in ${minPoints - rawThermalData.length} days`;
                 msgSwitch.style.display = 'block';
-                msgSwitch.innerText = `Accumulating data — check back in ${minPoints - rawThermalData.length} days`;
+                msgSwitch.innerText = `Accumulating data, check back in ${minPoints - rawThermalData.length} days`;
                 
                 // Hide canvases to prevent overlapping empty boxes
                 document.getElementById('thermalPctChart').style.display = 'none';
@@ -1961,7 +2017,7 @@
                                 label: function(ctx) {
                                     // Guard the /1000 conversions: early history
                                     // rows can carry blank fuel cells.
-                                    const gw = (v) => (v != null && !isNaN(v)) ? `${(v/1000).toFixed(1)} GW` : '—';
+                                    const gw = (v) => (v != null && !isNaN(v)) ? `${(v/1000).toFixed(1)} GW` : 'n/a';
                                     let r = rawThermalData[ctx.dataIndex];
                                     return [
                                         `Gas: ${ctx.raw.toFixed(1)}% of Thermal`,
@@ -1995,7 +2051,7 @@
             });
 
             // --- Chart B: Gas vs Coal Switch Scatter ---
-            // Group by year (string slice — see season-filter note above)
+            // Group by year (string slice, see season-filter note above)
             let byYear = {};
             rawThermalData.forEach(r => {
                 if (!r.date) return;
@@ -2121,14 +2177,14 @@
 
         function updateLoadGasChart() {
             if (!rawThermalData || rawThermalData.length < 2) {
-                document.getElementById("load-gas-msg").textContent = "Awaiting load data — check back after next pipeline run.";
+                document.getElementById("load-gas-msg").textContent = "Awaiting load data, check back after next pipeline run.";
                 document.getElementById("load-gas-msg").style.display = 'block';
                 return;
             }
             
             const validRows = rawThermalData.filter(r => r.load_mw != null && r.load_mw > 0);
             if (validRows.length === 0) {
-                document.getElementById("load-gas-msg").textContent = "Awaiting load data — check back after next pipeline run.";
+                document.getElementById("load-gas-msg").textContent = "Awaiting load data, check back after next pipeline run.";
                 document.getElementById("load-gas-msg").style.display = 'block';
                 return;
             }
@@ -2164,7 +2220,7 @@
 
         function updateOutageChart() {
             if (!rawOutageData || rawOutageData.length < 2) {
-                document.getElementById("outage-msg").textContent = "Accumulating outage data — check back after next pipeline run.";
+                document.getElementById("outage-msg").textContent = "Accumulating outage data, check back after next pipeline run.";
                 document.getElementById("outage-msg").style.display = 'block';
                 return;
             }
@@ -2257,7 +2313,7 @@
 
         async function loadDashboard() {
             try {
-                // Load Live Grid — SINGLE fetch drives the summary cards, the
+                // Load Live Grid, SINGLE fetch drives the summary cards, the
                 // as-of stamps and the ISO fuel-mix bar (previously the CSV was
                 // downloaded twice and one card kept a month-old value).
                 try {
@@ -2280,14 +2336,15 @@
 
                         let nationalGrid = gridData.filter(r => r.iso === 'NATIONAL');
                         // Retained for the vintage comparison charts below
-                        rawLiveGridData = nationalGrid;
+                        rawLiveGridData = qualityFilter(nationalGrid, ['load_mw', 'natural_gas_mw', 'nuclear_mw']);
                         if (nationalGrid.length > 0) {
                             let nat = pickBestRow(nationalGrid);
-                            document.getElementById('national-gas-burn').innerText = formatNum(nat.natural_gas_mw, 0);
-                            document.getElementById('national-wind-gen').innerText = formatNum(nat.wind_mw, 0);
-                            document.getElementById('national-load').innerText = formatNum(nat.load_mw, 0);
+                            const GW = (v, sign=false) => (v === null || v === undefined || v === '' || isNaN(v)) ? 'n/a' : ((sign && Number(v) > 0 ? '+' : '') + (Number(v) / 1000).toFixed(1) + ' GW');
+                            document.getElementById('national-gas-burn').innerText = GW(nat.natural_gas_mw);
+                            document.getElementById('national-wind-gen').innerText = GW(nat.wind_mw);
+                            document.getElementById('national-load').innerText = GW(nat.load_mw);
                             let anomEl = document.getElementById('national-wind-anomaly');
-                            anomEl.innerText = formatNum(nat.wind_anomaly_mw, 0, true);
+                            anomEl.innerText = GW(nat.wind_anomaly_mw, true);
                             setDeltaClass(anomEl, nat.wind_anomaly_mw);
                             document.getElementById('national-asof').innerText = nat.date;
                         }
@@ -2295,10 +2352,11 @@
                         let ercotGrid = gridData.filter(r => r.iso === 'ERCOT');
                         if (ercotGrid.length > 0) {
                             let latestErcot = pickBestRow(ercotGrid);
-                            document.getElementById('live-gas-burn').innerText = formatNum(latestErcot.natural_gas_mw, 0);
-                            document.getElementById('live-wind-gen').innerText = formatNum(latestErcot.wind_mw, 0);
+                            const GWe = (v, sign=false) => (v === null || v === undefined || v === '' || isNaN(v)) ? 'n/a' : ((sign && Number(v) > 0 ? '+' : '') + (Number(v) / 1000).toFixed(1) + ' GW');
+                            document.getElementById('live-gas-burn').innerText = GWe(latestErcot.natural_gas_mw);
+                            document.getElementById('live-wind-gen').innerText = GWe(latestErcot.wind_mw);
                             let anomalyEl = document.getElementById('live-wind-anomaly');
-                            anomalyEl.innerText = formatNum(latestErcot.wind_anomaly_mw, 0, true);
+                            anomalyEl.innerText = GWe(latestErcot.wind_anomaly_mw, true);
                             setDeltaClass(anomalyEl, latestErcot.wind_anomaly_mw);
                             let impactEl = document.getElementById('live-grid-impact');
                             let impactStr = String(latestErcot.gas_burn_impact || 'NEUTRAL');
@@ -2307,11 +2365,11 @@
                             if (impactStr.includes('BULL')) impactEl.classList.add('bullish-text');
                             if (impactStr.includes('BEAR')) impactEl.classList.add('bearish-text');
                             // This card is the ERCOT system load (not national)
-                            document.getElementById('national-load-ercot').innerText = formatNum(latestErcot.load_mw, 0);
+                            document.getElementById('national-load-ercot').innerText = GWe(latestErcot.load_mw);
                             document.getElementById('ercot-asof').innerText = latestErcot.date;
                         }
 
-                        // ISO Fuel Mix — newest date that actually has broad
+                        // ISO Fuel Mix, newest date that actually has broad
                         // ISO coverage (complete samples preferred), not just
                         // the raw max date, or bars silently shrink to a
                         // handful of early-reporting regions.
@@ -2359,11 +2417,11 @@
                                 }
                             });
                         } else {
-                            document.getElementById("iso-bar-msg").textContent = "Awaiting regional ISO data — check back after next pipeline run.";
+                            document.getElementById("iso-bar-msg").textContent = "Awaiting regional ISO data, check back after next pipeline run.";
                             document.getElementById("iso-bar-msg").style.display = 'block';
                         }
                     } else {
-                        document.getElementById("iso-bar-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("iso-bar-msg").textContent = "Awaiting first pipeline run, check back soon.";
                         document.getElementById("iso-bar-msg").style.display = 'block';
                     }
                 } catch(e) {
@@ -2377,11 +2435,11 @@
                     let thermalRes = await fetch(basePath + "thermal_history.csv?t=" + Date.now());
                     if (thermalRes.ok) {
                         let text = await thermalRes.text();
-                        rawThermalData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
+                        rawThermalData = qualityFilter(Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data, ['natural_gas_mw', 'load_mw', 'total_thermal_mw']);
                         updateThermalCharts();
                         updateLoadGasChart();
                     } else {
-                        document.getElementById("load-gas-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("load-gas-msg").textContent = "Awaiting first pipeline run, check back soon.";
                         document.getElementById("load-gas-msg").style.display = 'block';
                     }
                 } catch (err) {
@@ -2398,7 +2456,7 @@
                         rawOutageData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
                         updateOutageChart();
                     } else {
-                        document.getElementById("outage-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("outage-msg").textContent = "Awaiting first pipeline run, check back soon.";
                         document.getElementById("outage-msg").style.display = 'block';
                     }
                 } catch(e) {
@@ -2411,10 +2469,10 @@
                     let res = await fetch(basePath + "peaker_history.csv?t=" + Date.now());
                     if (res.ok) {
                         let text = await res.text();
-                        rawPeakerData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data.sort((a,b) => a.date.localeCompare(b.date));
+                        rawPeakerData = qualityFilter(Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data, ['peak_gas_mw', 'offpeak_gas_mw']);
                         updatePeakerChart();
                     } else {
-                        document.getElementById("peaker-msg").textContent = "Awaiting first pipeline run — check back soon.";
+                        document.getElementById("peaker-msg").textContent = "Awaiting first pipeline run, check back soon.";
                         document.getElementById("peaker-msg").style.display = 'block';
                     }
                 } catch(e) {
@@ -2428,7 +2486,7 @@
                     let scatterRes = await fetch(basePath + "gas_burn_history.csv?t=" + Date.now());
                     if (scatterRes.ok) {
                         let text = await scatterRes.text();
-                        rawScatterData = Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data;
+                        rawScatterData = qualityFilter(Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data, ['gas_burn_bcfd'], 0);
                         // Default season toggle based on current month
                         let currentMonth = new Date().getMonth() + 1;
                         if (currentMonth >= 10 || currentMonth <= 3) setScatterSeason('heating');
@@ -2438,7 +2496,7 @@
                     console.warn("Gas burn history loading failed", err);
                 }
 
-                // Load Burn Sensitivity Analytics — fitted temp-response curve,
+                // Load Burn Sensitivity Analytics, fitted temp-response curve,
                 // forward weather-implied burn, performance vs normal weather,
                 // and the ERCOT load-temperature regression.
                 try {
@@ -2459,7 +2517,7 @@
                 document.getElementById('app').style.display = 'block';
                 // Fire wind/solar/drought loaders AFTER #app is visible so charts
                 // are always created in a fully-rendered, properly-sized container.
-                // loadHddMap() must complete first — it populates the global hddMap
+                // loadHddMap() must complete first, it populates the global hddMap
                 // that both updateWindChart() and updateSolarChart() read for the
                 // secondary degree-day axis. Wind and solar then load in parallel.
                 await loadHddMap();
@@ -2509,8 +2567,8 @@
                 body: "The UTC timestamp of the last weather pipeline ingestion run. We poll global physics and AI models continuously as soon as their runs start releasing."
             },
             "National Power Grid (Big 4 ISOs)": {
-                title: "National Power Grid (Big 4 ISOs)",
-                body: "Aggregated real-time metrics across the four largest US electrical grids: ERCOT (Texas), PJM (Mid-Atlantic/Midwest), MISO (Midwest/South), and SPP (Great Plains)."
+                title: "National Power Grid (7 ISOs)",
+                body: "Daily averages summed across the seven ISOs in the EIA hourly feed: PJM, MISO, ERCOT, SPP, CAISO, NYISO and ISO-NE. Values are for the newest complete day (at least 18 sampled hours). Wind anomaly is versus the like-for-like 30-day baseline."
             },
             "Real-Time Grid Monitor (ERCOT)": {
                 title: "ERCOT Grid Monitor",
@@ -2566,7 +2624,7 @@
             },
             "Gas Peaker Proxy": {
                 title: "Gas Peaker Utilization Proxy",
-                body: "Peak vs off-peak natural gas generation. The yellow ratio line compares dispatch during 07-22h against overnight hours; bars show absolute gas burn in each window (GW). Ratios above the red 1.4× line indicate heavy peaker plant dispatch — a sign of tight capacity or renewable shortfalls."
+                body: "Peak vs off-peak natural gas generation. The yellow ratio line compares dispatch during 07-22h against overnight hours; bars show absolute gas burn in each window (GW). Ratios above the red 1.4× line indicate heavy peaker plant dispatch, a sign of tight capacity or renewable shortfalls."
             },
             "Nuclear Fleet Availability": {
                 title: "Nuclear Fleet Availability",
@@ -2574,7 +2632,7 @@
             },
             "Forward Wind Forecast": {
                 title: "Forward Wind Forecast",
-                body: "Multi-model wind power outlook (ECMWF, GFS, ICON) scaled to current national capacity. Highlights upcoming wind drought risks."
+                body: "Forward wind capacity factor (hub-height wind through an IEC Class II power curve at 15 wind-farm hubs, weighted by installed capacity) for ECMWF, GFS, ICON, HRRR and the 35-day GFS ensemble, against the smoothed 30-day climatology. Shaded days are 2+ models below the seasonal drought threshold."
             },
             "Forward Solar Forecast": {
                 title: "Forward Solar Forecast",
@@ -2586,15 +2644,15 @@
             },
             "Power Burn Trend": {
                 title: "National Power Burn Trend",
-                body: "Daily power-sector natural gas burn (Bcf/d, converted from EIA generation data via a seasonal heat rate) over the full retained history. The red overlay shows gas-weighted degree days — burn and degree days move together, so divergences flag fuel-switching, nuclear outages or renewable effects."
+                body: "Daily power-sector natural gas burn (Bcf/d, converted from EIA generation data via a seasonal heat rate) over the full retained history. The red overlay shows gas-weighted degree days, burn and degree days move together, so divergences flag fuel-switching, nuclear outages or renewable effects."
             },
             "Gas-Temp Relationship": {
                 title: "Gas Burn vs Temperature",
-                body: "Demand curve showing the non-linear relationship between temperature and natural gas burn. Formulates the classic U-shape (high burn during winter cold and summer heat, minimum around 55°F). The cyan dashed curve is the fitted quadratic temp-response over the trailing window (R² shown above), and cyan triangles mark the burn the live ensemble forecast implies for the next 15 days — days sitting above the curve signal burn strength beyond what weather alone explains."
+                body: "Demand curve showing the non-linear relationship between temperature and natural gas burn. Formulates the classic U-shape (high burn during winter cold and summer heat, minimum around 55°F). The cyan dashed curve is the fitted quadratic temp-response over the trailing window (R² shown above), and cyan triangles mark the burn the live ensemble forecast implies for the next 15 days, days sitting above the curve signal burn strength beyond what weather alone explains."
             },
             "Power Burn Forecast Performance": {
                 title: "Power Burn Forecast Performance",
-                body: "Scores realized power burn against the weather-explained baseline: the gray line is what the fitted temp-response curve would produce at NORMAL seasonal temperatures, so the gap to realized burn mixes non-weather drivers with the season's actual weather. The bias/MAE chips are stricter — they compare realized burn against the curve at each day's ACTUAL temperature, isolating pure non-weather strength (load growth, outages, renewables). The blue dashed segment projects the next 15 days from the live ensemble forecast."
+                body: "Scores realized power burn against the weather-explained baseline: the gray line is what the fitted temp-response curve would produce at NORMAL seasonal temperatures, so the gap to realized burn mixes non-weather drivers with the season's actual weather. The bias/MAE chips are stricter, they compare realized burn against the curve at each day's ACTUAL temperature, isolating pure non-weather strength (load growth, outages, renewables). The blue dashed segment projects the next 15 days from the live ensemble forecast."
             },
             "ERCOT Load-Temp Fit": {
                 title: "ERCOT Load vs Temperature Fit",
@@ -2602,7 +2660,7 @@
             },
             "Vintage Comparison": {
                 title: "Vintage Comparison (Self-Activating)",
-                body: "Year-over-year views of national wind generation, nuclear output, and the peak/off-peak peaker dispatch ratio. Each panel renders from day one of retained history; the moment the archive spans a second calendar year (first full window lands early 2027), the red prior-year overlay and its average switch on automatically — the same per-vintage curves used on professional gas desks to spot fleet drift, capacity growth, or efficiency decay."
+                body: "Year-over-year views of national wind generation, nuclear output, and the peak/off-peak peaker dispatch ratio. Each panel renders from day one of retained history; the moment the archive spans a second calendar year (first full window lands early 2027), the red prior-year overlay and its average switch on automatically, the same per-vintage curves used on professional gas desks to spot fleet drift, capacity growth, or efficiency decay."
             },
             "ECMWF": {
                 title: "ECMWF (Deterministic)",
@@ -2674,7 +2732,7 @@
             },
             "EC46": {
                 title: "ECMWF EC46 (Sub-Seasonal)",
-                body: "ECMWF's 46-day coupled sub-seasonal ensemble: 51 members updated daily. Bridges the weeks 3-6 gap beyond GEFS 35-day. Bias-corrected anomaly guidance — treat as a directional signal rather than absolute temperature truth."
+                body: "ECMWF's 46-day coupled sub-seasonal ensemble: 51 members updated daily. Bridges the weeks 3-6 gap beyond GEFS 35-day. Bias-corrected anomaly guidance, treat as a directional signal rather than absolute temperature truth."
             },
             "PANGUWEATHER": {
                 title: "Pangu-Weather (Huawei AI)",
@@ -2714,7 +2772,7 @@
             },
             "GW CDD": {
                 title: "Gas-Weighted CDD",
-                body: "Gas-Weighted Cooling Degree Days. Represents the daily cooling degree days scaled across the CONUS by local natural gas consumption density, reflecting power burn demand."
+                body: "Gas-Weighted Cooling Degree Days: max(0, daily mean temp − 65°F) of the gas-demand-weighted temperature across 79 US demand cities. Every model, the normals and the ERA5 observations use the same city weights, so values are directly comparable."
             },
             "TDD": {
                 title: "Total Degree Days (TDD)",

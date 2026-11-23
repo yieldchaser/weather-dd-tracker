@@ -23,11 +23,13 @@ GW_NORMALS          = Path("data/normals/us_gas_weighted_normals.csv")
 STD_NORMALS         = Path("data/normals/us_daily_normals.csv")
 COMBINED_DROUGHT_PATH = Path("outputs/wind/combined_drought.json")
 
-PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "CMC_ENS", "UKMO_ENS"]
+PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "GEFS", "CMC_ENS", "UKMO_ENS"]
 SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
+EXTENDED_MODELS   = ["GEFS_35D", "EC46"]   # sub-seasonal physics, weeks 3-6
 AI_MODELS         = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL",
                      "FOURCASTNETV2", "AURORA", "ECMWF_AIFS", "GOOGLE_WN2",
-                     "AIGEFS", "AIFS_ENS"]
+                     "GOOGLE_WN3", "AIGEFS", "AIFS_ENS", "AIGFS", "HGEFS"]
+DEAD_FEED_DAYS    = 7  # runs older than this are a dead feed: not displayed at all
 
 MAX_MSG_CHARS = 4000  # Telegram hard limit is 4096; leave margin
 
@@ -136,7 +138,11 @@ def _get_classification(model):
         return "PRIMARY"
     if m in SHORT_TERM_MODELS:
         return "SHORT"
-    return "AI"
+    if m in EXTENDED_MODELS:
+        return "EXTENDED"
+    # Physics models used to fall through to "AI" (GEFS, GEFS_35D and EC46
+    # were printed under AI BASE SPACE and counted in the AI consensus).
+    return "AI" if m in AI_MODELS else "PRIMARY"
 
 
 # A run older than its cadence allows is displayed for transparency but
@@ -161,47 +167,55 @@ def _max_run_age(model):
     return MAX_RUN_AGE_DAYS.get(m, 3)
 
 
+TG_VISIBLE_LIMIT = 4000  # Telegram caps 4096 chars of parsed text (tags excluded)
+
+
+def _visible_len(text):
+    import html as _html
+    return len(_html.unescape(re.sub(r"<[^>]+>", "", text)))
+
+
+def _fit_single_message(text):
+    """Always one message. The old sender measured RAW length including HTML
+    tags (a ~3.7k-visible message read as 4.3k) and split it, sending a second
+    message that opened with a bare separator. If the visible text really is
+    too long, compact in priority order instead of splitting."""
+    if _visible_len(text) <= TG_VISIBLE_LIMIT:
+        return text
+    lines = text.split("\n")
+    drop_prefixes = [
+        ("  Extended 35d", "  Model agreement", "  Next →", "  <i>through "),
+        ("  ▲", "  ▼", "  ±", "  First run"),           # per-model streak lines
+    ]
+    for prefixes in drop_prefixes:
+        lines = [l for l in lines if not l.startswith(prefixes)]
+        t = "\n".join(lines)
+        if _visible_len(t) <= TG_VISIBLE_LIMIT:
+            return t
+    # Drop the extended (sub-seasonal) model block
+    t = "\n".join(lines)
+    t = re.sub(r"\n<b>📅 EXTENDED</b>.*?(?=\n\n|\n<b>|$)", "", t, flags=re.S)
+    if _visible_len(t) <= TG_VISIBLE_LIMIT:
+        return t
+    # Last resort: cut on a line boundary, still one message
+    out = []
+    for l in t.split("\n"):
+        if _visible_len("\n".join(out + [l])) > TG_VISIBLE_LIMIT - 20:
+            break
+        out.append(l)
+    return "\n".join(out) + "\n<i>(trimmed)</i>"
+
+
 def _send_telegram(token, chat_id, text):
-    """Send a message; split at SECTION boundaries first so a chunk never
-    cuts a section mid-line (the old newline-rfind split once ended a
-    message mid-sentence inside the freeze block)."""
+    """Send the desk update as ONE Telegram message."""
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-
-    PACK_LIMIT = MAX_MSG_CHARS - 60  # headroom for the '(cont.)' prefix
-    blocks = [b.strip() for b in text.split("\n\n") if b.strip()]
-
-    chunks, cur = [], ""
-    for b in blocks:
-        cand = f"{cur}\n\n{b}" if cur else b
-        if len(cand) <= PACK_LIMIT:
-            cur = cand
-            continue
-        if cur:
-            chunks.append(cur)
-            cur = ""
-        while len(b) > PACK_LIMIT:
-            cut = b.rfind("\n", 0, PACK_LIMIT)
-            cut = cut if cut != -1 else PACK_LIMIT
-            chunks.append(b[:cut].strip())
-            b = b[cut:].strip()
-        cur = b
-    if cur:
-        chunks.append(cur)
-
-    for i, chunk in enumerate(chunks):
-        if not chunk:
-            continue
-        body = chunk if i == 0 else f"<i>(cont. {i + 1}/{len(chunks)})</i>\n\n{chunk}"
-        try:
-            resp = requests.post(
-                url,
-                json={"chat_id": chat_id, "text": body, "parse_mode": "HTML"},
-                timeout=15,
-            )
-            if not resp.ok:
-                print(f"[WARN] Telegram returned {resp.status_code}: {resp.text[:200]}")
-        except Exception as e:
-            print(f"[ERR] Telegram send failed: {e}")
+    body = _fit_single_message(text)
+    try:
+        resp = requests.post(url, json={"chat_id": chat_id, "text": body, "parse_mode": "HTML"}, timeout=15)
+        if not resp.ok:
+            print(f"[WARN] Telegram returned {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        print(f"[ERR] Telegram send failed: {e}")
 
 
 # ── Live Grid loader ────────────────────────────────────────────────────────
@@ -414,10 +428,20 @@ def _fmt_regime():
             else:
                 bias = "⚪ Neutral off-season"
         else:
-            if has_block or trough:
-                bias = "🟢 Bullish (cold delivery)"
-            elif has_pv or ridge or zonal:
-                bias = "🔴 Bearish (mild pattern)"
+            # Heating season: polarity follows the EASTERN US anomaly (the
+            # load centre) — same rule as compute_composite_weather_signal.
+            # The old "any trough or block = cold delivery" rule called
+            # "Arctic Block / Ridge East / Trough West" (warm East) bullish.
+            if "Trough East" in clean_label:
+                bias = "🟢 Bullish (eastern trough, cold delivery)"
+            elif "Ridge East" in clean_label and has_block:
+                bias = "🔴 Mild East (block aloft: latent cold risk)"
+            elif "Ridge East" in clean_label:
+                bias = "🔴 Bearish (eastern ridge, mild)"
+            elif has_block:
+                bias = "🟢 Bullish (high-latitude block)"
+            elif has_pv or zonal or "Trough West" in clean_label:
+                bias = "🔴 Bearish (cold locked north/west)"
             else:
                 bias = "⚪ Neutral"
 
@@ -500,22 +524,21 @@ def _fmt_teleconnections(season="HDD"):
             stale_note = f" · ⚠️ stale: {', '.join(stale)}" if stale else ""
             lines.append(f"  <i>through {latest}{stale_note}</i>")
 
-        # Analog years are matched from real teleconnection distances;
-        # their March/April HDD outcomes are real ERA5-derived anomalies
-        # vs the 1991-2020 normals (absent when coverage is missing).
-        # Demand-relevant only in heating season.
+        # Analog years: closest index state within ±15 days of today's date;
+        # outcomes are what actually followed (ERA5 gas-weighted HDD/day vs
+        # 1991-2020 normals) over the next 1-30 and 31-60 days.
         analogs = td.get("analogs", [])
-        if date.today().month in (11, 12, 1, 2, 3):
-            for a in analogs[:2]:
-                if isinstance(a, dict):
-                    year = a.get("year")
-                    anom = a.get("mar_hdd_anomaly")
-                    apr  = a.get("apr_hdd_anomaly")
-                    if anom is None:
-                        lines.append(f"  Analog {year}: outcome data unavailable")
-                    else:
-                        tail = f" · Apr {apr:+.1f}" if apr is not None else ""
-                        lines.append(f"  Analog {year}: Mar {anom:+.1f} HDD vs 30yr normal{tail}")
+        if date.today().month in (10, 11, 12, 1, 2, 3):
+            shown = [a for a in analogs[:3] if isinstance(a, dict) and a.get("next30_hdd_anomaly") is not None]
+            for a in shown:
+                n30 = a["next30_hdd_anomaly"]
+                n60 = a.get("next31_60_hdd_anomaly")
+                tail = f", then {n60:+.1f}" if n60 is not None else ""
+                lines.append(f"  Analog {a.get('year')}: next 30d {n30:+.1f} HDD/day vs normal{tail}")
+            if shown:
+                avg = sum(a["next30_hdd_anomaly"] for a in shown) / len(shown)
+                lean = "colder" if avg > 0.5 else ("milder" if avg < -0.5 else "near-normal")
+                lines.append(f"  <i>Analog lean next 30d: {lean} ({avg:+.1f} HDD/day)</i>")
         return "\n".join(lines)
     except Exception as e:
         print(f"[WARN] Teleconnection block failed: {e}")
@@ -557,7 +580,7 @@ def _fmt_wind():
         w_cf     = wd.get("worst_cf_pct", 0.0)
         w_mod    = wd.get("worst_model", "N/A")
         w_anom   = wd.get("worst_anomaly_cf_pct", 0.0)
-        lines.append(f"  Worst: {_esc(str(worst))} — {w_cf:.1f}% CF ({_esc(str(w_mod))}), {w_anom:+.1f}pp vs climo")
+        lines.append(f"  Worst: {_esc(str(worst))}, {w_cf:.1f}% CF ({_esc(str(w_mod))}), {w_anom:+.1f}pp vs climo")
 
         agree = wd.get("model_agreement_today_pct")
         if agree is not None:
@@ -589,7 +612,7 @@ def _fmt_solar():
             parts.append(f"Solar 10d: {int(solar_risk*100)}% risk")
         if gas_loss is not None:
             direction = "bull↑" if gas_loss > 0 else "bear↓"
-            parts.append(f"Gas disp: {gas_loss:+.1f} GW vs climo ({direction})")
+            parts.append(f"Gas backfill (7d avg): {gas_loss:+.1f} GW vs climo ({direction})")
 
         header = "<b>☀️ SOLAR</b>  " + "  │  ".join(parts) if parts else "<b>☀️ SOLAR</b>"
         lines = [header]
@@ -616,7 +639,7 @@ def _fmt_freeze():
 
         lines = []
         if status == "stale":
-            lines.append("<b>🧊 FREEZE</b>: ⚠️ Data stale — fetch failed")
+            lines.append("<b>🧊 FREEZE</b>: ⚠️ Data stale, fetch failed")
         elif status == "partial":
             sources = freeze.get("sources", {})
             working = [k for k, v in sources.items() if v == "ok"]
@@ -692,9 +715,9 @@ def _fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s):
     line1 = (f"<b>{_esc(model)}</b>{stale_tag} [{_esc(display_run_id)}] {n_days}d  "
              f"NT:{nt_str}  EX:{ex_str}  Avg:{fa:.1f}({vs:+.1f}{_signal(vs)})")
     if prev_rows.empty:
-        line2 = "  First run — no prior run to compare"
+        line2 = "  First run, no prior run to compare"
     else:
-        line2 = f"  {run_chg} — {trend_str}"
+        line2 = f"  {run_chg}, {trend_str}"
     return line1 + "\n" + line2
 
 
@@ -706,7 +729,7 @@ def main():
 
     master = Path("outputs/tdd_master.csv")
     if not master.exists():
-        print("tdd_master.csv missing — aborting.")
+        print("tdd_master.csv missing, aborting.")
         return
 
     df = pd.read_csv(master, parse_dates=["date"])
@@ -768,6 +791,10 @@ def main():
 
     sorted_s = summary.sort_values("run_id")
     latest   = sorted_s.groupby("model").last().reset_index()
+    dead = latest[latest["run_age"] > DEAD_FEED_DAYS]["model"].tolist()
+    if dead:
+        print(f"[INFO] Dead feeds omitted from message (> {DEAD_FEED_DAYS}d): {dead}")
+    latest = latest[latest["run_age"] <= DEAD_FEED_DAYS].reset_index(drop=True)
     prev     = sorted_s.groupby("model").nth(-2).reset_index()
 
     today_str  = date.today().strftime("%Y-%m-%d")
@@ -777,7 +804,7 @@ def main():
     # ── Header ─────────────────────────────────────────────────────────────
     sections = []
     sections.append(
-        f"<b>🌡️ WEATHER DESK — {today_str}</b>\n"
+        f"<b>🌡️ WEATHER DESK, {today_str}</b>\n"
         f"<i>{mode_tag}  │  {season_tag}  │  {metric_lbl}</i>"
     )
 
@@ -838,9 +865,15 @@ def main():
                 hd["year"]  = pd.to_datetime(hd["date"]).dt.year
                 hd["day"]   = pd.to_datetime(hd["date"]).dt.day
                 hdd_col_h   = dd_col if dd_col in hd.columns else ("hdd_gw" if season == "HDD" else "tdd_gw")
+                # Same day window for every year: observations lag (ERA5 ends
+                # yesterday), so rank on days 1..last-observed-day, not 1..today
+                # (22 days of 2026 were being ranked against 23 of other years).
+                cur_obs = hd[(hd["year"] == cur_year) & (hd["month"] == cur_month)]
+                if not cur_obs.empty:
+                    cur_day = int(cur_obs["day"].max())
                 hd_mtd = hd[(hd["month"] == cur_month) & (hd["day"] <= cur_day)]
                 ycounts = hd_mtd.groupby("year")["date"].count()
-                valid_y = ycounts[ycounts >= max(cur_day - 1, 1)].index
+                valid_y = ycounts[ycounts >= cur_day].index
                 yearly  = hd_mtd[hd_mtd["year"].isin(valid_y)].groupby("year")[hdd_col_h].sum()
                 if not yearly.empty and cur_year in yearly.index:
                     sorted_vals = yearly.sort_values(ascending=False)
@@ -888,7 +921,7 @@ def main():
 
     ai_models_df = latest[latest["category"] == "AI"]
     if not ai_models_df.empty:
-        ai_lines = [f"\n<b>🤖 AI BASE SPACE</b> (10–15 Day)"]
+        ai_lines = [f"\n<b>🤖 AI MODELS</b>"]
         for _, row in ai_models_df.iterrows():
             ai_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
         ai_signals = ai_models_df[~ai_models_df["stale_run"]]["signal"].tolist()
@@ -898,7 +931,7 @@ def main():
         n_stale    = int(ai_models_df["stale_run"].sum())
         stale_note = f"  <i>({n_stale} stale run(s) excluded)</i>" if n_stale else ""
         if ai_total == 0:
-            cons = f"N/A — no fresh runs ⏳"
+            cons = f"N/A, no fresh runs ⏳"
         elif bull_ai == ai_total:        cons = f"BULLISH 🟢 ({bull_ai}/{ai_total})"
         elif bear_ai == ai_total:        cons = f"BEARISH 🔴 ({bear_ai}/{ai_total})"
         elif bull_ai > bear_ai:          cons = f"LEAN BULL 🟢 ({bull_ai}/{ai_total})"
@@ -906,6 +939,13 @@ def main():
         else:                            cons = f"MIXED ⚪ ({ai_total} models)"
         ai_lines.append(f"  <b>AI Consensus: {cons}</b>{stale_note}")
         model_sections.append("\n".join(ai_lines))
+
+    ext_df = latest[latest["category"] == "EXTENDED"]
+    if not ext_df.empty:
+        ext_lines = [f"\n<b>📅 EXTENDED</b> (sub-seasonal physics)"]
+        for _, row in ext_df.iterrows():
+            ext_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
+        model_sections.append("\n".join(ext_lines))
 
     short_df = latest[latest["category"] == "SHORT"]
     if not short_df.empty:
@@ -961,9 +1001,12 @@ def main():
         try:
             cv = pd.read_csv(conv_file)
             if not cv.empty:
-                direction = cv["direction"].iloc[0]
-                arrow = "🥶" if direction == "COLDER" else "🌡️"
-                rev_lines.append(f"🎯 <b>CONVERGENCE</b>: Models aligning {_esc(direction)} {arrow} on {len(cv)} day(s)")
+                parts = []
+                for _, r in cv.head(5).iterrows():
+                    arrow = "🥶" if str(r["direction"]) == "COLDER" else ("🌡️" if str(r["direction"]) in ("WARMER", "LOWER DEMAND") else "↕")
+                    cnt = f" {int(r['models'])}/{int(r['of'])}" if "models" in cv.columns and pd.notna(r.get("models")) else ""
+                    parts.append(f"{_esc(str(r['date'])[5:])} {_esc(str(r['direction']))}{cnt} {arrow}")
+                rev_lines.append("🎯 <b>CONVERGENCE</b>: " + "  │  ".join(parts))
         except Exception as e:
             print(f"[WARN] convergence_alert.csv: {e}")
 
@@ -990,12 +1033,13 @@ def main():
 
     print("\n--- TELEGRAM MESSAGE PREVIEW ---")
     print(msg)
-    print(f"\n--- LENGTH: {len(msg)} chars ---")
+    final = _fit_single_message(msg)
+    print(f"\n--- LENGTH: {len(msg)} raw / {_visible_len(msg)} visible chars; sent as 1 message of {_visible_len(final)} visible chars ---")
 
     if token and chat_id:
         _send_telegram(token, chat_id, msg)
     else:
-        print("[INFO] TELEGRAM_TOKEN or TELEGRAM_CHAT_ID not set — skipping send.")
+        print("[INFO] TELEGRAM_TOKEN or TELEGRAM_CHAT_ID not set, skipping send.")
 
 
 if __name__ == "__main__":

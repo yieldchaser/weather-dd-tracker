@@ -97,7 +97,7 @@ WeatherNext 3 (`GOOGLE_WN3`) provides 0.05° (~5 km) surface resolution with 64-
 *   **Z-Score Normalization:**
     $$Z_t = \frac{x_t - \mu}{\sigma}$$
     where $\mu$ and $\sigma$ are the historical daily means and standard deviations computed since 1950. EPO is read from the live 20CR core-reanalysis file (the legacy R1 file stopped updating in Mar 2026); any feed older than 10 days is excluded from the current state and emitted as `null` rather than masquerading as neutral.
-*   **Analog Matcher:** Computes the Euclidean distance of today's z-scored index vector against every historical winter day in σ-space on both sides, averages by year, and returns the top-3 closest winters. Their March/April outcomes are **real**: gas-weighted HDD anomalies vs the 1991â€“2020 normals, computed from the same ERA5 archive that builds the normals (cached per year in `data/analog_outcomes.csv`, heating-season fetching only). Years without archive coverage ship without outcome numbers instead of invented ones.
+*   **Analog Matcher:** Compares today's z-scored index vector with each year's state within ±15 days of the same calendar date (1991 onward) and returns the three closest years. For each it reports what actually followed: the gas-weighted HDD anomaly per day vs the 1991-2020 normal over the next 1-30 and 31-60 days, taken from the ERA5 series in `outputs/historical_degree_days.csv`.
 
 ### 2. Weather Regime Classifier
 *   **Mathematical Base:** Empirical Orthogonal Functions (EOF) / Principal Component Analysis (PCA) combined with KMeans.
@@ -154,7 +154,7 @@ WeatherNext 3 (`GOOGLE_WN3`) provides 0.05° (~5 km) surface resolution with 64-
 ### 7. Composite Weather Signal
 *   **Accumulator Score ($S$):**
     $$S = w_{season} \cdot (S_{tele} + S_{freeze} + S_{sensitivity} + S_{wind} + S_{regime})$$
-    where $w_{season}$ is the seasonal weight (1.0 Dec–Mar tapering to 0.15 Jun–Aug) and flow-regime polarity flips with the season (a ridge *is* the heat in cooling season; a trough is cold delivery in heating season).
+    where $w_{season}$ is the seasonal weight (1.0 Dec–Mar tapering to 0.15 Jun–Aug). In heating season the flow-regime sign follows the eastern-US 500mb anomaly, where the load is: Trough East scores bullish, Ridge East bearish, a high-latitude block over an eastern ridge mildly bearish (latent cold risk), and a block with no eastern signal bullish. In deep summer a ridge scores bullish (heat).
 *   The final score determines the directional weather bias: **Strong Bull** ($S \ge 5$), **Bullish** ($S \ge 1.5$), **Bearish** ($S \le -1.5$), **Strong Bear** ($S \le -5$), else Neutral. Confidence blends system connectivity (stale systems drop out rather than count as neutral) with agreement among signed components.
 
 ### 8. Physics vs. AI Disagreement Index
@@ -163,11 +163,11 @@ WeatherNext 3 (`GOOGLE_WN3`) provides 0.05° (~5 km) surface resolution with 64-
     Runs older than 4 days are excluded per family — a stale vintage diverges because weather evolved, not because models disagree. When either family has no fresh runs the score is `NaN` (unknown), never zero.
 
 ### 9. Market Bias Composite (Algorithmic Market Bias)
-*   **Bias Score:** A directional score from −1.0 (max bearish) to +1.0 (max bullish), blending:
-    *   *Consensus anomaly:* season-polarity-aware TDD anomaly vs normals (colder = bullish in HDD season, hotter = bullish in CDD season), discounted by ensemble volatility.
-    *   *Live wind anomaly:* national wind-generation deviation from seasonal climatology, drought side weighted above surplus side (0.15 vs 0.10 per GW).
-    *   *Non-weather burn strength:* the 28-day realized-vs-weather-normal power-burn bias from the burn engine, applied with a symmetric ±1 Bcf/d deadband (×0.03/Bcf) so structural load growth counts both ways.
-*   Verdicts flip to **BULLISH/BEARISH** beyond ±0.10; inside that band the signal reads NEUTRAL.
+*   **Bias Score (days 0-15):** A directional score from −1.0 (max bearish) to +1.0 (max bullish):
+    *   *Weather term:* mean daily gas-weighted anomaly vs the 30-yr normal over the next 15 days (average of the physics and AI consensus from `physics_vs_ai_disagreement.csv`, season-aware), converted to Bcf/d with the live sensitivity coefficient, squashed with tanh (±10 Bcf/d ≈ ±0.76) and discounted by physics-vs-AI disagreement.
+    *   *Wind term:* latest complete-day national wind anomaly, −0.01 per GW, capped at ±0.10.
+    *   *Burn term:* 28-day realized-vs-weather-normal power-burn bias, ±1 Bcf/d deadband, 0.03 per Bcf/d beyond it, capped at ±0.10.
+*   BULLISH/BEARISH beyond ±0.10, STRONG beyond ±0.50. Per-day scores are kept as `day_score`/`day_bias` in `outputs/composite_bull_bear_signal.csv`.
 
 ### 10. Seasonal Demand Dynamics & Interactive Metric Switching (Power & Gas Trading)
 *   **Meteorological & Market Transition:** In late September and April shoulder transitions, energy markets pivot between power burn (CDD-driven air conditioning) and space heating (HDD-driven residential/commercial heating). Rigid calendar cutoffs risk masking early heating cold snaps or late cooling spikes.
@@ -192,6 +192,15 @@ WeatherNext 3 (`GOOGLE_WN3`) provides 0.05° (~5 km) surface resolution with 64-
 *   **Poller cycle gate.** Open-Meteo availability checks only proved "today" was served, so future cycles (e.g. `_18` at 01Z) were recorded and blocked same-day triggers. Cycles now require init + publication lag to have passed, and the state file is self-healing.
 *   **Sensitivity significance gate.** A power-burn/HDD fit with R² < 0.10 or p > 0.10 falls back to the neutral seasonal baseline instead of ranking a noise slope (R² 0.001) and feeding a bearish composite component.
 *   `build_historical_threshold_matrix.py` crashed every run (`NameError: hdd_col`) — fixed.
+
+### End-to-end audit (second pass)
+*   **One degree-day definition for every model.** GRIB-processed models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a gridded EIA×HDD30 weight field that up-weights the coldest states and ran 1-4 HDD/day colder than the city-weighted normals and observations they were compared to. They now sample the same 79 demand cities and take DD from the daily mean temperature (`calc_version` 2); superseded runs are dropped at merge.
+*   **Run change on common dates.** `run_change.py` differenced whole-run averages over different windows; the seasonal HDD climb alone produced ~1 HDD/day "fast revisions".
+*   **Physics vs AI disagreement** reads the latest fresh run of 14 models from `tdd_master.csv` on the gas-weighted seasonal metric.
+*   **Telegram:** GEFS listed as primary, GEFS_35D/EC46 in their own extended section, AI consensus counts AI models only, dead feeds hidden, month-to-date rank on equal day windows, eastern-anomaly regime polarity, analog lines show next 30/60-day outcomes.
+*   **Wind/solar:** 31-day smoothed wind climatology, worst day limited to 16 days, combined renewable signal from the 7-day mean gas backfill, charts in capacity factor (%).
+*   **Power grid:** coverage-outage days removed from history charts and from the burn fit; peaker history recomputed under one hour convention (legacy rows dropped); ERCOT load fit is a two-arm degree-day model with the heating arm reported only once cold days exist; unmeasurable sensitivity arms are labelled as such; cards in GW.
+*   **Weather sensitivity** falls back to the neutral seasonal baseline when the fit has R² < 0.10 or p > 0.10.
 
 ### Maps
 *   Comparisons are now previous run, **12h ago** and **24h ago (same cycle)**; new **anomaly-vs-normal GIFs** (gas-weight-sized city bubbles vs 1991-2020 city normals from `build_city_normals.py`).

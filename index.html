@@ -462,12 +462,12 @@
                 font-size: 1.6rem;
             }
 
-            /* Fix: Top 4 Runs chart — reduce height on mobile so legend + axes fit properly */
+            /* Fix: Top 4 Runs chart, reduce height on mobile so legend + axes fit properly */
             #runChartWrapper {
                 height: 260px;
             }
 
-            /* Fix: Shift table — ensure cells never wrap so text doesn't overlap */
+            /* Fix: Shift table, ensure cells never wrap so text doesn't overlap */
             #shift-table th,
             #shift-table td {
                 white-space: nowrap;
@@ -477,7 +477,7 @@
         }
 
         /* Consensus shift table: compact enough that every model column fits
-           on one screen — no horizontal scrolling to reach later models. */
+           on one screen, no horizontal scrolling to reach later models. */
         #shift-table th,
         #shift-table td {
             padding: 4px 6px;
@@ -712,7 +712,7 @@
         <div id="app">
             <!-- ALERTS -->
             <div class="alerts-container">
-                <div id="alert-fast-rev" class="alert-box has-tooltip">⚡ FAST REVISION ALERT: <span id="rev-text"></span></div>
+                <div id="alert-fast-rev" class="alert-box has-tooltip">⚡ FAST REVISIONS: <span id="rev-text"></span></div>
                 <div id="alert-conv" class="alert-box conv has-tooltip">🎯 CONVERGENCE ALERT: <span id="conv-text"></span></div>
             </div>
 
@@ -844,6 +844,19 @@
                 </div>
             </div>
 
+            <!-- MODEL SCORECARD -->
+            <h2 class="section-title has-tooltip" data-tooltip-key="Model Scorecard">Model Scorecard: Recent Forecast Accuracy</h2>
+            <div class="week-card" style="margin-bottom:30px;">
+                <div id="skill-headline" class="chg-headline"></div>
+                <div class="table-responsive">
+                    <table class="horizon-table chg-table">
+                        <thead><tr id="skill-head"></tr></thead>
+                        <tbody id="skill-body"></tbody>
+                    </table>
+                </div>
+                <div class="chg-foot" id="skill-sub"></div>
+            </div>
+
             <!-- HISTORICAL MONTHLY OUTLIER CHART -->
             <h2 class="section-title has-tooltip" id="monthly-matrix-title" data-tooltip-key="Historical Monthly">Historical Monthly Degree Days</h2>
             <div class="chart-section" style="position: relative;">
@@ -932,7 +945,7 @@
                         onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
                     <div id="mapError"
                         style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
-                        No spatial map for this model yet — maps build automatically once two runs of the model are archived.
+                        No spatial map for this model yet, maps build automatically once two runs of the model are archived.
                     </div>
                     <div id="mapNote" style="font-size:0.72rem; color:#888; margin-top:6px; line-height:1.4;"></div>
                 </div>
@@ -1214,13 +1227,25 @@
 
             // 1. Bias Card
             if (biasData && biasData.length > 0) {
-                let biasStr = String(biasData[0].market_bias).toUpperCase();
+                const b0 = biasData[0];
+                let biasStr = String(b0.market_bias).toUpperCase();
                 let biasEl = document.getElementById('macro-bias');
                 if (biasEl) {
                     biasEl.innerText = biasStr;
                     biasEl.classList.remove('bullish-text', 'bearish-text');
                     if (biasStr.includes('BULL')) biasEl.classList.add('bullish-text');
                     if (biasStr.includes('BEAR')) biasEl.classList.add('bearish-text');
+                    // Score + what produced it (0-15 day horizon, not just today)
+                    let sub = document.getElementById('macro-bias-sub');
+                    if (!sub) { sub = document.createElement('div'); sub.id = 'macro-bias-sub'; sub.style.cssText = 'font-size:0.72rem;color:#888;margin-top:4px;'; biasEl.parentElement.appendChild(sub); }
+                    const n = v => (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v);
+                    const sc = n(b0.composite_score), an = n(b0.avg_anomaly_15d), wt = n(b0.weather_term), wi = n(b0.wind_term), bu = n(b0.burn_term);
+                    sub.innerText = sc === null ? '' : `${formatNum(sc, 2, true)} · days 1-15 avg ${an === null ? '–' : formatNum(an, 1, true)} ${DD_LABEL}/day vs 30y`;
+                    const card = biasEl.closest('.summary-card');
+                    if (card && sc !== null) {
+                        card.setAttribute('data-dyn-title', 'Algorithmic Market Bias: 0-15 day');
+                        card.setAttribute('data-dyn-body', `Score <strong>${formatNum(sc, 2, true)}</strong> = weather <strong>${wt === null ? '–' : formatNum(wt, 2, true)}</strong> (15-day mean anomaly ${an === null ? '–' : formatNum(an, 2, true)} ${DD_LABEL}/day × Bcf/DD sensitivity, discounted by physics-vs-AI disagreement) + wind <strong>${wi === null ? '–' : formatNum(wi, 2, true)}</strong> (latest complete-day national wind anomaly ${b0.wind_anomaly_gw ?? 'n/a'} GW, capped ±0.10) + burn <strong>${bu === null ? '–' : formatNum(bu, 2, true)}</strong> (28-day non-weather burn bias ${b0.burn_bias_28d ?? 'n/a'} Bcf/d, ±1 Bcf/d deadband, capped ±0.10). BULLISH/BEARISH beyond ±0.10, STRONG beyond ±0.50.`);
+                    }
                 }
             }
 
@@ -1231,29 +1256,36 @@
                     alertConvEl.style.display = 'block';
                     const dir = String(convAlert[0].direction).toUpperCase();
                     alertConvEl.setAttribute('data-dyn-title', 'Convergence Alert');
-                    alertConvEl.setAttribute('data-dyn-body', `High consensus alert: <strong>${convAlert.length} day(s)</strong> are consistently shifting <strong>${dir}</strong> across different models, reinforcing the trend direction.`);
+                    alertConvEl.setAttribute('data-dyn-body', `Days where at least 3 models and at least half of the models with a run-to-run shift moved the same way by more than 0.5 DD, with none moving the other way:<br>` + convAlert.map(r => `${r.date}: <strong>${r.direction}</strong>${r.models ? ` (${r.models}/${r.of} models)` : ''}`).join('<br>'));
                     const convText = document.getElementById('conv-text');
-                    if (convText) convText.innerText = `${convAlert.length} day(s) aligning ${convAlert[0].direction}`;
+                    if (convText) { const dirs = [...new Set(convAlert.map(r => r.direction))]; convText.innerText = `${convAlert.length} day(s) with models shifting together: ${dirs.join(' / ')}`; }
                 }
             }
 
             if (runChange && runChange.length > 0) {
-                let fr = runChange.filter(r => r.fast_revision === true || r.fast_revision === 'True');
+                // Only each model's LATEST run, and only runs from the last 2 days.
+                // (The old code took the file's last flagged row: the
+                // alphabetically last model's flag from any date.)
+                const latestByModel = {};
+                runChange.forEach(r => { const id = String(r.run_id); if (r.model && (!latestByModel[r.model] || id > latestByModel[r.model].id)) latestByModel[r.model] = { id, row: r }; });
+                const freshCut = Date.now() - 2 * 86400e3;
+                const chgOf = r => {
+                    const v = r[`${DD_FIELD.replace('_gw', '')}_change_gw`] ?? r[`${DD_FIELD.replace('_gw', '')}_change`] ?? r.effective_change;
+                    return (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v);
+                };
+                const flagged = Object.values(latestByModel).map(o => o.row).filter(r => {
+                    const t = runTimeMs(r.run_id), c = chgOf(r);
+                    return t !== null && t >= freshCut && c !== null && Math.abs(c) > 1.0;
+                }).sort((x, y) => Math.abs(chgOf(y)) - Math.abs(chgOf(x)));
                 const alertFastEl = document.getElementById('alert-fast-rev');
-                if (fr.length > 0 && alertFastEl) {
-                    let latestFr = fr[fr.length - 1];
-                    alertFastEl.style.display = 'block';
-                    let chgCol = latestFr[`${DD_FIELD.replace('_gw', '')}_change_gw`]
-                        ?? latestFr[`${DD_FIELD.replace('_gw', '')}_change`]
-                        ?? latestFr.hdd_change_gw ?? latestFr.tdd_change_gw ?? latestFr.cdd_change_gw ?? latestFr.hdd_change ?? 0;
-                    let arr = chgCol > 0 ? "▲" : "▼";
-                    let direction = chgCol > 0 
-                        ? (IS_CDD ? "hotter" : (IS_BOTH ? "higher demand" : "colder")) 
-                        : (IS_CDD ? "cooler" : (IS_BOTH ? "lower demand" : "warmer"));
-                    alertFastEl.setAttribute('data-dyn-title', 'Fast Revision Alert');
-                    alertFastEl.setAttribute('data-dyn-body', `Rapid adjustment alert: <strong>${latestFr.model}</strong> shifted by <strong>${formatNum(chgCol, 1, true)} ${DD_LABEL}s</strong> (${direction}) in its latest run, indicating a significant short-term pattern revision.`);
+                if (alertFastEl) alertFastEl.style.display = flagged.length ? 'block' : 'none';
+                if (flagged.length && alertFastEl) {
+                    const word = c => c > 0 ? (IS_CDD ? 'hotter' : (IS_BOTH ? 'higher demand' : 'colder')) : (IS_CDD ? 'cooler' : (IS_BOTH ? 'lower demand' : 'warmer'));
+                    alertFastEl.setAttribute('data-dyn-title', 'Fast Revisions (latest runs, > 1.0 ' + DD_LABEL + '/day)');
+                    alertFastEl.setAttribute('data-dyn-body', 'Average per-day change of each model\u2019s latest run versus its previous run on the valid dates both cover:<br>' +
+                        flagged.map(r => `<strong>${r.model}</strong> ${fmtRunLabel(r.run_id)}: ${formatNum(chgOf(r), 1, true)} ${DD_LABEL}/day (${word(chgOf(r))})`).join('<br>'));
                     const revText = document.getElementById('rev-text');
-                    if (revText) revText.innerText = `${latestFr.model} moved ${arr} ${formatNum(chgCol, 1, true)} ${DD_LABEL}s`;
+                    if (revText) revText.innerText = flagged.slice(0, 4).map(r => `${r.model} ${chgOf(r) > 0 ? '▲' : '▼'}${formatNum(chgOf(r), 1, true)}`).join('  ·  ') + (flagged.length > 4 ? `  +${flagged.length - 4} more` : '') + ` ${DD_LABEL}/day`;
                 }
             }
 
@@ -1277,6 +1309,7 @@
             // 6. Run-change matrix + Forecast Model Chart
             if (masterData && masterData.length > 0) {
                 try { renderChangeMatrix(masterData, vsNormal); } catch (e) { console.error('change matrix', e); }
+                try { renderModelScorecard(masterData, historicalData); } catch (e) { console.error('model scorecard', e); }
                 initChart(masterData, vsNormal, mapManifest);
             }
         }
@@ -1545,7 +1578,7 @@
                         const direction = val > 0 
                             ? (IS_CDD ? 'hotter (higher cooling load)' : (IS_BOTH ? 'higher demand' : 'colder (higher heating load)'))
                             : (IS_CDD ? 'cooler (lower cooling load)' : (IS_BOTH ? 'lower demand' : 'warmer (lower heating load)'));
-                        td.setAttribute('data-dyn-title', `${c} Run Shift — ${String(row["date"] || "").substring(0, 10)}`);
+                        td.setAttribute('data-dyn-title', `${c} Run Shift, ${String(row["date"] || "").substring(0, 10)}`);
                         td.setAttribute('data-dyn-body', `The model run shifted by <strong>${formatNum(val, 1, true)} ${DD_LABEL}s</strong> (${direction}) compared to the previous run on this date.`);
                     }
                     tr.appendChild(td);
@@ -1554,7 +1587,7 @@
             });
         }
 
-        // Spaghetti chart instance — kept at module scope so SEASON changes can destroy+re-init
+        // Spaghetti chart instance, kept at module scope so SEASON changes can destroy+re-init
         let spaghettiChartInstance = null;
 
         // ── Run-change engine (shared by the change matrix and the run chart) ──
@@ -1712,6 +1745,124 @@
                 };
                 hl.innerHTML = `<span style="color:#888">Consensus 15-day change</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']);
             }
+        }
+
+        // ── Model scorecard: forecast vs ERA5 observed over the last 30 verifying days ──
+        // Lead = valid date minus run date (days). Each run of each model counts
+        // once per verifying date, so models that run 4×/day carry more samples
+        // but not more weight in the MAE. Bias > 0 = forecast too high
+        // (too cold in HDD mode, too hot in CDD mode).
+        const SKILL_BUCKETS = [['1-5', 1, 5], ['6-10', 6, 10], ['11-15', 11, 15]];
+        const SKILL_MIN_N = 30;
+
+        function computeModelSkill(masterData, historicalData, days = 30) {
+            const field = DD_FIELD;
+            const obs = {};
+            historicalData.forEach(r => { if (r.date && r[field] !== undefined && r[field] !== null && !isNaN(r[field])) obs[String(r.date).substring(0, 10)] = +r[field]; });
+            const obsDates = Object.keys(obs).sort();
+            if (!obsDates.length) return { rows: [], end: null };
+            const end = obsDates[obsDates.length - 1];
+            const start = addDaysIso(end, -days + 1);
+            const acc = {};
+            masterData.forEach(r => {
+                if (!r.model || !r.date || !r.run_id) return;
+                const d = String(r.date).substring(0, 10);
+                if (d < start || d > end || obs[d] === undefined) return;
+                const t0 = runTimeMs(r.run_id);
+                if (t0 === null) return;
+                const lead = Math.round((Date.parse(d + 'T00:00:00Z') - (t0 - (t0 % 86400000))) / 86400000);
+                const b = SKILL_BUCKETS.find(([, lo, hi]) => lead >= lo && lead <= hi);
+                if (!b) return;
+                const v = ddVal(r);
+                if (v === null || v === undefined || isNaN(v)) return;
+                const e = v - obs[d];
+                const a = ((acc[r.model] = acc[r.model] || {})[b[0]] = acc[r.model][b[0]] || { n: 0, abs: 0, sum: 0 });
+                a.n++; a.abs += Math.abs(e); a.sum += e;
+            });
+            const rows = Object.entries(acc).map(([model, bk]) => ({
+                model,
+                b: Object.fromEntries(SKILL_BUCKETS.map(([k]) => {
+                    const a = bk[k];
+                    return [k, a && a.n ? { mae: a.abs / a.n, bias: a.sum / a.n, n: a.n } : null];
+                }))
+            }));
+            return { rows, start, end };
+        }
+
+        function renderModelScorecard(masterData, historicalData) {
+            const body = document.getElementById('skill-body'), head = document.getElementById('skill-head');
+            const note = document.getElementById('skill-headline');
+            if (!body || !historicalData || !historicalData.length) return;
+            const { rows, start, end } = computeModelSkill(masterData, historicalData);
+            const active = new Set(indexMasterRunsActive(masterData));
+            const shown = rows.filter(r => active.has(r.model) && SKILL_BUCKETS.some(([k]) => r.b[k] && r.b[k].n >= SKILL_MIN_N));
+            const sortKey = r => (r.b['6-10'] && r.b['6-10'].n >= SKILL_MIN_N) ? r.b['6-10'].mae : 99 + ((r.b['1-5'] || {}).mae || 0);
+            shown.sort((a, b) => sortKey(a) - sortKey(b));
+            const best = {};
+            SKILL_BUCKETS.forEach(([k]) => {
+                const v = shown.map(r => r.b[k]).filter(c => c && c.n >= SKILL_MIN_N).map(c => c.mae);
+                best[k] = v.length ? Math.min(...v) : null;
+            });
+            const hotWord = IS_CDD ? 'too hot' : (IS_BOTH ? 'too high' : 'too cold');
+            const coldWord = IS_CDD ? 'too cool' : (IS_BOTH ? 'too low' : 'too warm');
+            head.innerHTML = '<th>Model</th>' + SKILL_BUCKETS.map(([k]) => `<th title="Mean absolute error, ${DD_LABEL}/day">Days ${k}<br><small style="font-weight:400;color:#888">MAE · bias</small></th>`).join('') + '<th title="Forecast-days verified (one per run per valid date)">Fcst-days<br>scored</th>';
+            body.innerHTML = shown.map(r => {
+                const cells = SKILL_BUCKETS.map(([k]) => {
+                    const c = r.b[k];
+                    if (!c || c.n < SKILL_MIN_N) return '<td style="color:#555">–</td>';
+                    const isBest = best[k] !== null && Math.abs(c.mae - best[k]) < 1e-9;
+                    const worst = Math.max(...shown.map(x => x.b[k]).filter(z => z && z.n >= SKILL_MIN_N).map(z => z.mae));
+                    const t = worst > best[k] ? (c.mae - best[k]) / (worst - best[k]) : 0;
+                    const bg = `rgba(${Math.round(76 + 168 * t)},${Math.round(175 - 108 * t)},${Math.round(80 - 26 * t)},0.22)`;
+                    const bias = c.bias;
+                    const bTxt = Math.abs(bias) < 0.25 ? '<span style="color:#888">±0</span>' : `<span title="${bias > 0 ? hotWord : coldWord}" style="color:${bias > 0 ? '#64b5f6' : '#ef9a9a'}">${formatNum(bias, 1, true)}</span>`;
+                    return `<td style="background:${bg}">${isBest ? '<strong>' : ''}${c.mae.toFixed(2)}${isBest ? ' ★</strong>' : ''} <small>${bTxt}</small></td>`;
+                }).join('');
+                const n = SKILL_BUCKETS.reduce((a, [k]) => a + ((r.b[k] || {}).n || 0), 0);
+                return `<tr data-model="${escAttr(r.model)}"><td><strong>${r.model}</strong></td>${cells}<td style="color:#888">${n}</td></tr>`;
+            }).join('');
+            body.querySelectorAll('tr[data-model]').forEach(tr => {
+                tr.onclick = () => {
+                    const ms = document.getElementById('modelSelect');
+                    if (ms && [...ms.options].some(o => o.value === tr.dataset.model)) { ms.value = tr.dataset.model; if (ms.onchange) ms.onchange(); ms.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                };
+            });
+
+            // Skill-weighted consensus of the latest runs (weights 1/MAE², per window)
+            if (note) {
+                const idx = indexMasterRuns(masterData);
+                const d1 = deskDay1();
+                const wins = [['1-5', 0, 4], ['6-10', 5, 9], ['11-15', 10, 14]];
+                const normByDate = {};
+                (DASHBOARD_DATA && DASHBOARD_DATA.vsNormal || []).forEach(r => { if (r.date) normByDate[String(r.date).substring(0, 10)] = normVal(r, false); });
+                const parts = wins.map(([k, a, b]) => {
+                    const dates = Array.from({ length: b - a + 1 }, (_, i) => addDaysIso(d1, a + i));
+                    let wsum = 0, vsum = 0, simple = [], used = 0;
+                    shown.forEach(r => {
+                        const c = r.b[k], e = idx[r.model];
+                        if (!c || c.n < SKILL_MIN_N || !e) return;
+                        const L = e.byRun[e.runsDesc[0]];
+                        if (!dates.every(d => L[d] !== undefined)) return;
+                        const tot = dates.reduce((s, d) => s + L[d], 0);
+                        const w = 1 / Math.max(0.25, c.mae) ** 2;
+                        wsum += w; vsum += w * tot; simple.push(tot); used++;
+                    });
+                    if (!used) return null;
+                    const sw = vsum / wsum, sm = simple.reduce((x, y) => x + y, 0) / simple.length;
+                    const nrm = dates.every(d => normByDate[d] !== undefined) ? dates.reduce((s, d) => s + normByDate[d], 0) : null;
+                    return `<span>Days ${k}: <b>${sw.toFixed(1)}</b>${nrm !== null ? ` (<b class="${sw - nrm >= 0 ? 'pos-val' : 'neg-val'}">${formatNum(sw - nrm, 1, true)}</b> vs 30y)` : ''} <small style="color:#777">simple mean ${sm.toFixed(1)} · ${used} models</small></span>`;
+                }).filter(Boolean);
+                note.innerHTML = parts.length ? `<span style="color:#888">Skill-weighted consensus (latest runs, weight 1/MAE²)</span>${parts.join('')}` : '';
+            }
+            const sub = document.getElementById('skill-sub');
+            if (sub) sub.innerText = `Verification window ${start} → ${end} (ERA5 gas-weighted ${DD_LABEL}). Sorted by days 6-10 error. ★ = lowest error in that window. Bias: blue = forecasts ran ${hotWord}, red = ${coldWord}. Models need ≥${SKILL_MIN_N} scored forecasts per window to be ranked.`;
+        }
+
+        function indexMasterRunsActive(masterData) {
+            const cutoff = addDaysIso(deskDay1(), -2);
+            const s = new Set();
+            masterData.forEach(r => { if (r.model && r.date && String(r.date).substring(0, 10) >= cutoff) s.add(r.model); });
+            return [...s];
         }
 
         // Forecast tail appended to the observed ERA5 history for the season and
@@ -1929,7 +2080,7 @@
             if (st.bench.n5 && recent5.length) datasets.push({ label: `5-yr Avg (${recent5[0]}…${recent5[recent5.length - 1]})`, data: avg5, borderColor: '#e0e0e0', borderWidth: 1.5, borderDash: [2, 4], pointRadius: 0, fill: false, order: 3 });
             if (st.current) {
                 datasets.push({
-                    label: `Current Season (${currentSeasonKey})${lastIdx > lastObsIdx ? ' — dashed = ' + (forecastMeta.label || 'forecast') : ''}`,
+                    label: `Current Season (${currentSeasonKey})${lastIdx > lastObsIdx ? ' (dashed = ' + (forecastMeta.label || 'forecast') + ')' : ''}`,
                     data: curSeries, borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1, fill: false, order: 1,
                     segment: { borderDash: ctx => (ctx.p0DataIndex >= lastObsIdx && lastObsIdx >= 0) ? [6, 4] : undefined }
                 });
@@ -2062,7 +2213,7 @@
                     const extreme = rank <= 5 || rank > allTotals.length - 5;
                     colors.push(extreme ? '#f44336' : '#ff9800');
                     const word = targetMetric === 'CDD' ? 'hottest' : (targetMetric === 'TDD' ? 'highest' : 'coldest');
-                    rankTxt = ` — ${liveYear} projected ${liveTotal.toFixed(0)} (#${rank} ${word} of ${allTotals.length}` +
+                    rankTxt = `: ${liveYear} projected ${liveTotal.toFixed(0)} (#${rank} ${word} of ${allTotals.length}` +
                         (n30 !== null ? `, ${(liveTotal - n30 >= 0 ? '+' : '')}${(liveTotal - n30).toFixed(0)} vs 30y` : '') + ')';
                 }
 
@@ -2139,7 +2290,7 @@
                 sel.appendChild(opt);
             });
 
-            // Compute base normals across the forecast horizon — resolved dynamically via normVal
+            // Compute base normals across the forecast horizon, resolved dynamically via normVal
             let normalMap = {};
             let normal10Map = {};
             if (vsNormal && vsNormal.length > 0) {
@@ -2240,7 +2391,7 @@
                 if (note) {
                     const stale = modelLatestRun && run && String(run).slice(0, 11) < String(modelLatestRun).slice(0, 11);
                     note.innerHTML = stale
-                        ? `<span style="color:#ff9800;">⚠ Map built from ${fmtRunLabel(run)}; model's latest run is ${fmtRunLabel(modelLatestRun)} — map refreshes on the next pipeline pass.</span>`
+                        ? `<span style="color:#ff9800;">⚠ Map built from ${fmtRunLabel(run)}; model's latest run is ${fmtRunLabel(modelLatestRun)}, map refreshes on the next pipeline pass.</span>`
                         : `Map run: ${fmtRunLabel(run)}. Blue = colder / cooler, red = warmer. Frames step one forecast day at a time.`;
                 }
             };
@@ -2280,7 +2431,7 @@
                     } else if (SUBSEASONAL.includes(selectedModel)) {
                         labels = globalLabels.filter(d => d >= startClip).slice(0, 35);
                     } else {
-                        // Standard global models — 16-day window
+                        // Standard global models, 16-day window
                         labels = globalLabels.filter(d => d >= startClip).slice(0, 16);
                     }
                 }
@@ -2289,7 +2440,7 @@
             // Re-sort labels to ensure chronological order for the selected model window
             labels.sort();
 
-            // Colors for 6 runs — latest is solid cyan, older runs fade through palette
+            // Colors for 6 runs, latest is solid cyan, older runs fade through palette
             const colors = ['#66fcf1', '#4caf50', '#ff9800', '#f44336', '#ab47bc', '#42a5f5'];
 
             let datasets = top6Runs.map((r_id, idx) => {
@@ -2359,6 +2510,19 @@
                         borderColor: chgData.map(v => v === null ? 'transparent' : (v >= 0 ? '#4caf50' : '#f44336')), borderWidth: 1,
                         barPercentage: 0.55
                     });
+                }
+            }
+
+            // ── Ensemble P10-P90 of the latest run (member-ensembles only) ──
+            if (!IS_BOTH) {
+                const qf = IS_CDD ? 'cdd_gw' : 'hdd_gw';
+                const lat = {};
+                modelData.forEach(r => { if (String(r.run_id) === runs[0]) lat[r.date.substring(0, 10)] = r; });
+                const p10 = labels.map(d => { const v = lat[d] && lat[d][qf + '_p10']; return (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v); });
+                const p90 = labels.map(d => { const v = lat[d] && lat[d][qf + '_p90']; return (v === null || v === undefined || v === '' || isNaN(v)) ? null : Number(v); });
+                if (p10.some(v => v !== null)) {
+                    datasets.push({ label: `${selectedModel} members P10-P90`, data: p90, borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(102,252,241,0.14)', order: 25, tension: 0.3 });
+                    datasets.push({ label: '__p10', data: p10, borderWidth: 0, pointRadius: 0, fill: false, order: 25, tension: 0.3 });
                 }
             }
 
@@ -2451,12 +2615,12 @@
                                 boxWidth: isMobile ? 20 : 30,
                                 font: { size: isMobile ? 10 : 11 },
                                 padding: isMobile ? 6 : 8,
-                                filter: (item) => item.text !== '__envmin'
+                                filter: (item) => item.text !== '__envmin' && item.text !== '__p10'
                             }
                         },
                         tooltip: {
                             backgroundColor: 'rgba(31,40,51,0.95)',
-                            filter: (item) => item.dataset.label !== '__envmin' && !String(item.dataset.label).startsWith('Other models'),
+                            filter: (item) => item.dataset.label !== '__envmin' && item.dataset.label !== '__p10' && !String(item.dataset.label).startsWith('Other models') && !String(item.dataset.label).includes('P10-P90'),
                             callbacks: {
                                 label: (c) => `${c.dataset.label}: ${c.parsed.y !== null ? (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`,
                                 footer: (items) => {
@@ -2524,7 +2688,7 @@
                 return;
             }
             const num = Number(value);
-            valEl.textContent = num.toFixed(1);
+            valEl.textContent = (num > 0 ? '+' : '') + num.toFixed(1);
             if (num === 0) {
                 valEl.className = 'tc-val tc-zero';
                 return;
@@ -2547,7 +2711,7 @@
                 fetchJSON('outputs/regimes/current_regime.json')
             ]);
 
-            // Task 1 — Teleconnection Panel
+            // Task 1, Teleconnection Panel
             if (tcData) {
                 const keys = { ao: 'tc-ao-val', nao: 'tc-nao-val', pna: 'tc-pna-val', epo: 'tc-epo-val' };
                 for (const [key, elId] of Object.entries(keys)) {
@@ -2560,7 +2724,7 @@
                 document.getElementById('telecon-panel').classList.add('visible');
             }
 
-            // Task 2 — Intelligence Signal Banner
+            // Task 2, Intelligence Signal Banner
             if (signalData) {
                 const sig = String(signalData.signal || 'NEUTRAL').toUpperCase();
                 const score = signalData.composite_score;
@@ -2604,10 +2768,10 @@
                         dynBody = "Indicates whether wind generation is forecast to run below the seasonal climatology for this calendar window (multi-year GFS hindcast of the node fleet), with drought thresholds that move by season \u2014 winter fleet runs stronger, summer fleet weaker.";
                     } else if (label.includes("Ridge") || label.includes("Trough") || label.includes("Block") || label.includes("Pattern") || label.includes("PV ") || label.includes("Polar Vortex")) {
                         dynTitle = "Atmospheric Flow Regime";
-                        dynBody = "The current large-scale 500mb flow pattern, scored with season-correct polarity: in heating season a block/trough means cold delivery (bullish); in cooling season a ridge means heat demand (bullish). Off-season signals are damped.";
+                        dynBody = "The current large-scale 500mb flow pattern. Heating season: polarity follows the EASTERN US anomaly, where the load is, Trough East = cold delivery (bullish), Ridge East = mild (bearish); a high-latitude block over an eastern ridge is scored mildly bearish (latent cold risk). Cooling season: a ridge means heat demand (bullish). Off-season signals are damped.";
                     } else if (label.includes("Teleconnections")) {
                         dynTitle = "Teleconnection Alignment";
-                        dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration. Weighted by season — these indices only translate into gas demand when heating degree days are in play.";
+                        dynBody = "Tracks whether major climate indices (AO, NAO, PNA, EPO) are aligning in a warm, cold, or neutral configuration. Weighted by season, these indices only translate into gas demand when heating degree days are in play.";
                     } else if (label.includes("Freeze")) {
                         dynTitle = "Freeze-Off Alert System";
                         dynBody = "Production freeze-offs curtail supply, which is bullish. Tiers: EMERGENCY > WARNING > WATCH.";
@@ -2626,13 +2790,13 @@
                     const compList = components.map(c => `&#8226; ${c.name || c} ${typeof c === 'object' && c.score ? `(${c.score > 0 ? '+' : ''}${Number(c.score).toFixed(2)})` : ''}`).join('<br>');
                     let body = `<strong>Subseasonal composite (weeks 2-6):</strong> ${sig} (${score >= 0 ? '+' : ''}${Number(score).toFixed(1)})<br>Confidence blends system connectivity with internal agreement among signed components.<br><br><strong>Breakdown:</strong><br>${compList}`;
                     if (signalData.tactical_signal) {
-                        body += `<br><br><strong>Tactical (0-15d):</strong> ${signalData.tactical_signal.bias} (${signalData.tactical_signal.score >= 0 ? '+' : ''}${Number(signalData.tactical_signal.score).toFixed(2)}). The tactical signal reads the ensemble anomaly vs normals; this banner reads the subseasonal setup. When they diverge, the front of the curve trades the ensemble and the back prices the pattern — they are different bets, not a contradiction.`;
+                        body += `<br><br><strong>Tactical (0-15d):</strong> ${signalData.tactical_signal.bias} (${signalData.tactical_signal.score >= 0 ? '+' : ''}${Number(signalData.tactical_signal.score).toFixed(2)}). The tactical signal reads the ensemble anomaly vs normals; this banner reads the subseasonal setup. When they diverge, the front of the curve trades the ensemble and the back prices the pattern, they are different bets, not a contradiction.`;
                     }
                     TOOLTIPS["Weather Intelligence Signal"].body = body;
                 }
             }
 
-            // Task 3 — Regime Badge
+            // Task 3, Regime Badge
             if (regimeData && regimeData.regime_label) {
                 // Strip the leading "Regime N (...)" wrapper if present, show the clean name
                 const raw = (regimeData.regime_label || '').trim();
@@ -2652,6 +2816,10 @@
             "Weather Desk Nav": {
                 title: "Weather Desk Dashboard",
                 body: "Provides real-time spatial weather analysis, teleconnections, algorithmic market bias, temperature anomaly forecasts, and model run-to-run changes."
+            },
+            "Model Scorecard": {
+                title: "Model Scorecard",
+                body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; both histories are replaced as corrected runs accumulate, so expect those models' bias figures to move toward zero over the next 1-2 weeks."
             },
             "Run Change Matrix": {
                 title: "Run-to-Run Change by Window",
@@ -2687,11 +2855,11 @@
             },
             "Flow Regime Pattern": {
                 title: "Flow Regime Pattern",
-                body: "The dominant large-scale circulation pattern (analyzed via K-Means clustering of 500hPa heights). Dictates persistent weather anomalies and energy demand:<br><br>• <strong>Arctic Block</strong>: High pressure over northern latitudes. Blocks the jet stream and forces freezing arctic air south into the Central/Eastern US (High winter HDD).<br>• <strong>Polar Vortex</strong>: Displaced polar low pressure system bringing bitter, sub-freezing air masses deep into the CONUS.<br>• <strong>Ridge West / Trough East</strong>: Warm, dry conditions in the West; persistent cold anomalies and high heating demand in the Eastern US.<br>• <strong>Trough West / Ridge East</strong>: Cold/wet in the West; mild winter temperatures or intense summer heatwaves in the East/Midwest (High CDD).<br>• <strong>Zonal Flow</strong>: Fast-moving, west-to-east flow bringing mild, seasonal, and low-volatility weather."
+                body: "The dominant large-scale circulation pattern (analyzed via K-Means clustering of 500hPa heights). Dictates persistent weather anomalies and energy demand:<br><br>• <strong>Arctic Block</strong>: High pressure over northern latitudes. Blocks the jet stream and forces freezing arctic air south into the Central/Eastern US (High winter HDD).<br>• <strong>Polar Vortex</strong>: Displaced polar low pressure system bringing bitter, sub-freezing air masses deep into the CONUS.<br>• <strong>Ridge West / Trough East</strong>: Warm, dry conditions in the West; persistent cold anomalies and high heating demand in the Eastern US.<br>• <strong>Trough West / Ridge East</strong>: Cold/wet in the West; mild winter temperatures or intense summer heatwaves in the East/Midwest (High CDD).<br>Labels combine tags (e.g. <em>Arctic Block / Ridge East / Trough West</em>): for gas demand the eastern tag decides the sign, a block aloft only adds latent cold risk.<br>• <strong>Zonal Flow</strong>: Fast-moving, west-to-east flow bringing mild, seasonal, and low-volatility weather."
             },
             "Horizon Tables": {
                 title: "Horizon Forecast Tables",
-                body: "Compares current weather model forecasts (ECMWF, GFS, NBM, etc.) against 30-year and 10-year normals across Short-Term (1-5 days), Medium-Term (6-10 days), and Long-Term (11-15 days) horizons."
+                body: "Compares current weather model forecasts (ECMWF, GFS, NBM, etc.) against 30-year (1991-2020) and 10-year (2016-2025) normals across Short-Term (days 1-5), Medium-Term (days 6-15) and Long-Term (days 16+, sub-seasonal models only) horizons, counted from each model\u2019s run date. Δ Chg is the average per-day shift versus the previous run on the same valid dates."
             },
             "Historical Monthly": {
                 title: "Historical Monthly Degree Days",
@@ -2747,7 +2915,7 @@
             },
             "Algorithmic Market Bias": {
                 title: "Algorithmic Market Bias",
-                body: "Directional bias score from \u22121.0 (max bearish) to +1.0 (max bullish), blending: season-polarity-aware TDD consensus anomaly, physics-vs-AI ensemble volatility discount, live wind-generation anomaly, and non-weather power-burn strength (symmetric \u00B11 Bcf/d deadband). Verdicts flip to BULLISH/BEARISH beyond \u00B10.10; inside that band it reads NEUTRAL."
+                body: "Tactical 0-15 day bias from \u22121.0 (max bearish) to +1.0 (max bullish). Weather term: the mean daily gas-weighted anomaly vs the 30-yr normal over the next 15 days (physics and AI consensus, season-aware: colder = bullish in HDD season, hotter = bullish in CDD season), converted to Bcf/d with the live sensitivity coefficient and discounted when physics and AI models disagree. Wind (latest complete-day national anomaly) and non-weather power burn (28-day bias, \u00B11 Bcf/d deadband) add at most \u00B10.10 each. BULLISH/BEARISH beyond \u00B10.10, STRONG beyond \u00B10.50."
             },
             "Total Forecast DDs (Gas-Weighted)": {
                 title: "Total Forecast DDs",
@@ -2779,7 +2947,7 @@
             },
             "Δ Chg": {
                 title: "Run-to-Run Change (Δ Chg)",
-                body: "The average day-by-day run-to-run shift. Reflects the rate of change in the model's outlook between the latest two runs."
+                body: "Average per-day shift between the model's latest two runs, measured on the valid dates both runs cover (so a newer run's extra day at the end cannot masquerade as a revision)."
             },
             "AO": {
                 title: "Arctic Oscillation (AO)",
@@ -2799,7 +2967,7 @@
             },
             "Weather Intelligence Signal": {
                 title: "Weather Intelligence Signal (Subseasonal)",
-                body: "A five-system subseasonal composite (weeks 2-6) combining teleconnections, freeze-off alerts, grid weather sensitivity, wind-drought probability and 500mb flow regimes. Every component is seasonally weighted — teleconnection cold risk in deep summer, for example, is damped to near-zero because it does not translate into gas demand — and flow-regime polarity flips with the season. Confidence blends system connectivity with internal agreement among signed components. It answers a different question than the Algorithmic Market Bias (0-15d ensemble anomaly): when they diverge, trade the front of the curve and respect the pattern behind it."
+                body: "A five-system subseasonal composite (weeks 2-6) combining teleconnections, freeze-off alerts, grid weather sensitivity, wind-drought probability and 500mb flow regimes. Every component is seasonally weighted, teleconnection cold risk in deep summer, for example, is damped to near-zero because it does not translate into gas demand, and flow-regime polarity flips with the season. Confidence blends system connectivity with internal agreement among signed components. It covers weeks 2-6; the Algorithmic Market Bias covers days 0-15 from the model consensus. When the two point in opposite directions the banner marks them DIVERGENT and shows both scores."
             },
             "ECMWF": {
                 title: "ECMWF (Deterministic)",
@@ -2895,7 +3063,7 @@
             },
             "EC46": {
                 title: "ECMWF EC46 (Sub-Seasonal)",
-                body: "ECMWF's 46-day coupled sub-seasonal ensemble: 51 members updated daily. Bridges the weeks 3-6 gap beyond GEFS 35-day. Bias-corrected anomaly guidance — treat as a directional signal rather than absolute temperature truth."
+                body: "ECMWF's 46-day coupled sub-seasonal ensemble: 51 members updated daily. Bridges the weeks 3-6 gap beyond GEFS 35-day. Bias-corrected anomaly guidance, treat as a directional signal rather than absolute temperature truth."
             },
             "ICON": {
                 title: "ICON (German Global)",
@@ -2911,7 +3079,7 @@
             },
             "GW CDD": {
                 title: "Gas-Weighted CDD",
-                body: "Gas-Weighted Cooling Degree Days. Represents the daily cooling degree days scaled across the CONUS by local natural gas consumption density, reflecting power burn demand."
+                body: "Gas-Weighted Cooling Degree Days: max(0, daily mean temp − 65°F) of the gas-demand-weighted temperature across 79 US demand cities. Every model, the normals and the ERA5 observations use the same city weights, so values are directly comparable."
             },
             "TDD": {
                 title: "Total Degree Days (TDD)",
@@ -3067,7 +3235,7 @@
                     "EPO": { neg: "cold risk", pos: "mild risk" },
                     "PNA": { neg: "mild East risk", pos: "cold East risk" }
                 }[keyUpper] || { neg: "negative phase", pos: "positive phase" };
-                const trend = val < -0.5 ? `<em>strong negative phase — ${riskHint.neg}</em>` : (val > 0.5 ? `<em>strong positive phase — ${riskHint.pos}</em>` : "neutral phase");
+                const trend = val < -0.5 ? `<em>strong negative phase: ${riskHint.neg}</em>` : (val > 0.5 ? `<em>strong positive phase: ${riskHint.pos}</em>` : "neutral phase");
             TOOLTIPS[keyUpper].body = `Today's Value: <strong>${val.toFixed(2)}</strong> (${trend}).<br><br>${descMap[keyUpper]}`;
         }
 

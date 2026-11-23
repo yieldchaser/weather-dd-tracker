@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from pathlib import Path
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).parent))
+from demand_constants import DEMAND_CITIES
 
 BASE_TEMP_F = 65
 
@@ -87,24 +90,63 @@ def tdd(temp_f):
     return hdd(temp_f) + cdd(temp_f)
 
 
+# Daily DD definition version stamped on every row this script writes.
+# v2 = city-weighted (79 DEMAND_CITIES, identical to the normals, ERA5
+#      observations and every Open-Meteo model) + HDD of the daily mean temp.
+# v1 (unstamped) used the gridded EIA×HDD30 weight field, which up-weights
+#      the coldest states and ran 1-4 HDD/day colder than the normals it was
+#      compared against, and averaged per-step HDDs.
+CALC_VERSION = 2
+
+
 def load_weights():
-    """
-    Load pre-built gas-weight grid and its lat/lon coordinates.
-    Returns (weights_2d, lats, lons) or None if weights not yet built.
-    """
-    if not WEIGHTS_FILE.exists() or not WEIGHTS_META.exists():
-        print("  [WARN]  Gas-weight grid not found - falling back to simple CONUS mean")
-        return None, None, None
-    try:
-        w = np.load(WEIGHTS_FILE)
-        with open(WEIGHTS_META) as f:
-            meta = json.load(f)
-        lats = np.arange(meta["lat_min"], meta["lat_max"] + meta["resolution"] / 2, meta["resolution"])
-        lons = np.arange(meta["lon_min"], meta["lon_max"] + meta["resolution"] / 2, meta["resolution"])
-        return w, lats, lons
-    except Exception as e:
-        print(f"  [WARN]  Could not load weights ({e}) - falling back to simple CONUS mean")
-        return None, None, None
+    """City-weighting mode. Returns a non-None marker so the per-model
+    processors keep their weighting branch; the actual weights are built per
+    native grid by city_weight_array()."""
+    return "city", None, None
+
+
+def city_weight_array(lat_vals, lon_vals):
+    """Array shaped like the model grid holding each demand city's weight at
+    its nearest grid cell (zeros elsewhere). Works for 1-D regular axes and
+    2-D projected lat/lon. apply_gas_weights() over this array is exactly the
+    city-weighted mean temperature."""
+    lat_vals = np.asarray(lat_vals, dtype=float)
+    lon_vals = np.asarray(lon_vals, dtype=float)
+    if lat_vals.ndim == 1 and lon_vals.ndim == 1:
+        out = np.zeros((lat_vals.size, lon_vals.size))
+        lon360 = np.mod(lon_vals, 360.0)
+        for _name, clat, clon, w in DEMAND_CITIES:
+            i = int(np.nanargmin(np.abs(lat_vals - clat)))
+            dlon = np.abs(lon360 - (clon % 360.0))
+            j = int(np.nanargmin(np.minimum(dlon, 360.0 - dlon)))
+            out[i, j] += w
+        return out
+    lat2 = lat_vals if lat_vals.ndim == 2 else lat_vals.reshape(lon_vals.shape)
+    lon2 = np.mod(lon_vals, 360.0)
+    out = np.zeros(lat2.shape)
+    flat_lat, flat_lon = lat2.ravel(), lon2.ravel()
+    for _name, clat, clon, w in DEMAND_CITIES:
+        dlon = np.abs(flat_lon - (clon % 360.0))
+        dlon = np.minimum(dlon, 360.0 - dlon) * np.cos(np.radians(clat))
+        k = int(np.nanargmin((flat_lat - clat) ** 2 + dlon ** 2))
+        out.flat[k] += w
+    return out
+
+
+def finalize_daily(df):
+    """Daily means of temperature, then degree days from the daily mean
+    (max(65 - Tmean, 0)), matching normals, ERA5 and Open-Meteo models."""
+    out = df.groupby("date").mean(numeric_only=True).reset_index()
+    for suffix in ("", "_gw"):
+        t = out.get(f"mean_temp{suffix}")
+        if t is None:
+            continue
+        out[f"hdd{suffix}"] = (65.0 - t).clip(lower=0).round(2)
+        out[f"cdd{suffix}"] = (t - 65.0).clip(lower=0).round(2)
+        out[f"tdd{suffix}"] = (out[f"hdd{suffix}"] + out[f"cdd{suffix}"]).round(2)
+        out[f"mean_temp{suffix}"] = t.round(2)
+    return out
 
 
 def crop_to_conus_robust(ds, lat_coord, lon_coord, grid_type):
@@ -158,20 +200,13 @@ def crop_to_conus(ds):
         return ds
 
 
-def get_interpolated_weights(data_lats, data_lons, weights, w_lats, w_lons):
-    """
-    Interpolate the pre-built gas-weight grid to match the native data grid.
-    Run this ONCE per model run outside the time-step loop for massive speedup.
-    """
+def get_interpolated_weights(data_lats, data_lons, weights=None, w_lats=None, w_lons=None):
+    """Kept for call-site compatibility: returns the city-weight array for
+    this native grid (see city_weight_array)."""
     try:
-        # Build xarray DataArray for the weight grid so we can interpolate
-        w_da = xr.DataArray(weights, coords={"lat": w_lats, "lon": w_lons}, dims=["lat", "lon"])
-        # Interpolate weights to data resolution
-        w_interp = w_da.interp(lat=data_lats, lon=data_lons, method="linear").fillna(0).values
-        w_interp = np.maximum(w_interp, 0)
-        return w_interp
+        return city_weight_array(data_lats, data_lons)
     except Exception as e:
-        print(f"  [WARN]  Weight interpolation failed ({e})")
+        print(f"  [WARN]  City weight construction failed ({e})")
         return None
 
 
@@ -270,7 +305,7 @@ def process_ecmwf_grib(run_path, weights, w_lats, w_lons, ensemble=False):
     df = df[df["date"].isin(valid_days)]
 
     # Final daily average
-    return df.groupby("date").mean().reset_index()
+    return finalize_daily(df)
 
 
 # Keep old names as thin wrappers for backward compatibility
@@ -337,11 +372,7 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
                         # Projected grids (Lambert Conformal, HRRR/NAM): lat/lon are 2D (y, x).
                         # Use nearest-neighbour searchsorted lookup — O(N log N), memory-safe.
                         # xr.DataArray.interp on ~2M scattered points creates an (N×M) OOM matrix.
-                        lat_2d = ds[lat_coord].values
-                        lon_2d = ds[lon_coord].values
-                        lat_idx = np.clip(np.searchsorted(w_lats, lat_2d.flatten()), 0, len(w_lats) - 1)
-                        lon_idx = np.clip(np.searchsorted(w_lons, lon_2d.flatten()), 0, len(w_lons) - 1)
-                        w_interp = weights[lat_idx, lon_idx].reshape(lat_2d.shape)
+                        w_interp = city_weight_array(ds[lat_coord].values, ds[lon_coord].values)
                 except Exception as e:
                     print(f"  [WARN] Weight interpolation failed: {e}")
 
@@ -374,7 +405,7 @@ def process_grib_files(run_path, weights, w_lats, w_lons, prefix=None, name_filt
         day_counts = df.groupby("date").size()
         valid_days = day_counts[day_counts >= min_steps].index
         df = df[df["date"].isin(valid_days)]
-        return df.groupby("date").mean(numeric_only=True).reset_index()
+        return finalize_daily(df)
     print("  No valid rows computed.")
     return None
 
@@ -452,7 +483,7 @@ def process_gfs(run_path, weights, w_lats, w_lons):
         valid_days = day_counts[day_counts >= min_steps].index
         df = df[df["date"].isin(valid_days)]
         
-        return df.groupby("date").mean(numeric_only=True).reset_index()
+        return finalize_daily(df)
     print("  No valid rows computed.")
     return None
 
@@ -467,6 +498,7 @@ def process_nbm(run_path, weights, w_lats, w_lons):
         return None
 
     rows = []
+    nbm_w = None
     for file in files:
         print(f"  Reading: {file.name}")
         try:
@@ -499,26 +531,13 @@ def process_nbm(run_path, weights, w_lats, w_lons):
             # We flatten, match each point to its nearest cell in the weight grid, then
             # compute the weighted mean — avoids heavy cartographic reprojection.
             temp_f_gw = None
-            if weights is not None and w_lats is not None:
+            if weights is not None:
                 try:
-                    # Flatten 2D lat/lon + apply CONUS mask
-                    flat_lat = lat_2d[mask].flatten()
-                    flat_lon = lon_2d[mask].flatten()
-                    flat_tmp = temp_f_2d[mask].flatten()
-
-                    # Build index arrays into the weight grid
-                    lat_idx = np.clip(
-                        np.searchsorted(w_lats, flat_lat), 0, len(w_lats) - 1
-                    )
-                    lon_idx = np.clip(
-                        np.searchsorted(w_lons, flat_lon), 0, len(w_lons) - 1
-                    )
-                    w_vals = weights[lat_idx, lon_idx]
-                    w_total = w_vals.sum()
-                    if w_total > 0:
-                        temp_f_gw = float((flat_tmp * w_vals).sum() / w_total)
+                    if nbm_w is None:
+                        nbm_w = city_weight_array(lat_2d, lon_2d)
+                    temp_f_gw = apply_gas_weights(np.where(mask, temp_f_2d, np.nan), nbm_w)
                 except Exception as gw_e:
-                    print(f"  [WARN] NBM GW lookup failed ({gw_e}); leaving gw columns null")
+                    print(f"  [WARN] NBM city weighting failed ({gw_e}); leaving gw columns null")
             # No silent substitution: other processors emit null *_gw when
             # weighting is unavailable; filling with the simple box mean here
             # would smuggle a different methodology into the same columns
@@ -550,7 +569,7 @@ def process_nbm(run_path, weights, w_lats, w_lons):
         valid_days = day_counts[day_counts >= min_steps].index
         df = df[df["date"].isin(valid_days)]
 
-        return df.groupby(["date"]).mean(numeric_only=True).reset_index()
+        return finalize_daily(df)
 
     print("  No valid rows computed for NBM.")
     return None
@@ -580,7 +599,7 @@ _MODELS = [
 def process_all():
     weights, w_lats, w_lons = load_weights()
     gw_active = weights is not None
-    print(f"\nGas-weighting: {'[OK] ACTIVE' if gw_active else '[ERR] INACTIVE (fallback to simple mean)'}")
+    print(f"\nGas-weighting: city-weighted ({len(DEMAND_CITIES)} demand cities, nearest grid cell), DD from daily mean temp (calc v{CALC_VERSION})")
 
     for model, folder, proc, kwargs in _MODELS:
         if not os.path.exists(folder):
@@ -609,6 +628,7 @@ def process_all():
                 continue
             df["model"]  = model
             df["run_id"] = run_id
+            df["calc_version"] = CALC_VERSION
             
             # Apply dynamic sensitivity
             rolling_coeff = load_rolling_coeff()

@@ -34,6 +34,13 @@ def safe_write_json(data, path, required_keys=None):
     return True
 
 INPUT_FILE = Path("outputs/hourly_grid_data.csv")
+# Rows are stamped with the definition that produced them. Legacy rows (no
+# stamp) were bucketed with a different hour convention: through July 2026
+# they showed off-peak gas ABOVE peak gas (ratio ~0.85 in mid-summer), which
+# is physically backwards, then stepped to ~1.15 when the US/Central
+# conversion landed. Unstamped rows are dropped; every date still inside the
+# hourly archive is recomputed under the current definition.
+PEAKER_DEFINITION = "uscentral_07_22_v2"
 OUTPUT_FILE = Path("outputs/peaker_history.csv")
 
 def calculate_peaker_proxy():
@@ -88,7 +95,8 @@ def calculate_peaker_proxy():
                 "peak_load_mw": round(p_load),
                 "offpeak_load_mw": round(o_load),
                 "peaker_proxy_pct": round(proxy, 1),
-                "sample_hours": len(group)
+                "sample_hours": len(group),
+                "definition": PEAKER_DEFINITION,
             })
 
         new_df = pd.DataFrame(daily_rows)
@@ -97,6 +105,12 @@ def calculate_peaker_proxy():
             old_df = pd.read_csv(OUTPUT_FILE)
             if "sample_hours" not in old_df.columns:
                 old_df["sample_hours"] = 24
+            if "definition" not in old_df.columns:
+                old_df["definition"] = None
+            n_legacy = int((old_df["definition"] != PEAKER_DEFINITION).sum())
+            old_df = old_df[old_df["definition"] == PEAKER_DEFINITION]
+            if n_legacy:
+                print(f"[PEAKER] Dropped {n_legacy} legacy rows computed under an older hour convention.")
             combined = pd.concat([old_df, new_df]).sort_values("sample_hours", kind="mergesort")
             # Completeness-aware: richer samples win; equal -> newest
             combined = combined.drop_duplicates(subset=["date"], keep="last")

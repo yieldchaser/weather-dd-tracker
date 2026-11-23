@@ -19,6 +19,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PYTHONUNBUFFERED: "1"
 
 permissions:
   contents: write
@@ -26,6 +27,7 @@ permissions:
 jobs:
   poll:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     
     # Prevent overlapping poller runs
     concurrency:
@@ -84,7 +86,7 @@ jobs:
           if [[ $(date -u +%-H) -eq 5 || $(date -u +%-H) -eq 17 ]] && [ "$(ls data/normals/city_era5/*.csv 2>/dev/null | wc -l)" -lt 30 ]; then
             timeout 900 python scripts/build_city_normals.py || echo "[WARN] City normals build failed."
           fi
-          python scripts/generate_maps.py || echo "[WARN] Map generation failed."
+          timeout 1500 python scripts/generate_maps.py || echo "[WARN] Map generation failed or timed out."
           python scripts/market_logic/fetch_gas_burn_history.py || echo "[WARN] Gas burn history failed."
           python scripts/market_logic/fetch_thermal_history.py || echo "[WARN] Thermal history failed."
           python scripts/market_logic/fetch_outages.py || echo "[WARN] Outage fetch failed."
