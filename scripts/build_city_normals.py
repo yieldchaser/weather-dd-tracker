@@ -24,6 +24,7 @@ from om_batch_fetch import fetch_era5_cities_batch  # noqa: E402
 URL = "https://archive-api.open-meteo.com/v1/archive"
 OUT = Path("data/normals/city_daily_normals.csv")
 SMOOTH_DAYS = 15
+NORMAL_FIRST_YEAR, NORMAL_LAST_YEAR = 1991, 2020  # WMO 30-yr normal period
 
 
 def smooth_circular(values, window=SMOOTH_DAYS):
@@ -35,7 +36,7 @@ def smooth_circular(values, window=SMOOTH_DAYS):
 
 
 def run():
-    raw = fetch_era5_cities_batch(endpoint=URL, start_date="1991-01-01", end_date="2020-12-31",
+    raw = fetch_era5_cities_batch(endpoint=URL, start_date=f"{NORMAL_FIRST_YEAR}-01-01", end_date=f"{NORMAL_LAST_YEAR}-12-31",
                                   variables=["temperature_2m_mean"])
     if not raw:
         print("[ERR] ERA5 fetch failed — city normals not built.")

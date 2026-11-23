@@ -184,6 +184,30 @@ WeatherNext 3 (`GOOGLE_WN3`) provides 0.05° (~5 km) surface resolution with 64-
 
 ---
 
+## 🆕 Nov 2026 Upgrade — Data Integrity, Run-Change Analytics & Europe
+
+### Data-integrity fixes (affect every run-to-run number)
+*   **Phantom runs purged.** Open-Meteo serves whichever cycle it ingested last; fetchers that fired before ingestion stored the *previous* forecast under the new cycle label. 372 such runs (ECMWF_ENS 150, CMC_ENS 97, AIGEFS 65, GOOGLE_WN2 52, …) were bit-identical to an earlier run and read as a perfect "0.0 change". `merge_tdd.drop_identical_runs()` removes them, `om_batch_fetch.is_duplicate_run()` refuses to archive them, and `generate_maps.py` skips maps between identical payloads.
+*   **Ensemble members averaged.** `om_batch_fetch.member_mean()` averages the un-suffixed series with every `_memberNN` series, so a member-ensemble request can no longer collapse to its control run (identity for single-series models).
+*   **Poller cycle gate.** Open-Meteo availability checks only proved "today" was served, so future cycles (e.g. `_18` at 01Z) were recorded and blocked same-day triggers. Cycles now require init + publication lag to have passed, and the state file is self-healing.
+*   **Sensitivity significance gate.** A power-burn/HDD fit with R² < 0.10 or p > 0.10 falls back to the neutral seasonal baseline instead of ranking a noise slope (R² 0.001) and feeding a bearish composite component.
+*   `build_historical_threshold_matrix.py` crashed every run (`NameError: hdd_col`) — fixed.
+
+### Maps
+*   Comparisons are now previous run, **12h ago** and **24h ago (same cycle)**; new **anomaly-vs-normal GIFs** (gas-weight-sized city bubbles vs 1991-2020 city normals from `build_city_normals.py`).
+*   `maps_manifest.py` rebuilds the manifest *after* cleanup (it used to point at deleted files); AIGFS/HGEFS/FCN are pruned like every other model (AIGFS maps were being deleted by the fallback sweep every run); feeds whose newest map is >10 days old are pruned instead of shown as "latest".
+
+### Weather Desk (index.html)
+*   **Run-to-Run Change by Window** matrix (ICAP-style): every model × days 1-5 / 6-10 / 11-15 / 1-15 on identical calendar dates, vs previous / 12h / 24h run, consensus row and a CWG-style "consensus 15-day change" headline.
+*   **Run chart**: labelled change bars vs the selected run, 1-5/6-10/11-15 horizon shading, and a band showing the range of every other model's latest run.
+*   **Season cumulative chart**: every season 1991→present can be toggled (Last 3/5/10, Extremes, All, None), 30y/10y/5y benchmarks, historical min–max range, observed vs forecast (dashed, EC ENS) split, zoom-to-date, and season-to-date rank/departure readout. Selections persist.
+*   **Monthly chart**: the current month is a projected bar (observed + forecast + normal remainder) ranked against complete months, instead of a partial month ranked as a record-mild one.
+
+### Europe (europe.html)
+`scripts/europe/europe_weather.py` (workflow `europe_weather.yml`, 4×/day) builds a gas-demand-weighted European HDD outlook from ECMWF ENS, GEFS and AIFS ENS (all members): ensemble mean, P10–P90, members, run-to-run change bars and matrix, 30y/10y normals and ±1σ, per-country anomalies (°C), and a season-cumulative chart from ERA5 since 1991. Units toggle between HDD °F (base 65) and HDD °C (base 18.3).
+
+---
+
 ## 🗂️ Script Inventory & Directory Layout
 
 ### Ingestion & Sync Scripts

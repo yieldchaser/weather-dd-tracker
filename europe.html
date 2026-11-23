@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Europe Weather Desk</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --card-bg: #1f2833;
+            --card-bg2: #18202a;
+            --text-main: #c5c6c7;
+            --text-br: #ffffff;
+            --muted: #8a949e;
+            --bullish: #4caf50;
+            --bearish: #f44336;
+            --border: #45a29e;
+            --grid: #2a3642;
+            --accent: #66fcf1;
+            --cold: #42a5f5;
+            --warm: #ef5350;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2, h3 { color: var(--text-br); margin-top: 0; }
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        .nav-bar { display: flex; gap: 20px; margin: 10px 0 20px; border-bottom: 2px solid var(--border); padding-bottom: 15px; flex-wrap: wrap; }
+        .nav-link { color: var(--text-main); text-decoration: none; font-size: 1.1rem; padding: 8px 16px; border-radius: 4px; font-weight: 500; }
+        .nav-link:hover { background-color: var(--card-bg); color: var(--accent); }
+        .nav-link.active { color: var(--accent); background-color: rgba(102, 252, 241, 0.1); border: 1px solid var(--accent); }
+
+        .header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 18px; }
+        .header h1 { margin: 0; font-size: 1.8rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+        .header .sub { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+        .stamp { font-size: 0.8rem; color: var(--muted); text-align: right; line-height: 1.5; }
+
+        .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; background: var(--card-bg); padding: 12px 16px; border-radius: 4px; margin-bottom: 18px; }
+        .controls label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-right: 6px; }
+        select { background-color: var(--bg-color); color: var(--text-br); border: 1px solid var(--border); padding: 6px 10px; border-radius: 4px; font-size: 0.9rem; }
+        .pill { background: transparent; color: var(--text-main); border: 1px solid #3a4552; border-radius: 3px; padding: 4px 10px; font-size: 0.78rem; cursor: pointer; }
+        .pill.on { color: var(--accent); border-color: var(--accent); background: rgba(102, 252, 241, 0.08); }
+
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px; }
+        .card { background: var(--card-bg); border-radius: 4px; padding: 14px 16px; border-left: 3px solid var(--border); }
+        .card h3 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+        .card .v { font-size: 1.7rem; font-weight: 700; color: var(--text-br); }
+        .card .s { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+        .section-title { color: var(--accent); font-size: 1.15rem; margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 1px dashed #2f3b47; }
+        .panel { background: var(--card-bg); border-radius: 4px; padding: 16px; margin-bottom: 18px; }
+        .panel-note { font-size: 0.72rem; color: #7c868f; line-height: 1.5; margin-top: 8px; }
+
+        .tbl-wrap { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { text-align: right; color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        td { text-align: right; padding: 7px 8px; border-bottom: 1px solid #26313c; white-space: nowrap; }
+        th:first-child, td:first-child { text-align: left; }
+        tr.cons td { border-top: 2px solid #3a4652; font-weight: 700; }
+        sup { color: #888; font-size: 0.6rem; }
+        .pos { color: var(--bullish); }
+        .neg { color: var(--bearish); }
+
+        .grid2 { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; }
+        .yr-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 10px; max-height: 72px; overflow-y: auto; }
+        .yr-chip { font-size: 0.7rem; padding: 2px 7px; border-radius: 10px; border: 1px solid #3a4552; color: #8a949e; cursor: pointer; user-select: none; }
+        .yr-chip.on { color: #0b0c10; font-weight: 700; border-color: transparent; }
+        .stats { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.8rem; margin-bottom: 8px; }
+        .stats b { color: var(--text-br); }
+
+        #loading { padding: 60px; text-align: center; color: var(--muted); }
+        .empty { padding: 30px; text-align: center; color: var(--muted); border: 1px dashed #3a4552; border-radius: 4px; }
+
+        @media (max-width: 900px) {
+            .grid2 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            body { padding: 16px; }
+            .header h1 { font-size: 1.4rem; }
+            .card .v { font-size: 1.4rem; }
+            .stamp { text-align: left; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="nav-bar">
+            <a href="index.html" class="nav-link">Weather Desk</a>
+            <a href="grid.html" class="nav-link">Power Grid</a>
+            <a href="europe.html" class="nav-link active">Europe</a>
+        </div>
+
+        <div class="header">
+            <div>
+                <h1>Europe Weather</h1>
+                <div class="sub">Gas-demand-weighted heating degree days · 38 load centres in 17 countries · ensemble means, spreads and run-to-run change</div>
+            </div>
+            <div class="stamp" id="stamp">--</div>
+        </div>
+
+        <div id="loading">Loading European outlook…</div>
+
+        <div id="app" style="display:none;">
+            <div class="controls">
+                <span><label for="modelSel">Model</label><select id="modelSel"></select></span>
+                <span><label for="cmpSel">Change vs</label><select id="cmpSel">
+                        <option value="prev">previous run</option>
+                        <option value="12">12h ago</option>
+                        <option value="24">24h ago (same cycle)</option>
+                    </select></span>
+                <span><label>Units</label>
+                    <button class="pill" data-unit="F">HDD °F (base 65)</button>
+                    <button class="pill" data-unit="C">HDD °C (base 18.3)</button></span>
+                <span><label>Show</label>
+                    <button class="pill" data-tog="members">Ens members</button>
+                    <button class="pill" data-tog="band">P10–P90</button>
+                    <button class="pill" data-tog="sd">30y ±1σ</button>
+                    <button class="pill" data-tog="n10">10y normal</button></span>
+            </div>
+
+            <div class="cards">
+                <div class="card"><h3>Run total · days 1-15</h3><div class="v" id="c-total">--</div><div class="s" id="c-total-s"></div></div>
+                <div class="card"><h3>vs 30-yr normal</h3><div class="v" id="c-n30">--</div><div class="s" id="c-n30-s"></div></div>
+                <div class="card"><h3>vs 10-yr normal</h3><div class="v" id="c-n10">--</div><div class="s" id="c-n10-s"></div></div>
+                <div class="card"><h3 id="c-chg-h">Run change</h3><div class="v" id="c-chg">--</div><div class="s" id="c-chg-s"></div></div>
+            </div>
+
+            <h2 class="section-title" id="chartTitle">Daily HDD outlook</h2>
+            <div class="panel">
+                <div style="position:relative; height:440px;"><canvas id="mainChart"></canvas></div>
+                <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10–P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and 2016-2025 daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ.</div>
+            </div>
+
+            <div class="grid2">
+                <div>
+                    <h2 class="section-title">Run-to-run change by window (all models)</h2>
+                    <div class="panel">
+                        <div class="tbl-wrap">
+                            <table>
+                                <thead><tr id="mxHead"></tr></thead>
+                                <tbody id="mxBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="panel-note">Window totals on identical calendar dates for every model. Green = colder / more heating demand (supportive for TTF/NBP and US LNG pull), red = milder. Superscript = days covered when the comparison run is shorter than the window.</div>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="section-title">Country temperature anomaly (°C)</h2>
+                    <div class="panel">
+                        <div class="tbl-wrap">
+                            <table>
+                                <thead><tr><th>Country</th><th>Wt</th><th>1-5</th><th>6-10</th><th>11-15</th></tr></thead>
+                                <tbody id="ctyBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="panel-note">Ensemble-mean 2 m temperature vs 1991-2020 ERA5 city normals, averaged over each window. Blue = colder than normal. Wt = relative heating-gas weight.</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="section-title">Season cumulative HDD (Sep–Apr)</h2>
+            <div class="panel">
+                <div class="stats" id="seasonStats"></div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                    <button class="pill" data-yrs="3">Last 3</button>
+                    <button class="pill" data-yrs="5">Last 5</button>
+                    <button class="pill" data-yrs="10">Last 10</button>
+                    <button class="pill" data-yrs="all">All</button>
+                    <button class="pill" data-yrs="none">None</button>
+                </div>
+                <div class="yr-chips" id="yrChips"></div>
+                <div style="position:relative; height:380px;"><canvas id="seasonChart"></canvas></div>
+                <div class="panel-note">Observed: ERA5 reanalysis (archive lags ~5 days), bridged to yesterday with the Open-Meteo analysis. Dashed tail = latest ECMWF ENS mean. Normal = mean cumulative path of 1991-2020 seasons.</div>
+            </div>
+
+            <div class="panel-note" style="margin-top:20px;">Method: daily mean 2 m temperature per city from Open-Meteo (ECMWF IFS 0.25° ENS, NCEP GEFS 0.25°, ECMWF AIFS ENS; every member), weighted by approximate temperature-sensitive residential + commercial gas demand by country (UK, Germany, Italy, France lead), split across each country's main load centres. HDD = max(0, 65°F − T). Weights are a demand proxy, not an official index. Source: scripts/europe/europe_weather.py.</div>
+        </div>
+    </div>
+
+    <script>
+        const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const YEAR_PALETTE = ['#ff9800', '#4caf50', '#42a5f5', '#ab47bc', '#f44336', '#26c6da', '#d4e157', '#ec407a', '#8d6e63', '#7e57c2', '#66bb6a', '#ffa726'];
+
+        const store = {
+            get(k, d) { try { const v = localStorage.getItem('eu_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+            set(k, v) { try { localStorage.setItem('eu_' + k, JSON.stringify(v)); } catch (e) { } }
+        };
+        const UI = {
+            model: store.get('model', 'ECMWF_ENS'),
+            cmp: store.get('cmp', 'prev'),
+            unit: store.get('unit', 'F'),
+            tog: store.get('tog', { members: true, band: true, sd: false, n10: true }),
+            years: store.get('years', null)
+        };
+
+        let DATA = null, HIST = [], mainChart = null, seasonChart = null;
+
+        const U = v => (v === null || v === undefined || isNaN(v)) ? null : (UI.unit === 'C' ? v / 1.8 : v);
+        const unitLbl = () => UI.unit === 'C' ? 'HDD °C' : 'HDD °F';
+        const fmt = (v, d = 1, sign = false) => (v === null || v === undefined || isNaN(v)) ? '–' : ((sign && v > 0 ? '+' : '') + v.toFixed(d));
+        const cls = v => v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
+        const runLabel = rid => { const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})/.exec(rid || ''); return m ? `${MON[+m[2] - 1]} ${+m[3]} ${m[4]}z` : (rid || ''); };
+        const runMs = rid => { const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})/.exec(rid || ''); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4]) : null; };
+        const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().substring(0, 10); };
+        const today = () => new Date().toISOString().substring(0, 10);
+        const mmdd = iso => iso.substring(5, 10);
+        const normFor = (iso, idx) => { const n = DATA.normals[mmdd(iso)]; return n ? n[idx] : null; };
+
+        function pickCompare(runs, mode) {
+            if (!runs || runs.length < 2) return null;
+            if (mode === 'prev') return runs[1];
+            const t0 = runMs(runs[0].run_id), target = parseInt(mode) * 3600e3;
+            let best = null, err = Infinity;
+            runs.slice(1).forEach(r => { const e = Math.abs((t0 - runMs(r.run_id)) - target); if (e < err) { err = e; best = r; } });
+            return err <= 6 * 3600e3 ? best : null;
+        }
+        const seriesMap = (run, key = 'hdd_mean') => { const o = {}; run.dates.forEach((d, i) => { if (run[key][i] !== null) o[d] = run[key][i]; }); return o; };
+
+        function windows() {
+            const d1 = today();
+            return [['Days 1-5', 0, 4], ['Days 6-10', 5, 9], ['Days 11-15', 10, 14], ['Days 1-15', 0, 14]]
+                .map(([l, a, b]) => ({ l, dates: Array.from({ length: b - a + 1 }, (_, i) => addDays(d1, a + i)) }));
+        }
+
+        async function load() {
+            try {
+                const r = await fetch('outputs/europe/europe_weather.json?t=' + Date.now());
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                DATA = await r.json();
+            } catch (e) {
+                document.getElementById('loading').innerHTML = '<div class="empty">The European outlook has not been generated yet. It builds automatically on the next scheduled run of the <b>Europe Weather</b> workflow (4× daily).</div>';
+                return;
+            }
+            try {
+                const r = await fetch('outputs/europe/europe_hdd_history.csv?t=' + Date.now());
+                if (r.ok) {
+                    const txt = await r.text();
+                    HIST = txt.trim().split('\n').slice(1).map(l => { const [date, t, h] = l.split(','); return { date, hdd: parseFloat(h) }; }).filter(o => !isNaN(o.hdd));
+                }
+            } catch (e) { }
+            init();
+        }
+
+        function init() {
+            const models = Object.keys(DATA.models || {});
+            if (!models.length) {
+                document.getElementById('loading').innerHTML = '<div class="empty">No European model runs archived yet.</div>';
+                return;
+            }
+            if (!models.includes(UI.model)) UI.model = models[0];
+            const ms = document.getElementById('modelSel');
+            ms.innerHTML = models.map(m => `<option value="${m}">${DATA.models[m].label}</option>`).join('');
+            ms.value = UI.model;
+            ms.onchange = () => { UI.model = ms.value; store.set('model', UI.model); renderAll(); };
+            const cs = document.getElementById('cmpSel');
+            cs.value = UI.cmp;
+            cs.onchange = () => { UI.cmp = cs.value; store.set('cmp', UI.cmp); renderAll(); };
+            document.querySelectorAll('[data-unit]').forEach(b => b.onclick = () => { UI.unit = b.dataset.unit; store.set('unit', UI.unit); renderAll(); });
+            document.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { UI.tog[b.dataset.tog] = !UI.tog[b.dataset.tog]; store.set('tog', UI.tog); renderAll(); });
+            document.getElementById('stamp').innerHTML = `Generated ${DATA.generated_utc.replace('T', ' ')} UTC<br>${models.map(m => `${DATA.models[m].label}: ${runLabel(DATA.models[m].runs[0].run_id)}`).join(' · ')}`;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            renderAll();
+        }
+
+        function renderAll() {
+            document.querySelectorAll('[data-unit]').forEach(b => b.classList.toggle('on', b.dataset.unit === UI.unit));
+            document.querySelectorAll('[data-tog]').forEach(b => b.classList.toggle('on', !!UI.tog[b.dataset.tog]));
+            renderCards();
+            renderMain();
+            renderMatrix();
+            renderCountries();
+            renderSeason();
+        }
+
+        function renderCards() {
+            const runs = DATA.models[UI.model].runs, L = runs[0], C = pickCompare(runs, UI.cmp);
+            const W = windows()[3].dates, Lm = seriesMap(L);
+            const ds = W.filter(d => Lm[d] !== undefined);
+            const tot = ds.reduce((a, d) => a + Lm[d], 0);
+            const n30 = ds.reduce((a, d) => a + (normFor(d, 0) || 0), 0), n10 = ds.reduce((a, d) => a + (normFor(d, 1) || 0), 0);
+            const set = (id, html, c) => { const el = document.getElementById(id); el.innerHTML = html; if (c !== undefined) el.className = 'v ' + c; };
+            set('c-total', fmt(U(tot), 1));
+            document.getElementById('c-total-s').innerText = `${DATA.models[UI.model].label} ${runLabel(L.run_id)} · ${ds.length} days · ${L.members} members`;
+            set('c-n30', fmt(U(tot - n30), 1, true), cls(tot - n30));
+            document.getElementById('c-n30-s').innerText = `normal ${fmt(U(n30), 1)} ${unitLbl()}`;
+            set('c-n10', fmt(U(tot - n10), 1, true), cls(tot - n10));
+            document.getElementById('c-n10-s').innerText = `normal ${fmt(U(n10), 1)} ${unitLbl()}`;
+            if (C) {
+                const Cm = seriesMap(C), both = W.filter(d => Lm[d] !== undefined && Cm[d] !== undefined);
+                const ch = both.reduce((a, d) => a + Lm[d] - Cm[d], 0);
+                document.getElementById('c-chg-h').innerText = `Change vs ${runLabel(C.run_id)}`;
+                set('c-chg', fmt(U(ch), 1, true), cls(ch));
+                document.getElementById('c-chg-s').innerText = `${both.length} overlapping days · ${(runMs(L.run_id) - runMs(C.run_id)) / 3600e3}h apart`;
+            } else {
+                document.getElementById('c-chg-h').innerText = 'Run change';
+                set('c-chg', '–', '');
+                document.getElementById('c-chg-s').innerText = 'comparison run not archived yet';
+            }
+        }
+
+        function renderMain() {
+            const M = DATA.models[UI.model], runs = M.runs, L = runs[0], C = pickCompare(runs, UI.cmp);
+            const d1 = today();
+            const labels = L.dates.filter(d => d >= addDays(d1, -1));
+            const Lm = seriesMap(L), Cm = C ? seriesMap(C) : {};
+            const p10 = seriesMap(L, 'hdd_p10'), p90 = seriesMap(L, 'hdd_p90');
+            const ds = [];
+            ds.push({ label: `${M.label} ${runLabel(L.run_id)} (mean)`, data: labels.map(d => U(Lm[d])), borderColor: '#66fcf1', backgroundColor: '#66fcf1', borderWidth: 3, pointRadius: 3, tension: 0.35, order: 1 });
+            if (C) ds.push({ label: `${runLabel(C.run_id)} (mean)`, data: labels.map(d => U(Cm[d])), borderColor: '#ff9800', borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0, tension: 0.35, order: 2 });
+            if (UI.tog.band) {
+                ds.push({ label: 'P10–P90', data: labels.map(d => U(p90[d])), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(102,252,241,0.10)', tension: 0.35, order: 9 });
+                ds.push({ label: '__p10', data: labels.map(d => U(p10[d])), borderWidth: 0, pointRadius: 0, fill: false, tension: 0.35, order: 9 });
+            }
+            if (UI.tog.sd) {
+                ds.push({ label: '30y ±1σ', data: labels.map(d => { const n = normFor(d, 0), s = normFor(d, 2); return n === null ? null : U(n + s); }), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(197,198,199,0.10)', order: 10 });
+                ds.push({ label: '__sdlo', data: labels.map(d => { const n = normFor(d, 0), s = normFor(d, 2); return n === null ? null : U(Math.max(0, n - s)); }), borderWidth: 0, pointRadius: 0, fill: false, order: 10 });
+            }
+            ds.push({ label: '30-yr normal (1991-2020)', data: labels.map(d => U(normFor(d, 0))), borderColor: '#c5c6c7', borderDash: [2, 3], borderWidth: 2, pointRadius: 0, order: 3 });
+            if (UI.tog.n10) ds.push({ label: '10-yr normal (2016-2025)', data: labels.map(d => U(normFor(d, 1))), borderColor: '#a39171', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, order: 3 });
+            if (UI.tog.members && L.member_hdd) {
+                const pts = [];
+                L.member_hdd.forEach(m => m.forEach((v, i) => { const d = L.dates[i]; const xi = labels.indexOf(d); if (xi >= 0 && v !== null) pts.push({ x: d, y: U(v) }); }));
+                ds.push({ type: 'scatter', label: `Members (${L.members})`, data: pts, pointRadius: 1.6, backgroundColor: 'rgba(197,198,199,0.45)', borderWidth: 0, order: 8 });
+            }
+            let chg = labels.map(() => null);
+            if (C) {
+                chg = labels.map(d => (Lm[d] !== undefined && Cm[d] !== undefined) ? U(Lm[d] - Cm[d]) : null);
+                ds.push({ type: 'bar', label: `Change vs ${runLabel(C.run_id)}`, data: chg, yAxisID: 'y1', order: 20, barPercentage: 0.5,
+                    backgroundColor: chg.map(v => v === null ? 'transparent' : (v >= 0 ? 'rgba(76,175,80,0.5)' : 'rgba(244,67,54,0.5)')),
+                    borderColor: chg.map(v => v === null ? 'transparent' : (v >= 0 ? '#4caf50' : '#f44336')), borderWidth: 1 });
+            }
+            const maxC = Math.max(1, ...chg.filter(v => v !== null).map(Math.abs));
+            const bands = [[0, 4, '1-5 Day'], [5, 9, '6-10 Day'], [10, 14, '11-15 Day']].map(([a, b, t]) => ({ from: addDays(d1, a), to: addDays(d1, b), t }));
+            const plugin = {
+                id: 'euBands',
+                beforeDatasetsDraw(ch) {
+                    const { ctx, chartArea: ca, scales: { x } } = ch; if (!x) return;
+                    const step = labels.length > 1 ? x.getPixelForValue(1) - x.getPixelForValue(0) : 0;
+                    bands.forEach((b, i) => {
+                        const i0 = labels.findIndex(l => l >= b.from), i1 = labels.map(l => l <= b.to).lastIndexOf(true);
+                        if (i0 < 0 || i1 < i0) return;
+                        const x0 = Math.max(ca.left, x.getPixelForValue(i0) - step / 2), x1 = Math.min(ca.right, x.getPixelForValue(i1) + step / 2);
+                        ctx.save(); ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0)'; ctx.fillRect(x0, ca.top, x1 - x0, ca.bottom - ca.top);
+                        ctx.fillStyle = '#8a949e'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(b.t, (x0 + x1) / 2, ca.top + 14); ctx.restore();
+                    });
+                },
+                afterDatasetsDraw(ch) {
+                    const di = ch.data.datasets.findIndex(d => d.yAxisID === 'y1'); if (di < 0 || !ch.isDatasetVisible(di)) return;
+                    const ctx = ch.ctx; ctx.save(); ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#f0f0f0';
+                    ch.getDatasetMeta(di).data.forEach((el, i) => { const v = ch.data.datasets[di].data[i]; if (v === null || Math.abs(v) < 0.05) return; ctx.fillText((v > 0 ? '+' : '') + v.toFixed(1), el.x, v >= 0 ? el.y - 4 : el.y + 12); });
+                    ctx.restore();
+                }
+            };
+            document.getElementById('chartTitle').innerText = `Daily HDD outlook — ${M.label} ${runLabel(L.run_id)}${C ? ' · change vs ' + runLabel(C.run_id) : ''}`;
+            if (mainChart) mainChart.destroy();
+            const mobile = window.innerWidth <= 768;
+            mainChart = new Chart(document.getElementById('mainChart'), {
+                type: 'line', data: { labels, datasets: ds }, plugins: [plugin],
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#c5c6c7', boxWidth: 22, font: { size: mobile ? 10 : 11 }, filter: i => !i.text.startsWith('__') } },
+                        tooltip: {
+                            backgroundColor: 'rgba(31,40,51,0.95)',
+                            filter: i => !String(i.dataset.label).startsWith('__') && i.dataset.type !== 'scatter',
+                            callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y === null ? '–' : (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1)}` }
+                        }
+                    },
+                    scales: {
+                        x: { type: 'category', ticks: { color: '#c5c6c7', font: { size: mobile ? 9 : 11 }, maxRotation: mobile ? 45 : 0, callback(v) { const l = this.getLabelForValue(v); const d = new Date(l + 'T00:00:00Z'); return `${DOW[d.getUTCDay()]} ${MON[d.getUTCMonth()]} ${d.getUTCDate()}`; } }, grid: { color: '#2a3642' } },
+                        y: { ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: !mobile, text: unitLbl() + ' / day', color: '#66fcf1' } },
+                        y1: { display: !!C, position: 'right', min: -Math.ceil(maxC * 2.5), max: Math.ceil(maxC * 2.5), ticks: { color: '#777', font: { size: 9 } }, grid: { drawOnChartArea: false }, title: { display: !mobile, text: 'Run change', color: '#777' } }
+                    }
+                }
+            });
+        }
+
+        function renderMatrix() {
+            const W = windows();
+            document.getElementById('mxHead').innerHTML = '<th>Model · run</th>' + W.map(w => `<th>${w.l}<br><small style="font-weight:400;color:#888">${MON[+w.dates[0].substring(5, 7) - 1]} ${+w.dates[0].substring(8)}–${MON[+w.dates[w.dates.length - 1].substring(5, 7) - 1]} ${+w.dates[w.dates.length - 1].substring(8)}</small></th>`).join('') + '<th>1-15 vs<br>30y N</th>';
+            const rows = [], cons = W.map(() => []);
+            Object.entries(DATA.models).forEach(([k, M]) => {
+                const L = M.runs[0], C = pickCompare(M.runs, UI.cmp), Lm = seriesMap(L), Cm = C ? seriesMap(C) : null;
+                const cells = W.map((w, wi) => {
+                    if (!Cm) return null;
+                    const ds = w.dates.filter(d => Lm[d] !== undefined && Cm[d] !== undefined);
+                    if (!ds.length) return null;
+                    const v = ds.reduce((a, d) => a + Lm[d] - Cm[d], 0);
+                    if (ds.length === w.dates.length) cons[wi].push(v);
+                    return { v, n: ds.length, full: ds.length === w.dates.length };
+                });
+                const nd = W[3].dates.filter(d => Lm[d] !== undefined && normFor(d, 0) !== null);
+                const an = nd.length ? nd.reduce((a, d) => a + Lm[d] - normFor(d, 0), 0) : null;
+                rows.push({ k, M, L, C, cells, an, anN: nd.length });
+            });
+            const maxAbs = Math.max(3, ...rows.flatMap(r => r.cells.map(c => c ? Math.abs(c.v) : 0)));
+            const td = c => {
+                if (!c) return '<td style="color:#555">–</td>';
+                const a = Math.min(0.55, 0.08 + 0.5 * Math.abs(c.v) / maxAbs);
+                return `<td style="background:${c.v > 0 ? `rgba(76,175,80,${a})` : (c.v < 0 ? `rgba(244,67,54,${a})` : 'transparent')}">${fmt(U(c.v), 1, true)}${c.full ? '' : `<sup>${c.n}d</sup>`}</td>`;
+            };
+            let html = rows.map(r => `<tr><td><strong>${r.M.label}</strong> <small style="color:#888">${runLabel(r.L.run_id)}${r.C ? ' vs ' + runLabel(r.C.run_id) : ''}</small></td>${r.cells.map(td).join('')}<td class="${cls(r.an)}">${fmt(U(r.an), 1, true)}${r.anN < 15 && r.an !== null ? `<sup>${r.anN}d</sup>` : ''}</td></tr>`).join('');
+            const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+            html += `<tr class="cons"><td>Consensus</td>${cons.map(a => { const v = mean(a); return v === null ? td(null) : td({ v, full: true }); }).join('')}<td></td></tr>`;
+            document.getElementById('mxBody').innerHTML = html;
+        }
+
+        function renderCountries() {
+            const L = DATA.models[UI.model].runs[0];
+            const d1 = today();
+            const wins = [[0, 4], [5, 9], [10, 14]].map(([a, b]) => Array.from({ length: b - a + 1 }, (_, i) => addDays(d1, a + i)));
+            const idx = d => L.dates.indexOf(d);
+            const rows = Object.entries(L.country_anom_c || {}).map(([c, arr]) => {
+                const vals = wins.map(w => { const v = w.map(idx).filter(i => i >= 0 && arr[i] !== null).map(i => arr[i]); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; });
+                return { c, w: (DATA.weights || {})[c] || 0, vals };
+            }).sort((a, b) => b.w - a.w);
+            const totW = rows.reduce((a, r) => a + r.w, 0) || 1;
+            const cell = v => {
+                if (v === null) return '<td style="color:#555">–</td>';
+                const a = Math.min(0.7, 0.1 + Math.abs(v) / 6);
+                const bg = v < 0 ? `rgba(66,165,245,${a})` : `rgba(239,83,80,${a})`;
+                return `<td style="background:${bg}; color:#fff;">${fmt(v, 1, true)}</td>`;
+            };
+            document.getElementById('ctyBody').innerHTML = rows.map(r => `<tr><td>${r.c}</td><td style="color:#888">${(100 * r.w / totW).toFixed(0)}%</td>${r.vals.map(cell).join('')}</tr>`).join('');
+        }
+
+        function renderSeason() {
+            const el = document.getElementById('seasonChart');
+            if (!HIST.length) { el.parentElement.innerHTML = '<div class="empty">Historical archive not built yet.</div>'; return; }
+            // Observed: history + recent analysis bridge; forecast: newest ECMWF ENS (fallback: any model).
+            const obs = {};
+            HIST.forEach(o => { obs[o.date] = o.hdd; });
+            Object.entries(DATA.recent_observed || {}).forEach(([d, v]) => { if (obs[d] === undefined) obs[d] = v; });
+            const lastObs = Object.keys(obs).sort().slice(-1)[0];
+            const fm = DATA.models.ECMWF_ENS || Object.values(DATA.models)[0];
+            const fc = {};
+            if (fm) { const L = fm.runs[0]; L.dates.forEach((d, i) => { if (d > lastObs && L.hdd_mean[i] !== null) fc[d] = L.hdd_mean[i]; }); }
+            const axis = [[9, 30], [10, 31], [11, 30], [12, 31], [1, 31], [2, 29], [3, 31], [4, 30]];
+            const labels = []; axis.forEach(([m, n]) => { for (let d = 1; d <= n; d++) labels.push(String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0')); });
+            const seasonOf = iso => { const y = +iso.substring(0, 4), m = +iso.substring(5, 7); if (m >= 5 && m <= 8) return null; return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
+            const S = {};
+            const put = (d, v, isFc) => { const s = seasonOf(d); if (!s) return; (S[s] = S[s] || {})[mmdd(d)] = { v, fc: isFc }; };
+            Object.entries(obs).forEach(([d, v]) => put(d, v, false));
+            Object.entries(fc).forEach(([d, v]) => put(d, v, true));
+            const keys = Object.keys(S).sort();
+            const cur = keys[keys.length - 1];
+            const cum = {}, lastIdx = {}, lastObsIdx = {};
+            keys.forEach(k => {
+                let run = 0, started = false; lastIdx[k] = -1; lastObsIdx[k] = -1;
+                labels.forEach((l, i) => { if (S[k][l]) { lastIdx[k] = i; if (!S[k][l].fc) lastObsIdx[k] = i; } });
+                cum[k] = labels.map((l, i) => {
+                    if (k === cur && i > lastIdx[k]) return null;
+                    if (S[k][l]) { run += S[k][l].v; started = true; return run; }
+                    return started ? run : null;
+                });
+            });
+            const complete = keys.filter(k => k !== cur && Object.keys(S[k]).length >= labels.length - 3);
+            const n30k = complete.filter(k => +k.substring(0, 4) >= 1991 && +k.substring(0, 4) <= 2020);
+            const avg = ks => labels.map((_, i) => { const v = ks.map(k => cum[k][i]).filter(x => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; });
+            const n30 = avg(n30k), n10 = avg(complete.slice(-10));
+            if (!UI.years) UI.years = complete.slice(-2);
+            UI.years = UI.years.filter(k => cum[k]);
+            const color = k => YEAR_PALETTE[(complete.length - 1 - complete.indexOf(k)) % YEAR_PALETTE.length];
+
+            const chips = document.getElementById('yrChips');
+            chips.innerHTML = '';
+            [...complete].reverse().forEach(k => {
+                const c = document.createElement('span'); c.className = 'yr-chip' + (UI.years.includes(k) ? ' on' : ''); c.textContent = k;
+                if (UI.years.includes(k)) c.style.background = color(k);
+                c.onclick = () => { UI.years = UI.years.includes(k) ? UI.years.filter(x => x !== k) : [...UI.years, k]; store.set('years', UI.years); renderSeason(); };
+                chips.appendChild(c);
+            });
+            document.querySelectorAll('[data-yrs]').forEach(b => b.onclick = () => {
+                const t = b.dataset.yrs; UI.years = t === 'all' ? [...complete] : (t === 'none' ? [] : complete.slice(-parseInt(t)));
+                store.set('years', UI.years); renderSeason();
+            });
+
+            const io = lastObsIdx[cur], il = lastIdx[cur];
+            const st = document.getElementById('seasonStats');
+            if (io >= 0 && n30[io] !== null) {
+                const v = cum[cur][io], peers = complete.map(k => cum[k][io]).filter(x => x !== null);
+                const rank = peers.filter(x => x > v).length + 1;
+                const ly = complete.length ? cum[complete[complete.length - 1]][io] : null;
+                st.innerHTML = `<span>Season to date (${labels[io]}): <b>${fmt(U(v), 0)}</b> ${unitLbl()}</span>` +
+                    `<span>vs 30y: <b class="${cls(v - n30[io])}">${fmt(U(v - n30[io]), 0, true)}</b></span>` +
+                    (n10[io] !== null ? `<span>vs 10y: <b class="${cls(v - n10[io])}">${fmt(U(v - n10[io]), 0, true)}</b></span>` : '') +
+                    (ly !== null ? `<span>vs ${complete[complete.length - 1]}: <b class="${cls(v - ly)}">${fmt(U(v - ly), 0, true)}</b></span>` : '') +
+                    `<span>Rank: <b>#${rank}</b> coldest of ${peers.length + 1}</span>` +
+                    (il > io && n30[il] !== null ? `<span>Through ${labels[il]} incl. forecast: <b class="${cls(cum[cur][il] - n30[il])}">${fmt(U(cum[cur][il] - n30[il]), 0, true)}</b> vs 30y</span>` : '');
+            } else st.innerHTML = '';
+
+            const ds = UI.years.map(k => ({ label: k, data: cum[k].map(U), borderColor: color(k), borderWidth: 1.5, pointRadius: 0, tension: 0.1 }));
+            ds.push({ label: '30-yr normal', data: n30.map(U), borderColor: '#66fcf1', borderDash: [5, 5], borderWidth: 2, pointRadius: 0 });
+            ds.push({ label: '10-yr avg', data: n10.map(U), borderColor: '#a39171', borderDash: [3, 3], borderWidth: 2, pointRadius: 0 });
+            ds.push({ label: `Current (${cur})${il > io ? ' — dashed = forecast' : ''}`, data: cum[cur].map(U), borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1,
+                segment: { borderDash: c => c.p0DataIndex >= io ? [6, 4] : undefined } });
+            const starts = {}; axis.forEach(([m]) => { const p = labels.indexOf(String(m).padStart(2, '0') + '-01'); if (p >= 0) starts[p] = MON[m - 1]; });
+            const xmax = il >= 0 ? labels[Math.min(labels.length - 1, il + 40)] : undefined;
+            const ymaxVals = ds.map(d => d.data[labels.indexOf(xmax)]).filter(v => v !== null && v !== undefined);
+            if (seasonChart) seasonChart.destroy();
+            seasonChart = new Chart(el, {
+                type: 'line', data: { labels, datasets: ds },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: '#c5c6c7', boxWidth: 22 } }, tooltip: { backgroundColor: 'rgba(31,40,51,0.95)', itemSort: (a, b) => (b.parsed.y ?? 0) - (a.parsed.y ?? 0), callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y === null ? '–' : c.parsed.y.toFixed(0)}` } } },
+                    scales: {
+                        x: { max: xmax, ticks: { color: '#c5c6c7', autoSkip: false, maxRotation: 0, callback: v => starts[v] ?? null }, grid: { color: c => starts[c.index] ? '#3a4652' : 'transparent' } },
+                        y: { max: ymaxVals.length ? Math.ceil(Math.max(...ymaxVals) * 1.08 / 50) * 50 : undefined, ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: true, text: 'Cumulative ' + unitLbl(), color: '#66fcf1' } }
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('load', load);
+    </script>
+</body>
+
+</html>

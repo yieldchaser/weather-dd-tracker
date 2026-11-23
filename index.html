@@ -143,6 +143,7 @@
         .chg-table tbody tr:hover { background:rgba(102,252,241,0.06); }
         .chg-table tr.chg-cons td { border-top:2px solid #3a4652; font-weight:700; }
         .chg-table sup { color:#888; font-size:0.6rem; margin-left:1px; }
+        @media (max-width: 768px) { .chg-table td:first-child small { display:none; } .chg-table th, .chg-table td { padding:6px 5px; font-size:0.78rem; } }
         .chg-foot { font-size:0.68rem; color:#777; padding:8px 12px; line-height:1.4; }
         .week-card {
             background-color: var(--card-bg);
@@ -676,6 +677,7 @@
         <div class="nav-bar">
             <a href="index.html" class="nav-link active has-tooltip" data-tooltip-key="Weather Desk Nav">Weather Desk</a>
             <a href="grid.html" class="nav-link has-tooltip" data-tooltip-key="Power Grid Nav">Power Grid</a>
+            <a href="europe.html" class="nav-link" title="European gas-weighted HDD outlook (ECMWF ENS / GEFS / AIFS ENS)">Europe</a>
         </div>
 
         <!-- DEMAND METRIC SELECTOR -->
@@ -2650,6 +2652,10 @@
             "Weather Desk Nav": {
                 title: "Weather Desk Dashboard",
                 body: "Provides real-time spatial weather analysis, teleconnections, algorithmic market bias, temperature anomaly forecasts, and model run-to-run changes."
+            },
+            "Run Change Matrix": {
+                title: "Run-to-Run Change by Window",
+                body: "Each model's latest run minus an earlier run (previous run, 12h ago, or the same cycle 24h ago), summed over identical calendar windows: days 1-5, 6-10, 11-15 and 1-15 from today. Positive (green) = more demand (colder in HDD mode). The headline averages the 15-day change across models that cover at least 10 of the 15 days. Click a row to load that model in the diagnostics chart below."
             },
             "Power Grid Nav": {
                 title: "Power Grid Dashboard",
