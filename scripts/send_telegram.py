@@ -594,8 +594,9 @@ def _fmt_wind():
             agreeing = wd.get("models_agreeing_today", [])
             lines.append(f"  Model agreement: {agree}%  ({_esc(', '.join(agreeing)) if agreeing else 'none'})")
 
-        if "GFS_CFS" in wd.get("model_horizons", {}):
-            lines.append("  Extended 35d monitoring: GFS/CFS active")
+        core = wd.get("core_models")
+        if core is not None and len(core) < 4:
+            lines.append(f"  Based on {_esc(', '.join(core))} only")
         return "\n".join(lines)
     except Exception as e:
         print(f"[WARN] Wind block failed: {e}")
