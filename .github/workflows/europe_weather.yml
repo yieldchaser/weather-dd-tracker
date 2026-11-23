@@ -1,0 +1,75 @@
+name: Europe Weather (Gas-Weighted HDD)
+
+on:
+  schedule:
+    # ECMWF ENS / AIFS ENS land on Open-Meteo ~7-8h after 00z/12z; GEFS ~5-6h after each cycle.
+    - cron: "40 2,8,14,20 * * *"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: europe-weather
+  cancel-in-progress: false
+
+jobs:
+  europe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install pandas numpy requests
+
+      - name: Open-Meteo ensemble key diagnostic (non-main refs)
+        if: github.ref_name != 'main'
+        run: |
+          python - <<'PY'
+          import requests
+          for m in ["ecmwf_ifs025", "gem_global_ensemble", "ecmwf_aifs025_ensemble", "ncep_aigefs025", "ukmo_global_ensemble_20km", "ecmwf_ifs025_ensemble", "ncep_gefs025", "google_weathernext2_ensemble_mean"]:
+              try:
+                  r = requests.get("https://ensemble-api.open-meteo.com/v1/ensemble", params={"latitude": 40.71, "longitude": -74.01, "daily": "temperature_2m_mean", "models": m, "forecast_days": 3, "timezone": "UTC"}, timeout=60)
+                  j = r.json(); d = j.get("daily", {})
+                  keys = [k for k in d if k.startswith("temperature_2m_mean")]
+                  print(m, r.status_code, "n_series=", len(keys), keys[:3], "day0:", [d[k][0] for k in keys[:4]], j.get("reason", ""))
+              except Exception as e:
+                  print(m, "ERR", e)
+          PY
+
+      - name: Build Europe HDD outlook
+        run: python scripts/europe/europe_weather.py
+
+      - name: Upload outputs (non-main refs)
+        if: github.ref_name != 'main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: europe-weather
+          path: |
+            outputs/europe/
+            data/europe/
+
+      - name: Commit and push changes
+        if: github.ref_name == 'main'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add outputs/europe/ data/europe/
+          git diff --staged --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "Auto-update: Europe weather $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main && git push && echo "Push succeeded" && break
+            echo "Push attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

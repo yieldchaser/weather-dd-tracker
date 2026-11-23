@@ -20,7 +20,7 @@ BASE_TEMP_F = 65.0
 FORECAST_DAYS = 16
 
 from demand_constants import DEMAND_CITIES
-from om_batch_fetch import fetch_all_cities_batch
+from om_batch_fetch import fetch_all_cities_batch, is_duplicate_run
 
 OM_ENSEMBLE_ENDPOINT = "https://ensemble-api.open-meteo.com/v1/ensemble"
 
@@ -97,6 +97,8 @@ def fetch_run(date_str, cycle):
     if rows:
         if len(rows) < 8:
             print(f"  [WARN] CMC ENS {run_id}: only {len(rows)} day(s) — file NOT written.")
+            return False
+        if is_duplicate_run(BASE_DIR, run_id, city_data):
             return False
         pd.DataFrame(rows).to_csv(out_path, index=False)
         

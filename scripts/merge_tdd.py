@@ -115,6 +115,41 @@ def load_all():
     return combined
 
 
+def drop_identical_runs(df, min_overlap=5, tol=0.005):
+    """Remove runs that are numerically identical to the model's previous run.
+
+    A run whose every overlapping daily value matches the prior run is not a
+    new forecast: it is the prior forecast re-fetched under a new cycle label
+    (Open-Meteo had not ingested the new cycle yet). Keeping it fabricates a
+    perfect "0.0 change" and corrupts run-to-run deltas, shift tables and
+    alerts. Found live for ECMWF_ENS / GOOGLE_WN2 12z (== same-day 00z).
+    """
+    if df.empty or "hdd" not in df.columns:
+        return df
+    drop = []
+    val_col = "tdd" if "tdd" in df.columns else "hdd"
+    for model, g in df.groupby("model"):
+        runs = sorted(g["run_id"].astype(str).unique())
+        series = {r: g[g["run_id"].astype(str) == r].set_index("date")[val_col] for r in runs}
+        prev = None
+        for r in runs:
+            if prev is not None:
+                a, b = series[r], series[prev]
+                common = a.index.intersection(b.index)
+                if len(common) >= min_overlap:
+                    diff = (a.loc[common].astype(float) - b.loc[common].astype(float)).abs()
+                    if diff.max() <= tol:
+                        drop.append((model, r))
+                        print(f"  [DEDUP] {model} {r} identical to {prev} over {len(common)} days — dropped.")
+                        continue  # keep comparing later runs against the genuine prior run
+            prev = r
+    if not drop:
+        return df
+    key = list(zip(df["model"], df["run_id"].astype(str)))
+    mask = [k not in set(drop) for k in key]
+    return df[mask]
+
+
 def main():
     df_new = load_all()
     
@@ -123,7 +158,7 @@ def main():
     # Preserve existing history data that may not have been downloaded in this exact run
     if os.path.exists(MASTER_PATH):
         try:
-            df_old = pd.read_csv(MASTER_PATH)
+            df_old = pd.read_csv(MASTER_PATH, dtype={"run_id": str})
             
             # Combine old and new, and deduplicate, keeping the newest generated rows
             if not df_new.empty:
@@ -142,6 +177,8 @@ def main():
         df = df_new
 
     if not df.empty:
+        df["run_id"] = df["run_id"].astype(str)
+        df = drop_identical_runs(df)
         df = df.sort_values(["model", "run_id", "date"])
         df.to_csv(MASTER_PATH, index=False)
         print("\nMASTER UPDATED:")

@@ -4,7 +4,10 @@ generate_maps.py
 Reads the latest and previous runs for all models.
 Generates an animated GIF mapping the differences across CONUS:
 - Option A: Continuous contour maps for gridded models (ECMWF, GFS, GEFS, GEFS_35D, ECMWF_ENS, ECMWF_AIFS, AIGFS, HGEFS, HRRR, NAM, NBM).
-- Option B: Scatter bubble maps for point-only models (CMC_ENS, ICON).
+- Option B: Scatter bubble maps for point-only models (CMC_ENS, ICON, AI ensembles).
+- Comparisons: previous run, 12h-ago and 24h-ago (same cycle) where archived.
+- Anomaly GIF: latest run vs 1991-2020 city normals (needs
+  data/normals/city_daily_normals.csv from build_city_normals.py).
 """
 
 import os
@@ -25,6 +28,10 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 sys.path.insert(0, str(Path(__file__).parent))
 from demand_constants import DEMAND_CITIES
+from maps_manifest import write_manifest, hours_between, RUN_RE
+import re
+
+CITY_NORMALS_PATH = "data/normals/city_daily_normals.csv"
 
 
 MAPS_DIR = "outputs/maps"
@@ -146,6 +153,158 @@ def build_daily_mean_dataset(run_dir, model_name):
         return res, lat_vals, lon_vals
 
 
+def pick_comparisons(latest_run, older_runs, max_n=3):
+    """Choose which prior runs to diff against the latest run.
+
+    Traders read run-to-run change at three standard lags (the CWG/ICAP
+    convention): the immediately previous run, the run 12h earlier and the
+    same cycle 24h earlier. Previously the generator simply took the next 3
+    archived runs, so 4x-daily models never got a 24h comparison and
+    2x-daily models never got anything but 12/24/36h.
+    """
+    picks = []
+    if older_runs:
+        picks.append(older_runs[0])
+    for target_h in (12, 24):
+        for r in older_runs:
+            h = hours_between(latest_run, r)
+            if h is not None and h == target_h and r not in picks:
+                picks.append(r)
+                break
+    for r in older_runs:  # top up with the next most recent runs
+        if len(picks) >= max_n:
+            break
+        if r not in picks:
+            picks.append(r)
+    return picks[:max_n]
+
+
+def load_city_normals():
+    """Return {(month, day): {city: normal_temp_F}} or None if not built yet."""
+    if not os.path.exists(CITY_NORMALS_PATH):
+        return None
+    try:
+        df = pd.read_csv(CITY_NORMALS_PATH)
+        out = {}
+        for row in df.itertuples(index=False):
+            out.setdefault((int(row.month), int(row.day)), {})[row.city] = float(row.normal_temp_f)
+        return out
+    except Exception as e:
+        print(f"  [WARN] Could not read city normals: {e}")
+        return None
+
+
+def _base_axes(fig):
+    ax = plt.axes(projection=ccrs.LambertConformal(central_longitude=-96, central_latitude=39))
+    ax.set_extent([-120, -70, 22, 50], ccrs.PlateCarree())
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.8)
+    ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black', alpha=0.5)
+    return ax
+
+
+def render_anomaly_gif(model_name, run_id, city_temps, normals):
+    """Bubble GIF of forecast temperature anomaly vs 1991-2020 city normals.
+
+    city_temps: {city: {YYYY-MM-DD: temp_F}}. One frame per forecast day,
+    title carries the gas-weighted mean anomaly so the national read is
+    visible at a glance (the "850mb anomaly" view, at the surface and at the
+    cities that actually burn gas).
+    """
+    if not normals or not city_temps:
+        return None
+    out_name = f"{model_name}_anom_{run_id}.gif"
+    out_path = f"{MAPS_DIR}/{out_name}"
+    if os.path.exists(out_path):
+        return out_name
+    coords = {c[0]: (c[1], c[2], c[3]) for c in DEMAND_CITIES}
+    dates = sorted({d for v in city_temps.values() for d in v})
+    frames = []
+    os.makedirs(MAPS_DIR, exist_ok=True)
+    for i, d in enumerate(dates):
+        try:
+            ts = pd.Timestamp(d)
+        except Exception:
+            continue
+        nmap = normals.get((ts.month, ts.day)) or normals.get((2, 28) if (ts.month, ts.day) == (2, 29) else (0, 0))
+        if not nmap:
+            continue
+        lats, lons, an, wts = [], [], [], []
+        for city, series in city_temps.items():
+            if city in coords and city in nmap and d in series and series[d] is not None:
+                lat, lon, w = coords[city]
+                lats.append(lat); lons.append(lon); wts.append(w)
+                an.append(float(series[d]) - nmap[city])
+        if len(an) < 10:
+            continue
+        gw = float(np.average(an, weights=wts))
+        fig = plt.figure(figsize=(10, 6))
+        try:
+            ax = _base_axes(fig)
+            sc = ax.scatter(lons, lats, c=an, s=[60 + 18 * w for w in wts], cmap='RdBu_r', vmin=-20, vmax=20,
+                            transform=ccrs.PlateCarree(), edgecolor='black', linewidth=0.5)
+            cbar = plt.colorbar(sc, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
+            cbar.set_label("Temperature Anomaly vs 1991-2020 Normal (°F)  —  bubble size = gas-demand weight", fontsize=9)
+            tag = "colder" if gw < 0 else "warmer"
+            plt.title(f"{model_name} {run_id}  ·  Day {i + 1}: {ts.strftime('%a %b %d')}\n"
+                      f"Gas-weighted anomaly {gw:+.1f}°F ({tag} than normal)", fontsize=12, fontweight='bold')
+            fp = f"{MAPS_DIR}/{model_name}_{run_id}_anom_frame_{i}.png"
+            plt.savefig(fp, dpi=72, bbox_inches='tight')
+            frames.append(fp)
+        except Exception as e:
+            print(f"  [WARN] anomaly frame {d} failed: {e}")
+        finally:
+            fig.clf(); plt.close(fig)
+    if not frames:
+        return None
+    _write_gif(frames, out_path)
+    print(f"  [OK] Generated {out_name}")
+    return out_name
+
+
+def _write_gif(frames, out_path):
+    """Assemble PNG frames into a GIF of uniform size, then delete frames."""
+    images = [imageio.imread(f) for f in frames]
+    # bbox_inches='tight' can vary frame size by a pixel or two; pad to max.
+    h = max(im.shape[0] for im in images); w = max(im.shape[1] for im in images)
+    padded = []
+    for im in images:
+        if im.shape[0] != h or im.shape[1] != w:
+            canvas = np.full((h, w, im.shape[2]), 255, dtype=im.dtype)
+            canvas[:im.shape[0], :im.shape[1]] = im
+            im = canvas
+        padded.append(im)
+    imageio.mimsave(out_path, padded, duration=800, loop=0)
+    for f in frames:
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+
+
+def sample_grid_at_cities(grid_by_date, lats, lons):
+    """Nearest-grid-point city temperatures from a {date: 2D grid} dict."""
+    out = {}
+    lat_a = np.asarray(lats); lon_a = np.asarray(lons)
+    lon_a = np.where(lon_a > 180, lon_a - 360, lon_a)
+    for name, clat, clon, _w in DEMAND_CITIES:
+        series = {}
+        for d, grid in grid_by_date.items():
+            try:
+                if lat_a.ndim == 2:
+                    idx = np.unravel_index(np.argmin((lat_a - clat) ** 2 + (lon_a - clon) ** 2), lat_a.shape)
+                    v = grid[idx]
+                else:
+                    v = grid[int(np.argmin(np.abs(lat_a - clat))), int(np.argmin(np.abs(lon_a - clon)))]
+                if np.isfinite(v):
+                    series[pd.Timestamp(d).strftime('%Y-%m-%d')] = round(float(v), 2)
+            except Exception:
+                continue
+        if series:
+            out[name] = series
+    return out
+
+
 def generate_gifs_for_model(model_name, folder, manifest):
     print(f"\n--- Generating Maps for {model_name} ---")
     available_runs = get_available_runs(folder)
@@ -183,7 +342,19 @@ def generate_gifs_for_model(model_name, folder, manifest):
         else:
             def align_lons(grid): return grid
         
-    for prev_run in available_runs[1:4]:  # Last 3 comparisons
+    # Anomaly-vs-normal GIF for the latest run (sampled at demand cities)
+    normals = load_city_normals()
+    if normals:
+        try:
+            if is_single_file:
+                grids = {pd.Timestamp(d): ds_curr.sel(date=d).values for d in ds_curr.date.values}
+            else:
+                grids = dict(ds_curr)
+            render_anomaly_gif(model_name, latest_run, sample_grid_at_cities(grids, lats, lons), normals)
+        except Exception as e:
+            print(f"  [WARN] {model_name} anomaly map failed: {e}")
+
+    for prev_run in pick_comparisons(latest_run, available_runs[1:13]):
         print(f"  Comparing {latest_run} to {prev_run}")
         prev_path = os.path.join(folder, prev_run)
         res_prev = build_daily_mean_dataset(prev_path, model_name)
@@ -262,12 +433,7 @@ def generate_gifs_for_model(model_name, folder, manifest):
         if frames:
             out_gif_name = f"{model_name}_shift_{latest_run}_vs_{prev_run}.gif"
             out_gif_path = f"{MAPS_DIR}/{out_gif_name}"
-            with imageio.get_writer(out_gif_path, mode='I', duration=800) as writer:
-                for filename in frames:
-                    image = imageio.imread(filename)
-                    writer.append_data(image)
-            for f in frames:
-                os.remove(f)
+            _write_gif(frames, out_gif_path)
             print(f"  [OK] Generated {out_gif_name}")
             manifest[model_name].append({
                 "latest": latest_run,
@@ -280,8 +446,12 @@ def get_available_bubble_runs(folder):
     cities_dir = Path(folder) / "cities"
     if not cities_dir.exists():
         return []
-    files = sorted(list(cities_dir.glob("*_cities.json")), reverse=True)
-    return [f.name.replace("_cities.json", "") for f in files]
+    # Only real run IDs: 'latest_cities.json' (FourCastNet staging alias)
+    # previously sorted ahead of every dated run and produced
+    # "latest_vs_..." GIFs that compared a run against itself.
+    pat = re.compile(rf"^{RUN_RE}$")
+    runs = [f.name.replace("_cities.json", "") for f in cities_dir.glob("*_cities.json")]
+    return sorted([r for r in runs if pat.match(r)], reverse=True)
 
 
 def generate_bubble_maps_for_model(model_name, folder, manifest):
@@ -304,7 +474,9 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
     manifest[model_name] = []
     city_coords = {c[0]: (c[1], c[2]) for c in DEMAND_CITIES}
     
-    for prev_run in available_runs[1:4]:
+    render_anomaly_gif(model_name, latest_run, curr_data, load_city_normals())
+
+    for prev_run in pick_comparisons(latest_run, available_runs[1:13]):
         print(f"  Comparing {latest_run} to {prev_run}")
         try:
             with open(cities_dir / f"{prev_run}_cities.json", "r") as f:
@@ -312,14 +484,21 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
         except Exception:
             continue
             
-        rep_city = list(curr_data.keys())[0]
-        dates1 = set(curr_data[rep_city].keys())
-        dates2 = set(prev_data[rep_city].keys())
+        dates1 = {d for v in curr_data.values() for d in v}
+        dates2 = {d for v in prev_data.values() for d in v}
         common_dates = sorted(list(dates1 & dates2))
         
         if not common_dates:
             continue
-            
+
+        # Identical payloads = the same Open-Meteo run archived under two
+        # cycle labels; a 0.0 map would masquerade as a "no change" signal.
+        diffs = [abs(curr_data[c][d] - prev_data[c][d]) for c in curr_data if c in prev_data
+                 for d in common_dates if d in curr_data[c] and d in prev_data[c]]
+        if diffs and max(diffs) < 0.01:
+            print(f"  [SKIP] {latest_run} and {prev_run} are identical (duplicate archive) — no map.")
+            continue
+
         os.makedirs(MAPS_DIR, exist_ok=True)
         frames = []
         
@@ -376,12 +555,7 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
         if frames:
             out_gif_name = f"{model_name}_shift_{latest_run}_vs_{prev_run}.gif"
             out_gif_path = f"{MAPS_DIR}/{out_gif_name}"
-            with imageio.get_writer(out_gif_path, mode='I', duration=800) as writer:
-                for filename in frames:
-                    image = imageio.imread(filename)
-                    writer.append_data(image)
-            for f in frames:
-                os.remove(f)
+            _write_gif(frames, out_gif_path)
             print(f"  [OK] Generated {out_gif_name}")
             manifest[model_name].append({
                 "latest": latest_run,
@@ -391,57 +565,9 @@ def generate_bubble_maps_for_model(model_name, folder, manifest):
 
 
 def rebuild_manifest():
-    """Scans outputs/maps/ for existing GIFs and rebuilds the manifest."""
-    print(f"Rebuilding manifest from {MAPS_DIR}...")
-    manifest = {}
-    
-    prefixes = {
-        "GFS": "GFS_shift_",
-        "GEFS": "GEFS_shift_",
-        "GEFS_35D": "GEFS_35D_shift_",
-        "ECMWF": "ECMWF_shift_",
-        "ECMWF_ENS": "ECMWF_ENS_shift_",
-        "ECMWF_AIFS": "ECMWF_AIFS_shift_",
-        "AIGFS": "AIGFS_shift_",
-        "HGEFS": "HGEFS_shift_",
-        "CMC_ENS": "CMC_ENS_shift_",
-        "GOOGLE_WN2": "GOOGLE_WN2_shift_",
-        "GOOGLE_WN3": "GOOGLE_WN3_shift_",
-        "AIGEFS": "AIGEFS_shift_",
-        "AIFS_ENS": "AIFS_ENS_shift_",
-        "UKMO_ENS": "UKMO_ENS_shift_",
-        "EC46": "EC46_shift_",
-        "HRRR": "HRRR_shift_",
-        "NAM": "NAM_shift_",
-        "NBM": "NBM_shift_",
-        "ICON": "ICON_shift_",
-        "FOURCASTNETV2-SMALL": "FOURCASTNETV2-SMALL_shift_",
-    }
-    
-    if not os.path.exists(MAPS_DIR):
-        return {}
-
-    all_files = sorted(os.listdir(MAPS_DIR), reverse=True)
-    
-    for model_key, prefix in prefixes.items():
-        model_gifs = [f for f in all_files if f.startswith(prefix) and f.endswith(".gif")]
-        if not model_gifs:
-            continue
-            
-        manifest[model_key] = []
-        for f in model_gifs:
-            try:
-                parts = f.replace(prefix, "").replace(".gif", "").split("_vs_")
-                if len(parts) == 2:
-                    manifest[model_key].append({
-                        "latest": parts[0],
-                        "previous": parts[1],
-                        "file": f
-                    })
-            except Exception:
-                continue
-    
-    return manifest
+    """Back-compat shim: manifest logic lives in maps_manifest.py."""
+    from maps_manifest import rebuild_manifest as _rb
+    return _rb()
 
 
 def _generate_worker(model_cfg):
@@ -491,11 +617,7 @@ def main():
             except Exception as e:
                 print(f"  [ERR]  {model_name}: {e}")
 
-    manifest = rebuild_manifest()
-    manifest_path = "outputs/maps_manifest.json"
-    with open(manifest_path, "w") as f:
-        json.dump(manifest, f, indent=4)
-        print(f"\n[OK] Wrote manifest to {manifest_path}")
+    write_manifest()
 
 
 if __name__ == "__main__":

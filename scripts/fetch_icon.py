@@ -25,7 +25,7 @@ from pathlib import Path
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT, compute_hdd, compute_cdd, compute_tdd
-from om_batch_fetch import fetch_all_cities_batch
+from om_batch_fetch import fetch_all_cities_batch, is_duplicate_run
 def celsius_to_f(c): return c * 9 / 5 + 32
 
 OM_FORECAST_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
@@ -87,6 +87,9 @@ def fetch_icon():
             "model":        "ICON",
             "run_id":       run_id,
         })
+
+    if is_duplicate_run(OUTPUT_DIR, run_id, city_data):
+        return
 
     df = pd.DataFrame(rows)
     df.to_csv(out_path, index=False)

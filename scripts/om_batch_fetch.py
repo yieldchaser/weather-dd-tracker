@@ -49,6 +49,27 @@ _TIMEOUT   = 60          # seconds; ensemble endpoint is slower than forecast en
 MIN_WEIGHT_COVERAGE_PCT = 0.50
 
 
+def _member_keys(daily, var):
+    """Keys for `var` and its ensemble members (`var_member01`, ...)."""
+    return [k for k in daily if k == var or (k.startswith(var + "_member") and k[len(var) + 7:].isdigit())]
+
+
+def member_mean(daily, var, dates, min_frac=0.5):
+    """Per-date mean across the un-suffixed series and every `_memberNN`
+    series. For member-ensemble models the Open-Meteo ensemble endpoint can
+    return the control as the un-suffixed key plus perturbed members as
+    `_memberNN`; reading only the un-suffixed key would silently turn an
+    "ensemble" into its control run. With a single series this is the
+    identity, so deterministic and *_ensemble_mean models are unaffected."""
+    keys = _member_keys(daily, var)
+    out = {}
+    for i, d in enumerate(dates):
+        vals = [daily[k][i] for k in keys if i < len(daily[k]) and daily[k][i] is not None]
+        if vals and len(vals) >= max(1, int(min_frac * len(keys))):
+            out[d] = sum(vals) / len(vals)
+    return out
+
+
 def fetch_all_cities_batch(
     endpoint: str,
     model: str,
@@ -134,8 +155,11 @@ def fetch_all_cities_batch(
 
             daily = entry.get("daily", {})
             dates = daily.get("time", [])
-            temps = daily.get("temperature_2m_mean", [])
-            temps_clean = {d: t for d, t in zip(dates, temps) if t is not None}
+            temps_clean = member_mean(daily, "temperature_2m_mean", dates)
+            if i == 0 and chunk_start == 0:
+                n_mem = len(_member_keys(daily, "temperature_2m_mean"))
+                print(f"  [INFO] {model}: {n_mem} series per city "
+                      f"({'ensemble mean of members' if n_mem > 1 else 'single series'}).")
 
             if temps_clean:
                 city_data[name] = (weight, temps_clean)
@@ -293,3 +317,59 @@ def fetch_era5_cities_batch(
               f"{active_weight:.1f}/{TOTAL_WEIGHT:.1f} weight-pts ({coverage_pct*100:.1f}% coverage).")
 
     return city_data
+
+
+def is_duplicate_run(base_dir, run_id, city_data, tol_f=0.01, min_points=50):
+    """
+    True when `city_data` (Celsius, as returned by fetch_all_cities_batch) is
+    numerically identical to the most recent *earlier* run already archived
+    under base_dir/cities/.
+
+    Open-Meteo serves whatever run it ingested last. The fetchers choose a
+    cycle label from the wall clock, so a fetch that fires before Open-Meteo
+    ingests the new cycle stores the *previous* run's forecast under the new
+    label. Audit of tdd_master (Nov 2026) found ECMWF_ENS and GOOGLE_WN2 12z
+    runs bit-identical to the same day's 00z, which reads as a perfect "0.0
+    change" and silently corrupts every run-to-run statistic downstream.
+    Refusing to write leaves the label free, so the next poll (still inside
+    the same cycle window) fetches the genuine run.
+    """
+    import json
+    import re
+    from pathlib import Path
+
+    cities_dir = Path(base_dir) / "cities"
+    if not cities_dir.is_dir():
+        return False
+    pat = re.compile(r"^\d{8}_(?:\d{2}|seamless)")
+    prior = sorted(
+        (p for p in cities_dir.glob("*_cities.json")
+         if pat.match(p.name) and p.name.replace("_cities.json", "") < run_id),
+        key=lambda p: p.name, reverse=True,
+    )
+    if not prior:
+        return False
+    try:
+        with open(prior[0]) as f:
+            prev = json.load(f)
+    except Exception:
+        return False
+    n, worst = 0, 0.0
+    for name, (_w, temps) in city_data.items():
+        pc = prev.get(name)
+        if not pc:
+            continue
+        for d, t in temps.items():
+            if t is None or d not in pc or pc[d] is None:
+                continue
+            diff = abs(round(t * 9 / 5 + 32, 2) - float(pc[d]))
+            worst = max(worst, diff)
+            n += 1
+            if worst > tol_f:
+                return False
+    if n >= min_points:
+        prev_id = prior[0].name.replace("_cities.json", "")
+        print(f"  [DUPLICATE] {run_id} is identical to archived run {prev_id} across {n} city-days "
+              f"(max diff {worst:.3f}°F) — Open-Meteo has not ingested the new cycle yet. Not writing; will retry next poll.")
+        return True
+    return False

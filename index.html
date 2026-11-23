@@ -7,7 +7,7 @@
     <title>Weather Desk Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.js"></script>
     <style>
         :root {
             --bg-color: #0b0c10;
@@ -134,6 +134,16 @@
             margin-bottom: 30px;
         }
 
+        .chg-mode { font-size:0.75rem; padding:3px 6px; }
+        .chg-headline { display:flex; flex-wrap:wrap; gap:14px; padding:8px 12px; font-size:0.8rem; color:#c5c6c7; border-bottom:1px solid #2a3642; }
+        .chg-headline b { font-size:0.95rem; }
+        .chg-table td, .chg-table th { text-align:right; }
+        .chg-table td:first-child, .chg-table th:first-child { text-align:left; }
+        .chg-table tbody tr { cursor:pointer; }
+        .chg-table tbody tr:hover { background:rgba(102,252,241,0.06); }
+        .chg-table tr.chg-cons td { border-top:2px solid #3a4652; font-weight:700; }
+        .chg-table sup { color:#888; font-size:0.6rem; margin-left:1px; }
+        .chg-foot { font-size:0.68rem; color:#777; padding:8px 12px; line-height:1.4; }
         .week-card {
             background-color: var(--card-bg);
             border-radius: 4px;
@@ -376,6 +386,15 @@
             margin-bottom: 30px;
         }
 
+        .yr-toolbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px; }
+        .yr-toolbar .lbl { font-size:0.72rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-right:4px; }
+        .yr-btn { background:transparent; color:#c5c6c7; border:1px solid var(--border); border-radius:3px; padding:3px 9px; font-size:0.75rem; cursor:pointer; }
+        .yr-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .yr-chips { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; max-height:76px; overflow-y:auto; }
+        .yr-chip { font-size:0.7rem; padding:2px 7px; border-radius:10px; border:1px solid #3a4552; color:#8a949e; cursor:pointer; user-select:none; background:transparent; }
+        .yr-chip.on { color:#0b0c10; font-weight:700; border-color:transparent; }
+        .season-stats { display:flex; flex-wrap:wrap; gap:18px; font-size:0.8rem; color:#c5c6c7; margin:4px 0 10px; }
+        .season-stats b { color:var(--text-br); }
         .chart-controls {
             display: flex;
             justify-content: space-between;
@@ -802,6 +821,25 @@
                         </table>
                     </div>
                 </div>
+                <!-- Run-change matrix (ICAP / CWG style) -->
+                <div class="week-card" id="chg-matrix-card">
+                    <div class="week-header has-tooltip" data-tooltip-key="Run Change Matrix" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span>Run-to-Run Change by Window</span>
+                        <select id="chgModeSelect" class="chg-mode" title="Which earlier run each model's latest run is compared against">
+                            <option value="prev">vs previous run</option>
+                            <option value="12">vs 12h ago</option>
+                            <option value="24">vs 24h ago (same cycle)</option>
+                        </select>
+                    </div>
+                    <div id="chg-headline" class="chg-headline"></div>
+                    <div class="table-responsive">
+                        <table class="horizon-table chg-table">
+                            <thead><tr id="chg-head"></tr></thead>
+                            <tbody id="chg-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="chg-foot">Totals over each calendar window (same valid dates for every model). Green = more demand (colder in HDD mode), red = less. Superscript = days covered when a run is shorter than the window. Click a row to open that model below.</div>
+                </div>
             </div>
 
             <!-- HISTORICAL MONTHLY OUTLIER CHART -->
@@ -838,8 +876,28 @@
 
             <!-- HISTORICAL SEASON CUMULATIVE CHART -->
             <h2 class="section-title has-tooltip" id="spaghetti-title" data-tooltip-key="Season Cumulative">Season Cumulative Degree Days (Gas-Weighted)</h2>
-            <div class="chart-section" style="height: 400px; position: relative;">
-                <canvas id="winterSpaghettiChart"></canvas>
+            <div class="chart-section" style="position: relative;">
+                <div class="yr-toolbar">
+                    <span class="lbl">Years</span>
+                    <button class="yr-btn" data-yrset="recent3">Last 3</button>
+                    <button class="yr-btn" data-yrset="recent5">Last 5</button>
+                    <button class="yr-btn" data-yrset="recent10">Last 10</button>
+                    <button class="yr-btn" data-yrset="extremes">Extremes</button>
+                    <button class="yr-btn" data-yrset="all">All</button>
+                    <button class="yr-btn" data-yrset="none">None</button>
+                    <span class="lbl" style="margin-left:10px;">Benchmarks</span>
+                    <button class="yr-btn" data-bench="n30">30y Normal</button>
+                    <button class="yr-btn" data-bench="n10">10y Avg</button>
+                    <button class="yr-btn" data-bench="n5">5y Avg</button>
+                    <button class="yr-btn" data-bench="band">Min–Max Range</button>
+                    <span class="lbl" style="margin-left:10px;">View</span>
+                    <button class="yr-btn" data-bench="zoom" title="Zoom the x-axis to the season so far plus ~5 weeks">Zoom to Date</button>
+                </div>
+                <div class="yr-chips" id="yrChips"></div>
+                <div class="season-stats" id="seasonStats"></div>
+                <div style="height: 400px; position: relative;">
+                    <canvas id="winterSpaghettiChart"></canvas>
+                </div>
             </div>
 
             <!-- MODEL RUN COMPARISON CHART & MAPS -->
@@ -859,22 +917,22 @@
             <div style="display: flex; flex-wrap: wrap; gap: 20px;">
                 <!-- Chart Left -->
                 <div style="flex: 1 1 50%; min-width: 300px;">
-                    <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Top 4 Runs vs 30-Year Normal
-                    </h3>
-                    <div id="runChartWrapper" style="position:relative; height:300px;">
+                    <h3 id="runChartTitle" style="margin-top:0; color:var(--text-br); font-size:1rem;">Recent Runs vs Normals</h3>
+                    <div id="runChartWrapper" style="position:relative; height:380px;">
                         <canvas id="runChart"></canvas>
                     </div>
                 </div>
                 <!-- Map Right -->
                 <div style="flex: 1 1 40%; min-width: 300px; overflow: hidden;" class="map-section" id="mapContainer">
-                    <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Spatial Run-to-Run Delta</h3>
+                    <h3 style="margin-top:0; color:var(--text-br); font-size:1rem;">Spatial Map (Run Change / Anomaly)</h3>
                     <img id="shiftMapGif" src="" alt=""
                         style="width:100%; height:auto; border-radius:4px; display:block;"
                         onerror="this.style.display='none'; document.getElementById('mapError').style.display='block';">
                     <div id="mapError"
                         style="display:none; text-align:center; padding: 40px; color: #888; border: 1px dashed #444; border-radius: 4px;">
-                        Spatial map not generated for this model yet — bubble maps build automatically once two runs are archived (new models accumulate from Aug 22).
+                        No spatial map for this model yet — maps build automatically once two runs of the model are archived.
                     </div>
+                    <div id="mapNote" style="font-size:0.72rem; color:#888; margin-top:6px; line-height:1.4;"></div>
                 </div>
             </div>
         </div>
@@ -1209,22 +1267,14 @@
 
             // 5. Spaghetti Chart & Monthly Chart
             if (historicalData && historicalData.length > 0) {
-                let forecastData = [];
-                if (masterData && masterData.length > 0) {
-                    const ecmwfRows = masterData.filter(r => r.model === 'ECMWF');
-                    if (ecmwfRows.length > 0) {
-                        const runs = [...new Set(ecmwfRows.map(r => r.run_id))].sort();
-                        const latestRun = runs[runs.length - 1];
-                        forecastData = ecmwfRows.filter(r => r.run_id === latestRun);
-                    }
-                }
-                const combinedData = [...historicalData, ...forecastData];
-                initSeasonalSpaghettiChart(combinedData);
-                initMonthlyOutlierChart(historicalData);
+                const fc = buildSeasonForecast(historicalData, masterData);
+                initSeasonalSpaghettiChart([...historicalData, ...fc.rows], fc.meta);
+                initMonthlyOutlierChart(historicalData, fc);
             }
 
-            // 6. Forecast Model Chart
+            // 6. Run-change matrix + Forecast Model Chart
             if (masterData && masterData.length > 0) {
+                try { renderChangeMatrix(masterData, vsNormal); } catch (e) { console.error('change matrix', e); }
                 initChart(masterData, vsNormal, mapManifest);
             }
         }
@@ -1286,6 +1336,10 @@
 
                 let w1_chg = '-', w2_chg = '-', w3_chg = '-';
                 let total_chg = 0;
+                // Per-model change accumulators. These were previously undeclared
+                // (implicit globals), so a model with no run_delta rows inherited
+                // the previous model's values in its change-cell tooltips.
+                let c1 = 0, c2 = 0, c3 = 0;
                 const metaKey = (shiftMeta && shiftMeta.models) ? (shiftMeta.models[m] ? m : shiftMeta.models[`${m} OP CHG`] ? `${m} OP CHG` : shiftMeta.models[`${m} CHG`] ? `${m} CHG` : Object.keys(shiftMeta.models).find(k => k.startsWith(m))) : null;
                 const mMeta = metaKey ? shiftMeta.models[metaKey] : null;
                 let gapFlag = (mMeta && mMeta.gap) ? ' <small style="color:#ff9800">*</small>' : '';
@@ -1303,7 +1357,6 @@
                         let dtD = latestTarget.substring(6, 8);
                         let deltaBase = new Date(`${dtY}-${dtM}-${dtD}T00:00:00Z`);
 
-                        c1 = 0; c2 = 0; c3 = 0;
                         curDelta.forEach((r) => {
                             let dtR = new Date(`${r.date}T00:00:00Z`);
                             let dDiff = Math.round((dtR - deltaBase) / (1000 * 60 * 60 * 24));
@@ -1369,7 +1422,7 @@
                         <td class="has-tooltip" data-dyn-title="${m} Short-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f1} ${DD_LABEL}s</strong> over this horizon.">${f1}</td>
                         <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n1} ${DD_LABEL}s</strong>.">${n1}</td>
                         <td class="has-tooltip ${a1_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a1}</td>
-                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2016–2025) for this period is <strong>${n1_10} ${DD_LABEL}s</strong>.">${n1_10}</td>
                         <td class="has-tooltip ${a1_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a1_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a1_10}</td>
                         ${chg1_td}
                     </tr>`;
@@ -1389,12 +1442,13 @@
                         <td class="has-tooltip" data-dyn-title="${m} Medium-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f2} ${DD_LABEL}s</strong> over this horizon.">${f2}</td>
                         <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n2} ${DD_LABEL}s</strong>.">${n2}</td>
                         <td class="has-tooltip ${a2_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a2}</td>
-                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2016–2025) for this period is <strong>${n2_10} ${DD_LABEL}s</strong>.">${n2_10}</td>
                         <td class="has-tooltip ${a2_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a2_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a2_10}</td>
                         ${chg2_td}
                     </tr>`;
                 }
-                if (len3 > 0) {
+                // A 1-2 day tail past day 15 is a horizon stub, not a long-range view.
+                if (len3 >= 3) {
                     let f3 = formatNum(w3_fcst / len3, 1);
                     let n3 = formatNum(w3_norm / len3, 1);
                     let a3 = formatNum(w3_anom / len3, 1, true);
@@ -1409,7 +1463,7 @@
                         <td class="has-tooltip" data-dyn-title="${m} Long-Term Forecast" data-dyn-body="The average forecast value for ${m} is <strong>${f3} ${DD_LABEL}s</strong> over this horizon.">${f3}</td>
                         <td class="has-tooltip" data-dyn-title="30-Year Normal" data-dyn-body="The 30-year climatological normal (1991–2020) for this period is <strong>${n3} ${DD_LABEL}s</strong>.">${n3}</td>
                         <td class="has-tooltip ${a3_cls}" data-dyn-title="30-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3} ${DD_LABEL}s</strong> relative to the 30-year normal.">${a3}</td>
-                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2011–2020) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
+                        <td class="has-tooltip" data-dyn-title="10-Year Normal" data-dyn-body="The 10-year climatological normal (2016–2025) for this period is <strong>${n3_10} ${DD_LABEL}s</strong>.">${n3_10}</td>
                         <td class="has-tooltip ${a3_cls10}" data-dyn-title="10-Year Anomaly" data-dyn-body="The forecast deviation is <strong>${a3_10} ${DD_LABEL}s</strong> relative to the 10-year normal.">${a3_10}</td>
                         ${chg3_td}
                     </tr>`;
@@ -1445,7 +1499,10 @@
             };
             let headerRow = document.getElementById('shift-header');
             headerRow.innerHTML = '<th style="white-space:nowrap;" class="has-tooltip" data-tooltip-key="Forecast Date Header">Date</th>';
-            let cols = Object.keys(shiftTable[0]);
+            const isBlank = v => v === null || v === undefined || v === "" || (typeof v === 'number' && isNaN(v));
+            // Drop columns with no values at all (stale/retired feeds such as NAM)
+            // instead of rendering a full column of "Prev Run (N/A)".
+            let cols = Object.keys(shiftTable[0]).filter(c => c === "date" || !shiftTable.every(r => isBlank(r[c])));
             cols.filter(c => c !== "date").forEach(c => {
                 let th = document.createElement('th');
                 th.className = 'has-tooltip shift-col';
@@ -1498,261 +1555,419 @@
         // Spaghetti chart instance — kept at module scope so SEASON changes can destroy+re-init
         let spaghettiChartInstance = null;
 
-        function computeSeasonNormal(historicalData, allLabels, getSeasonKey) {
-            let seasons = {};
-            historicalData.forEach(row => {
-                if (!row.date) return;
-                let parts = String(row.date).split('-');
-                if (parts.length !== 3) return;
-                let y = parseInt(parts[0]);
-                let m = parseInt(parts[1]);
-                let dt = parts[1] + '-' + parts[2];
-                let sKey = getSeasonKey(y, m);
-                if (!sKey) return;
-                if (!seasons[sKey]) seasons[sKey] = {};
-                seasons[sKey][dt] = ddVal(row);
-            });
+        // ── Run-change engine (shared by the change matrix and the run chart) ──
+        let CHANGE_MODE = (() => { try { return localStorage.getItem('weather_dd_change_mode') || 'prev'; } catch (e) { return 'prev'; } })();
+        const PREFERRED_MODEL_ORDER = ['ECMWF_ENS', 'GEFS', 'AIFS_ENS', 'CMC_ENS', 'UKMO_ENS', 'ECMWF', 'GFS', 'ECMWF_AIFS', 'AIGEFS', 'GOOGLE_WN2', 'GOOGLE_WN3', 'AIGFS', 'HGEFS', 'ICON', 'NBM', 'HRRR', 'GEFS_35D', 'EC46'];
 
-            let seasonKeys = Object.keys(seasons).sort();
-            let normal30 = {};
-            allLabels.forEach(lbl => { normal30[lbl] = { sum: 0, count: 0 }; });
-
-            seasonKeys.forEach(sKey => {
-                let running = 0;
-                let started = false;
-                let baseYear = parseInt(sKey.split('-')[0]);
-                if (baseYear < 1991 || baseYear > 2020) return;
-
-                allLabels.forEach(lbl => {
-                    if (seasons[sKey][lbl] !== undefined) {
-                        running += seasons[sKey][lbl];
-                        started = true;
-                        normal30[lbl].sum += running;
-                        normal30[lbl].count += 1;
-                    } else if (started) {
-                        normal30[lbl].sum += running;
-                        normal30[lbl].count += 1;
-                    }
-                });
-            });
-
-            return allLabels.map(lbl => (normal30[lbl].count > 0 ? normal30[lbl].sum / normal30[lbl].count : null));
+        function runTimeMs(rid) {
+            const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})?/.exec(String(rid || ''));
+            if (!m) return null;
+            return Date.UTC(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0);
         }
 
-        function initSeasonalSpaghettiChart(historicalData) {
-            if (!historicalData || historicalData.length === 0) return;
+        // runsDesc: run IDs newest first. Returns the comparison run or null.
+        function pickCompareRun(runsDesc, mode) {
+            if (!runsDesc || runsDesc.length < 2) return null;
+            if (mode === 'prev') return runsDesc[1];
+            const target = parseInt(mode) * 3600e3;
+            const t0 = runTimeMs(runsDesc[0]);
+            if (t0 === null) return null;
+            // exact lag first, otherwise the closest run within ±6h of the lag
+            let best = null, bestErr = Infinity;
+            for (const r of runsDesc.slice(1)) {
+                const t = runTimeMs(r);
+                if (t === null) continue;
+                const err = Math.abs((t0 - t) - target);
+                if (err < bestErr) { best = r; bestErr = err; }
+            }
+            return bestErr <= 6 * 3600e3 ? best : null;
+        }
 
-            // Destroy previous instance to prevent 'canvas already in use' errors
+        function addDaysIso(iso, n) {
+            const d = new Date(iso + 'T00:00:00Z');
+            d.setUTCDate(d.getUTCDate() + n);
+            return d.toISOString().substring(0, 10);
+        }
+
+        function deskDay1() {
+            return (TIME_TRAVEL_DATE || new Date()).toISOString().substring(0, 10);
+        }
+
+        // {model: {runsDesc, byRun: {run: {date: dd}}}}
+        function indexMasterRuns(masterData) {
+            const idx = {};
+            masterData.forEach(r => {
+                if (!r.model || !r.date || !r.run_id) return;
+                const m = r.model, rid = String(r.run_id), d = String(r.date).substring(0, 10);
+                const v = ddVal(r);
+                if (v === null || v === undefined || isNaN(v)) return;
+                const e = idx[m] = idx[m] || { byRun: {} };
+                (e.byRun[rid] = e.byRun[rid] || {})[d] = v;
+            });
+            Object.values(idx).forEach(e => { e.runsDesc = Object.keys(e.byRun).sort((a, b) => b.localeCompare(a)); });
+            return idx;
+        }
+
+        function renderChangeMatrix(masterData, vsNormal) {
+            const head = document.getElementById('chg-head'), body = document.getElementById('chg-body');
+            const sel = document.getElementById('chgModeSelect'), hl = document.getElementById('chg-headline');
+            if (!head || !body || !masterData || !masterData.length) return;
+            sel.value = CHANGE_MODE;
+            sel.onchange = () => {
+                CHANGE_MODE = sel.value;
+                try { localStorage.setItem('weather_dd_change_mode', CHANGE_MODE); } catch (e) {}
+                renderChangeMatrix(masterData, vsNormal);
+                const ms = document.getElementById('modelSelect');
+                if (ms && ms.onchange) ms.onchange();
+            };
+
+            const d1 = deskDay1();
+            const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const fmtD = iso => { const d = new Date(iso + 'T00:00:00Z'); return `${MON[d.getUTCMonth()]} ${d.getUTCDate()}`; };
+            const windows = [
+                { key: 'w1', lbl: 'Days 1-5', from: 0, to: 4 },
+                { key: 'w2', lbl: 'Days 6-10', from: 5, to: 9 },
+                { key: 'w3', lbl: 'Days 11-15', from: 10, to: 14 },
+                { key: 'wt', lbl: 'Days 1-15', from: 0, to: 14 },
+            ].map(w => ({ ...w, dates: Array.from({ length: w.to - w.from + 1 }, (_, i) => addDaysIso(d1, w.from + i)) }));
+
+            const normByDate = {};
+            (vsNormal || []).forEach(r => { if (r.date) normByDate[String(r.date).substring(0, 10)] = normVal(r, false); });
+
+            head.innerHTML = `<th>Model · run</th>` + windows.map(w => `<th>${w.lbl}<br><small style="font-weight:400;color:#888">${fmtD(w.dates[0])}–${fmtD(w.dates[w.dates.length - 1])}</small></th>`).join('') + `<th title="Latest run, days 1-15 total vs 30-yr normal">1-15 vs<br>30y N</th>`;
+
+            const idx = indexMasterRuns(masterData);
+            const cutoff = addDaysIso(d1, -2);
+            const models = Object.keys(idx).filter(m => {
+                const e = idx[m]; const latest = e.byRun[e.runsDesc[0]];
+                return Object.keys(latest).some(d => d >= cutoff);
+            }).sort((a, b) => {
+                const ia = PREFERRED_MODEL_ORDER.indexOf(a), ib = PREFERRED_MODEL_ORDER.indexOf(b);
+                return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+            });
+
+            const rows = [];
+            const cons = { w1: [], w2: [], w3: [], wt: [] };
+            const consHeadline = { prev: [], '12': [], '24': [] };
+            models.forEach(m => {
+                const e = idx[m];
+                const L = e.runsDesc[0], Lrun = e.byRun[L];
+                ['prev', '12', '24'].forEach(mode => {
+                    const C = pickCompareRun(e.runsDesc, mode);
+                    if (!C) return;
+                    const Crun = e.byRun[C];
+                    const both = windows[3].dates.filter(d => Lrun[d] !== undefined && Crun[d] !== undefined);
+                    // Only models covering ≥10 of the 15 days, scaled to a 15-day total.
+                    if (both.length >= 10) consHeadline[mode].push(both.reduce((a, d) => a + Lrun[d] - Crun[d], 0) * 15 / both.length);
+                });
+                const C = pickCompareRun(e.runsDesc, CHANGE_MODE);
+                const cells = windows.map(w => {
+                    if (!C) return { v: null, n: 0 };
+                    const Crun = e.byRun[C];
+                    const ds = w.dates.filter(d => Lrun[d] !== undefined && Crun[d] !== undefined);
+                    if (!ds.length) return { v: null, n: 0 };
+                    return { v: ds.reduce((a, d) => a + (Lrun[d] - Crun[d]), 0), n: ds.length, full: ds.length === w.dates.length };
+                });
+                const nds = windows[3].dates.filter(d => Lrun[d] !== undefined && normByDate[d] !== undefined && !isNaN(normByDate[d]));
+                const anom = nds.length ? nds.reduce((a, d) => a + Lrun[d] - normByDate[d], 0) : null;
+                windows.forEach((w, i) => { if (cells[i].full) cons[w.key].push(cells[i].v); });
+                rows.push({ m, L, C, cells, anom, anomN: nds.length });
+            });
+
+            const maxAbs = Math.max(4, ...rows.flatMap(r => r.cells.map(c => Math.abs(c.v || 0))));
+            const cellHtml = (c) => {
+                if (!c || c.v === null) return `<td style="color:#555">–</td>`;
+                const a = Math.min(0.55, 0.08 + 0.5 * Math.abs(c.v) / maxAbs);
+                const bg = c.v > 0 ? `rgba(76,175,80,${a})` : (c.v < 0 ? `rgba(244,67,54,${a})` : 'transparent');
+                const sup = c.full ? '' : `<sup>${c.n}d</sup>`;
+                return `<td style="background:${bg}">${formatNum(c.v, 1, true)}${sup}</td>`;
+            };
+            const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+            let html = rows.map(r => `<tr data-model="${escAttr(r.m)}" title="${escAttr(r.m)}: ${r.L}${r.C ? ' minus ' + r.C : ' (no comparison run archived)'}">
+                <td><strong>${r.m}</strong> <small style="color:#888">${fmtRunLabel(r.L)}${r.C ? ' vs ' + fmtRunLabel(r.C) : ''}</small></td>
+                ${r.cells.map(cellHtml).join('')}
+                <td class="${r.anom > 0 ? 'pos-val' : (r.anom < 0 ? 'neg-val' : '')}">${r.anom === null ? '–' : formatNum(r.anom, 1, true) + (r.anomN < 15 ? `<sup>${r.anomN}d</sup>` : '')}</td></tr>`).join('');
+            const consCells = windows.map(w => { const v = mean(cons[w.key]); return v === null ? { v: null } : { v, n: cons[w.key].length, full: true }; });
+            html += `<tr class="chg-cons" title="Simple mean over models whose runs fully cover the window"><td>Consensus <small style="color:#888">(full-coverage models)</small></td>${consCells.map(cellHtml).join('')}<td></td></tr>`;
+            body.innerHTML = html;
+            body.querySelectorAll('tr[data-model]').forEach(tr => {
+                tr.onclick = () => {
+                    const ms = document.getElementById('modelSelect');
+                    if (!ms) return;
+                    if ([...ms.options].some(o => o.value === tr.dataset.model)) {
+                        ms.value = tr.dataset.model;
+                        if (ms.onchange) ms.onchange();
+                        ms.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                };
+            });
+
+            if (hl) {
+                const fmtC = (label, arr) => {
+                    const v = mean(arr);
+                    if (v === null) return '';
+                    return `<span>${label}: <b class="${v > 0 ? 'pos-val' : (v < 0 ? 'neg-val' : '')}">${formatNum(v, 1, true)}</b> ${DD_LABEL}s <small style="color:#777">(${arr.length})</small></span>`;
+                };
+                hl.innerHTML = `<span style="color:#888">Consensus 15-day change</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']);
+            }
+        }
+
+        // Forecast tail appended to the observed ERA5 history for the season and
+        // monthly charts: ECMWF ensemble mean (falls back to ECMWF OP), and only
+        // dates after the last observed day, so a forecast never overwrites an
+        // observed value (it previously did for day 0/1).
+        function buildSeasonForecast(historicalData, masterData) {
+            const lastObs = historicalData.reduce((mx, r) => (r.date && String(r.date) > mx ? String(r.date).substring(0, 10) : mx), '');
+            const empty = { rows: [], meta: { dates: new Set(), label: '', lastObs } };
+            if (!masterData || !masterData.length) return empty;
+            for (const model of ['ECMWF_ENS', 'ECMWF']) {
+                const rows = masterData.filter(r => r.model === model && r.date);
+                if (!rows.length) continue;
+                const latest = [...new Set(rows.map(r => String(r.run_id)))].sort().slice(-1)[0];
+                const fut = rows.filter(r => String(r.run_id) === latest && String(r.date).substring(0, 10) > lastObs)
+                    .map(r => ({ ...r, date: String(r.date).substring(0, 10) }));
+                if (!fut.length) continue;
+                const label = `${model === 'ECMWF_ENS' ? 'EC ENS' : 'EC OP'} ${fmtRunLabel(latest)}`;
+                return { rows: fut, meta: { dates: new Set(fut.map(r => r.date)), label, lastObs } };
+            }
+            return empty;
+        }
+
+        // Season-chart UI state persists across metric switches and reloads.
+        let SEASON_UI = (() => {
+            try { return JSON.parse(localStorage.getItem('weather_dd_season_ui') || 'null') || {}; } catch (e) { return {}; }
+        })();
+        function saveSeasonUi() { try { localStorage.setItem('weather_dd_season_ui', JSON.stringify(SEASON_UI)); } catch (e) {} }
+        const YEAR_PALETTE = ['#ff9800', '#4caf50', '#42a5f5', '#ab47bc', '#f44336', '#26c6da', '#d4e157', '#ec407a', '#8d6e63', '#7e57c2', '#66bb6a', '#ffa726'];
+
+        function initSeasonalSpaghettiChart(historicalData, forecastMeta) {
+            if (!historicalData || historicalData.length === 0) return;
+            forecastMeta = forecastMeta || {};
+
             if (spaghettiChartInstance) {
                 spaghettiChartInstance.destroy();
                 spaghettiChartInstance = null;
             }
 
-            // --- Branch: define season window & key builder per SEASON ---
-            // Returns { inSeason: bool, sKey: string } for a given (y, m) data point
-            let monthAxis, xTickLabels, getSeasonKey;
-
+            // --- Season window & key builder per SEASON ---
+            let monthAxis, getSeasonKey;
             if (SEASON === 'COOLING') {
-                // Apr 1 – Oct 31, single-year key e.g. "2026"
-                const coolingMonths = [4, 5, 6, 7, 8, 9, 10];
-                const coolingMonthDays = [
-                    { m: 4, d: 30 }, { m: 5, d: 31 }, { m: 6, d: 30 },
-                    { m: 7, d: 31 }, { m: 8, d: 31 }, { m: 9, d: 30 }, { m: 10, d: 31 }
-                ];
-                monthAxis = coolingMonthDays;
-                xTickLabels = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
-                getSeasonKey = (y, m) => {
-                    if (!coolingMonths.includes(m)) return null;
-                    return String(y);
-                };
+                monthAxis = [{ m: 4, d: 30 }, { m: 5, d: 31 }, { m: 6, d: 30 }, { m: 7, d: 31 }, { m: 8, d: 31 }, { m: 9, d: 30 }, { m: 10, d: 31 }];
+                getSeasonKey = (y, m) => (m >= 4 && m <= 10) ? String(y) : null;
             } else if (SEASON === 'HEATING') {
-                // Sep 1 – Apr 30: winter heating accumulation season
-                // Covers late September through April so current late September data and forecasts are actively plotted
-                const heatingMonths = [9, 10, 11, 12, 1, 2, 3, 4];
-                const heatingMonthDays = [
-                    { m: 9, d: 30 }, { m: 10, d: 31 }, { m: 11, d: 30 }, { m: 12, d: 31 },
-                    { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }, { m: 4, d: 30 }
-                ];
-                monthAxis = heatingMonthDays;
-                xTickLabels = ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
+                monthAxis = [{ m: 9, d: 30 }, { m: 10, d: 31 }, { m: 11, d: 30 }, { m: 12, d: 31 }, { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }, { m: 4, d: 30 }];
                 getSeasonKey = (y, m) => {
-                    if (!heatingMonths.includes(m)) return null;
+                    if (!(m >= 9 || m <= 4)) return null;
                     const y1 = (m >= 9) ? y : y - 1;
-                    const y2 = y1 + 1;
-                    return `${y1}-${y2}`;
+                    return `${y1}-${y1 + 1}`;
                 };
             } else {
-                // TDD — Net Total Degree Days across full year (Jan–Dec)
-                const tddMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-                const tddMonthDays = [
-                    { m: 1, d: 31 }, { m: 2, d: 29 }, { m: 3, d: 31 }, { m: 4, d: 30 },
-                    { m: 5, d: 31 }, { m: 6, d: 30 }, { m: 7, d: 31 }, { m: 8, d: 31 },
-                    { m: 9, d: 30 }, { m: 10, d: 31 }, { m: 11, d: 30 }, { m: 12, d: 31 }
-                ];
-                monthAxis = tddMonthDays;
-                xTickLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                monthAxis = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => ({ m, d: [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1] }));
                 getSeasonKey = (y, m) => String(y);
             }
+            const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-            // --- Build day-level label array (MM-DD) ---
-            let allLabels = [];
+            const allLabels = [];
             monthAxis.forEach(item => {
-                for (let i = 1; i <= item.d; i++) {
-                    let mStr = item.m < 10 ? '0' + item.m : '' + item.m;
-                    let dStr = i < 10 ? '0' + i : '' + i;
-                    allLabels.push(mStr + '-' + dStr);
-                }
+                for (let i = 1; i <= item.d; i++) allLabels.push(String(item.m).padStart(2, '0') + '-' + String(i).padStart(2, '0'));
             });
 
-            // --- Bucket historical data into season groups ---
-            let seasons = {};
+            // --- Bucket rows into seasons; remember which current-season days are forecast ---
+            const seasons = {};
+            const fcstDates = forecastMeta.dates || new Set();
             historicalData.forEach(row => {
                 if (!row.date) return;
-                let parts = String(row.date).split('-');
+                const parts = String(row.date).substring(0, 10).split('-');
                 if (parts.length !== 3) return;
-                let y = parseInt(parts[0]);
-                let m = parseInt(parts[1]);
-                let dt = parts[1] + '-' + parts[2]; // MM-DD
-
-                let sKey = getSeasonKey(y, m);
-                if (!sKey) return; // not in this season's window
-
-                if (!seasons[sKey]) seasons[sKey] = {};
-                seasons[sKey][dt] = ddVal(row);
+                const y = parseInt(parts[0]), m = parseInt(parts[1]);
+                const sKey = getSeasonKey(y, m);
+                if (!sKey) return;
+                const v = ddVal(row);
+                if (v === null || v === undefined || isNaN(v)) return;
+                (seasons[sKey] = seasons[sKey] || {})[parts[1] + '-' + parts[2]] = v;
             });
 
-            let seasonKeys = Object.keys(seasons).sort();
-            if (seasonKeys.length === 0) return; // no data for this season window
+            const seasonKeys = Object.keys(seasons).sort();
+            if (seasonKeys.length === 0) return;
+            const currentSeasonKey = seasonKeys[seasonKeys.length - 1];
 
-            let currentSeasonKey = seasonKeys[seasonKeys.length - 1];
-
-            const normData = computeSeasonNormal(historicalData, allLabels, getSeasonKey);
-
-            // --- Build cumulative series ---
-            let cumes = {};
+            // --- Cumulative series (null before first data; flat-carry gaps; current season stops at last data) ---
+            const cumes = {};
             seasonKeys.forEach(sKey => {
-                cumes[sKey] = [];
-                let running = 0;
-                let started = false;
-
-                let lastAvailIndex = -1;
-                allLabels.forEach((lbl, i) => { if (seasons[sKey][lbl] !== undefined) lastAvailIndex = i; });
-
-                allLabels.forEach((lbl, i) => {
-                    if (sKey === currentSeasonKey && i > lastAvailIndex) return;
-
-                    if (seasons[sKey][lbl] !== undefined) {
-                        running += seasons[sKey][lbl];
-                        cumes[sKey].push(running);
-                        started = true;
-                    } else {
-                        if (started) {
-                            cumes[sKey].push(running);
-                        } else {
-                            cumes[sKey].push(null);
-                        }
-                    }
+                let running = 0, started = false, lastIdx = -1;
+                allLabels.forEach((lbl, i) => { if (seasons[sKey][lbl] !== undefined) lastIdx = i; });
+                cumes[sKey] = allLabels.map((lbl, i) => {
+                    if (sKey === currentSeasonKey && i > lastIdx) return null;
+                    if (seasons[sKey][lbl] !== undefined) { running += seasons[sKey][lbl]; started = true; return running; }
+                    return started ? running : null;
                 });
             });
+            // Completed seasons = everything except the in-progress one (and seasons with partial coverage).
+            const completeKeys = seasonKeys.filter(k => k !== currentSeasonKey && Object.keys(seasons[k]).length >= allLabels.length - 3);
 
-            // --- Build chart datasets ---
-            let datasets = [];
-            seasonKeys.forEach(sKey => {
-                if (sKey === currentSeasonKey) {
-                    datasets.push({
-                        label: `Current Season (${sKey})`,
-                        data: cumes[sKey],
-                        borderColor: '#ffeb3b',
-                        borderWidth: 4,
-                        tension: 0.1,
-                        fill: false,
-                        zIndex: 10
-                    });
-                } else {
-                    let baseYear = parseInt(sKey.split('-')[0]);
-                    if (baseYear >= 1991 && baseYear <= 2020) {
-                        datasets.push({
-                            label: sKey,
-                            data: cumes[sKey],
-                            borderColor: 'rgba(255, 255, 255, 0.15)',
-                            borderWidth: 1,
-                            tension: 0.1,
-                            fill: false,
-                            pointRadius: 0,
-                            zIndex: 1
-                        });
-                    }
+            const avgOf = (keys) => allLabels.map((_, i) => {
+                const vals = keys.map(k => cumes[k][i]).filter(v => v !== null && v !== undefined);
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+            });
+            const firstYear = k => parseInt(k.split('-')[0]);
+            const normKeys30 = completeKeys.filter(k => firstYear(k) >= 1991 && firstYear(k) <= 2020);
+            const recent10 = completeKeys.slice(-10), recent5 = completeKeys.slice(-5);
+            const norm30 = avgOf(normKeys30), avg10 = avgOf(recent10), avg5 = avgOf(recent5);
+            const bandMin = allLabels.map((_, i) => { const v = completeKeys.map(k => cumes[k][i]).filter(x => x !== null); return v.length ? Math.min(...v) : null; });
+            const bandMax = allLabels.map((_, i) => { const v = completeKeys.map(k => cumes[k][i]).filter(x => x !== null); return v.length ? Math.max(...v) : null; });
+
+            // --- Observed vs forecast split for the current season ---
+            const curSeries = cumes[currentSeasonKey];
+            let lastObsIdx = -1, lastIdx = -1;
+            allLabels.forEach((lbl, i) => {
+                if (curSeries[i] === null) return;
+                lastIdx = i;
+                const fullDate = (() => {
+                    const mm = parseInt(lbl.substring(0, 2));
+                    const y = SEASON === 'HEATING' ? (mm >= 9 ? firstYear(currentSeasonKey) : firstYear(currentSeasonKey) + 1) : firstYear(currentSeasonKey);
+                    return `${y}-${lbl}`;
+                })();
+                if (!fcstDates.has(fullDate)) lastObsIdx = i;
+            });
+
+            // --- Selection state ---
+            const stateKey = SEASON;
+            if (!SEASON_UI[stateKey]) SEASON_UI[stateKey] = {};
+            const st = SEASON_UI[stateKey];
+            if (!Array.isArray(st.years)) st.years = completeKeys.slice(-2);   // default: current + last 2 seasons
+            if (!st.bench) st.bench = { n30: true, n10: true, n5: false, band: true, zoom: true };
+            if (st.bench.zoom === undefined) st.bench.zoom = true;
+            if (st.current === undefined) st.current = true;
+            st.years = st.years.filter(k => cumes[k]);
+
+            // Rank of the current season to date (index lastObsIdx) among all seasons with data at that point.
+            const statsEl = document.getElementById('seasonStats');
+            if (statsEl && lastObsIdx >= 0) {
+                const at = i => completeKeys.map(k => ({ k, v: cumes[k][i] })).filter(o => o.v !== null);
+                const obsNow = curSeries[lastObsIdx];
+                const peers = at(lastObsIdx);
+                const rankColdest = peers.filter(o => o.v > obsNow).length + 1;
+                const nrm = norm30[lastObsIdx], n10 = avg10[lastObsIdx];
+                const endV = curSeries[lastIdx], endN = norm30[lastIdx], endN10 = avg10[lastIdx];
+                const lastPrevSeason = completeKeys[completeKeys.length - 1];
+                const lyNow = lastPrevSeason ? cumes[lastPrevSeason][lastObsIdx] : null;
+                const f = (v) => (v >= 0 ? '+' : '') + v.toFixed(0);
+                const word = IS_CDD ? 'hottest' : (IS_BOTH ? 'highest-demand' : 'coldest');
+                let html = `<span>Season to date (${allLabels[lastObsIdx]}): <b>${obsNow.toFixed(0)}</b> ${DD_LABEL}</span>`;
+                if (nrm !== null) html += `<span>vs 30y: <b class="${obsNow - nrm >= 0 ? 'pos-val' : 'neg-val'}">${f(obsNow - nrm)}</b></span>`;
+                if (n10 !== null) html += `<span>vs 10y: <b class="${obsNow - n10 >= 0 ? 'pos-val' : 'neg-val'}">${f(obsNow - n10)}</b></span>`;
+                if (lyNow !== null && lyNow !== undefined) html += `<span>vs ${lastPrevSeason}: <b class="${obsNow - lyNow >= 0 ? 'pos-val' : 'neg-val'}">${f(obsNow - lyNow)}</b></span>`;
+                html += `<span>Rank: <b>#${rankColdest}</b> ${word} of ${peers.length + 1}</span>`;
+                if (lastIdx > lastObsIdx && endN !== null) {
+                    html += `<span>Through fcst end (${allLabels[lastIdx]}, ${forecastMeta.label || 'forecast'}): <b class="${endV - endN >= 0 ? 'pos-val' : 'neg-val'}">${f(endV - endN)}</b> vs 30y${endN10 !== null ? `, <b class="${endV - endN10 >= 0 ? 'pos-val' : 'neg-val'}">${f(endV - endN10)}</b> vs 10y` : ''}</span>`;
                 }
+                statsEl.innerHTML = html;
+            } else if (statsEl) {
+                statsEl.innerHTML = '';
+            }
+
+            // --- Chips ---
+            const chipsEl = document.getElementById('yrChips');
+            const colorFor = (k) => {
+                const idx = completeKeys.length - 1 - completeKeys.indexOf(k);
+                return YEAR_PALETTE[idx % YEAR_PALETTE.length];
+            };
+            const rebuild = () => { saveSeasonUi(); initSeasonalSpaghettiChart(historicalData, forecastMeta); };
+            if (chipsEl) {
+                chipsEl.innerHTML = '';
+                const mk = (text, on, color, onClick, title) => {
+                    const c = document.createElement('span');
+                    c.className = 'yr-chip' + (on ? ' on' : '');
+                    if (on) c.style.background = color;
+                    c.textContent = text;
+                    if (title) c.title = title;
+                    c.onclick = onClick;
+                    chipsEl.appendChild(c);
+                };
+                mk(`${currentSeasonKey} (current)`, st.current, '#ffeb3b', () => { st.current = !st.current; rebuild(); });
+                [...completeKeys].reverse().forEach(k => {
+                    const endTotal = cumes[k][allLabels.length - 1];
+                    mk(k, st.years.includes(k), colorFor(k), () => {
+                        st.years = st.years.includes(k) ? st.years.filter(x => x !== k) : [...st.years, k];
+                        rebuild();
+                    }, endTotal !== null ? `Full-season total: ${endTotal.toFixed(0)} ${DD_LABEL}` : '');
+                });
+            }
+            document.querySelectorAll('[data-yrset]').forEach(btn => {
+                btn.onclick = () => {
+                    const t = btn.dataset.yrset;
+                    if (t === 'all') st.years = [...completeKeys];
+                    else if (t === 'none') st.years = [];
+                    else if (t.startsWith('recent')) st.years = completeKeys.slice(-parseInt(t.replace('recent', '')));
+                    else if (t === 'extremes') {
+                        const ranked = completeKeys.map(k => ({ k, v: cumes[k][allLabels.length - 1] })).filter(o => o.v !== null).sort((a, b) => a.v - b.v);
+                        st.years = [...ranked.slice(0, 2), ...ranked.slice(-2)].map(o => o.k);
+                    }
+                    rebuild();
+                };
+            });
+            document.querySelectorAll('[data-bench]').forEach(btn => {
+                const key = btn.dataset.bench;
+                btn.style.borderColor = st.bench[key] ? 'var(--accent)' : '';
+                btn.style.color = st.bench[key] ? 'var(--accent)' : '';
+                btn.onclick = () => { st.bench[key] = !st.bench[key]; rebuild(); };
             });
 
-            datasets.push({
-                label: `30-yr Normal (1991-2020)`,
-                data: normData,
-                borderColor: SEASON_COLOR,
-                borderWidth: 2,
-                borderDash: [5, 5],
-                tension: 0.1,
-                fill: false,
-                pointRadius: 0,
-                zIndex: 9
+            // --- Datasets ---
+            const datasets = [];
+            if (st.bench.band) {
+                datasets.push({ label: `Historical range (${completeKeys[0] || ''} → ${completeKeys[completeKeys.length - 1] || ''})`, data: bandMax, borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(197,198,199,0.08)', order: 50 });
+                datasets.push({ label: 'Range (min)', data: bandMin, borderWidth: 0, pointRadius: 0, fill: false, order: 50 });
+            }
+            st.years.forEach(k => {
+                datasets.push({ label: k, data: cumes[k], borderColor: colorFor(k), borderWidth: 1.5, pointRadius: 0, tension: 0.1, fill: false, order: 5 });
             });
+            if (st.bench.n30) datasets.push({ label: '30-yr Normal (1991-2020)', data: norm30, borderColor: SEASON_COLOR, borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 3 });
+            if (st.bench.n10 && recent10.length) datasets.push({ label: `10-yr Avg (${recent10[0]}…${recent10[recent10.length - 1]})`, data: avg10, borderColor: '#a39171', borderWidth: 2, borderDash: [3, 3], pointRadius: 0, fill: false, order: 3 });
+            if (st.bench.n5 && recent5.length) datasets.push({ label: `5-yr Avg (${recent5[0]}…${recent5[recent5.length - 1]})`, data: avg5, borderColor: '#e0e0e0', borderWidth: 1.5, borderDash: [2, 4], pointRadius: 0, fill: false, order: 3 });
+            if (st.current) {
+                datasets.push({
+                    label: `Current Season (${currentSeasonKey})${lastIdx > lastObsIdx ? ' — dashed = ' + (forecastMeta.label || 'forecast') : ''}`,
+                    data: curSeries, borderColor: '#ffeb3b', borderWidth: 3.5, pointRadius: 0, tension: 0.1, fill: false, order: 1,
+                    segment: { borderDash: ctx => (ctx.p0DataIndex >= lastObsIdx && lastObsIdx >= 0) ? [6, 4] : undefined }
+                });
+            }
 
-            // Build x-axis month label positions (one label per month group)
-            // Chart.js will use allLabels (MM-DD) as tick values; we override callbacks for month headings
             const monthGroupStarts = {};
-            xTickLabels.forEach((lbl, idx) => {
-                // Find first allLabels entry for this month index
-                const targetM = monthAxis[idx].m;
-                const mStr = targetM < 10 ? '0' + targetM : '' + targetM;
-                const firstDayLabel = mStr + '-01';
-                const pos = allLabels.indexOf(firstDayLabel);
-                if (pos !== -1) monthGroupStarts[pos] = lbl;
+            monthAxis.forEach(item => {
+                const pos = allLabels.indexOf(String(item.m).padStart(2, '0') + '-01');
+                if (pos !== -1) monthGroupStarts[pos] = MONTHS[item.m - 1];
             });
 
-            let ctx = document.getElementById('winterSpaghettiChart').getContext('2d');
+            const ctx = document.getElementById('winterSpaghettiChart').getContext('2d');
             spaghettiChartInstance = new Chart(ctx, {
                 type: 'line',
-                data: { labels: allLabels, datasets: datasets },
+                data: { labels: allLabels, datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: {
-                            labels: {
-                                color: '#c5c6c7',
-                                filter: (item) => item.text.includes('Current') || item.text.includes('Normal')
-                            }
-                        },
+                        legend: { labels: { color: '#c5c6c7', boxWidth: 24, filter: (item) => item.text !== 'Range (min)' } },
                         tooltip: {
-                            backgroundColor: 'rgba(31,40,51,0.9)',
+                            backgroundColor: 'rgba(31,40,51,0.95)',
+                            filter: (item) => item.dataset.label !== 'Range (min)' && !String(item.dataset.label).startsWith('Range'),
+                            itemSort: (a, b) => (b.parsed.y ?? -1e9) - (a.parsed.y ?? -1e9),
                             callbacks: {
-                                title: (items) => items[0]?.label ?? '',
-                                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                                title: (items) => (items[0]?.label ?? '') + (items[0] && items[0].dataIndex > lastObsIdx && lastObsIdx >= 0 ? '  (forecast)' : ''),
+                                label: (c) => `${c.dataset.label}: ${c.parsed.y !== null ? c.parsed.y.toFixed(0) : '-'} ${DD_LABEL}s`
                             }
                         }
                     },
                     scales: {
                         x: {
-                            ticks: {
-                                color: '#c5c6c7',
-                                maxTicksLimit: 20,
-                                callback: function (val, idx) {
-                                    // Show month name only at the first day of each month
-                                    return monthGroupStarts[val] ?? null;
-                                }
-                            },
-                            grid: { color: '#2a3642' }
+                            max: (st.bench.zoom && lastIdx >= 0) ? allLabels[Math.min(allLabels.length - 1, lastIdx + 35)] : undefined,
+                            ticks: { color: '#c5c6c7', autoSkip: false, maxRotation: 0, callback: (val) => monthGroupStarts[val] ?? (st.bench.zoom && (val % 7 === 0) && ![1, 2, 3, 4].some(k => monthGroupStarts[val - k] || monthGroupStarts[val + k]) ? allLabels[val].substring(3) : null) },
+                            grid: { color: (c) => (monthGroupStarts[c.index] ? '#3a4652' : (st.bench.zoom && c.index % 7 === 0 ? '#232d38' : 'transparent')) }
                         },
-                        y: {
-                            ticks: { color: '#c5c6c7' },
-                            grid: { color: '#2a3642' },
-                            title: {
-                                display: true,
-                                text: `Cumulative Gas-Weighted ${DD_LABEL}s`,
-                                color: SEASON_COLOR
-                            }
-                        }
+                        y: { ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: true, text: `Cumulative Gas-Weighted ${DD_LABEL}s`, color: SEASON_COLOR },
+                             max: (st.bench.zoom && lastIdx >= 0) ? (() => { const cap = Math.min(allLabels.length - 1, lastIdx + 35); const vs = datasets.map(d => d.data[cap]).filter(v => v !== null && v !== undefined && !isNaN(v)); return vs.length ? Math.ceil(Math.max(...vs) * 1.08 / 50) * 50 : undefined; })() : undefined }
                     }
                 }
             });
@@ -1760,174 +1975,146 @@
 
         let monthlyChartInstance = null;
 
-        function initMonthlyOutlierChart(historicalData) {
+        function initMonthlyOutlierChart(historicalData, fc) {
             if (!historicalData || historicalData.length === 0) return;
+            fc = fc || { rows: [], meta: { lastObs: '' } };
 
-            let metricSel = document.getElementById('metricSelect');
-            let monthSel = document.getElementById('monthSelect');
-
-            // Default metric to global DD_LABEL on load
+            const metricSel = document.getElementById('metricSelect');
+            const monthSel = document.getElementById('monthSelect');
             metricSel.value = DD_LABEL;
+            if (!monthSel.dataset.userSet) monthSel.value = (TIME_TRAVEL_DATE || new Date()).getMonth() + 1;
 
-            let currentMonth = (TIME_TRAVEL_DATE || new Date()).getMonth() + 1; // 1-12
-            monthSel.value = currentMonth;
+            const lastObs = fc.meta.lastObs || historicalData.reduce((mx, r) => (r.date && String(r.date) > mx ? String(r.date).substring(0, 10) : mx), '');
+            const obsYear = parseInt(lastObs.substring(0, 4)), obsMonth = parseInt(lastObs.substring(5, 7));
 
             function renderChart(targetMonth, targetMetric) {
                 targetMonth = parseInt(targetMonth);
-                const metricField = { 'HDD': 'hdd_gw', 'CDD': 'cdd_gw', 'TDD': 'tdd_gw' }[targetMetric];
+                const field = { 'HDD': 'hdd_gw', 'CDD': 'cdd_gw', 'TDD': 'tdd_gw' }[targetMetric];
+                const dim = (y, m) => new Date(y, m, 0).getDate();
 
-                // Group data by year for the target month
-                let yearlyData = {}; // year -> sum of seasonally-correct DDs (requested field)
-                let yearlyCounts = {}; // year -> count of days (to detect partial months)
-
+                // Observed sums per year + 1991-2020 daily climatology for this month.
+                const sums = {}, counts = {}, clim = {};
                 historicalData.forEach(row => {
                     if (!row.date) return;
-                    let parts = String(row.date).split('-');
-                    if (parts.length !== 3) return;
-                    let y = parseInt(parts[0]);
-                    let m = parseInt(parts[1]);
+                    const d = String(row.date).substring(0, 10);
+                    const y = parseInt(d.substring(0, 4)), m = parseInt(d.substring(5, 7)), dd = parseInt(d.substring(8, 10));
+                    if (m !== targetMonth) return;
+                    const v = parseFloat(row[field]);
+                    if (isNaN(v)) return;
+                    sums[y] = (sums[y] || 0) + v;
+                    counts[y] = (counts[y] || 0) + 1;
+                    if (y >= 1991 && y <= 2020) { (clim[dd] = clim[dd] || []).push(v); }
+                });
+                const climDay = dd => (clim[dd] && clim[dd].length) ? clim[dd].reduce((a, b) => a + b, 0) / clim[dd].length : null;
 
-                    if (m === targetMonth) {
-                        if (!yearlyData[y]) {
-                            yearlyData[y] = 0;
-                            yearlyCounts[y] = 0;
-                        }
-                        yearlyData[y] += parseFloat(row[metricField] ?? 0);
-                        yearlyCounts[y] += 1;
+                // The "live" occurrence of this month: the current month, or the next upcoming one.
+                const liveYear = (targetMonth >= obsMonth) ? obsYear : obsYear + 1;
+                const fcByDay = {};
+                (fc.rows || []).forEach(r => {
+                    const d = String(r.date).substring(0, 10);
+                    if (parseInt(d.substring(0, 4)) === liveYear && parseInt(d.substring(5, 7)) === targetMonth) {
+                        const v = parseFloat(r[field]);
+                        if (!isNaN(v)) fcByDay[parseInt(d.substring(8, 10))] = v;
                     }
                 });
+                const liveObs = sums[liveYear] || 0, liveObsN = counts[liveYear] || 0;
+                const fcVals = Object.values(fcByDay);
+                const fcSum = fcVals.reduce((a, b) => a + b, 0);
+                let normFill = 0, normN = 0;
+                const nDays = dim(liveYear, targetMonth);
+                const observedDays = new Set();
+                historicalData.forEach(r => { const d = String(r.date || '').substring(0, 10); if (parseInt(d.substring(0, 4)) === liveYear && parseInt(d.substring(5, 7)) === targetMonth) observedDays.add(parseInt(d.substring(8, 10))); });
+                for (let dd = 1; dd <= nDays; dd++) {
+                    if (observedDays.has(dd) || fcByDay[dd] !== undefined) continue;
+                    const c = climDay(dd);
+                    if (c !== null) { normFill += c; normN++; }
+                }
+                const hasLive = liveObsN > 0 || fcVals.length > 0;
+                const liveTotal = liveObs + fcSum + normFill;
 
-                let years = Object.keys(yearlyData).map(Number).sort((a, b) => a - b);
-                if (years.length === 0) return;
+                // Completed months only (partial months would rank as artificially mild).
+                const years = Object.keys(sums).map(Number)
+                    .filter(y => counts[y] >= dim(y, targetMonth) - 1 && !(hasLive && y === liveYear))
+                    .sort((a, b) => a - b);
+                if (years.length === 0 && !hasLive) return;
 
-                // Determine 10-year and 30-year normals. Use completely finished years ideally.
-                // We'll just define 30y as 1991-2020, and 10y as 2014-2023 for standard benchmarks if available.
-                let norm30Sum = 0, norm30Count = 0;
-                let norm10Sum = 0, norm10Count = 0;
+                const mean = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+                const n30 = mean(years.filter(y => y >= 1991 && y <= 2020).map(y => sums[y]));
+                const last10 = years.slice(-10);
+                const n10 = mean(last10.map(y => sums[y]));
 
-                years.forEach(y => {
-                    if (y >= 1991 && y <= 2020 && yearlyCounts[y] >= 28) { // basic full month check
-                        norm30Sum += yearlyData[y];
-                        norm30Count += 1;
-                    }
-                    if (y >= 2014 && y <= 2023 && yearlyCounts[y] >= 28) {
-                        norm10Sum += yearlyData[y];
-                        norm10Count += 1;
-                    }
-                });
+                const labels = years.map(String);
+                const obsData = years.map(y => sums[y]);
+                const fcData = years.map(() => null);
+                const nfData = years.map(() => null);
+                const colors = years.map(y => (y === liveYear - 1 ? '#5c9bd6' : '#337ab7'));
 
-                let norm30 = norm30Count > 0 ? norm30Sum / norm30Count : 0;
-                let norm10 = norm10Count > 0 ? norm10Sum / norm10Count : 0;
-
-                // Chart labels and data
-                // To keep it clean, maybe just show last 25 years or let it scroll? Bar charts can handle 30+ bars.
-                let displayYears = years;
-                let displayData = displayYears.map(y => yearlyData[y]);
-
-                let currentYearData = displayData[displayData.length - 1];
-                let sortedData = [...displayData].sort((a, b) => b - a);
-                let rank = sortedData.indexOf(currentYearData) + 1;
-                let isExtreme = rank <= 5 || rank > (displayData.length - 5);
-
-                let bgColors = displayYears.map(y => {
-                    if (y === years[years.length - 1]) return isExtreme ? '#f44336' : '#ff9800'; // RED if Top/Bottom 5, ORANGE otherwise
-                    return '#337ab7'; // Historical blue
-                });
-
-                let datasets = [{
-                    label: `${DD_LABEL}s (Gas-Weighted)`,
-                    data: displayData,
-                    backgroundColor: bgColors,
-                    borderWidth: 0,
-                    barPercentage: 0.7,
-                    zIndex: 2
-                }];
-
-                // Add Normal Lines via a line dataset over the bars
-                if (norm30 > 0) {
-                    datasets.push({
-                        label: '30-yr Normal (1991-2020)',
-                        data: displayYears.map(() => norm30),
-                        type: 'line',
-                        borderColor: '#2a3642', // Dark line
-                        borderWidth: 3,
-                        borderDash: [],
-                        pointRadius: 0,
-                        fill: false,
-                        zIndex: 3
-                    });
+                let rankTxt = '';
+                if (hasLive) {
+                    labels.push(`${liveYear} (proj)`);
+                    obsData.push(liveObs);
+                    fcData.push(fcSum || null);
+                    nfData.push(normFill || null);
+                    const allTotals = [...years.map(y => sums[y]), liveTotal].sort((a, b) => b - a);
+                    const rank = allTotals.indexOf(liveTotal) + 1;
+                    const extreme = rank <= 5 || rank > allTotals.length - 5;
+                    colors.push(extreme ? '#f44336' : '#ff9800');
+                    const word = targetMetric === 'CDD' ? 'hottest' : (targetMetric === 'TDD' ? 'highest' : 'coldest');
+                    rankTxt = ` — ${liveYear} projected ${liveTotal.toFixed(0)} (#${rank} ${word} of ${allTotals.length}` +
+                        (n30 !== null ? `, ${(liveTotal - n30 >= 0 ? '+' : '')}${(liveTotal - n30).toFixed(0)} vs 30y` : '') + ')';
                 }
 
-                if (norm10 > 0) {
-                    datasets.push({
-                        label: '10-yr Normal (2014-2023)',
-                        data: displayYears.map(() => norm10),
-                        type: 'line',
-                        borderColor: '#9e9e9e', // Grey line
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        pointRadius: 0,
-                        fill: false,
-                        zIndex: 4
-                    });
+                const datasets = [
+                    { label: 'Observed (ERA5)', data: obsData, backgroundColor: colors, stack: 's', borderWidth: 0, barPercentage: 0.8, order: 2 },
+                ];
+                if (hasLive) {
+                    datasets.push({ label: `Forecast days (${fc.meta.label || 'model'})`, data: fcData, backgroundColor: 'rgba(255,152,0,0.45)', borderColor: '#ff9800', borderWidth: 1, stack: 's', barPercentage: 0.8, order: 2 });
+                    datasets.push({ label: 'Remaining days at 30y normal', data: nfData, backgroundColor: 'rgba(197,198,199,0.25)', borderColor: '#777', borderWidth: 1, stack: 's', barPercentage: 0.8, order: 2 });
                 }
+                if (n30 !== null) datasets.push({ label: '30-yr Normal (1991-2020)', data: labels.map(() => n30), type: 'line', stack: 'n30', borderColor: '#66fcf1', borderWidth: 2, pointRadius: 0, fill: false, order: 1 });
+                if (n10 !== null && last10.length) datasets.push({ label: `10-yr Avg (${last10[0]}-${last10[last10.length - 1]})`, data: labels.map(() => n10), type: 'line', stack: 'n10', borderColor: '#a39171', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 1 });
 
-                if (monthlyChartInstance) {
-                    monthlyChartInstance.data.labels = displayYears;
-                    monthlyChartInstance.data.datasets = datasets;
-                    monthlyChartInstance.options.plugins.legend.labels.color = '#c5c6c7';
-                    monthlyChartInstance.options.plugins.tooltip.callbacks.label = (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${targetMetric}s`;
-                    monthlyChartInstance.options.scales.y.title.text = `${targetMetric}s`;
-                    monthlyChartInstance.update();
-                } else {
-                    let ctx = document.getElementById('monthlyOutlierChart').getContext('2d');
-                    monthlyChartInstance = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: displayYears,
-                            datasets: datasets
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: {
-                                legend: {
-                                    labels: { color: '#c5c6c7' }
-                                },
-                                tooltip: {
-                                    backgroundColor: 'rgba(31,40,51,0.9)',
-                                    callbacks: {
-                                        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${targetMetric}s`
+                if (monthlyChartInstance) monthlyChartInstance.destroy();
+                const ctx = document.getElementById('monthlyOutlierChart').getContext('2d');
+                monthlyChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, animation: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { labels: { color: '#c5c6c7', boxWidth: 18 } },
+                            tooltip: {
+                                backgroundColor: 'rgba(31,40,51,0.95)',
+                                filter: (it) => it.parsed.y !== null && it.parsed.y !== 0,
+                                callbacks: {
+                                    label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} ${targetMetric}s`,
+                                    footer: (items) => {
+                                        const i = items[0]?.dataIndex;
+                                        if (i === undefined) return '';
+                                        const tot = (obsData[i] || 0) + (fcData[i] || 0) + (nfData[i] || 0);
+                                        const out = [`Total: ${tot.toFixed(1)}`];
+                                        if (n30 !== null) out.push(`vs 30y: ${(tot - n30 >= 0 ? '+' : '')}${(tot - n30).toFixed(1)}`);
+                                        if (hasLive && i === labels.length - 1) out.push(`${liveObsN} obs + ${fcVals.length} fcst + ${normN} normal days`);
+                                        return out;
                                     }
                                 }
-                            },
-                            scales: {
-                                x: {
-                                    ticks: { color: '#c5c6c7', maxRotation: 45, minRotation: 45 },
-                                    grid: { display: false }
-                                },
-                                y: {
-                                    ticks: { color: '#c5c6c7' },
-                                    grid: { color: '#2a3642' },
-                                    title: { display: true, text: `${targetMetric}s`, color: SEASON_COLOR }
-                                }
                             }
+                        },
+                        scales: {
+                            x: { stacked: true, ticks: { color: '#c5c6c7', maxRotation: 45, minRotation: 45 }, grid: { display: false } },
+                            y: { stacked: true, ticks: { color: '#c5c6c7' }, grid: { color: '#2a3642' }, title: { display: true, text: `${targetMetric}s`, color: SEASON_COLOR } }
                         }
-                    });
-                }
+                    }
+                });
 
-                // Update section title
-                document.getElementById('monthly-matrix-title').innerText = `Historical Monthly ${targetMetric}s`;
+                const mName = monthSel.options[monthSel.selectedIndex]?.text || '';
+                document.getElementById('monthly-matrix-title').innerText = `Historical ${mName} ${targetMetric}s${rankTxt}`;
             }
 
             renderChart(monthSel.value, metricSel.value);
-            monthSel.onchange = () => {
-                renderChart(monthSel.value, metricSel.value);
-            };
-            metricSel.onchange = () => {
-                renderChart(monthSel.value, metricSel.value);
-            };
+            monthSel.onchange = () => { monthSel.dataset.userSet = '1'; renderChart(monthSel.value, metricSel.value); };
+            metricSel.onchange = () => renderChart(monthSel.value, metricSel.value);
         }
 
         let runChartInstance = null;
@@ -1967,62 +2154,100 @@
             masterData.forEach(r => { if (r.date) globalDatesSet.add(r.date.substring(0, 10)); });
             const globalLabels = Array.from(globalDatesSet).sort();
 
+            const latestRunByModel = {};
+            masterData.forEach(r => {
+                if (!r.model || !r.run_id) return;
+                const rid = String(r.run_id);
+                if (!latestRunByModel[r.model] || rid > latestRunByModel[r.model]) latestRunByModel[r.model] = rid;
+            });
+
             sel.onchange = () => {
                 updateChart(masterData, normalMap, normal10Map, sel.value, globalLabels);
-                updateMap(sel.value, mapManifest);
+                updateMap(sel.value, mapManifest, latestRunByModel[sel.value]);
             };
 
             updateChart(masterData, normalMap, normal10Map, sel.value || models[0], globalLabels);
-            updateMap(sel.value || models[0], mapManifest);
+            updateMap(sel.value || models[0], mapManifest, latestRunByModel[sel.value || models[0]]);
         }
 
-        function updateMap(selectedModel, manifest) {
-            let img = document.getElementById('shiftMapGif');
-            let err = document.getElementById('mapError');
-            let mapSelect = document.getElementById('mapRunSelect');
+        function fmtRunLabel(rid) {
+            // 20261122_12 -> "Nov 22 12z"; 20261123_seamless -> "Nov 23"
+            const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})?/.exec(String(rid || ''));
+            if (!m) return String(rid || '');
+            const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m[2]) - 1];
+            return `${mon} ${parseInt(m[3])}${m[4] ? ' ' + m[4] + 'z' : ''}`;
+        }
 
-            const mapModels = ['ECMWF', 'GFS', 'GEFS', 'GEFS_35D', 'ECMWF_ENS', 'ECMWF_AIFS', 'AIGFS', 'HGEFS', 'CMC_ENS', 'GOOGLE_WN2', 'GOOGLE_WN3', 'AIGEFS', 'AIFS_ENS', 'UKMO_ENS', 'EC46', 'HRRR', 'NAM', 'NBM', 'ICON', 'FOURCASTNETV2-SMALL'];
-            if (mapModels.includes(selectedModel) && manifest[selectedModel] && manifest[selectedModel].length > 0) {
-                img.style.display = 'block';
-                err.style.display = 'none';
-                mapSelect.style.display = 'inline-block';
+        function updateMap(selectedModel, manifest, modelLatestRun) {
+            const img = document.getElementById('shiftMapGif');
+            const err = document.getElementById('mapError');
+            const mapSelect = document.getElementById('mapRunSelect');
+            const note = document.getElementById('mapNote');
+            const entries = (manifest && manifest[selectedModel]) || [];
 
-                // Clear dropdown
-                mapSelect.innerHTML = '';
+            // Only offer maps built from the model's newest mapped run. The old
+            // dropdown deduplicated by *previous* run and labelled every option
+            // "Latest vs X", so a day-old "18z vs 06z" map was presented as the
+            // latest run's comparison.
+            const shift = entries.filter(e => (e.kind || 'shift') === 'shift' && e.previous);
+            const anom = entries.filter(e => e.kind === 'anom');
+            const newestShift = shift.length ? shift.map(e => e.latest).sort().slice(-1)[0] : null;
+            const newestAnom = anom.length ? anom.map(e => e.latest).sort().slice(-1)[0] : null;
+            const options = [];
+            if (newestAnom) {
+                const e = anom.find(x => x.latest === newestAnom);
+                options.push({ file: e.file, run: e.latest, text: `Anomaly vs normal · ${fmtRunLabel(e.latest)}` });
+            }
+            if (newestShift) {
+                shift.filter(e => e.latest === newestShift)
+                    .sort((x, y) => (x.hours ?? 999) - (y.hours ?? 999))
+                    .forEach(e => {
+                        const h = (e.hours !== undefined && e.hours !== null) ? ` (${e.hours}h)` : '';
+                        options.push({ file: e.file, run: e.latest, text: `Change: ${fmtRunLabel(e.latest)} vs ${fmtRunLabel(e.previous)}${h}` });
+                    });
+            }
 
-                // Populate dropdown (deduplicated by previous run ID, limit to 3)
-                const seen = new Set();
-                const uniqueMaps = [];
-                for (const mapObj of manifest[selectedModel]) {
-                    if (!seen.has(mapObj.previous)) {
-                        seen.add(mapObj.previous);
-                        uniqueMaps.push(mapObj);
-                    }
-                    if (uniqueMaps.length === 3) break;
-                }
-                uniqueMaps.forEach(mapObj => {
-                    let opt = document.createElement('option');
-                    opt.value = mapObj.file;
-                    opt.innerText = `Latest vs ${mapObj.previous}`;
-                    mapSelect.appendChild(opt);
-                });
-
-                const ts = new Date().getTime();
-
-                // Set initial image to the first map (Latest vs Prev)
-                img.src = `outputs/maps/${manifest[selectedModel][0].file}?t=${ts}`;
-                img.onerror = () => { img.style.display = 'none'; err.style.display = 'block'; };
-
-                // Add listener to dropdown to change the map
-                mapSelect.onchange = () => {
-                    img.src = `outputs/maps/${mapSelect.value}?t=${ts}`;
-                };
-
-            } else {
+            if (options.length === 0) {
                 img.style.display = 'none';
                 err.style.display = 'block';
                 mapSelect.style.display = 'none';
+                if (note) note.innerText = '';
+                return;
             }
+
+            const prevChoice = mapSelect.value;
+            mapSelect.innerHTML = '';
+            options.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.file;
+                opt.dataset.run = o.run;
+                opt.innerText = o.text;
+                mapSelect.appendChild(opt);
+            });
+            // Prefer the shortest-lag change map by default; keep the user's choice of kind on model switch.
+            const wantAnom = prevChoice && prevChoice.includes('_anom_');
+            const def = options.find(o => wantAnom ? o.file.includes('_anom_') : o.file.includes('_shift_')) || options[0];
+            mapSelect.value = def.file;
+            mapSelect.style.display = 'inline-block';
+
+            const ts = Date.now();
+            const show = (file, run) => {
+                img.style.display = 'block';
+                err.style.display = 'none';
+                img.src = `outputs/maps/${file}?t=${ts}`;
+                if (note) {
+                    const stale = modelLatestRun && run && String(run).slice(0, 11) < String(modelLatestRun).slice(0, 11);
+                    note.innerHTML = stale
+                        ? `<span style="color:#ff9800;">⚠ Map built from ${fmtRunLabel(run)}; model's latest run is ${fmtRunLabel(modelLatestRun)} — map refreshes on the next pipeline pass.</span>`
+                        : `Map run: ${fmtRunLabel(run)}. Blue = colder / cooler, red = warmer. Frames step one forecast day at a time.`;
+                }
+            };
+            img.onerror = () => { img.style.display = 'none'; err.style.display = 'block'; };
+            show(def.file, def.run);
+            mapSelect.onchange = () => {
+                const o = mapSelect.options[mapSelect.selectedIndex];
+                show(o.value, o.dataset.run);
+            };
         }
 
         function updateChart(data, normalMap, normal10Map, selectedModel, globalLabels) {
@@ -2114,11 +2339,96 @@
                 });
             }
 
+            // ── Change bars (latest run minus comparison run, image-1 style) ──
+            const cmpRun = pickCompareRun(runs, CHANGE_MODE);
+            let chgData = labels.map(() => null);
+            if (cmpRun) {
+                const L = {}, C = {};
+                modelData.forEach(r => {
+                    const d = r.date.substring(0, 10), rid = String(r.run_id);
+                    if (rid === runs[0]) L[d] = ddVal(r);
+                    else if (rid === cmpRun) C[d] = ddVal(r);
+                });
+                chgData = labels.map(d => (L[d] !== undefined && C[d] !== undefined && !isNaN(L[d]) && !isNaN(C[d])) ? +(L[d] - C[d]).toFixed(2) : null);
+                if (chgData.some(v => v !== null)) {
+                    datasets.push({
+                        type: 'bar', label: `Change vs ${fmtRunLabel(cmpRun)}`, data: chgData, yAxisID: 'y1', order: 20,
+                        backgroundColor: chgData.map(v => v === null ? 'transparent' : (v >= 0 ? 'rgba(76,175,80,0.45)' : 'rgba(244,67,54,0.45)')),
+                        borderColor: chgData.map(v => v === null ? 'transparent' : (v >= 0 ? '#4caf50' : '#f44336')), borderWidth: 1,
+                        barPercentage: 0.55
+                    });
+                }
+            }
+
+            // ── Multi-model envelope: min/max of every other active model's latest run ──
+            const todayCut = addDaysIso(deskDay1(), -2);
+            const latestByModel = {};
+            data.forEach(r => {
+                if (!r.model || !r.run_id || !r.date || r.model === selectedModel) return;
+                const rid = String(r.run_id);
+                if (!latestByModel[r.model] || rid > latestByModel[r.model]) latestByModel[r.model] = rid;
+            });
+            const env = {};
+            data.forEach(r => {
+                if (!r.model || r.model === selectedModel || String(r.run_id) !== latestByModel[r.model]) return;
+                const d = r.date.substring(0, 10);
+                if (d < todayCut) return;
+                const v = ddVal(r);
+                if (v === null || isNaN(v)) return;
+                (env[d] = env[d] || []).push(v);
+            });
+            const envMax = labels.map(d => env[d] && env[d].length >= 3 ? Math.max(...env[d]) : null);
+            const envMin = labels.map(d => env[d] && env[d].length >= 3 ? Math.min(...env[d]) : null);
+            if (envMax.some(v => v !== null)) {
+                datasets.push({ label: 'Other models: range of latest runs', data: envMax, borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: 'rgba(197,198,199,0.10)', order: 30, tension: 0.3 });
+                datasets.push({ label: '__envmin', data: envMin, borderWidth: 0, pointRadius: 0, fill: false, order: 30, tension: 0.3 });
+            }
+
+            // ── Horizon shading (1-5 / 6-10 / 11-15 from today) + change labels ──
+            const d1 = deskDay1();
+            const bands = [[0, 4, '1-5 Day'], [5, 9, '6-10 Day'], [10, 14, '11-15 Day']].map(([f, t, txt]) => ({ from: addDaysIso(d1, f), to: addDaysIso(d1, t), txt }));
+            const horizonPlugin = {
+                id: 'horizonBands',
+                beforeDatasetsDraw(chart) {
+                    const { ctx, chartArea: ca, scales: { x } } = chart;
+                    if (!x || !ca) return;
+                    const lbls = chart.data.labels;
+                    const step = lbls.length > 1 ? (x.getPixelForValue(1) - x.getPixelForValue(0)) : 0;
+                    bands.forEach((bd, i) => {
+                        const iFrom = lbls.findIndex(l => l >= bd.from), iTo = lbls.map(l => l <= bd.to).lastIndexOf(true);
+                        if (iFrom < 0 || iTo < iFrom) return;
+                        const x0 = Math.max(ca.left, x.getPixelForValue(iFrom) - step / 2), x1 = Math.min(ca.right, x.getPixelForValue(iTo) + step / 2);
+                        ctx.save();
+                        ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.0)';
+                        ctx.fillRect(x0, ca.top, x1 - x0, ca.bottom - ca.top);
+                        ctx.fillStyle = '#8a949e'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+                        ctx.fillText(bd.txt, (x0 + x1) / 2, ca.top + 12);
+                        ctx.restore();
+                    });
+                },
+                afterDatasetsDraw(chart) {
+                    const di = chart.data.datasets.findIndex(d => d.yAxisID === 'y1');
+                    if (di < 0 || !chart.isDatasetVisible(di)) return;
+                    const meta = chart.getDatasetMeta(di), ctx = chart.ctx;
+                    ctx.save();
+                    ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#e0e0e0';
+                    meta.data.forEach((el, i) => {
+                        const v = chart.data.datasets[di].data[i];
+                        if (v === null || v === undefined || Math.abs(v) < 0.05) return;
+                        ctx.fillText((v > 0 ? '+' : '') + v.toFixed(1), el.x, v >= 0 ? el.y - 3 : el.y + 11);
+                    });
+                    ctx.restore();
+                }
+            };
+            const maxChg = Math.max(2, ...chgData.filter(v => v !== null).map(Math.abs));
+
             if (runChartInstance) {
                 runChartInstance.destroy();
             }
 
             const isMobile = window.innerWidth <= 768;
+            const titleEl = document.getElementById('runChartTitle');
+            if (titleEl) titleEl.innerText = `${selectedModel}: recent runs vs normals` + (cmpRun ? ` · bars = latest minus ${fmtRunLabel(cmpRun)}` : '');
             let ctx = document.getElementById('runChart').getContext('2d');
             runChartInstance = new Chart(ctx, {
                 type: 'line',
@@ -2126,23 +2436,32 @@
                     labels: labels,
                     datasets: datasets
                 },
+                plugins: [horizonPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: {
                             labels: {
                                 color: '#c5c6c7',
-                                boxWidth: isMobile ? 20 : 40,
-                                font: { size: isMobile ? 10 : 12 },
-                                padding: isMobile ? 6 : 10
+                                boxWidth: isMobile ? 20 : 30,
+                                font: { size: isMobile ? 10 : 11 },
+                                padding: isMobile ? 6 : 8,
+                                filter: (item) => item.text !== '__envmin'
                             }
                         },
                         tooltip: {
-                            backgroundColor: 'rgba(31,40,51,0.9)',
+                            backgroundColor: 'rgba(31,40,51,0.95)',
+                            filter: (item) => item.dataset.label !== '__envmin' && !String(item.dataset.label).startsWith('Other models'),
                             callbacks: {
-                                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`
+                                label: (c) => `${c.dataset.label}: ${c.parsed.y !== null ? (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1) : '-'} ${DD_LABEL}s`,
+                                footer: (items) => {
+                                    const i = items[0]?.dataIndex;
+                                    if (i === undefined || envMin[i] === null) return '';
+                                    return `Other models' range: ${envMin[i].toFixed(1)} – ${envMax[i].toFixed(1)} (${(env[labels[i]] || []).length} models)`;
+                                }
                             }
                         }
                     },
@@ -2152,7 +2471,12 @@
                                 color: '#c5c6c7',
                                 maxRotation: isMobile ? 45 : 0,
                                 minRotation: isMobile ? 45 : 0,
-                                font: { size: isMobile ? 9 : 12 }
+                                font: { size: isMobile ? 9 : 11 },
+                                callback: function (val) {
+                                    const l = this.getLabelForValue(val);
+                                    const d = new Date(l + 'T00:00:00Z');
+                                    return isNaN(d) ? l : `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]} ${d.getUTCDate()}`;
+                                }
                             },
                             grid: { color: '#2a3642' }
                         },
@@ -2164,6 +2488,14 @@
                                 text: `Gas-Weighted ${DD_LABEL}s`,
                                 color: SEASON_COLOR
                             }
+                        },
+                        y1: {
+                            display: chgData.some(v => v !== null),
+                            position: 'right',
+                            min: -Math.ceil(maxChg * 2.2), max: Math.ceil(maxChg * 2.2),
+                            ticks: { color: '#777', font: { size: 9 } },
+                            grid: { drawOnChartArea: false },
+                            title: { display: !isMobile, text: 'Run change', color: '#777' }
                         }
                     }
                 }
@@ -2433,7 +2765,7 @@
             },
             "10y N": {
                 title: "10-Year Normal",
-                body: "The 10-year daily historical normals (2011–2020) mapped to this forecast period."
+                body: "The 10-year daily historical normals (2016–2025) mapped to this forecast period."
             },
             "10y A": {
                 title: "10-Year Anomaly",

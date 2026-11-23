@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import datetime
+import re
 import requests
 import subprocess
 from pathlib import Path
@@ -15,6 +16,38 @@ GFS_CYCLES = ["00", "06", "12", "18"]
 # ECMWF only publishes 15-day forecasts (up to 360h) at 00z and 12z.
 # (06z and 18z are short-range and ignored by our current fetch logic anyway)
 ECMWF_CYCLES = ["00", "12"]
+
+# Open-Meteo availability probes only confirm that the API serves *today's*
+# date, which is true for every cycle of the day — including cycles that have
+# not been initialised yet. Without a time gate the poller recorded future
+# run IDs (e.g. "<today>_18" at 01Z), which then blocked every later same-day
+# cycle from triggering. A cycle can only be live once its init time plus the
+# model's minimum publication lag has passed.
+OM_MIN_LAG_H = {
+    "CMC_ENS": 6, "GOOGLE_WN2": 7, "GOOGLE_WN3": 7, "AIGEFS": 4,
+    "AIFS_ENS": 5, "UKMO_ENS": 5,
+}
+
+
+def cycle_ready(date_str, cycle, lag_hours, now=None):
+    """True when init time + lag_hours is in the past."""
+    now = now or datetime.datetime.now(datetime.UTC)
+    init = datetime.datetime.strptime(f"{date_str}{cycle}", "%Y%m%d%H").replace(tzinfo=datetime.UTC)
+    return init + datetime.timedelta(hours=lag_hours) <= now
+
+
+def sanitize_state(state, now=None):
+    """Drop run IDs recorded for cycles that cannot have been published yet."""
+    now = now or datetime.datetime.now(datetime.UTC)
+    for key, lag in OM_MIN_LAG_H.items():
+        rid = state.get(key, "")
+        if isinstance(rid, str) and re.match(r"^\d{8}_\d{2}$", rid) and not cycle_ready(rid[:8], rid[9:], lag, now):
+            # Roll back to the newest cycle that could plausibly exist.
+            t = now - datetime.timedelta(hours=lag)
+            hh = (t.hour // 12) * 12 if key not in ("AIGEFS",) else (t.hour // 6) * 6
+            state[key] = f"{t.strftime('%Y%m%d')}_{hh:02d}"
+            print(f"  [STATE FIX] {key} pointed at unpublished cycle {rid}; reset to {state[key]}")
+    return state
 
 def load_state():
     if not os.path.exists(STATE_FILE):
@@ -296,7 +329,7 @@ def check_ec46_complete(date_str):
     except: return False
 
 def poll():
-    state = load_state()
+    state = sanitize_state(load_state())
     ts = datetime.datetime.now(datetime.UTC).isoformat()
     now_utc = datetime.datetime.now(datetime.UTC)
     
@@ -395,7 +428,7 @@ def poll():
     for d in dates_to_check:
         for c in ["00", "12"]:
             run_id = f"{d}_{c}"
-            if run_id > state.get("CMC_ENS", ""):
+            if run_id > state.get("CMC_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["CMC_ENS"]):
                 print(f"  [PING] Checking CMC ENS {run_id} availability...")
                 if check_cmc_ens_complete(d, c):
                     latest_cmc_avail = run_id
@@ -409,7 +442,7 @@ def poll():
     for d in dates_to_check:
         for c in ["00", "12"]:
             run_id = f"{d}_{c}"
-            if run_id > state.get("GOOGLE_WN2", ""):
+            if run_id > state.get("GOOGLE_WN2", "") and cycle_ready(d, c, OM_MIN_LAG_H["GOOGLE_WN2"]):
                 print(f"  [PING] Checking GOOGLE_WN2 {run_id} availability...")
                 if check_google_wn2_complete(d, c):
                     latest_wn2_avail = run_id
@@ -425,7 +458,7 @@ def poll():
         for d in dates_to_check:
             for c in ["00", "12"]:
                 run_id = f"{d}_{c}"
-                if run_id > state.get("GOOGLE_WN3", ""):
+                if run_id > state.get("GOOGLE_WN3", "") and cycle_ready(d, c, OM_MIN_LAG_H["GOOGLE_WN3"]):
                     url = f"https://ensemble-api.open-meteo.com/v1/ensemble?latitude=40&longitude=-100&daily=temperature_2m_mean&models={om_wn3}&forecast_days=1"
                     try:
                         r = requests.get(url, timeout=5)
@@ -446,7 +479,7 @@ def poll():
     for d in dates_to_check:
         for c in ["00", "06", "12", "18"]:
             run_id = f"{d}_{c}"
-            if run_id > state.get("AIGEFS", ""):
+            if run_id > state.get("AIGEFS", "") and cycle_ready(d, c, OM_MIN_LAG_H["AIGEFS"]):
                 print(f"  [PING] Checking AIGEFS {run_id} availability...")
                 if check_aigefs_complete(d, c):
                     latest_aigefs_avail = run_id
@@ -460,7 +493,7 @@ def poll():
     for d in dates_to_check:
         for c in ["00", "12"]:
             run_id = f"{d}_{c}"
-            if run_id > state.get("AIFS_ENS", ""):
+            if run_id > state.get("AIFS_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["AIFS_ENS"]):
                 print(f"  [PING] Checking AIFS_ENS {run_id} availability...")
                 if check_aifs_ens_complete(d, c):
                     latest_aifs_ens_avail = run_id
@@ -474,7 +507,7 @@ def poll():
     for d in dates_to_check:
         for c in ["00", "12"]:
             run_id = f"{d}_{c}"
-            if run_id > state.get("UKMO_ENS", ""):
+            if run_id > state.get("UKMO_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["UKMO_ENS"]):
                 print(f"  [PING] Checking UKMO_ENS {run_id} availability...")
                 if check_ukmo_ens_complete(d, c):
                     latest_ukmo_avail = run_id
