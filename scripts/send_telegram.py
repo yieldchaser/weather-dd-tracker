@@ -292,7 +292,7 @@ def _load_live_grid():
 
 # ── Weather pattern section ─────────────────────────────────────────────────
 
-def _fmt_regime():
+def _fmt_regime(season=None):
     regime_file = Path("outputs/regimes/current_regime.json")
     if not regime_file.exists():
         return ""
@@ -313,14 +313,19 @@ def _fmt_regime():
         # summer (a ridge IS the cooling-demand heat). The old unconditional
         # mapping printed 'Arctic Block / Trough East 🟢 Bullish' in August,
         # contradicting the composite line above it.
-        month_now = date.today().month
         has_block = "Arctic Block" in clean_label
         has_pv    = "Polar Vortex" in clean_label
         ridge     = ("Ridge East" in clean_label) or ("Ridge West" in clean_label)
         trough    = ("Trough East" in clean_label) or ("Trough West" in clean_label)
         zonal     = "Zonal Flow" in clean_label
 
-        if month_now in (6, 7, 8):
+        if season is None:
+            season = active_metric(date.today())
+        if season == "BOTH":
+            # Shoulder months: neither heating nor cooling load dominates,
+            # so a pattern moves gas demand little either way.
+            bias = "⚪ Shoulder season, small demand impact"
+        elif season == "CDD":
             if ridge:
                 bias = "🟢 Bullish (summer heat)"
             elif trough or has_pv or zonal:
@@ -642,9 +647,9 @@ def _fmt_consensus(df, tdd_col, season):
         return ""
 
 
-def _regime_line():
+def _regime_line(season=None):
     """One line: pattern, persistence, what it means for the East."""
-    full = _fmt_regime()
+    full = _fmt_regime(season)
     if not full:
         return ""
     first = full.split("\n")[0]
@@ -663,7 +668,9 @@ def _tele_line(season):
             return ""
         x = -v if cold_pos else v
         if season == "CDD":
-            return "🟢" if x > 0.5 else ("🔴" if x < -0.5 else "⚪")
+            # These indices steer cold-season flow; their summer link to
+            # US cooling demand is weak, so no colour is implied.
+            return "⚪"
         return "🟢" if x < -0.5 else ("🔴" if x > 0.5 else "⚪")
     parts = []
     for k, cp in (("ao", False), ("nao", False), ("pna", True), ("epo", False)):
@@ -909,7 +916,7 @@ def main():
     tl = _tele_line(season)
     if tl:
         drv.append(tl)
-    rl = _regime_line()
+    rl = _regime_line(season)
     if rl:
         drv.append(rl)
     if comp_data.get("signal"):
@@ -977,6 +984,8 @@ def main():
 
     msg = ("\n\n").join(sections).strip()
 
+    # A value that rounds to zero reads as 0, never "-0.0" / "+0.0".
+    msg = re.sub(r"(?<![\w.])[-+](0(?:\.0+)?)(?![\d.])", r"\1", msg)
     print("\n--- TELEGRAM MESSAGE PREVIEW ---")
     print(msg)
     final = _fit_single_message(msg)
@@ -990,7 +999,7 @@ def main():
         last_fp = json.loads(fp_path.read_text()) if fp_path.exists() else {}
     except Exception:
         last_fp = {}
-    if fingerprint == last_fp:
+    if fingerprint == last_fp and os.environ.get("TELEGRAM_FORCE") != "1":
         print("[INFO] No model has a new run since the last message; Telegram not sent.")
         return
 

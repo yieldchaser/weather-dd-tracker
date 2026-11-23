@@ -16,6 +16,11 @@ on:
     - cron: "30 5,11,17,23 * * *"
     - cron: "0 9,21 * * *"
   workflow_dispatch:
+    inputs:
+      force_telegram:
+        description: "Send the Telegram summary even if no model has a new run"
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -86,6 +91,10 @@ jobs:
         run: |
           python scripts/market_logic/fetch_live_grid.py || echo "[WARN] Live grid fetch failed — continuing pipeline."
           python scripts/poll_models.py
+          # Manual resend: only when this run did not already send one.
+          if [ "${{ inputs.force_telegram }}" = "true" ] && git diff --quiet -- outputs/health/telegram_last_runs.json; then
+            TELEGRAM_FORCE=1 python scripts/send_telegram.py || echo "[WARN] forced Telegram send failed"
+          fi
           # Per-city 1991-2020 normals for anomaly-vs-normal maps: one ERA5 year per
           # poller run (~2k archive calls), cached in git until 1991-2020 is complete.
           if [ "$(ls data/normals/city_era5/*.csv 2>/dev/null | wc -l)" -lt 30 ]; then
