@@ -1,32 +1,38 @@
 {
-  "timestamp": "2026-11-23T08:12:01.930850Z",
-  "ao": 0.288,
-  "nao": 0.28,
-  "pna": 0.69,
+  "timestamp": "2026-11-23T17:09:53.610103Z",
+  "ao": 0.239,
+  "nao": 0.094,
+  "pna": 0.884,
   "epo": 0.929,
-  "composite_score": 37,
+  "composite_score": 43,
   "as_of": {
-    "AO": "2026-11-20",
-    "NAO": "2026-11-20",
-    "PNA": "2026-11-20",
+    "AO": "2026-11-21",
+    "NAO": "2026-11-21",
+    "PNA": "2026-11-21",
     "EPO": "2026-11-16"
   },
   "stale_indices": [],
   "analogs": [
     {
-      "year": 1953,
-      "mar_hdd_anomaly": -3.2,
-      "apr_hdd_anomaly": 1.2
+      "year": 2021,
+      "distance": 1.6,
+      "window": "Nov 24\u2013Jan 22",
+      "next30_hdd_anomaly": -3.1,
+      "next31_60_hdd_anomaly": -1.1
     },
     {
-      "year": 1988,
-      "mar_hdd_anomaly": -1.9,
-      "apr_hdd_anomaly": -0.2
+      "year": 1991,
+      "distance": 1.64,
+      "window": "Nov 24\u2013Jan 22",
+      "next30_hdd_anomaly": -0.9,
+      "next31_60_hdd_anomaly": -1.6
     },
     {
-      "year": 1999,
-      "mar_hdd_anomaly": 0.2,
-      "apr_hdd_anomaly": -1.6
+      "year": 2008,
+      "distance": 1.65,
+      "window": "Nov 24\u2013Jan 22",
+      "next30_hdd_anomaly": 4.2,
+      "next31_60_hdd_anomaly": 3.0
     }
   ],
   "status": "success"
