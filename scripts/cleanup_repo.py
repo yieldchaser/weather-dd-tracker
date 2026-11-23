@@ -32,7 +32,10 @@ PROTECTED_PATHS = [
 # Retention Limits
 GEFS_SUBSEASONAL_FOLDERS_LIMIT = 3
 MAPS_GIF_LIMIT_PER_MODEL = 10
+ANOM_GIF_LIMIT_PER_MODEL = 2
+STALE_MAP_DAYS = 10
 OTHER_DATA_FILES_LIMIT = 7
+CITY_JSON_LIMIT = 20
 
 def git_rm(filepath):
     """Removes a file or directory using git rm."""
@@ -69,60 +72,55 @@ def cleanup_subseasonal():
             git_rm(folder)
 
 def cleanup_maps():
-    """Prunes outputs/maps/ GIFs, keeping the 10 most recent per model pattern."""
+    """Prune outputs/maps/ and rebuild the manifest from what survives.
+
+    - Keeps the newest MAPS_GIF_LIMIT_PER_MODEL shift GIFs and the newest
+      ANOM_GIF_LIMIT_PER_MODEL anomaly GIFs per model.
+    - Drops every GIF of a model whose newest map is > STALE_MAP_DAYS old
+      (a dead feed must not keep serving a months-old map as "latest").
+    - Drops GIFs whose names are not valid run IDs (e.g. the old
+      FOURCASTNETV2-SMALL "latest_vs_..." artefacts).
+    Model matching uses maps_manifest.parse_gif (exact model token), so
+    GEFS/GEFS_35D and AIGFS/AIGEFS never collide, and AIGFS/HGEFS/FCN — which
+    the old prefix list omitted, letting HGEFS grow unbounded and the
+    mtime fallback sweep delete fresh AIGFS maps — are handled like the rest.
+    """
+    import sys as _sys
+    from datetime import datetime as _dt, timedelta as _td
+    _sys.path.insert(0, str(Path(__file__).parent))
+    from maps_manifest import parse_gif, run_to_dt, write_manifest
+
     base_dir = Path("outputs/maps")
     if not base_dir.exists():
         return
 
-    # Explicit prefixes to avoid collisions (e.g., ECMWF vs ECMWF_AIFS)
-    MAP_MODEL_PREFIXES = [
-        "GFS_shift",
-        "GEFS_shift", 
-        "GEFS_35D_shift",
-        "ECMWF_shift",
-        "ECMWF_ENS_shift",
-        "ECMWF_AIFS_shift",
-        "ICON_shift",
-        "CMC_ENS_shift",
-        "GOOGLE_WN2_shift",
-        "GOOGLE_WN3_shift",
-        "AIGEFS_shift",
-        "AIFS_ENS_shift",
-        "UKMO_ENS_shift",
-        "EC46_shift",
-        "NBM_shift",
-        "HRRR_shift",
-        "NAM_shift",
-    ]
-    
-    all_gifs = list(base_dir.glob("*.gif"))
-    processed_files = set()
-    
-    for prefix in MAP_MODEL_PREFIXES:
-        # Match files using exact prefix (filenames are date-ordered, so sort descending)
-        model_gifs = sorted(
-            [f for f in all_gifs if f.name.startswith(prefix)],
-            key=lambda x: x.name, 
-            reverse=True
-        )
-        
-        # Mark all matched files as processed so they are not deleted by the secondary sweep
-        for gif in model_gifs:
-            processed_files.add(gif)
-        
-        if len(model_gifs) > MAPS_GIF_LIMIT_PER_MODEL:
-            to_delete = model_gifs[MAPS_GIF_LIMIT_PER_MODEL:]
-            print(f"Cleaning {prefix} map GIFs (keeping {MAPS_GIF_LIMIT_PER_MODEL})...")
-            for gif in to_delete:
+    groups = {}
+    for gif in base_dir.glob("*.gif"):
+        info = parse_gif(gif.name)
+        if not info:
+            print(f"Removing unrecognised map file: {gif.name}")
+            git_rm(gif)
+            continue
+        groups.setdefault((info["model"], info["kind"]), []).append((info["latest"], gif))
+
+    now = _dt.utcnow()
+    for (model, kind), items in groups.items():
+        items.sort(key=lambda t: (t[0], t[1].name), reverse=True)
+        newest = run_to_dt(items[0][0])
+        if newest is not None and now - newest > _td(days=STALE_MAP_DAYS):
+            print(f"Pruning stale {model} {kind} maps (newest {items[0][0]} > {STALE_MAP_DAYS}d old)...")
+            for _, gif in items:
+                git_rm(gif)
+            continue
+        limit = MAPS_GIF_LIMIT_PER_MODEL if kind == "shift" else ANOM_GIF_LIMIT_PER_MODEL
+        if len(items) > limit:
+            print(f"Cleaning {model} {kind} GIFs (keeping {limit})...")
+            for _, gif in items[limit:]:
                 git_rm(gif)
 
-    # Secondary sweep for anything missed or outliers
-    # If it's a GIF and hasn't been handled, and we have too many total, prune oldest
-    remaining = [f for f in all_gifs if f not in processed_files]
-    if len(remaining) > 50: # Arbitrary "fallback" limit for non-model GIFs
-        remaining.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-        for gif in remaining[50:]:
-            git_rm(gif)
+    # Manifest must describe what is actually left on disk.
+    write_manifest()
+
 
 def cleanup_other_data():
     """Prunes other data directories like data/ecmwf, data/gefs, etc."""
@@ -130,7 +128,7 @@ def cleanup_other_data():
         "data/ecmwf", "data/ecmwf_ens", "data/ecmwf_aifs",
         "data/gefs", "data/hrrr", "data/nam", "data/nbm", "data/cmc_ens",
         "data/google_wn2", "data/google_wn3", "data/aigefs", "data/aifs_ens", "data/ukmo_ens",
-        "data/ec46",
+        "data/ec46", "data/icon",
         "data/gefs_subseasonal"
     ]
     
@@ -146,6 +144,20 @@ def cleanup_other_data():
             print(f"Cleaning {dname} (keeping {OTHER_DATA_FILES_LIMIT})...")
             for f in to_delete:
                 git_rm(f)
+
+def cleanup_city_jsons():
+    """Prune per-run city JSONs (bubble-map inputs), keeping the newest
+    CITY_JSON_LIMIT per model. Maps only ever diff the latest run against
+    runs up to ~48h older, so 20 runs (5-10 days) is ample; previously these
+    folders grew without bound."""
+    for cdir in Path("data").glob("*/cities"):
+        files = sorted(cdir.glob("*_cities.json"), key=lambda x: x.name, reverse=True)
+        files = [f for f in files if not f.name.startswith("latest")]
+        if len(files) > CITY_JSON_LIMIT:
+            print(f"Cleaning {cdir} (keeping {CITY_JSON_LIMIT})...")
+            for f in files[CITY_JSON_LIMIT:]:
+                git_rm(f)
+
 
 def report_sizes():
     """Prints current directory sizes."""
@@ -176,5 +188,6 @@ if __name__ == "__main__":
     cleanup_subseasonal()
     cleanup_maps()
     cleanup_other_data()
+    cleanup_city_jsons()
     report_sizes()
     print("Cleanup Complete.")

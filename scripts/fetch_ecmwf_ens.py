@@ -25,7 +25,7 @@ BASE_TEMP_F = 65.0
 FORECAST_DAYS = 16
 
 from demand_constants import DEMAND_CITIES
-from om_batch_fetch import fetch_all_cities_batch
+from om_batch_fetch import fetch_all_cities_batch, is_duplicate_run
 
 OM_ENSEMBLE_ENDPOINT = "https://ensemble-api.open-meteo.com/v1/ensemble"
 
@@ -109,6 +109,11 @@ def fetch_run(date_str, cycle):
             print(f"  [WARN] ECMWF ENS {run_id}: only {len(rows)} day(s) computed — "
                   f"too few to be a valid forecast. File NOT written.")
             return False
+        if is_duplicate_run(BASE_DIR, run_id, city_data):
+            return False
+        import om_batch_fetch as _omb
+        for _r in rows:
+            _r["ens_members"] = _omb.LAST_MEMBER_COUNT
         pd.DataFrame(rows).to_csv(out_path, index=False)
         
         # Save raw city data to json for map generation

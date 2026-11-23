@@ -21,14 +21,17 @@ data/gfs/*/gfs.t*
 data/gfs/*/*.idx
 data/gfs/*/manifest.json
 data/ecmwf_aifs/
-data/ecmwf_ens/
+data/ecmwf_ens/*
+!data/ecmwf_ens/cities/
 data/nbm/
 data/open_meteo/
 data/hrrr/
 data/nam/
 data/gefs/
 data/gefs_subseasonal/*/
-data/icon/
+data/icon/*
+!data/icon/cities/
+!data/icon/*.csv
 
 # ── Weight grid (large binary, rebuilt via build_gas_weights.py) ───────────────
 # Note: regime_model.pkl IS committed (retrained quarterly)

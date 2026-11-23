@@ -123,11 +123,16 @@ def calculate_OLS_sensitivity():
     else:
         X = sm.add_constant(merged["dd"].astype(float))
         y = merged["bcf_d"].astype(float)
+        data_source = "national_power_burn_history"
         try:
             ols_model = sm.OLS(y, X).fit()
             coeff = float(ols_model.params.get("dd", ols_model.params.iloc[-1]))
             r2 = float(ols_model.rsquared)
             const = float(ols_model.params.get("const", ols_model.params.iloc[0]))
+            try:
+                pval = float(ols_model.pvalues.get("dd", ols_model.pvalues.iloc[-1]))
+            except Exception:
+                pval = 1.0
         except Exception as e:
             logging.warning(f"[Sensitivity] OLS fit error ({e}). Using seasonal baseline.")
             coeff = mid
@@ -135,8 +140,22 @@ def calculate_OLS_sensitivity():
             r2 = 0.0
             const = float(merged["bcf_d"].mean()) if not merged.empty else 20.0
             data_source = "seasonal_baseline_fallback"
+            pval = 1.0
 
-        if coeff <= 0:
+        # Significance gate: a slope that explains <10% of the variance or is
+        # not significant at 10% is noise (e.g. Nov 2026 shoulder season:
+        # R²=0.001, N=41 → slope 0.013 ranked at the 0th percentile and fed a
+        # spurious "Low Weather Sensitivity" bearish score into the composite).
+        # Report the measured fit but fall back to the neutral seasonal baseline.
+        if data_source != "seasonal_baseline_fallback" and (r2 < 0.10 or pval > 0.10):
+            logging.warning(
+                f"[Sensitivity] Fit not significant (slope={coeff:.3f}, R²={r2:.3f}, p={pval:.2f}, N={len(merged)}). "
+                f"Using seasonal baseline ({mid:.2f} Bcf/{_season}, percentile 50)."
+            )
+            coeff = mid
+            percentile = 50
+            data_source = "seasonal_baseline_low_fit"
+        elif coeff <= 0:
             logging.warning(
                 f"[Sensitivity] Non-positive rolling slope ({coeff:.3f}) in transition. "
                 f"Using seasonal baseline ({mid:.2f} Bcf/{_season}, percentile 50)."
@@ -145,7 +164,7 @@ def calculate_OLS_sensitivity():
             percentile = 50
             r2 = 0.0
             data_source = "seasonal_baseline_fallback"
-        else:
+        elif data_source != "seasonal_baseline_fallback":
             percentile = min(max(int((coeff - lo) / (hi - lo) * 100), 0), 100)
             data_source = "national_power_burn_history"
 

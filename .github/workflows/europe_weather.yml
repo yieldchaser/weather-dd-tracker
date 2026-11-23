@@ -1,0 +1,51 @@
+name: Europe Weather (Gas-Weighted HDD)
+
+on:
+  schedule:
+    # ECMWF ENS / AIFS ENS land on Open-Meteo ~7-8h after 00z/12z; GEFS ~5-6h after each cycle.
+    - cron: "40 2,8,14,20 * * *"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: europe-weather
+  cancel-in-progress: false
+
+jobs:
+  europe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install pandas numpy requests
+
+      - name: Build Europe HDD outlook
+        run: timeout 1800 python -u scripts/europe/europe_weather.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add outputs/europe/ data/europe/
+          git diff --staged --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "Auto-update: Europe weather $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push origin HEAD:"$GITHUB_REF_NAME" && echo "Push succeeded" && break
+            echo "Push attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

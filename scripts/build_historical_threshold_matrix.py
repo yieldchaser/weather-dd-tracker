@@ -75,8 +75,10 @@ def main():
     master_path = Path("outputs/tdd_master.csv")
     current_forecast = {}
     if master_path.exists():
-        master_df = pd.read_csv(master_path)
+        master_df = pd.read_csv(master_path, dtype={"run_id": str})
         master_df["date"] = pd.to_datetime(master_df["date"])
+        # Gas-weighted HDD is the desk's primary series; fall back to simple.
+        hdd_col = "hdd_gw" if "hdd_gw" in master_df.columns else "hdd"
         fallback_hdd = master_df["hdd"] if "hdd" in master_df.columns else master_df["tdd"]
         master_df["hdd_value"] = master_df[hdd_col].fillna(fallback_hdd)
         
