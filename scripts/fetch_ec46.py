@@ -147,6 +147,10 @@ def sync_all_ec46():
     else:
         date_str = (now - datetime.timedelta(days=1)).strftime("%Y%m%d")
 
+    from om_batch_fetch import om_latest_run
+    _rid = om_latest_run("ecmwf_ec46")  # exact init date from Open-Meteo's metadata
+    if _rid:
+        date_str = _rid.split("_")[0]
     fetch_run(date_str)
 
 

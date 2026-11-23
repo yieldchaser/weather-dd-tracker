@@ -35,7 +35,7 @@ BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod"
 OUTPUT_DIR = "data/nbm"
 
 # NBM is generated heavily at 00, 06, 12, 18z for long term.
-CYCLES = ["12", "00"]
+CYCLES = ["18", "12", "06", "00"]  # all four long (f264) cycles; the poller detects all four
 # NBM 00z/12z long-term runs provide hourly data to f36, then 3-hourly to f264.
 # We'll fetch 3-hourly slices, but we must shift alignment after f36.
 FORECAST_HOURS = list(range(1, 37, 3)) + list(range(36, 265, 3))

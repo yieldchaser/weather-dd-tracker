@@ -36,8 +36,11 @@ FORECAST_DAYS = 16
 
 def fetch_icon():
     # Use UTC today as the run date identifier
-    run_date_str = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d")
-    run_id = f"{run_date_str}_seamless"  # No fixed cycle; ICON seamless updates continuously
+    # Label by the ICON global run Open-Meteo is serving (4x daily), so every
+    # cycle is stored and compared. The old daily "_seamless" label kept one
+    # run per day and overwrote it on each fetch.
+    from om_batch_fetch import om_latest_run
+    run_id = om_latest_run("icon_seamless") or f"{datetime.datetime.now(datetime.UTC).strftime('%Y%m%d')}_seamless"
 
     out_dir = OUTPUT_DIR / run_id
     out_dir.mkdir(parents=True, exist_ok=True)

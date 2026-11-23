@@ -25,6 +25,9 @@ RELABELS = [
     ("GOOGLE_WN2", "data/google_wn2", "20261123_00", "20261122_12"),
     ("AIGEFS", "data/aigefs", "20261123_06", "20261122_18"),
     ("ECMWF_ENS", "data/ecmwf_ens", "20261122_00", "20261122_12"),
+    # ICON moves from one daily "_seamless" label to its global cycle; the
+    # 2026-11-23 fetches were served the 06z global run (12z lands ~15:30).
+    ("ICON", "data/icon", "20261123_seamless", "20261123_06"),
 ]
 
 

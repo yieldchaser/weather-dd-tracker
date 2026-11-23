@@ -363,7 +363,8 @@ def poll():
     for _key, _model in (("GOOGLE_WN2", "google_weathernext2_ensemble_mean"),
                          ("GOOGLE_WN3", "google_weathernext3_ensemble_mean"),
                          ("AIGEFS", "ncep_aigefs025"), ("AIFS_ENS", "ecmwf_aifs025_ensemble"),
-                         ("UKMO_ENS", "ukmo_global_ensemble_20km"), ("ECMWF_ENS", "ecmwf_ifs025")):
+                         ("UKMO_ENS", "ukmo_global_ensemble_20km"), ("ECMWF_ENS", "ecmwf_ifs025"),
+                         ("CMC_ENS", "gem_global_ensemble")):
         _rid = om_latest_run(_model)
         if _rid:
             META_RUNS[_key] = _rid
@@ -458,13 +459,16 @@ def poll():
 
     # 6. Check CMC ENS
     latest_cmc_avail = None
-    for d in dates_to_check:
-        for c in ["00", "12"]:
-            run_id = f"{d}_{c}"
-            if run_id > state.get("CMC_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["CMC_ENS"]):
-                print(f"  [PING] Checking CMC ENS {run_id} availability...")
-                if check_cmc_ens_complete(d, c):
-                    latest_cmc_avail = run_id
+    if "CMC_ENS" in META_RUNS:
+        latest_cmc_avail = META_RUNS["CMC_ENS"] if META_RUNS["CMC_ENS"] > state.get("CMC_ENS", "") else None
+    else:
+        for d in dates_to_check:
+            for c in ["00", "12"]:
+                run_id = f"{d}_{c}"
+                if run_id > state.get("CMC_ENS", "") and cycle_ready(d, c, OM_MIN_LAG_H["CMC_ENS"]):
+                    print(f"  [PING] Checking CMC ENS {run_id} availability...")
+                    if check_cmc_ens_complete(d, c):
+                        latest_cmc_avail = run_id
     if latest_cmc_avail and latest_cmc_avail > state.get("CMC_ENS", ""):
         print(f"  >>> [NEW] CMC Ensemble Run Detected: {latest_cmc_avail} <<<")
         new_state["CMC_ENS"] = latest_cmc_avail
