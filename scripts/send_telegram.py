@@ -61,7 +61,7 @@ def _signal_label(vs_normal):
     return "NEUTRAL ⚪"
 
 
-def _trend(model, sorted_summary, df=None, tdd_col="tdd_gw"):
+def _trend(model, sorted_summary, df=None, tdd_col="tdd_gw", raw=False):
     """
     Consecutive-direction streak on the run-over-run shift, computed on the
     SAME common-date basis as the displayed run_chg number. The old version
@@ -71,7 +71,7 @@ def _trend(model, sorted_summary, df=None, tdd_col="tdd_gw"):
     """
     runs = sorted_summary[sorted_summary["model"] == model].sort_values("run_id").reset_index(drop=True)
     if len(runs) < 2:
-        return "first run"
+        return (0, 0) if raw else "first run"
 
     deltas = []
     # One groupby pass, then index-aligned lookups per pair — the naive
@@ -102,10 +102,10 @@ def _trend(model, sorted_summary, df=None, tdd_col="tdd_gw"):
         deltas = [runs.loc[i, "fa_gw"] - runs.loc[i - 1, "fa_gw"] for i in range(1, len(runs))]
 
     latest = deltas[-1]
-    if pd.isna(latest):
-        return "insufficient data"
-    if abs(latest) < 0.05:
-        return "flat"
+    if pd.isna(latest) or abs(latest) < 0.05:
+        if raw:
+            return (0, 0)
+        return "insufficient data" if pd.isna(latest) else "flat"
     direction = "bull" if latest > 0 else "bear"
     count = 1
     for d in reversed(deltas[:-1]):
@@ -115,6 +115,8 @@ def _trend(model, sorted_summary, df=None, tdd_col="tdd_gw"):
             count += 1
         else:
             break
+    if raw:
+        return (count, 1 if latest > 0 else -1)
     ordinal = {1: "1st", 2: "2nd", 3: "3rd"}.get(count, f"{count}th")
     arrows = ("↑" if latest > 0 else "↓") * min(count, 5)
     return f"{ordinal} consec {direction} {arrows}"
@@ -185,7 +187,7 @@ def _fit_single_message(text):
     lines = text.split("\n")
     drop_prefixes = [
         ("  Extended 35d", "  Model agreement", "  Next →", "  <i>through "),
-        ("  ▲", "  ▼", "  ±", "  First run"),           # per-model streak lines
+        ("<i>* run older", "Spread across", "<i>D1-7, D8-14"),
     ]
     for prefixes in drop_prefixes:
         lines = [l for l in lines if not l.startswith(prefixes)]
@@ -194,7 +196,7 @@ def _fit_single_message(text):
             return t
     # Drop the extended (sub-seasonal) model block
     t = "\n".join(lines)
-    t = re.sub(r"\n<b>📅 EXTENDED</b>.*?(?=\n\n|\n<b>|$)", "", t, flags=re.S)
+    t = re.sub(r"\n<b>Sub-seasonal</b>\n<pre>.*?</pre>", "", t, flags=re.S)
     if _visible_len(t) <= TG_VISIBLE_LIMIT:
         return t
     # Last resort: cut on a line boundary, still one message
@@ -351,7 +353,8 @@ def _fmt_composite(comp_data):
 
     score      = comp_data.get("composite_score", 0.0)
     confidence = comp_data.get("confidence", 100.0)
-    lines.append(f"<b>⚡ COMPOSITE: {_esc(bias_str)}</b>  Score: {score:+.1f}  Confidence: {confidence:.0f}%")
+    lines.append(f"<b>⚡ PATTERN, WEEKS 2-6: {_esc(bias_str)}</b>")
+    lines.append(f"  Score {score:+.1f} (neutral inside ±1.5)  │  Confidence {confidence:.0f}%")
 
     # Tactical reconciliation: the 0-15d ensemble signal vs this subseasonal
     # composite. Divergence is structure, not error — surface it, don't hide it.
@@ -365,7 +368,7 @@ def _fmt_composite(comp_data):
         elif agree == 0:
             badge = "  ⚠️ DIVERGENT"
         lines.append(
-            f"  TACTICAL (0-15d): <b>{_esc(str(tac['bias']))} ({ts:+.2f})</b>{badge}"
+            f"  Models, days 0-15: <b>{_esc(str(tac['bias']))} ({ts:+.2f})</b>{badge}"
         )
         note = comp_data.get("divergence_note")
         if note and agree == 0:
@@ -490,8 +493,12 @@ def _fmt_teleconnections(season="HDD"):
             if val is None: return "N/A"
             return f"{val:+.2f}{'↑' if val > 0 else '↓'}"
 
-        def _sig(val):
+        def _sig(val, cold_when_positive=False):
             if val is None: return ""
+            # PNA+ means a West ridge and East trough: cold East. Flip it so
+            # every index is coloured by what it means for eastern demand.
+            if cold_when_positive:
+                val = -val
             if season == "CDD":
                 if val > 0.5:  return "🟢"
                 if val < -0.5: return "🔴"
@@ -508,7 +515,7 @@ def _fmt_teleconnections(season="HDD"):
         risk_emoji = "🥶" if cold_risk > 60 else ("🌡️" if cold_risk < 30 else "⚖️")
 
         idx_line = (f"AO {_arr(ao)}{_sig(ao)}  NAO {_arr(nao)}{_sig(nao)}  "
-                    f"PNA {_arr(pna)}{_sig(pna)}  EPO {_arr(epo)}{_sig(epo)}")
+                    f"PNA {_arr(pna)}{_sig(pna, cold_when_positive=True)}  EPO {_arr(epo)}{_sig(epo)}")
         # The index arrows use the cold-bullish convention year-round; label
         # it explicitly in the off-season so green cold-arrows in August are
         # not read as near-term gas demand signal (the composite already
@@ -721,6 +728,81 @@ def _fmt_model_row(row, df, prev, tdd_col, hdd_col, season, sorted_s):
     return line1 + "\n" + line2
 
 
+SHORT_NAMES = {
+    "ECMWF_ENS": "EC-ENS", "CMC_ENS": "CMC-EN", "UKMO_ENS": "UKMO-E",
+    "AIFS_ENS": "AIFS-E", "ECMWF_AIFS": "AIFS", "GOOGLE_WN2": "WN2",
+    "GOOGLE_WN3": "WN3", "GEFS_35D": "GEFS35", "FOURCASTNETV2-SMALL": "FCNv2",
+}
+
+
+def _short_name(model):
+    m = str(model)
+    return SHORT_NAMES.get(m, m)[:6]
+
+
+def _short_run(run_id):
+    """20261122_12 -> 22/12z ; 20261123_seamless -> 23."""
+    parts = str(run_id).split("_")
+    day = parts[0][-2:] if parts and len(parts[0]) == 8 else str(run_id)[:5]
+    if len(parts) > 1 and parts[1].isdigit():
+        return f"{day}/{parts[1]}z"
+    return day
+
+
+def _run_change(df, prev, model, run_id, tdd_col):
+    """Mean change vs the previous run of the same model, on common dates."""
+    prev_rows = prev[prev["model"] == model]
+    if prev_rows.empty:
+        return np.nan
+    prev_run = prev_rows["run_id"].values[0]
+    a = df[(df["model"] == model) & (df["run_id"] == run_id)].groupby("date")[tdd_col].mean()
+    b = df[(df["model"] == model) & (df["run_id"] == prev_run)].groupby("date")[tdd_col].mean()
+    common = a.index.intersection(b.index)
+    if not len(common):
+        return np.nan
+    d = (a[common] - b[common]).dropna()
+    return float(d.mean()) if len(d) else np.nan
+
+
+def _num(v, w=5, empty="n/a"):
+    if pd.isna(v):
+        return empty.rjust(w)
+    if abs(v) < 0.05:
+        return "0.0".rjust(w)
+    return f"{v:+.1f}".rjust(w)
+
+
+def _model_table(rows, df, prev, tdd_col, norm_col, sorted_s):
+    """One aligned monospaced table: anomaly vs normal for days 1-7 and 8-14,
+    change vs the previous run, and how many runs in a row moved that way."""
+    out = ["Model  Run    D1-7 D8-14   Chg"]
+    stale = False
+    for _, row in rows.iterrows():
+        model, run_id = row["model"], row["run_id"]
+        nt, ntn, _ = _band(df, model, run_id, 1, NEAR_TERM_DAYS, tdd_col, norm_col)
+        ex, exn, _ = _band(df, model, run_id, NEAR_TERM_DAYS + 1, EXTENDED_DAYS, tdd_col, norm_col)
+        nt_a = nt - ntn if pd.notna(nt) and pd.notna(ntn) else np.nan
+        ex_a = ex - exn if pd.notna(ex) and pd.notna(exn) else np.nan
+        has_prev = not prev[prev["model"] == model].empty
+        chg = _run_change(df, prev, model, run_id, tdd_col)
+        cnt, sign = _trend(model, sorted_s, df=df, tdd_col=tdd_col, raw=True)
+        streak = ""
+        if pd.notna(chg) and abs(chg) >= 0.05 and cnt >= 2:
+            streak = ("↑" if sign > 0 else "↓") + str(cnt)
+        name = _short_name(model) + ("*" if row.get("stale_run", False) else "")
+        stale = stale or bool(row.get("stale_run", False))
+        out.append(f"{name:<7}{_short_run(run_id):<7}{_num(nt_a)}{_num(ex_a, 6)}{_num(chg, 6, "n/a" if has_prev else "new")}{streak}")
+    txt = "<pre>" + _esc("\n".join(out)) + "</pre>"
+    if stale:
+        txt += "\n<i>* run older than its normal cadence, left out of counts</i>"
+    return txt
+
+
+def _table_legend():
+    return ("<i>D1-7, D8-14: forecast minus normal. Chg: vs prior run on shared days. "
+            "new: first run on the current method. ↑3: third run in a row moving that way.</i>")
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -880,7 +962,7 @@ def main():
                     rank        = list(sorted_vals.index).index(cur_year) + 1
                     total       = len(yearly)
                     mname       = date.today().strftime("%B")
-                    mtd_lbl     = f"Day 1–{cur_day}"
+                    mtd_lbl     = f"Day 1-{cur_day}"
                     metric_tag  = season if season != "BOTH" else "TDD"
                     if rank <= 5:
                         weather_parts.append(
@@ -899,103 +981,60 @@ def main():
     if weather_parts:
         sections.append(SEP + "\n" + "\n".join(weather_parts))
 
-    # ── Model table ─────────────────────────────────────────────────────────
+    # ── Model tables ────────────────────────────────────────────────────────
     model_sections = []
+    dd_lbl = season if season != "BOTH" else "TDD"
+    model_sections.append(f"{SEP}\n<b>📊 MODELS</b>  <i>vs normal, {metric_lbl}; Chg = vs prior run</i>")
 
     primaries = latest[latest["category"] == "PRIMARY"]
     if not primaries.empty:
-        primary_lines = [f"{SEP}\n<b>📊 PRIMARY MODELS</b> ({metric_lbl})"]
-        primary_avgs = {}
-        for _, row in primaries.iterrows():
-            primary_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
-            if not row.get("stale_run", False):
-                primary_avgs[row["model"]] = row["fa_gw"]
-        model_sections.append("\n".join(primary_lines))
-
-        if len(primary_avgs) >= 2:
-            vals     = list(primary_avgs.values())
-            spread   = max(vals) - min(vals)
-            spread_l = "TIGHT" if spread <= 0.5 else ("MODERATE" if spread <= 1.5 else "WIDE")
-            dd_lbl   = season if season != "BOTH" else "TDD"
-            model_sections.append(f"  Primary Spread: {spread:.1f} {dd_lbl} ({spread_l})")
+        block = ["<b>Physics</b>", _model_table(primaries, df, prev, tdd_col, norm_col, sorted_s)]
+        fresh = primaries[~primaries["stale_run"]]
+        if len(fresh) >= 2:
+            spread = fresh["fa_gw"].max() - fresh["fa_gw"].min()
+            spread_l = "tight" if spread <= 0.5 else ("moderate" if spread <= 1.5 else "wide")
+            block.append(f"Spread across physics models: {spread:.1f} {dd_lbl}/day ({spread_l})")
+        model_sections.append("\n".join(block))
 
     ai_models_df = latest[latest["category"] == "AI"]
     if not ai_models_df.empty:
-        ai_lines = [f"\n<b>🤖 AI MODELS</b>"]
-        for _, row in ai_models_df.iterrows():
-            ai_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
+        block = ["<b>AI</b>", _model_table(ai_models_df, df, prev, tdd_col, norm_col, sorted_s)]
         ai_signals = ai_models_df[~ai_models_df["stale_run"]]["signal"].tolist()
-        bull_ai    = sum("BULLISH" in s for s in ai_signals)
-        bear_ai    = sum("BEARISH" in s for s in ai_signals)
-        ai_total   = len(ai_signals)
-        n_stale    = int(ai_models_df["stale_run"].sum())
-        stale_note = f"  <i>({n_stale} stale run(s) excluded)</i>" if n_stale else ""
+        bull_ai = sum("BULLISH" in s for s in ai_signals)
+        bear_ai = sum("BEARISH" in s for s in ai_signals)
+        ai_total = len(ai_signals)
         if ai_total == 0:
-            cons = f"N/A, no fresh runs ⏳"
-        elif bull_ai == ai_total:        cons = f"BULLISH 🟢 ({bull_ai}/{ai_total})"
-        elif bear_ai == ai_total:        cons = f"BEARISH 🔴 ({bear_ai}/{ai_total})"
-        elif bull_ai > bear_ai:          cons = f"LEAN BULL 🟢 ({bull_ai}/{ai_total})"
-        elif bear_ai > bull_ai:          cons = f"LEAN BEAR 🔴 ({bear_ai}/{ai_total})"
-        else:                            cons = f"MIXED ⚪ ({ai_total} models)"
-        ai_lines.append(f"  <b>AI Consensus: {cons}</b>{stale_note}")
-        model_sections.append("\n".join(ai_lines))
+            cons = "no fresh runs"
+        elif bull_ai == ai_total:
+            cons = f"BULLISH 🟢 ({bull_ai}/{ai_total} colder than normal)"
+        elif bear_ai == ai_total:
+            cons = f"BEARISH 🔴 ({bear_ai}/{ai_total} warmer than normal)"
+        elif bull_ai > bear_ai:
+            cons = f"LEAN BULL 🟢 ({bull_ai} colder, {bear_ai} warmer of {ai_total})"
+        elif bear_ai > bull_ai:
+            cons = f"LEAN BEAR 🔴 ({bear_ai} warmer, {bull_ai} colder of {ai_total})"
+        else:
+            cons = f"MIXED ⚪ ({ai_total} models)"
+        block.append(f"AI consensus: <b>{cons}</b>")
+        model_sections.append("\n".join(block))
 
     ext_df = latest[latest["category"] == "EXTENDED"]
     if not ext_df.empty:
-        ext_lines = [f"\n<b>📅 EXTENDED</b> (sub-seasonal physics)"]
-        for _, row in ext_df.iterrows():
-            ext_lines.append(_fmt_model_row(row, df, prev, tdd_col, norm_col, season, sorted_s))
-        model_sections.append("\n".join(ext_lines))
+        model_sections.append("\n".join(["<b>Sub-seasonal</b>",
+                                         _model_table(ext_df, df, prev, tdd_col, norm_col, sorted_s)]))
 
     short_df = latest[latest["category"] == "SHORT"]
-    if not short_df.empty:
-        # Exclude stale runs or runs with all-NaN values
-        valid_short = short_df[short_df["fa_gw"].notna() & (~short_df["stale_run"])].copy()
-        if not valid_short.empty:
-            short_max = int(valid_short["days"].max())
-            short_lines = [f"\n<b>⏱ SHORT-TERM</b> (0–{short_max} Day)"]
-            for _, row in valid_short.iterrows():
-                fa = row["fa_gw"]
-                vs = row["vs_normal"]
-                short_lines.append(f"  {_esc(row['model'])} ({int(row['days'])}d): "
-                                    f"{fa:.1f} | {vs:+.1f} {_signal(vs)}")
-            model_sections.append("\n".join(short_lines))
+    valid_short = short_df[short_df["fa_gw"].notna() & (~short_df["stale_run"])] if not short_df.empty else short_df
+    if not valid_short.empty:
+        model_sections.append("\n".join(["<b>Short range</b>",
+                                         _model_table(valid_short, df, prev, tdd_col, norm_col, sorted_s)]))
 
-    if model_sections:
-        sections.append("\n".join(model_sections))
+    model_sections.append(_table_legend())
+    sections.append("\n\n".join(model_sections))
 
-    # ── Fast revisions ──────────────────────────────────────────────────────
+    # Run-over-run changes are in each table's Chg column; the separate
+    # fast-revision list repeated them.
     rev_lines = []
-    run_chg_file = Path("outputs/run_change.csv")
-    if run_chg_file.exists():
-        try:
-            rc = pd.read_csv(run_chg_file)
-            if "fast_revision" in rc.columns:
-                chg_col = ("effective_change" if "effective_change" in rc.columns
-                           else ("hdd_change_gw" if "hdd_change_gw" in rc.columns else "hdd_change"))
-                if chg_col not in rc.columns:
-                    chg_col = "hdd_change"
-                flagged = rc[rc["fast_revision"] == True].copy()
-                latest_run_ids = latest.set_index("model")["run_id"].to_dict()
-                flagged["is_latest"] = flagged.apply(
-                    lambda r: latest_run_ids.get(r["model"]) == r["run_id"], axis=1)
-                flagged = flagged[flagged["is_latest"] == True]
-                def is_fresh(run_id):
-                    try:
-                        rd = pd.to_datetime(run_id.split("_")[0], format="%Y%m%d")
-                        return (pd.Timestamp.now() - rd).days <= 2
-                    except: return False
-                flagged = flagged[flagged["run_id"].apply(is_fresh)]
-                flagged = flagged[flagged[chg_col].abs() > 1.0]
-                if not flagged.empty:
-                    dd_lbl = season if season != "BOTH" else "TDD"
-                    rev_lines.append(f"<b>⚡ FAST REVISIONS</b> (&gt;1.0 {dd_lbl}/d):")
-                    for _, fr in flagged.iterrows():
-                        arrow = "▲" if fr[chg_col] > 0 else "▼"
-                        rev_lines.append(f"  {_esc(fr['model'])} {arrow} {fr[chg_col]:+.1f} {dd_lbl}/d ({_esc(fr['run_id'])})")
-        except Exception as e:
-            print(f"[WARN] run_change.csv: {e}")
-
     conv_file = Path("outputs/convergence_alert.csv")
     if conv_file.exists():
         try:
