@@ -376,6 +376,33 @@ def poll():
                 state[_key] = _rid
                 new_state[_key] = _rid
 
+    # Self-heal: state must never claim a run that is not stored. The poller
+    # advances state on detection, before the fetch; if that fetch failed (or a
+    # run was relabelled), the claimed run would never be retried. Pull state
+    # back to the newest stored run so it is detected and fetched again, at
+    # most 3 times per claimed run so a persistent outage cannot loop.
+    try:
+        import pandas as _pd
+        _m = _pd.read_csv("outputs/tdd_master.csv", usecols=["model", "run_id"], dtype={"run_id": str})
+        _m = _m[_m["run_id"].str.match(r"^\d{8}_\d{2}$", na=False)]
+        stored = _m.groupby("model")["run_id"].max().to_dict()
+        retries = new_state.setdefault("refetch_attempts", {})
+        for _key in META_RUNS:
+            claimed, have = state.get(_key, ""), stored.get(_key, "")
+            if claimed and have and claimed > have:
+                tag = f"{_key}:{claimed}"
+                if retries.get(tag, 0) < 3:
+                    retries[tag] = retries.get(tag, 0) + 1
+                    print(f"  [HEAL] {_key}: state {claimed} but newest stored run is {have}; re-fetching (attempt {retries[tag]})")
+                    state[_key] = have
+                    new_state[_key] = have
+                else:
+                    print(f"  [HEAL] {_key}: {claimed} still not stored after 3 attempts; leaving it")
+        # keep the attempts log small
+        new_state["refetch_attempts"] = {k: v for k, v in retries.items() if k.split(":")[1] >= min(stored.values(), default="")}
+    except Exception as e:
+        print(f"  [WARN] state self-heal skipped: {e}")
+
     # 1. Check GFS & GEFS Synchronization
     latest_gfs_avail = None
     for d in dates_to_check:
@@ -609,6 +636,9 @@ def poll():
                 f.write("NEW_DATA_FOUND=true\n")
     else:
         print("\n[SLEEP] No new model runs complete. Going back to sleep.")
+        if new_state != load_state():
+            save_state(new_state)  # metadata/self-heal corrections must persist
+            print("  [STATE] corrections saved")
         # Explicitly tell GitHub Actions there's no data
         gh_env = os.environ.get("GITHUB_ENV")
         if gh_env:
