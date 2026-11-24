@@ -1,0 +1,20 @@
+name: probe-runs
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e
+          q(){ echo "== $1"; curl -s -m 40 "$1" | head -c 600; echo; }
+          L="latitude=40.7&longitude=-74&daily=temperature_2m_mean&forecast_days=3"
+          for m in ecmwf_ifs025_ensemble google_weathernext3_ensemble_mean ncep_aigefs025 gem_global_ensemble ukmo_global_ensemble_20km; do
+            q "https://ensemble-api.open-meteo.com/v1/ensemble?$L&models=$m&run=2026-11-24T00:00"
+            q "https://single-runs-api.open-meteo.com/v1/forecast?$L&models=$m&run=2026-11-24T00:00"
+            q "https://single-runs-api.open-meteo.com/v1/ensemble?$L&models=$m&run=2026-11-24T00:00"
+          done
+          q "https://single-runs-api.open-meteo.com/v1/forecast?$L&models=icon_global&run=2026-11-24T00:00"
+          q "https://ensemble-api.open-meteo.com/data/google_weathernext3_ensemble_mean/static/meta.json"
+          q "https://ensemble-api.open-meteo.com/data/ncep_aigefs025/static/meta.json"
+          q "https://ensemble-api.open-meteo.com/data/cmc_gem_geps/static/meta.json"
+          q "https://ensemble-api.open-meteo.com/data/ukmo_global_ensemble_20km/static/meta.json"
