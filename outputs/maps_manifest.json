@@ -165,6 +165,18 @@
     ],
     "AIGFS": [
         {
+            "latest": "20261124_18",
+            "file": "AIGFS_anom_20261124_18.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261124_18",
+            "file": "AIGFS_shift_20261124_18_vs_20261124_12.gif",
+            "kind": "shift",
+            "previous": "20261124_12",
+            "hours": 6
+        },
+        {
             "latest": "20261124_12",
             "file": "AIGFS_anom_20261124_12.gif",
             "kind": "anom"
@@ -182,11 +194,6 @@
             "kind": "shift",
             "previous": "20261124_00",
             "hours": 12
-        },
-        {
-            "latest": "20261124_00",
-            "file": "AIGFS_anom_20261124_00.gif",
-            "kind": "anom"
         },
         {
             "latest": "20261124_00",
@@ -236,13 +243,6 @@
             "kind": "shift",
             "previous": "20261123_00",
             "hours": 6
-        },
-        {
-            "latest": "20261123_06",
-            "file": "AIGFS_shift_20261123_06_vs_20261122_18.gif",
-            "kind": "shift",
-            "previous": "20261122_18",
-            "hours": 12
         }
     ],
     "CMC_ENS": [
@@ -1141,6 +1141,13 @@
     "ICON": [
         {
             "latest": "20261124_seamless",
+            "file": "ICON_shift_20261124_seamless_vs_20261124_18.gif",
+            "kind": "shift",
+            "previous": "20261124_18",
+            "hours": -18
+        },
+        {
+            "latest": "20261124_seamless",
             "file": "ICON_shift_20261124_seamless_vs_20261124_12.gif",
             "kind": "shift",
             "previous": "20261124_12",
@@ -1211,13 +1218,6 @@
             "kind": "shift",
             "previous": "20261123_06",
             "hours": 12
-        },
-        {
-            "latest": "20261123_12",
-            "file": "ICON_shift_20261123_12_vs_20261123_06.gif",
-            "kind": "shift",
-            "previous": "20261123_06",
-            "hours": 6
         }
     ],
     "NBM": [
