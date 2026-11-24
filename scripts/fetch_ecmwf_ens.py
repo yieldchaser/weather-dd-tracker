@@ -163,11 +163,32 @@ def sync_all_ecmwf_ens():
     if _rid:
         date_str, cycle = _rid.split("_")
     # 06z/18z on Open-Meteo run only 144 h and reuse the previous 00z/12z run
-    # for days 7-15; store 00z and 12z only.
+    # for days 7-15, so they are not separate 15-day runs. Open-Meteo serves
+    # only its newest run, though: skipping them outright lost any 00z/12z
+    # cycle the poller did not reach inside its ~5 h window (24/00z was lost
+    # that way). So when a short run is served and its base cycle is not yet
+    # stored, store it under the base label: days 7-15 ARE that run, days 1-6
+    # are 6 h fresher.
     if cycle in ("06", "18"):
-        print(f"  [SKIP] Open-Meteo serves the {date_str}_{cycle} short run; keeping the 00z/12z runs only.")
-        return
+        base = datetime.datetime.strptime(f"{date_str}_{cycle}", "%Y%m%d_%H") - datetime.timedelta(hours=6)
+        b_date, b_cycle = base.strftime("%Y%m%d"), base.strftime("%H")
+        if _run_stored(f"{b_date}_{b_cycle}"):
+            print(f"  [SKIP] Open-Meteo serves the {date_str}_{cycle} short run; {b_date}_{b_cycle} already stored.")
+            return
+        print(f"  [INFO] Open-Meteo serves the {date_str}_{cycle} short run; {b_date}_{b_cycle} was missed, storing it under that label.")
+        date_str, cycle = b_date, b_cycle
     fetch_run(date_str, cycle)
+
+
+def _run_stored(run_id):
+    try:
+        import pandas as pd
+        m = pd.read_csv("outputs/tdd_master.csv", usecols=["model", "run_id"], dtype={"run_id": str})
+        if ((m["model"] == "ECMWF_ENS") & (m["run_id"] == run_id)).any():
+            return True
+    except Exception:
+        pass
+    return os.path.exists(os.path.join("data", "ecmwf_ens", f"{run_id}_tdd.csv"))
 
 
 if __name__ == "__main__":
