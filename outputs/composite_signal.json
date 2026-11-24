@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-24T12:18:14.994Z",
+  "timestamp": "2026-11-24T16:33:45.446Z",
   "composite_score": 2.76,
   "signal": "BULLISH",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
@@ -24,12 +24,12 @@
   ],
   "stale_systems": [],
   "tactical_signal": {
-    "score": -0.75,
+    "score": -0.68,
     "bias": "STRONG BEAR",
     "horizon": "Days 0-15 (model consensus vs normals)"
   },
   "agreement_pct": 0.0,
-  "divergence_note": "Divergent: 0-15 day consensus is STRONG BEAR (-0.75, below-normal demand); weeks 2-6 composite is BULLISH (+2.76).",
+  "divergence_note": "Divergent: 0-15 day consensus is STRONG BEAR (-0.68, below-normal demand); weeks 2-6 composite is BULLISH (+2.76).",
   "detail": {
     "bull_accumulator": 3.25,
     "bear_accumulator": 0.49
