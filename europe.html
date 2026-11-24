@@ -92,6 +92,18 @@
             .card .v { font-size: 1.4rem; }
             .stamp { text-align: left; }
         }
+
+        /* Tooltips: same system as the Weather Desk and Power Grid pages */
+        .has-tooltip { cursor: help; border-bottom: 1px dashed rgba(102, 252, 241, 0.4); }
+        .has-tooltip:hover { border-bottom-color: var(--accent); }
+        #tooltipOverlay { position: fixed; z-index: 10000; background: rgba(31, 40, 51, 0.95); backdrop-filter: blur(8px);
+            border: 1px solid var(--border); color: var(--text-main); padding: 12px 16px; border-radius: 6px; font-size: 0.85rem;
+            line-height: 1.5; max-width: 320px; opacity: 0; pointer-events: none; transition: opacity 0.12s ease, transform 0.12s ease;
+            transform: translateY(6px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); text-align: left; }
+        #tooltipOverlay.visible { opacity: 1; transform: translateY(0); }
+        .tt-title { font-weight: bold; color: var(--accent); margin-bottom: 6px; border-bottom: 1px solid rgba(102, 252, 241, 0.2);
+            padding-bottom: 4px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .tt-body strong { color: var(--text-br); }
     </style>
 </head>
 
@@ -115,16 +127,16 @@
 
         <div id="app" style="display:none;">
             <div class="controls">
-                <span><label for="modelSel">Model</label><select id="modelSel"></select></span>
-                <span><label for="cmpSel">Change vs</label><select id="cmpSel">
+                <span class="has-tooltip" data-tooltip-key="Model"><label for="modelSel">Model</label><select id="modelSel"></select></span>
+                <span class="has-tooltip" data-tooltip-key="Change vs"><label for="cmpSel">Change vs</label><select id="cmpSel">
                         <option value="prev">previous run</option>
                         <option value="12">12h ago</option>
                         <option value="24">24h ago (same cycle)</option>
                     </select></span>
-                <span><label>Units</label>
+                <span class="has-tooltip" data-tooltip-key="Units"><label>Units</label>
                     <button class="pill" data-unit="F">HDD °F (base 65)</button>
                     <button class="pill" data-unit="C">HDD °C (base 18.3)</button></span>
-                <span><label>Show</label>
+                <span class="has-tooltip" data-tooltip-key="Show"><label>Show</label>
                     <button class="pill" data-tog="members">Ens members</button>
                     <button class="pill" data-tog="band">P10-P90</button>
                     <button class="pill" data-tog="sd">30y ±1σ</button>
@@ -133,19 +145,19 @@
             </div>
 
             <div class="cards">
-                <div class="card"><h3>Run total · days 1-15</h3><div class="v" id="c-total">--</div><div class="s" id="c-total-s"></div></div>
-                <div class="card"><h3 id="c-n30-h">vs 30-yr normal</h3><div class="v" id="c-n30">--</div><div class="s" id="c-n30-s"></div></div>
-                <div class="card"><h3>vs 10-yr normal</h3><div class="v" id="c-n10">--</div><div class="s" id="c-n10-s"></div></div>
-                <div class="card"><h3 id="c-chg-h">Run change</h3><div class="v" id="c-chg">--</div><div class="s" id="c-chg-s"></div></div>
+                <div class="card has-tooltip" data-tooltip-key="Run total"><h3>Run total · days 1-15</h3><div class="v" id="c-total">--</div><div class="s" id="c-total-s"></div></div>
+                <div class="card has-tooltip" data-tooltip-key="vs 30-yr normal"><h3 id="c-n30-h">vs 30-yr normal</h3><div class="v" id="c-n30">--</div><div class="s" id="c-n30-s"></div></div>
+                <div class="card has-tooltip" data-tooltip-key="vs 10-yr normal"><h3>vs 10-yr normal</h3><div class="v" id="c-n10">--</div><div class="s" id="c-n10-s"></div></div>
+                <div class="card has-tooltip" data-tooltip-key="Run change"><h3 id="c-chg-h">Run change</h3><div class="v" id="c-chg">--</div><div class="s" id="c-chg-s"></div></div>
             </div>
 
-            <h2 class="section-title" id="chartTitle">Daily HDD outlook</h2>
+            <h2 class="section-title has-tooltip" data-tooltip-key="Daily outlook" id="chartTitle">Daily HDD outlook</h2>
             <div class="panel">
                 <div style="position:relative; height:440px;"><canvas id="mainChart"></canvas></div>
                 <div class="panel-note">Line = ensemble mean of gas-demand-weighted daily HDD. Bars (right axis) = latest run minus the comparison run on the same valid date, labelled. Grey band = P10-P90 of members; dots = individual members (latest run). Dotted lines = 1991-2020 and last-10-complete-years daily normals of HDD (not HDD of normal temperature); shaded band = 1991-2020 ±1σ. Records = highest and lowest observed daily HDD for each calendar day in the ERA5 history loaded so far (the span is shown in the legend).</div>
             </div>
 
-            <h2 class="section-title">Run-to-run change by window (all models)</h2>
+            <h2 class="section-title has-tooltip" data-tooltip-key="Run-to-run change">Run-to-run change by window (all models)</h2>
             <div class="panel">
                 <div class="tbl-wrap">
                     <table>
@@ -156,7 +168,7 @@
                 <div class="panel-note">Window totals on identical calendar dates for every model. Green = colder / more heating demand (supportive for TTF/NBP and US LNG pull), red = milder. Superscript = days covered when the comparison run is shorter than the window.</div>
             </div>
 
-            <h2 class="section-title" id="ctyTitle">Country temperature anomaly (°C vs 1991-2020)</h2>
+            <h2 class="section-title has-tooltip" data-tooltip-key="Country anomaly" id="ctyTitle">Country temperature anomaly (°C vs 1991-2020)</h2>
             <div class="panel">
                 <div class="tbl-wrap">
                     <table class="cty">
@@ -167,7 +179,7 @@
                 <div class="panel-note">Ensemble-mean 2 m temperature vs 1991-2020 ERA5 city normals for the selected model's latest run, by country and day; window columns are averages. Blue = colder than normal. Wt = share of the heating-gas weight. Rows sorted by weight.</div>
             </div>
 
-            <h2 class="section-title">Season cumulative HDD (Sep-Apr)</h2>
+            <h2 class="section-title has-tooltip" data-tooltip-key="Season cumulative">Season cumulative HDD (Sep-Apr)</h2>
             <div class="panel">
                 <div class="stats" id="seasonStats"></div>
                 <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
@@ -207,7 +219,7 @@
 
         const U = v => (v === null || v === undefined || isNaN(v)) ? null : (UI.unit === 'C' ? v / 1.8 : v);
         const unitLbl = () => UI.unit === 'C' ? 'HDD °C' : 'HDD °F';
-        const fmt = (v, d = 1, sign = false) => (v === null || v === undefined || isNaN(v)) ? '–' : ((sign && v > 0 ? '+' : '') + v.toFixed(d));
+        const fmt = (v, d = 1, sign = false) => { if (v === null || v === undefined || isNaN(v)) return '–'; const t = v.toFixed(d); return Number(t) === 0 ? Math.abs(0).toFixed(d) : ((sign && v > 0 ? '+' : '') + t); };  // never "-0.0"
         const cls = v => v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
         const runLabel = rid => { const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})/.exec(rid || ''); return m ? `${MON[+m[2] - 1]} ${+m[3]} ${m[4]}z` : (rid || ''); };
         const runMs = rid => { const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})/.exec(rid || ''); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4]) : null; };
@@ -390,7 +402,7 @@
                     const di = ch.data.datasets.findIndex(d => d.yAxisID === 'y1'); if (di < 0 || !ch.isDatasetVisible(di)) return;
                     const ctx = ch.ctx; ctx.save(); ctx.font = `bold ${window.innerWidth <= 768 ? 9 : 11}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#f0f0f0';
                     const minLbl = window.innerWidth <= 768 ? (UI.unit === 'C' ? 0.6 : 1.0) : 0.05; // phones: label only material changes
-                    ch.getDatasetMeta(di).data.forEach((el, i) => { const v = ch.data.datasets[di].data[i]; if (v === null || Math.abs(v) < minLbl) return; ctx.fillText((v > 0 ? '+' : '') + v.toFixed(1), el.x, v >= 0 ? el.y - 4 : el.y + 12); });
+                    ch.getDatasetMeta(di).data.forEach((el, i) => { const v = ch.data.datasets[di].data[i]; if (v === null || Math.abs(v) < minLbl) return; ctx.fillText(fmt(v, 1, true), el.x, v >= 0 ? el.y - 4 : el.y + 12); });
                     ctx.restore();
                 }
             };
@@ -409,7 +421,7 @@
                             filter: i => !String(i.dataset.label).startsWith('__') && i.dataset.type !== 'scatter',
                             callbacks: { label: c => {
                                 if (c.dataset.isRecord) { const r = REC.rec[mmdd(labels[c.dataIndex])]; return `Record ${c.dataset.isRecord === 'hi' ? 'high' : 'low'}: ${c.parsed.y === null ? '–' : c.parsed.y.toFixed(1)} (${r ? (c.dataset.isRecord === 'hi' ? r.hiY : r.loY) : ''})`; }
-                                return `${c.dataset.label}: ${c.parsed.y === null ? '–' : (c.dataset.yAxisID === 'y1' && c.parsed.y > 0 ? '+' : '') + c.parsed.y.toFixed(1)}`;
+                                return `${c.dataset.label}: ${c.parsed.y === null ? '–' : fmt(c.parsed.y, 1, c.dataset.yAxisID === 'y1')}`;
                             } }
                         }
                     },
@@ -474,7 +486,7 @@
             const euArr = L.dates.map(d => { const k = days.indexOf(d); return k >= 0 ? eu[k] : null; });
             const line = (name, w, arr, bold) => `<tr${bold ? ' class="cons"' : ''}><td>${name}</td><td style="color:#888">${w}</td>${wins.map(ws => cell(avg(arr, ws))).join('')}${days.map((d, i) => { const v = arr[idx(d)]; return cell(v === undefined ? null : v, 'day' + (i === 0 ? ' sep' : '')); }).join('')}</tr>`;
             document.getElementById('ctyBody').innerHTML = line('Europe (weighted)', '100%', euArr, true) +
-                rows.map(r => line(r.c, (100 * r.w / totW).toFixed(0) + '%', r.arr, false)).join('');
+                rows.map(r => line(r.c, (100 * r.w / totW < 0.5 ? '<1' : (100 * r.w / totW).toFixed(0)) + '%', r.arr, false)).join('');
         }
 
         function renderSeason() {
@@ -538,7 +550,7 @@
                     `<span>vs 30y: <b class="${cls(v - n30[io])}">${fmt(U(v - n30[io]), 0, true)}</b></span>` +
                     (n10[io] !== null ? `<span>vs 10y: <b class="${cls(v - n10[io])}">${fmt(U(v - n10[io]), 0, true)}</b></span>` : '') +
                     (ly !== null ? `<span>vs ${complete[complete.length - 1]}: <b class="${cls(v - ly)}">${fmt(U(v - ly), 0, true)}</b></span>` : '') +
-                    `<span>Rank: <b>#${rank}</b> coldest of ${peers.length + 1}</span>` +
+                    ((n, lo) => lo < rank ? `<span>Rank: <b>#${lo}</b> warmest of ${n}</span>` : `<span>Rank: <b>#${rank}</b> coldest of ${n}</span>`)(peers.length + 1, peers.length + 2 - rank) +
                     (il > io && n30[il] !== null ? `<span>Through ${labels[il]} incl. forecast: <b class="${cls(cum[cur][il] - n30[il])}">${fmt(U(cum[cur][il] - n30[il]), 0, true)}</b> vs 30y</span>` : '');
             } else st.innerHTML = '';
 
@@ -565,6 +577,40 @@
         }
 
         window.addEventListener('load', load);
+    </script>
+
+    <div id="tooltipOverlay" role="tooltip"><div class="tt-title" id="tt-title"></div><div class="tt-body" id="tt-body"></div></div>
+    <script>
+        const TOOLTIPS = {
+            "Model": { title: "Model", body: "Which ensemble drives the cards, the daily chart, the country table and the dashed tail of the season chart. All three are full ensembles (ECMWF IFS 51 members, NCEP GEFS 31, ECMWF AIFS 51), each shown as its member mean." },
+            "Change vs": { title: "Change vs", body: "The comparison run for every change figure: the previous run, the run 12 hours earlier, or the run 24 hours earlier (same cycle, so diurnal and cycle quirks cancel). Changes are taken only on valid dates both runs cover." },
+            "Units": { title: "Units", body: "HDD in °F (base 65 °F, comparable with the US Weather Desk) or °C (base 18.3 °C, the European convention). 1 °C HDD = 1.8 °F HDD." },
+            "Show": { title: "Chart layers", body: "<strong>Ens members</strong>: each member's daily HDD as dots. <strong>P10-P90</strong>: the middle 80% of members. <strong>30y ±1σ</strong>: normal plus or minus one standard deviation of 1991-2020 daily HDD. <strong>10y normal</strong>: average of the last 10 complete years. <strong>Records</strong>: highest and lowest observed daily HDD for each calendar day in the ERA5 history loaded so far." },
+            "Run total": { title: "Run total, days 1-15", body: "Sum of daily gas-demand-weighted HDD over the run's forecast days (the count is shown when fewer than 15). Higher = colder = more heating gas demand." },
+            "vs 30-yr normal": { title: "vs 30-year normal", body: "Run total minus the 1991-2020 normal on the same dates. Positive (green) = colder than normal, supportive for TTF/NBP and US LNG pull. While the ERA5 history is still filling in, the normal is marked provisional with the number of years used." },
+            "vs 10-yr normal": { title: "vs 10-year normal", body: "Run total minus the average of the last 10 complete years on the same dates. The 10-year window rolls forward each January." },
+            "Run change": { title: "Run change", body: "Latest run minus the comparison run chosen under 'Change vs', summed over the valid days both runs share. Positive (green) = the new run is colder." },
+            "Daily outlook": { title: "Daily HDD outlook", body: "Ensemble-mean daily HDD (line) with the comparison run (dashed), normals (dotted) and, on the right axis, the run change per day (bars). Shaded columns mark the 1-5, 6-10 and 11-15 day windows." },
+            "Run-to-run change": { title: "Run-to-run change by window", body: "Every model's change on identical calendar windows, so rows compare like for like. Superscripts show days covered when a run is shorter than the window. The last column is the latest run's days 1-15 total against the 30-year normal." },
+            "Country anomaly": { title: "Country temperature anomaly", body: "Ensemble-mean 2 m temperature minus the 1991-2020 ERA5 normal for each country's load centres, by day and window. Blue = colder than normal. WT = the country's share of the heating-gas weight; a 0.4% country shows as &lt;1%." },
+            "Season cumulative": { title: "Season cumulative HDD", body: "HDD accumulated since 1 September for each season, with the current season observed (solid) and the selected model's forecast (dashed). Rank counts from whichever end is nearer, so a mild season reads as '#2 warmest' rather than '#18 coldest'." }
+        };
+        (function () {
+            const ov = document.getElementById("tooltipOverlay"), tt = document.getElementById("tt-title"), tb = document.getElementById("tt-body");
+            function show(t) {
+                const k = t.getAttribute("data-tooltip-key"); if (!k || !TOOLTIPS[k]) return;
+                tt.innerHTML = TOOLTIPS[k].title; tb.innerHTML = TOOLTIPS[k].body; ov.classList.add("visible");
+                const a = t.getBoundingClientRect(), o = ov.getBoundingClientRect(), m = 12;
+                let left = Math.min(Math.max(m, a.left + a.width / 2 - o.width / 2), window.innerWidth - o.width - m);
+                let top = a.top - o.height - 10; if (top < m) top = a.bottom + 10;
+                ov.style.left = left + "px"; ov.style.top = top + "px";
+            }
+            const hide = () => ov.classList.remove("visible");
+            document.addEventListener("mouseover", e => { const t = e.target.closest(".has-tooltip"); if (t) show(t); });
+            document.addEventListener("mouseout", e => { if (e.target.closest(".has-tooltip")) hide(); });
+            document.addEventListener("touchstart", e => { const t = e.target.closest(".has-tooltip"); if (t) show(t); else hide(); }, { passive: true });
+            window.addEventListener("scroll", hide, { passive: true });
+        })();
     </script>
 </body>
 
