@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-24T03:43:24.705522Z",
+  "timestamp": "2026-11-24T06:14:23.736869Z",
   "ao": 0.239,
   "nao": 0.094,
   "pna": 0.884,
@@ -18,21 +18,21 @@
       "distance": 1.64,
       "window": "Nov 25\u2013Jan 23",
       "next30_hdd_anomaly": -1.0,
-      "next31_60_hdd_anomaly": -1.9
+      "next31_60_hdd_anomaly": -1.5
     },
     {
       "year": 2021,
       "distance": 1.64,
       "window": "Nov 25\u2013Jan 23",
-      "next30_hdd_anomaly": -3.5,
-      "next31_60_hdd_anomaly": -0.7
+      "next30_hdd_anomaly": -3.2,
+      "next31_60_hdd_anomaly": -0.8
     },
     {
       "year": 2008,
       "distance": 1.66,
       "window": "Nov 25\u2013Jan 23",
-      "next30_hdd_anomaly": 4.0,
-      "next31_60_hdd_anomaly": 3.0
+      "next30_hdd_anomaly": 3.5,
+      "next31_60_hdd_anomaly": 2.5
     }
   ],
   "mjo": {
