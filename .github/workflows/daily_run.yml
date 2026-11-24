@@ -28,6 +28,7 @@ env:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   poll:
@@ -91,6 +92,7 @@ jobs:
         run: |
           python scripts/market_logic/fetch_live_grid.py || echo "[WARN] Live grid fetch failed — continuing pipeline."
           python scripts/poll_models.py
+          python scripts/freshness_check.py || echo "[WARN] freshness check failed"
           # Manual resend: only when this run did not already send one.
           if [ "${{ inputs.force_telegram }}" = "true" ] && git diff --quiet -- outputs/health/telegram_last_runs.json; then
             TELEGRAM_FORCE=1 python scripts/send_telegram.py || echo "[WARN] forced Telegram send failed"
@@ -199,3 +201,10 @@ jobs:
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scheduler watchdog (restart the dispatcher if it stopped)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/scheduler.py --ensure

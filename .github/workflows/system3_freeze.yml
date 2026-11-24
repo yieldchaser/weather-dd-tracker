@@ -12,6 +12,7 @@ env:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   freeze_check:
@@ -56,3 +57,10 @@ jobs:
             echo "Push attempt $i failed, retrying in 15s..."
             sleep 15
           done
+
+      - name: Scheduler watchdog (restart the dispatcher if it stopped)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/scheduler.py --ensure

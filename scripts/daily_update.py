@@ -145,6 +145,7 @@ subprocess.run(f"{PY} scripts/compute_composite_weather_signal.py", shell=True) 
 # ------------------------------------------
 
 print("\n6. Sending Telegram update...")
+subprocess.run(f"{PY} scripts/freshness_check.py", shell=True)  # stale feeds -> PIPELINE ISSUES
 subprocess.run(f"{PY} scripts/send_telegram.py", shell=True)
 
 print("\n==============================")

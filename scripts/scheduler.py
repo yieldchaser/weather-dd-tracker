@@ -101,10 +101,31 @@ def tick(now):
             print(f"{now:%H:%M} [WARN] {wf}: {e}", flush=True)
 
 
+def ensure_alive():
+    """Watchdog, run at the end of every pipeline workflow: if no scheduler run
+    is in progress or queued, start one. The scheduler and the workflows then
+    keep each other alive; neither depends on GitHub's cron firing on time."""
+    live = 0
+    for status in ("in_progress", "queued", "waiting", "pending"):
+        live += _req("GET", f"{API}/scheduler.yml/runs?status={status}&per_page=1").get("total_count", 0)
+    if live:
+        print(f"Scheduler alive ({live} active run(s)).")
+        return 0
+    dispatch("scheduler.yml")
+    print("Scheduler was not running: dispatched it.")
+    return 0
+
+
 def main():
     if not TOKEN:
         print("[ERR] GH_TOKEN not set")
         return 1
+    if "--ensure" in sys.argv:
+        try:
+            return ensure_alive()
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            print(f"[WARN] watchdog check failed: {e}")
+            return 0
     start = time.time()
     while time.time() - start < LOOP_SECONDS:
         tick(dt.datetime.now(dt.timezone.utc))

@@ -11,6 +11,7 @@ env:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   run-teleconnections:
@@ -52,3 +53,10 @@ jobs:
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scheduler watchdog (restart the dispatcher if it stopped)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/scheduler.py --ensure
