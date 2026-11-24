@@ -689,6 +689,17 @@ def _tele_line(season):
         else:
             ms = "⚪"
         parts.append(f"MJO P{ph} {amp:.1f}{'' if amp >= 1 else ' weak'}{ms}")
+    e = td.get("enso") or {}
+    if e.get("state"):
+        v = e.get("oni") if e.get("oni") is not None else e.get("nino34_weekly")
+        st = {"El Niño": "El Niño", "La Niña": "La Niña"}.get(e["state"], "neutral")
+        # Winter: El Niño favours a mild North (bearish), La Niña a cold one.
+        if season == "CDD" or st == "neutral":
+            es = "⚪"
+        else:
+            es = "🔴" if st == "El Niño" else "🟢"
+        strength = {"weak": " wk", "moderate": " mod", "strong": " str", "very strong": " v.str"}.get(e.get("strength", ""), "")
+        parts.append(f"ENSO {st}{strength} {v:+.1f}{es}" if v is not None else f"ENSO {st}{es}")
     return "  ".join(parts)
 
 

@@ -127,6 +127,80 @@ def fetch_mjo(trail_days=40):
             "as_of": last["date"], "stale": age > 10, "source": "NOAA PSL ROMI (CPC OLR)",
             "trail": rows[-trail_days:]}
 
+NINO_WEEKLY_URL = "https://www.cpc.ncep.noaa.gov/data/indices/wksst9120.for"
+ONI_URL = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
+
+
+def _parse_nino_weekly(raw):
+    """[(date, nino34_anom)] from CPC's weekly OISST file (1991-2020 base).
+    Rows look like ' 05NOV2025     19.6-0.6     25.4-0.5     26.1-0.4     28.4-0.6':
+    SST and anomaly pairs for Nino 1+2, 3, 3.4, 4 (anomalies can abut the SST)."""
+    out = []
+    for line in raw.splitlines():
+        p = line.split(None, 1)
+        if len(p) < 2:
+            continue
+        try:
+            d = datetime.strptime(p[0], "%d%b%Y").date()
+        except ValueError:
+            continue
+        vals = re.findall(r"-?\d+\.\d", p[1])
+        if len(vals) >= 8:
+            out.append((d.isoformat(), float(vals[5])))
+    return out
+
+
+def _parse_oni(raw):
+    """[(season, year, anom)] from CPC's ONI table (3-month Nino 3.4 means)."""
+    out = []
+    for line in raw.splitlines():
+        p = line.split()
+        if len(p) >= 4 and len(p[0]) == 3 and p[1].isdigit():
+            try:
+                out.append((p[0], int(p[1]), float(p[3])))
+            except ValueError:
+                continue
+    return out
+
+
+def _enso_state(v):
+    if v is None:
+        return "Neutral", ""
+    a = abs(v)
+    if a < 0.5:
+        return "Neutral", ""
+    strength = "weak" if a < 1.0 else ("moderate" if a < 1.5 else ("strong" if a < 2.0 else "very strong"))
+    return ("El Niño" if v > 0 else "La Niña"), strength
+
+
+def fetch_enso(trail_weeks=26):
+    """ENSO from NOAA CPC: latest weekly Nino 3.4 anomaly and the latest ONI.
+    State follows the ONI threshold (+/-0.5 C); the weekly value shows where
+    the ocean is now. Winter US link: El Niño favours a mild North and a cool,
+    wet South (bearish heating demand); La Niña the reverse in the North."""
+    wk = _parse_nino_weekly(_http_get(NINO_WEEKLY_URL))
+    if not wk:
+        raise RuntimeError("Nino weekly file had no usable rows")
+    oni = []
+    try:
+        oni = _parse_oni(_http_get(ONI_URL))
+    except Exception as e:  # noqa: BLE001
+        logging.warning(f"ONI fetch failed: {e}")
+    last_d, last_v = wk[-1]
+    oni_last = oni[-1] if oni else None
+    basis = oni_last[2] if oni_last else last_v
+    state, strength = _enso_state(basis)
+    age = (datetime.now(UTC).date() - datetime.strptime(last_d, "%Y-%m-%d").date()).days
+    return {"nino34_weekly": last_v, "weekly_as_of": last_d,
+            "oni": oni_last[2] if oni_last else None,
+            "oni_season": f"{oni_last[0]} {oni_last[1]}" if oni_last else None,
+            "state": state, "strength": strength,
+            "weekly_state": " ".join(x for x in _enso_state(last_v)[::-1] if x).strip() or "Neutral",
+            "change_4w": round(last_v - wk[-5][1], 2) if len(wk) >= 5 else None,
+            "stale": age > 14, "source": "NOAA CPC (OISST, 1991-2020 base)",
+            "trail": [{"date": d, "nino34": v} for d, v in wk[-trail_weeks:]]}
+
+
 def compute_analogs(historical_data, data, current_vec, top_n=3, today=None):
     today = pd.Timestamp(today or datetime.now(UTC).date())
     keys = [k for k in ['AO', 'NAO', 'PNA', 'EPO'] if k in current_vec and k in historical_data]
@@ -309,6 +383,20 @@ def run_system1():
     except Exception as e:
         logging.error(f"MJO fetch failed: {e}")
 
+    enso = None
+    try:
+        enso = fetch_enso()
+        logging.info(f"ENSO: {enso['state']} {enso['strength']} (ONI {enso['oni']} {enso['oni_season']}, weekly Nino3.4 {enso['nino34_weekly']} {enso['weekly_as_of']})")
+    except Exception as e:
+        logging.error(f"ENSO fetch failed: {e}")
+        try:  # keep the last good reading rather than blanking the card
+            prev = json.load(open(os.path.join(os.path.dirname(__file__), "..", "..", "outputs", "teleconnections", "latest.json")))
+            enso = prev.get("enso")
+            if enso:
+                enso["stale"] = True
+        except Exception:
+            enso = None
+
     def _idx(key):
         v = data.get(key, {}).get('current')
         return float(round(v, 3)) if v is not None else None
@@ -324,6 +412,7 @@ def run_system1():
         'stale_indices': sorted(k for k, v in data.items() if isinstance(v, dict) and v.get('stale')),
         'analogs': enriched_analogs,
         'mjo': mjo,
+        'enso': enso,
         'change_7d': {k.lower(): (float(round(v['roc'], 3)) if isinstance(v, dict) and v.get('roc') is not None else None)
                       for k, v in data.items() if k in ('AO', 'NAO', 'PNA', 'EPO')},
         'status': 'success'

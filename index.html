@@ -751,6 +751,11 @@
                     <div class="tc-val tc-zero" id="tc-mjo-val">--</div>
                     <div class="tc-sub" id="tc-mjo-sub"></div>
                 </div>
+                <div class="telecon-card has-tooltip" id="tc-enso" data-tooltip-key="ENSO">
+                    <div class="tc-name">ENSO (Niño 3.4)</div>
+                    <div class="tc-val tc-zero" id="tc-enso-val">--</div>
+                    <div class="tc-sub" id="tc-enso-sub"></div>
+                </div>
             </div>
             <div class="week-card" id="mjo-panel" style="display:none;margin-bottom:16px;">
                 <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
@@ -1940,7 +1945,10 @@
                 }
                 const norm = [];
                 for (let y = 1991; y <= 2020; y++) { const c = sameDate(y, d.substring(5) === '02-29' ? d.replace('02-29', '02-28') : d); for (let k = -7; k <= 7; k++) { const v = obs.get(addDaysIso(c, k)); if (v !== undefined) norm.push(v); } }
-                return { min: q(vals, 0), p10: q(vals, 0.1), p25: q(vals, 0.25), med: q(vals, 0.5), p75: q(vals, 0.75), p90: q(vals, 0.9), max: q(vals, 1), norm: norm.length ? norm.reduce((a, b) => a + b, 0) / norm.length : null };
+                // 10-year normal on the same ±7-day window as the 30-year one.
+                const [t0, t1] = String(TEN_YR).split('-').map(Number), n10 = [];
+                for (let y = t0; y <= t1; y++) { const c = sameDate(y, d.substring(5) === '02-29' ? d.replace('02-29', '02-28') : d); for (let k = -7; k <= 7; k++) { const v = obs.get(addDaysIso(c, k)); if (v !== undefined) n10.push(v); } }
+                return { min: q(vals, 0), p10: q(vals, 0.1), p25: q(vals, 0.25), med: q(vals, 0.5), p75: q(vals, 0.75), p90: q(vals, 0.9), max: q(vals, 1), norm: norm.length ? norm.reduce((a, b) => a + b, 0) / norm.length : null, norm10: n10.length ? n10.reduce((a, b) => a + b, 0) / n10.length : null };
             });
             // exact-date ranks and records (no pooling): value vs the same calendar day of every earlier year
             const exactPrior = d => { const out = []; for (let y = firstY; y < +d.substring(0, 4); y++) { const v = obs.get(sameDate(y, d)); if (v !== undefined) out.push(v); } return out; };
@@ -1992,6 +2000,8 @@
                     { label: 'p75', data: B('p75'), borderWidth: 0, pointRadius: 0, fill: false, isBand: true },
                     { label: 'middle half', data: B('p25'), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(197,198,199,0.20)', isBand: true },
                     { label: 'median', data: B('med'), borderColor: '#9aa5b1', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false },
+                    { label: '30-yr normal (1991-2020)', data: B('norm'), borderColor: '#e0e0e0', borderDash: [10, 4], borderWidth: 1.4, pointRadius: 0, fill: false },
+                    { label: `10-yr normal (${TEN_YR})`, data: B('norm10'), borderColor: '#e0e0e0', borderDash: [2, 3], borderWidth: 1.4, pointRadius: 0, fill: false },
                     { label: `Observed ${DD_LABEL}`, data: obsLine, borderColor: '#66fcf1', borderWidth: 2.2, pointRadius: 0, fill: false, spanGaps: false },
                     { label: `Forecast (consensus of ${Object.keys(latest).length} ensembles)`, data: fcLine, borderColor: '#ffb74d', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, fill: false },
                     { label: `Record ${hiWord} for the date`, data: recHi, showLine: false, pointStyle: 'triangle', pointRadius: 8, pointHoverRadius: 9, borderWidth: 1, backgroundColor: IS_CDD ? '#ef5350' : '#42a5f5', borderColor: '#111' },
@@ -3048,6 +3058,27 @@
         // Winter US link (DJF composites): an active MJO (amplitude >= 1) in
         // phases 8, 1, 2, 3 tends to bring cold to the eastern US about 1-3 weeks
         // later; phases 4, 5, 6 tend to bring warmth. Weak in the warm season.
+        // ── ENSO card (NOAA CPC): state from the ONI (3-month Niño 3.4),
+        // value = latest weekly Niño 3.4 anomaly. Winter US link: El Niño
+        // favours a mild North and a cool, wet South (bearish heating demand);
+        // La Niña favours a cold North (bullish). Weak in the warm season.
+        function renderEnso(e) {
+            const el = document.getElementById('tc-enso-val'), sub = document.getElementById('tc-enso-sub');
+            if (!el) return;
+            if (!e || e.nino34_weekly === undefined || e.nino34_weekly === null) { el.textContent = 'n/a'; return; }
+            el.textContent = `${formatNum(e.nino34_weekly, 1, true)}°C`;
+            const st = e.state === 'Neutral' ? 'Neutral' : `${e.strength ? e.strength.charAt(0).toUpperCase() + e.strength.slice(1) + ' ' : ''}${e.state}`;
+            let cls = 'tc-zero';
+            if (!IS_CDD && e.state === 'El Niño') cls = 'tc-bearish';
+            else if (!IS_CDD && e.state === 'La Niña') cls = 'tc-bullish';
+            el.className = 'tc-val ' + cls;
+            const wk = e.weekly_as_of ? new Date(e.weekly_as_of + 'T00:00:00Z') : null;
+            sub.textContent = st + (e.oni !== null && e.oni !== undefined ? ` · ONI ${formatNum(e.oni, 1, true)} (${e.oni_season})` : '') +
+                (e.change_4w !== null && e.change_4w !== undefined ? ` · 4w ${formatNum(e.change_4w, 1, true)}` : '') +
+                (IS_CDD ? ', weak summer link' : '') + (e.stale ? ' · stale' : '');
+            if (wk) el.title = `Weekly Niño 3.4 anomaly, week of ${wk.toISOString().substring(0, 10)}`;
+        }
+
         let mjoChart = null;
         function renderMjo(m) {
             const el = document.getElementById('tc-mjo-val');
@@ -3131,6 +3162,7 @@
                 }
                 document.getElementById('telecon-panel').classList.add('visible');
                 try { renderMjo(tcData.mjo); } catch (e) { console.error('mjo', e); }
+                try { renderEnso(tcData.enso); } catch (e) { console.error('enso', e); }
             }
 
             // Task 2, Intelligence Signal Banner
@@ -3377,6 +3409,11 @@
             "PNA": {
                 title: "Pacific-North American (PNA)",
                 body: "The Pacific-North American index. A <strong>positive phase</strong> correlates with warmer western US and colder eastern US temperatures, whereas a <strong>negative phase</strong> is the reverse."
+            },
+            "ENSO": {
+                title: "El Niño-Southern Oscillation (ENSO)",
+                base: "Sea-surface temperature anomaly in the central Pacific Niño 3.4 region (latest week, °C vs 1991-2020). The state follows NOAA's Oceanic Niño Index (3-month mean): +0.5 or more is El Niño, -0.5 or less is La Niña. In winter El Niño tends to bring a mild northern US and a cool, wet South (less heating demand overall); La Niña tends to bring cold to the northern and central US. It sets the season's background, not the next two weeks. Source: NOAA CPC.",
+                body: "Sea-surface temperature anomaly in the central Pacific Niño 3.4 region (latest week, °C vs 1991-2020). The state follows NOAA's Oceanic Niño Index (3-month mean): +0.5 or more is El Niño, -0.5 or less is La Niña. In winter El Niño tends to bring a mild northern US and a cool, wet South (less heating demand overall); La Niña tends to bring cold to the northern and central US. It sets the season's background, not the next two weeks. Source: NOAA CPC."
             },
             "MJO": {
                 title: "Madden-Julian Oscillation (MJO)",
