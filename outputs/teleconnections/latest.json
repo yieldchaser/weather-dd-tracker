@@ -1,55 +1,48 @@
 {
-  "timestamp": "2026-11-24T06:14:23.736869Z",
-  "ao": 0.239,
-  "nao": 0.094,
-  "pna": 0.884,
+  "timestamp": "2026-11-24T16:52:26.410845Z",
+  "ao": 0.109,
+  "nao": 0.083,
+  "pna": 1.063,
   "epo": 0.929,
-  "composite_score": 43,
+  "composite_score": 49,
   "as_of": {
-    "AO": "2026-11-21",
-    "NAO": "2026-11-21",
-    "PNA": "2026-11-21",
+    "AO": "2026-11-22",
+    "NAO": "2026-11-22",
+    "PNA": "2026-11-22",
     "EPO": "2026-11-16"
   },
   "stale_indices": [],
   "analogs": [
     {
-      "year": 1991,
-      "distance": 1.64,
+      "year": 2016,
+      "distance": 1.69,
       "window": "Nov 25\u2013Jan 23",
-      "next30_hdd_anomaly": -1.0,
-      "next31_60_hdd_anomaly": -1.5
-    },
-    {
-      "year": 2021,
-      "distance": 1.64,
-      "window": "Nov 25\u2013Jan 23",
-      "next30_hdd_anomaly": -3.2,
-      "next31_60_hdd_anomaly": -0.8
+      "next30_hdd_anomaly": 1.5,
+      "next31_60_hdd_anomaly": -4.9
     },
     {
       "year": 2008,
-      "distance": 1.66,
+      "distance": 1.7,
       "window": "Nov 25\u2013Jan 23",
-      "next30_hdd_anomaly": 3.5,
-      "next31_60_hdd_anomaly": 2.5
+      "next30_hdd_anomaly": 4.0,
+      "next31_60_hdd_anomaly": 3.0
+    },
+    {
+      "year": 1991,
+      "distance": 1.74,
+      "window": "Nov 25\u2013Jan 23",
+      "next30_hdd_anomaly": -1.0,
+      "next31_60_hdd_anomaly": -1.9
     }
   ],
   "mjo": {
-    "phase": 4,
-    "amplitude": 0.894,
+    "phase": 5,
+    "amplitude": 0.803,
     "active": false,
-    "as_of": "2026-11-19",
+    "as_of": "2026-11-20",
     "stale": false,
     "source": "NOAA PSL ROMI (CPC OLR)",
     "trail": [
-      {
-        "date": "2026-10-11",
-        "x": -0.324,
-        "y": -1.211,
-        "amplitude": 1.253,
-        "phase": 2
-      },
       {
         "date": "2026-10-12",
         "x": -0.238,
@@ -297,38 +290,45 @@
       },
       {
         "date": "2026-11-16",
-        "x": 1.145,
-        "y": -0.4,
-        "amplitude": 1.213,
+        "x": 1.058,
+        "y": -0.203,
+        "amplitude": 1.078,
         "phase": 4
       },
       {
         "date": "2026-11-17",
-        "x": 1.041,
-        "y": -0.441,
-        "amplitude": 1.13,
+        "x": 0.96,
+        "y": -0.216,
+        "amplitude": 0.984,
         "phase": 4
       },
       {
         "date": "2026-11-18",
-        "x": 0.961,
-        "y": -0.359,
-        "amplitude": 1.026,
+        "x": 0.877,
+        "y": -0.113,
+        "amplitude": 0.885,
         "phase": 4
       },
       {
         "date": "2026-11-19",
-        "x": 0.891,
-        "y": -0.074,
-        "amplitude": 0.894,
-        "phase": 4
+        "x": 0.788,
+        "y": 0.169,
+        "amplitude": 0.806,
+        "phase": 5
+      },
+      {
+        "date": "2026-11-20",
+        "x": 0.588,
+        "y": 0.547,
+        "amplitude": 0.803,
+        "phase": 5
       }
     ]
   },
   "change_7d": {
-    "ao": 0.013,
-    "nao": 0.954,
-    "pna": -0.944,
+    "ao": -0.436,
+    "nao": 0.253,
+    "pna": -0.239,
     "epo": -0.776
   },
   "status": "success"
