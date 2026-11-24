@@ -394,6 +394,14 @@ def poll():
         retries = new_state.setdefault("refetch_attempts", {})
         for _key in META_RUNS:
             claimed, have = state.get(_key, ""), stored.get(_key, "")
+            if have and claimed < have:
+                # A run stored by another path (daily_update fetches every
+                # model) is not "new" next time; catching state up stops the
+                # whole pipeline re-running for it.
+                print(f"  [HEAL] {_key}: state {claimed or '(none)'} behind stored {have}; caught up")
+                state[_key] = have
+                new_state[_key] = have
+                continue
             if claimed and have and claimed > have:
                 tag = f"{_key}:{claimed}"
                 if retries.get(tag, 0) < 3:
@@ -524,7 +532,9 @@ def poll():
         triggered = True
 
     # 7b. Automatically probe Open-Meteo for WeatherNext 3 launch
-    om_wn3 = check_open_meteo_wn3_live()
+    # Open-Meteo's run metadata already proves WN3 is live; the 5 s probe
+    # timing out left WN3 undetected while daily_update still stored its run.
+    om_wn3 = "google_weathernext3_ensemble_mean" if "GOOGLE_WN3" in META_RUNS else check_open_meteo_wn3_live()
     if om_wn3:
         latest_wn3_avail = None
         if "GOOGLE_WN3" in META_RUNS:
