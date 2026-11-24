@@ -40,7 +40,12 @@ def fetch_icon():
     # cycle is stored and compared. The old daily "_seamless" label kept one
     # run per day and overwrote it on each fetch.
     from om_batch_fetch import om_latest_run
-    run_id = om_latest_run("icon_seamless") or f"{datetime.datetime.now(datetime.UTC).strftime('%Y%m%d')}_seamless"
+    run_id = om_latest_run("icon_seamless")
+    if not run_id:
+        # No run metadata: an invented daily label ("_seamless") made a second,
+        # unlabelled copy of a cycle. Skip; the poller retries next pass.
+        print("  [SKIP] ICON: Open-Meteo run metadata unavailable; not storing an unlabelled run.")
+        return
 
     out_dir = OUTPUT_DIR / run_id
     out_dir.mkdir(parents=True, exist_ok=True)

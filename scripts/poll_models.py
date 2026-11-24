@@ -416,6 +416,36 @@ def poll():
     except Exception as e:
         print(f"  [WARN] state self-heal skipped: {e}")
 
+    # Run-coverage ledger: every run Open-Meteo has served while we watched.
+    # Open-Meteo keeps no past ensemble runs, so a served run that was replaced
+    # before it was stored is gone for good; it must at least be reported.
+    try:
+        import pandas as _pd2
+        _m2 = _pd2.read_csv("outputs/tdd_master.csv", usecols=["model", "run_id"], dtype={"run_id": str})
+        stored_sets = _m2.groupby("model")["run_id"].apply(set).to_dict()
+        cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=48)).strftime("%Y%m%d_%H")
+        seen = new_state.setdefault("seen_runs", {})
+        lost = []
+        for _key, _rid in META_RUNS.items():
+            hist = sorted(set(seen.get(_key, [])) | {_rid})
+            hist = [r for r in hist if r >= cutoff]
+            seen[_key] = hist
+            for r in hist:
+                if r != _rid and r not in stored_sets.get(_key, set()):
+                    lost.append(f"{_key} {r[6:8]}/{r[9:]}z")
+        Path("outputs/health").mkdir(parents=True, exist_ok=True)
+        Path("outputs/health/run_coverage.json").write_text(json.dumps({
+            "script": "run coverage",
+            "status": "failed" if lost else "ok",
+            "error": ("served by Open-Meteo but never stored: " + ", ".join(lost)) if lost else "",
+            "lost_48h": lost,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }, indent=1))
+        if lost:
+            print(f"  [COVERAGE] Lost runs (served, replaced before storing): {lost}")
+    except Exception as e:
+        print(f"  [WARN] run-coverage ledger skipped: {e}")
+
     # 1. Check GFS & GEFS Synchronization
     latest_gfs_avail = None
     for d in dates_to_check:

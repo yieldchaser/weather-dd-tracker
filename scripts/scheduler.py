@@ -39,7 +39,11 @@ GRACE = dt.timedelta(minutes=10)
 
 # Same slots as each workflow's own cron (UTC "HH:MM").
 SLOTS = {
-    "daily_run.yml": ["05:30", "09:00", "11:30", "17:30", "21:00", "23:30"],
+    # Hourly: Open-Meteo serves only each model's newest run, so a cycle that
+    # appears and is replaced between two polls is gone for good. Six slots a
+    # day (gaps up to 6 h) lost WN3, AIGEFS, CMC, UKMO and WN2 cycles. A poll
+    # with nothing new exits in a few minutes.
+    "daily_run.yml": [f"{h:02d}:20" for h in range(24)],
     "europe_weather.yml": ["02:40", "08:40", "14:40", "20:40"],
     "teleconnections.yml": ["06:00", "18:00"],
     "system3_freeze.yml": ["06:30", "18:30"],

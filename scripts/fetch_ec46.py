@@ -149,6 +149,11 @@ def sync_all_ec46():
 
     from om_batch_fetch import om_latest_run
     _rid = om_latest_run("ecmwf_ec46")  # exact init date from Open-Meteo's metadata
+    if not _rid:
+        # No wall-clock guess: a guessed cycle label can mislabel the run
+        # Open-Meteo is serving. Skip; the hourly poller retries.
+        print("  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label.")
+        return
     if _rid:
         date_str = _rid.split("_")[0]
     fetch_run(date_str)

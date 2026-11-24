@@ -150,6 +150,11 @@ def sync_all_wn2():
     # Exact label from Open-Meteo's own run metadata when available.
     from om_batch_fetch import om_latest_run
     _rid = om_latest_run("google_weathernext2_ensemble_mean")
+    if not _rid:
+        # No wall-clock guess: a guessed cycle label can mislabel the run
+        # Open-Meteo is serving. Skip; the hourly poller retries.
+        print("  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label.")
+        return
     if _rid:
         date_str, cycle = _rid.split("_")
     fetch_run(date_str, cycle)

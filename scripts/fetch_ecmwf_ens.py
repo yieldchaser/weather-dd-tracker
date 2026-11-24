@@ -160,6 +160,11 @@ def sync_all_ecmwf_ens():
     # Exact label from Open-Meteo's own run metadata when available.
     from om_batch_fetch import om_latest_run
     _rid = om_latest_run("ecmwf_ifs025")
+    if not _rid:
+        # No wall-clock guess: a guessed cycle label can mislabel the run
+        # Open-Meteo is serving. Skip; the hourly poller retries.
+        print("  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label.")
+        return
     if _rid:
         date_str, cycle = _rid.split("_")
     # 06z/18z on Open-Meteo run only 144 h and reuse the previous 00z/12z run
