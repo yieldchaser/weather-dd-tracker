@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-23T18:29:27.779673Z",
+  "timestamp": "2026-11-24T03:43:24.705522Z",
   "ao": 0.239,
   "nao": 0.094,
   "pna": 0.884,
@@ -14,25 +14,25 @@
   "stale_indices": [],
   "analogs": [
     {
-      "year": 2021,
-      "distance": 1.6,
-      "window": "Nov 24\u2013Jan 22",
-      "next30_hdd_anomaly": -3.2,
-      "next31_60_hdd_anomaly": -1.0
-    },
-    {
       "year": 1991,
       "distance": 1.64,
-      "window": "Nov 24\u2013Jan 22",
-      "next30_hdd_anomaly": -0.8,
-      "next31_60_hdd_anomaly": -1.4
+      "window": "Nov 25\u2013Jan 23",
+      "next30_hdd_anomaly": -1.0,
+      "next31_60_hdd_anomaly": -1.9
+    },
+    {
+      "year": 2021,
+      "distance": 1.64,
+      "window": "Nov 25\u2013Jan 23",
+      "next30_hdd_anomaly": -3.5,
+      "next31_60_hdd_anomaly": -0.7
     },
     {
       "year": 2008,
-      "distance": 1.65,
-      "window": "Nov 24\u2013Jan 22",
+      "distance": 1.66,
+      "window": "Nov 25\u2013Jan 23",
       "next30_hdd_anomaly": 4.0,
-      "next31_60_hdd_anomaly": 2.7
+      "next31_60_hdd_anomaly": 3.0
     }
   ],
   "mjo": {
