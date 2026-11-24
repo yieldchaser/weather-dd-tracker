@@ -1290,6 +1290,32 @@
     ],
     "UKMO_ENS": [
         {
+            "latest": "20261124_12",
+            "file": "UKMO_ENS_anom_20261124_12.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261124_12",
+            "file": "UKMO_ENS_shift_20261124_12_vs_20261124_06.gif",
+            "kind": "shift",
+            "previous": "20261124_06",
+            "hours": 6
+        },
+        {
+            "latest": "20261124_12",
+            "file": "UKMO_ENS_shift_20261124_12_vs_20261124_00.gif",
+            "kind": "shift",
+            "previous": "20261124_00",
+            "hours": 12
+        },
+        {
+            "latest": "20261124_12",
+            "file": "UKMO_ENS_shift_20261124_12_vs_20261123_12.gif",
+            "kind": "shift",
+            "previous": "20261123_12",
+            "hours": 24
+        },
+        {
             "latest": "20261124_06",
             "file": "UKMO_ENS_anom_20261124_06.gif",
             "kind": "anom"
@@ -1317,11 +1343,6 @@
         },
         {
             "latest": "20261124_00",
-            "file": "UKMO_ENS_anom_20261124_00.gif",
-            "kind": "anom"
-        },
-        {
-            "latest": "20261124_00",
             "file": "UKMO_ENS_shift_20261124_00_vs_20261123_18.gif",
             "kind": "shift",
             "previous": "20261123_18",
@@ -1346,27 +1367,6 @@
             "file": "UKMO_ENS_shift_20261123_18_vs_20261123_12.gif",
             "kind": "shift",
             "previous": "20261123_12",
-            "hours": 6
-        },
-        {
-            "latest": "20261123_18",
-            "file": "UKMO_ENS_shift_20261123_18_vs_20261123_06.gif",
-            "kind": "shift",
-            "previous": "20261123_06",
-            "hours": 12
-        },
-        {
-            "latest": "20261123_18",
-            "file": "UKMO_ENS_shift_20261123_18_vs_20261123_00.gif",
-            "kind": "shift",
-            "previous": "20261123_00",
-            "hours": 18
-        },
-        {
-            "latest": "20261123_12",
-            "file": "UKMO_ENS_shift_20261123_12_vs_20261123_06.gif",
-            "kind": "shift",
-            "previous": "20261123_06",
             "hours": 6
         }
     ]
