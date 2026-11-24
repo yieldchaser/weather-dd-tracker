@@ -352,16 +352,21 @@ def om_latest_run(model, host=None, timeout=15):
     """Run id (YYYYMMDD_HH) Open-Meteo currently serves for `model`, or None."""
     import datetime as _dt
     import requests as _rq
+    import time as _t
     d = OM_META_DIRS.get(model, model)
     host = host or OM_META_HOSTS.get(model, OM_META_HOST)
-    try:
-        r = _rq.get(f"{host}/data/{d}/static/meta.json", timeout=timeout)
-        if r.status_code != 200:
-            return None
-        t = int(r.json()["last_run_initialisation_time"])
-        return _dt.datetime.fromtimestamp(t, _dt.timezone.utc).strftime("%Y%m%d_%H")
-    except Exception:
-        return None
+    # Three tries: callers no longer fall back to a wall-clock label, so a
+    # single timeout must not cost the run.
+    for attempt in range(3):
+        try:
+            r = _rq.get(f"{host}/data/{d}/static/meta.json", timeout=timeout)
+            if r.status_code == 200:
+                t = int(r.json()["last_run_initialisation_time"])
+                return _dt.datetime.fromtimestamp(t, _dt.timezone.utc).strftime("%Y%m%d_%H")
+        except Exception:
+            pass
+        _t.sleep(3 * (attempt + 1))
+    return None
 
 def is_duplicate_run(base_dir, run_id, city_data, tol_f=0.01, min_points=50):
     """

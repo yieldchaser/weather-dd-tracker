@@ -33,6 +33,9 @@ RELABELS = [
     # 23_06 CSV (really the 22_18 ensemble mean) stayed and was re-merged.
     # Second pass: replace the stale 22_18 data with it and drop the 23_06 copy.
     ("AIGEFS", "data/aigefs", "20261123_06", "20261122_18", "overwrite"),
+    # Written 2026-11-24 18:14 under a wall-clock "12z" guess while Open-Meteo
+    # still served 23/18z (metadata request failed). Not a real run: drop it.
+    ("AIGEFS", "data/aigefs", "20261124_12", None, "drop"),
 ]
 
 
@@ -45,6 +48,19 @@ def main():
         overwrite = len(entry) > 4 and entry[4] == "overwrite"
         key = f"{model}:{old}->{new}" + (":overwrite" if overwrite else "")
         if key in done:
+            continue
+        if len(entry) > 4 and entry[4] == "drop":
+            if master is not None:
+                sel = (master["model"] == model) & (master["run_id"] == old)
+                if sel.any():
+                    master = master[~sel].copy()
+                    changed = True
+            b = Path(base)
+            for f in (b / f"{old}_tdd.csv", b / "cities" / f"{old}_cities.json", b / "spread" / f"{old}_spread.json"):
+                if f.exists():
+                    f.unlink()
+            done.add(key)
+            print(f"[relabel] {model} {old} dropped (mislabelled)")
             continue
         if master is not None:
             have_new = ((master["model"] == model) & (master["run_id"] == new)).any()
@@ -80,6 +96,25 @@ def main():
             print(f"[relabel] dropping ECMWF_ENS pseudo-runs {sorted(master.loc[pseudo, 'run_id'].unique())}")
             master = master[~pseudo].copy()
             changed = True
+    # From 2026-11-23 ICON runs carry their cycle label; a daily "_seamless"
+    # label after that date is a duplicate written when run metadata failed.
+    # (Earlier "_seamless" runs are the genuine daily archive and are kept.)
+    if master is not None:
+        rid = master["run_id"].astype(str)
+        bad = (master["model"] == "ICON") & rid.str.endswith("_seamless") & (rid >= "20261123")
+        if bad.any():
+            print(f"[relabel] dropping unlabelled ICON runs {sorted(master.loc[bad, 'run_id'].unique())}")
+            master = master[~bad].copy()
+            changed = True
+    for f in list(Path("data/icon").glob("*_seamless_tdd.csv")) + list(Path("data/icon").glob("*_seamless")):
+        if f.name[:8] < "20261123":
+            continue
+        if f.is_file():
+            f.unlink()
+        else:
+            import shutil
+            shutil.rmtree(f, ignore_errors=True)
+        print(f"[relabel] removed {f}")
     b = Path("data/ecmwf_ens")
     for pat in ("*_06_tdd.csv", "*_18_tdd.csv", "cities/*_06_cities.json", "cities/*_18_cities.json",
                 "spread/*_06_spread.json", "spread/*_18_spread.json"):

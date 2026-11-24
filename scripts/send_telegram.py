@@ -867,7 +867,7 @@ def main():
                 hs = json.loads(hf.read_text())
                 if isinstance(hs, dict) and hs.get("status") == "failed":
                     sname = Path(hs.get("script", hf.stem)).name
-                    health_alerts.append(f"⚠️ {_esc(sname)}: {_esc(str(hs.get('error', 'unknown'))[:80])}")
+                    health_alerts.append(f"⚠️ {_esc(sname)}: {_esc(str(hs.get('error', 'unknown'))[:200])}")
             except Exception:
                 pass
     if health_alerts:

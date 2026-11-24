@@ -333,11 +333,18 @@ def sync_all_wn3():
         date_str, cycle = (now - datetime.timedelta(days=1)).strftime("%Y%m%d"), "12"
 
     # 1. Automatic Open-Meteo detection (Zero configuration required)
-    om_model = check_open_meteo_wn3_live()
+    # Run metadata answering proves WN3 is live; the 5 s data probe timing out
+    # used to drop through to the GCS path with a guessed 00z/12z label.
+    from om_batch_fetch import om_latest_run
+    om_model = "google_weathernext3_ensemble_mean" if om_latest_run("google_weathernext3_ensemble_mean") else check_open_meteo_wn3_live()
     if om_model:
         logging.info(f"--- GOOGLE WEATHERNEXT 3 DETECTED ON OPEN-METEO ({om_model}) ---")
-        from om_batch_fetch import om_latest_run
         _rid = om_latest_run(om_model)  # WN3 runs 4x daily; label from Open-Meteo's metadata
+        if not _rid:
+            # No wall-clock guess: a guessed cycle label can mislabel the run
+            # Open-Meteo is serving. Skip; the hourly poller retries.
+            print("  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label.")
+            return None
         if _rid:
             date_str, cycle = _rid.split("_")
         return fetch_from_open_meteo(om_model, date_str, cycle)
