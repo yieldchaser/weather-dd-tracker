@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-23T21:52:19.261946+00:00",
+  "generated_at_utc": "2026-11-24T00:23:41.493598+00:00",
   "fit_window_days": 180,
   "fit": {
     "a": 0.014216049398744683,
@@ -936,111 +936,111 @@
   },
   "forecast_series": [
     {
-      "date": "2026-11-24",
-      "temp": 40.49,
-      "burn_implied": 20.271,
-      "burn_normal_delta": 0.105
-    },
-    {
       "date": "2026-11-25",
-      "temp": 38.18,
-      "burn_implied": 21.008,
-      "burn_normal_delta": 0.844
+      "temp": 37.95,
+      "burn_implied": 21.089,
+      "burn_normal_delta": 0.925
     },
     {
       "date": "2026-11-26",
-      "temp": 41.57,
-      "burn_implied": 19.978,
-      "burn_normal_delta": -0.031
+      "temp": 41.58,
+      "burn_implied": 19.976,
+      "burn_normal_delta": -0.034
     },
     {
       "date": "2026-11-27",
-      "temp": 44.35,
-      "burn_implied": 19.378,
-      "burn_normal_delta": -0.754
+      "temp": 44.43,
+      "burn_implied": 19.364,
+      "burn_normal_delta": -0.768
     },
     {
       "date": "2026-11-28",
-      "temp": 43.79,
-      "burn_implied": 19.481,
-      "burn_normal_delta": -0.705
+      "temp": 43.97,
+      "burn_implied": 19.447,
+      "burn_normal_delta": -0.74
     },
     {
       "date": "2026-11-29",
-      "temp": 45.16,
-      "burn_implied": 19.244,
-      "burn_normal_delta": -0.889
+      "temp": 45.42,
+      "burn_implied": 19.205,
+      "burn_normal_delta": -0.928
     },
     {
       "date": "2026-11-30",
-      "temp": 45.8,
-      "burn_implied": 19.152,
-      "burn_normal_delta": -0.886
+      "temp": 45.76,
+      "burn_implied": 19.157,
+      "burn_normal_delta": -0.881
     },
     {
       "date": "2026-12-01",
-      "temp": 44.35,
-      "burn_implied": 19.378,
-      "burn_normal_delta": -0.913
+      "temp": 44.43,
+      "burn_implied": 19.364,
+      "burn_normal_delta": -0.927
     },
     {
       "date": "2026-12-02",
-      "temp": 44.43,
-      "burn_implied": 19.364,
-      "burn_normal_delta": -1.402
+      "temp": 44.52,
+      "burn_implied": 19.348,
+      "burn_normal_delta": -1.418
     },
     {
       "date": "2026-12-03",
-      "temp": 44.78,
-      "burn_implied": 19.304,
-      "burn_normal_delta": -1.399
+      "temp": 44.79,
+      "burn_implied": 19.303,
+      "burn_normal_delta": -1.401
     },
     {
       "date": "2026-12-04",
-      "temp": 46.0,
-      "burn_implied": 19.125,
-      "burn_normal_delta": -1.644
+      "temp": 46.07,
+      "burn_implied": 19.116,
+      "burn_normal_delta": -1.653
     },
     {
       "date": "2026-12-05",
-      "temp": 45.69,
-      "burn_implied": 19.167,
-      "burn_normal_delta": -1.998
+      "temp": 45.87,
+      "burn_implied": 19.142,
+      "burn_normal_delta": -2.022
     },
     {
       "date": "2026-12-06",
-      "temp": 43.48,
-      "burn_implied": 19.542,
-      "burn_normal_delta": -2.208
+      "temp": 43.5,
+      "burn_implied": 19.538,
+      "burn_normal_delta": -2.212
     },
     {
       "date": "2026-12-07",
-      "temp": 41.85,
-      "burn_implied": 19.908,
-      "burn_normal_delta": -2.244
+      "temp": 42.01,
+      "burn_implied": 19.868,
+      "burn_normal_delta": -2.284
     },
     {
       "date": "2026-12-08",
-      "temp": 40.58,
-      "burn_implied": 20.245,
-      "burn_normal_delta": -2.454
+      "temp": 40.9,
+      "burn_implied": 20.156,
+      "burn_normal_delta": -2.543
+    },
+    {
+      "date": "2026-12-09",
+      "temp": 40.15,
+      "burn_implied": 20.37,
+      "burn_normal_delta": -1.96
     }
   ],
   "ercot_fit": {
-    "slope_gw_per_f": 1.169,
+    "slope_gw_per_f": 1.168,
     "heating_gw_per_f": null,
-    "heating_days": 13,
+    "heating_days": 14,
     "balance_temp_f": 68.0,
     "model": "two-arm degree-day",
-    "intercept_gw": 48.94,
-    "r2": 0.9713,
-    "n": 119,
+    "intercept_gw": 48.96,
+    "r2": 0.9718,
+    "n": 120,
     "first_date": "2026-07-26",
-    "last_date": "2026-11-21",
-    "current_temp": 66.233,
-    "current_load_gw": 49.5,
+    "last_date": "2026-11-22",
+    "current_temp": 64.959,
+    "current_load_gw": 49.4,
     "implied_load_gw": 49.0,
-    "residual_gw": 0.5,
+    "residual_gw": 0.4,
     "points": [
       {
         "date": "2026-07-26",
@@ -1636,100 +1636,105 @@
         "date": "2026-11-21",
         "t": 66.233,
         "load_gw": 49.5
+      },
+      {
+        "date": "2026-11-22",
+        "t": 64.959,
+        "load_gw": 49.4
       }
     ],
     "fit_line": [
       {
         "t": 54.5,
-        "load_gw": 49.2
+        "load_gw": 49.21
       },
       {
         "t": 55.5,
-        "load_gw": 49.18
+        "load_gw": 49.19
       },
       {
         "t": 56.4,
-        "load_gw": 49.16
+        "load_gw": 49.17
       },
       {
         "t": 57.4,
-        "load_gw": 49.14
+        "load_gw": 49.15
       },
       {
         "t": 58.4,
-        "load_gw": 49.13
+        "load_gw": 49.14
       },
       {
         "t": 59.3,
-        "load_gw": 49.11
+        "load_gw": 49.12
       },
       {
         "t": 60.3,
-        "load_gw": 49.09
+        "load_gw": 49.1
       },
       {
         "t": 61.3,
-        "load_gw": 49.07
+        "load_gw": 49.08
       },
       {
         "t": 62.2,
-        "load_gw": 49.05
+        "load_gw": 49.06
       },
       {
         "t": 63.2,
-        "load_gw": 49.03
+        "load_gw": 49.05
       },
       {
         "t": 64.2,
-        "load_gw": 49.02
+        "load_gw": 49.03
       },
       {
         "t": 65.1,
-        "load_gw": 49.0
+        "load_gw": 49.01
       },
       {
         "t": 66.1,
-        "load_gw": 48.98
+        "load_gw": 48.99
       },
       {
         "t": 67.1,
-        "load_gw": 48.96
+        "load_gw": 48.97
       },
       {
         "t": 68.0,
-        "load_gw": 49.0
+        "load_gw": 49.01
       },
       {
         "t": 69.0,
-        "load_gw": 50.13
+        "load_gw": 50.14
       },
       {
         "t": 70.0,
-        "load_gw": 51.26
+        "load_gw": 51.27
       },
       {
         "t": 70.9,
-        "load_gw": 52.39
+        "load_gw": 52.4
       },
       {
         "t": 71.9,
-        "load_gw": 53.52
+        "load_gw": 53.53
       },
       {
         "t": 72.9,
-        "load_gw": 54.65
+        "load_gw": 54.66
       },
       {
         "t": 73.8,
-        "load_gw": 55.78
+        "load_gw": 55.79
       },
       {
         "t": 74.8,
-        "load_gw": 56.91
+        "load_gw": 56.92
       },
       {
         "t": 75.8,
-        "load_gw": 58.04
+        "load_gw": 58.05
       },
       {
         "t": 76.7,
