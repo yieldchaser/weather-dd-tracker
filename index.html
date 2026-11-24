@@ -1008,6 +1008,7 @@
                 </tbody>
             </table>
         </div>
+        <div class="panel-note" style="font-size:0.75rem;color:#888;margin-top:6px;">Each cell = latest run minus that model's previous run for the date (gas-weighted, per day). Green = more demand, red = less. * = the previous run is more than one cycle back (a cycle was missed), so the change spans a longer gap than usual.</div>
         <br><br>
     </div>
 
@@ -1481,18 +1482,10 @@
                 let a2_cls10 = w2_anom10 > 0 ? 'pos-val' : (w2_anom10 < 0 ? 'neg-val' : '');
                 let a3_cls10 = w3_anom10 > 0 ? 'pos-val' : (w3_anom10 < 0 ? 'neg-val' : '');
 
-                const MODEL_HORIZONS = {
-                    'HRRR': 2, 'NAM': 3.5, 'NBM': 5, 'GFS': 16, 'ECMWF': 10,
-                    'ECMWF_ENS': 15, 'ECMWF_AIFS': 10, 'AIGFS': 16, 'HGEFS': 10,
-                    'GEFS': 16, 'GEFS_35D': 35, 'CMC_ENS': 15, 'GOOGLE_WN2': 15,
-                    'GOOGLE_WN3': 15, 'AIGEFS': 16, 'AIFS_ENS': 15, 'UKMO_ENS': 8,
-                    'EC46': 46, 'ICON': 16, 'FOURCASTNETV2-SMALL': 10,
-                    'FOURCASTNETV2': 10, 'GRAPHCAST': 10, 'PANGUWEATHER': 10, 'AURORA': 10
-                };
-
-                let h1 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] <= 5) ? MODEL_HORIZONS[m] : len1;
-                let h2 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 5 && MODEL_HORIZONS[m] <= 15) ? MODEL_HORIZONS[m] : len2;
-                let h3 = (MODEL_HORIZONS[m] && MODEL_HORIZONS[m] > 15) ? MODEL_HORIZONS[m] : len3;
+                // (Nd) = days of this window the model's latest run actually
+                // covers, so a partial window reads as partial. (It used to show
+                // the model's full horizon, e.g. "(15d)" in the Days 6-15 table.)
+                let h1 = len1, h2 = len2, h3 = len3;
 
                 if (len1 > 0) {
                     let f1 = formatNum(w1_fcst / len1, 1);
@@ -1757,6 +1750,9 @@
                 const nds = windows[3].dates.filter(d => Lrun[d] !== undefined && normByDate[d] !== undefined && !isNaN(normByDate[d]));
                 const anom = nds.length ? nds.reduce((a, d) => a + Lrun[d] - normByDate[d], 0) : null;
                 windows.forEach((w, i) => { if (cells[i].full) cons[w.key].push(cells[i].v); });
+                // A model with nothing in days 1-15 (GEFS 35-day starts at day 16)
+                // is only a row of dashes here; it has its own long-range table.
+                if (anom === null && cells.every(c => c.v === null)) return;
                 rows.push({ m, L, C, cells, anom, anomN: nds.length });
             });
 
@@ -1791,7 +1787,7 @@
             if (hl) {
                 const fmtC = (label, arr) => {
                     const v = mean(arr);
-                    if (v === null) return '';
+                    if (v === null || arr.length < 3) return '';  // fewer than 3 models is not a consensus
                     return `<span>${label}: <b class="${v > 0 ? 'pos-val' : (v < 0 ? 'neg-val' : '')}">${formatNum(v, 1, true)}</b> ${DD_LABEL}s <small style="color:#777">(${arr.length})</small></span>`;
                 };
                 hl.innerHTML = `<span style="color:#888">All-model 15-day change (ensembles + deterministic)</span>` + fmtC('vs prev', consHeadline.prev) + fmtC('12h', consHeadline['12']) + fmtC('24h', consHeadline['24']) + fmtC('72h', consHeadline['72']);
@@ -1838,7 +1834,9 @@
                 dEl.textContent = m24 === null ? 'n/a' : formatNum(m24, 1, true);
                 dEl.style.color = m24 === null ? '' : col(m24);
                 dSub.innerHTML = `${DD_LABEL}s vs runs 24h earlier (${pl(ch24.length)})` +
-                    (m72 === null ? '' : `<br>72h: <b style="color:${col(m72)}">${formatNum(m72, 1, true)}</b> (${pl(ch72.length)})`);
+                    // 72h only when at least 3 ensembles have a run 72h back; a
+                    // 1-model 72h beside a 6-model 24h is not like for like.
+                    (m72 === null || ch72.length < 3 ? '' : `<br>72h: <b style="color:${col(m72)}">${formatNum(m72, 1, true)}</b> (${pl(ch72.length)})`);
             } catch (e) { console.error('consensus cards', e); }
         }
 
@@ -2129,7 +2127,9 @@
                 note.innerHTML = parts.length ? `<span style="color:#888">Skill-weighted consensus (latest runs, weight 1/MAE²)</span>${parts.join('')}` : '';
             }
             const sub = document.getElementById('skill-sub');
-            if (sub) sub.innerText = `Verification window ${start} → ${end} (ERA5 gas-weighted ${DD_LABEL}). Sorted by days 6-10 error. ★ = lowest error in that window. Bias: blue = forecasts ran ${hotWord}, red = ${coldWord}. Models need ≥${SKILL_MIN_N} scored forecasts per window to be ranked. Runs from before the 2026-11-23 method change (area-weighted grids, control-member ensembles) are archived and not scored, so those models rejoin as new runs verify.`;
+            if (sub) sub.innerText = `Verification window ${start} → ${end} (ERA5 gas-weighted ${DD_LABEL}). Sorted by days 6-10 error. ★ = lowest error in that window. Bias: blue = forecasts ran ${hotWord}, red = ${coldWord}. Models need ≥${SKILL_MIN_N} scored forecasts per window to be ranked.` +
+                // Only while the 30-day window still reaches back to the method change.
+                (start < '2026-11-23' ? ' Runs from before the 2026-11-23 method change (area-weighted grids, control-member ensembles) are archived and not scored, so those models rejoin as new runs verify.' : '');
         }
 
         function indexMasterRunsActive(masterData) {
@@ -2284,7 +2284,11 @@
                 if (nrm !== null) html += `<span>vs 30y: <b class="${obsNow - nrm >= 0 ? 'pos-val' : 'neg-val'}">${f(obsNow - nrm)}</b></span>`;
                 if (n10 !== null) html += `<span>vs 10y: <b class="${obsNow - n10 >= 0 ? 'pos-val' : 'neg-val'}">${f(obsNow - n10)}</b></span>`;
                 if (lyNow !== null && lyNow !== undefined) html += `<span>vs ${lastPrevSeason}: <b class="${obsNow - lyNow >= 0 ? 'pos-val' : 'neg-val'}">${f(obsNow - lyNow)}</b></span>`;
-                html += `<span>Rank: <b>#${rankColdest}</b> ${word} of ${peers.length + 1}</span>`;
+                {   // rank from the nearer end: "#2 warmest", not "#35 coldest"
+                    const nAll = peers.length + 1, fromLow = nAll - rankColdest + 1;
+                    const loWord = IS_CDD ? 'coolest' : (IS_BOTH ? 'lowest-demand' : 'warmest');
+                    html += fromLow < rankColdest ? `<span>Rank: <b>#${fromLow}</b> ${loWord} of ${nAll}</span>` : `<span>Rank: <b>#${rankColdest}</b> ${word} of ${nAll}</span>`;
+                }
                 if (lastIdx > lastObsIdx && endN !== null) {
                     html += `<span>Through fcst end (${allLabels[lastIdx]}, ${forecastMeta.label || 'forecast'}): <b class="${endV - endN >= 0 ? 'pos-val' : 'neg-val'}">${f(endV - endN)}</b> vs 30y${endN10 !== null ? `, <b class="${endV - endN10 >= 0 ? 'pos-val' : 'neg-val'}">${f(endV - endN10)}</b> vs 10y` : ''}</span>`;
                 }
@@ -2486,9 +2490,11 @@
                     const rank = allTotals.indexOf(liveTotal) + 1;
                     const extreme = rank <= 5 || rank > allTotals.length - 5;
                     colors.push(extreme ? '#f44336' : '#ff9800');
-                    const word = targetMetric === 'CDD' ? 'hottest' : (targetMetric === 'TDD' ? 'highest' : 'coldest');
-                    rankTxt = `: ${liveYear} projected ${liveTotal.toFixed(0)} (#${rank} ${word} of ${allTotals.length}` +
-                        (n30 !== null ? `, ${(liveTotal - n30 >= 0 ? '+' : '')}${(liveTotal - n30).toFixed(0)} vs 30y` : '') + ')';
+                    // Rank from whichever end is nearer: "#2 warmest", not "#35 coldest".
+                    const [hiW, loW] = targetMetric === 'CDD' ? ['hottest', 'coolest'] : (targetMetric === 'TDD' ? ['highest', 'lowest'] : ['coldest', 'warmest']);
+                    const fromLow = allTotals.length - rank + 1, useLow = fromLow < rank;
+                    rankTxt = `: ${liveYear} projected ${liveTotal.toFixed(0)} (#${useLow ? fromLow : rank} ${useLow ? loW : hiW} of ${allTotals.length}` +
+                        (n30 !== null ? `, ${formatNum(liveTotal - n30, 0, true)} vs 30y` : '') + ')';
                 }
 
                 const datasets = [

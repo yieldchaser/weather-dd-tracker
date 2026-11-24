@@ -634,7 +634,7 @@ def _fmt_consensus(df, tdd_col, season):
                  + (f"  │  vs 10y <b>{avg - n10:+.0f}</b>" if n10 is not None else "")]
         chg = []
         for lag in (24, 72):
-            if ch[lag]:
+            if ch[lag] and (lag == 24 or len(ch[lag]) >= 3):  # 72h only with 3+ ensembles
                 v = sum(ch[lag]) / len(ch[lag])
                 chg.append(f"{lag}h <b>{v:+.1f}</b> {dot(v)} <i>({len(ch[lag])})</i>")
         if chg:

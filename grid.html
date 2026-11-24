@@ -649,7 +649,7 @@
                     <div class="val" id="national-wind-gen">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="National Wind Anomaly">
-                    <h3>National Wind Anomaly</h3>
+                    <h3>National Wind Anomaly <small style="font-weight:normal;color:#888">vs 30d, same hours</small></h3>
                     <div class="val" id="national-wind-anomaly">--</div>
                 </div>
                 <div class="summary-card has-tooltip" data-tooltip-key="National Load">
@@ -802,7 +802,7 @@
             <div id="vintage-section" style="margin-bottom: 30px;">
                 <h2 class="section-title has-tooltip" data-tooltip-key="Vintage Comparison" style="margin-top: 25px;">Vintage Comparison: Wind / Nuclear / Peaker Drift</h2>
                 <div style="font-size: 0.85rem; color: #888; margin-top: -10px; margin-bottom: 10px;">
-                    These render from day one and upgrade themselves: as soon as the retained archive spans a second calendar year, the prior-year overlay appears automatically (first full overlays land early 2027)
+                    These render from day one and upgrade themselves: as soon as the retained archive spans a second calendar year, the prior-year overlay appears automatically
                 </div>
 
                 <h3 style="font-size: 1rem; margin-bottom: -8px;">Wind Generation</h3>
@@ -835,6 +835,8 @@
                     <canvas id="thermalPctChart"></canvas>
                 </div>
 
+                <h2 class="section-title" style="margin-top: 25px;">Gas vs Coal Generation (daily, national)</h2>
+                <div class="panel-note" style="font-size:0.8rem;color:#888;margin-bottom:6px;">Each dot is one day. Dashed guides mark gas output at 2×, 2.5× and 3× coal; points drifting toward the lower guides at the same load mean coal is taking share from gas.</div>
                 <div id="thermal-switch-container" style="min-height: 400px; position: relative; background-color: var(--card-bg); border-radius: 4px; padding: 20px;">
                     <div id="thermal-switch-msg" class="loader" style="display: block;">Checking for thermal data...</div>
                     <canvas id="thermalSwitchChart"></canvas>
@@ -1517,8 +1519,11 @@
                 dataHRRR.push(getGW('HRRR'));
                 dataGFS_CFS.push(getGW('GFS_CFS'));
 
-                const row = (byModel['GFS'] && byModel['GFS'][d]) ? byModel['GFS'][d] : 
-                            (byModel['GFS_CFS'] && byModel['GFS_CFS'][d]) ? byModel['GFS_CFS'][d] : null;
+                // The member spread only exists on the GFS_CFS (ensemble) rows;
+                // picking the deterministic GFS row first left the band blank
+                // for the first 16 days.
+                const row = (byModel['GFS_CFS'] && byModel['GFS_CFS'][d]) ? byModel['GFS_CFS'][d] :
+                            (byModel['GFS'] && byModel['GFS'][d]) ? byModel['GFS'][d] : null;
                 if (row && row.gfs_p10_gw != null && row.gfs_p90_gw != null) {
                     dataGFSP10.push(row.gfs_p10_gw / TOTAL_INSTALLED_GW * 100);
                     dataGFSP90.push(row.gfs_p90_gw / TOTAL_INSTALLED_GW * 100);
@@ -1541,8 +1546,8 @@
             ];
 
             if (hasSpreadData) {
-                datasets.push({ label: 'GFS P10', data: dataGFSP10, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: '+1', pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true });
-                datasets.push({ label: 'GFS P90', data: dataGFSP90, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: false, pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true });
+                datasets.push({ label: 'GEFS P10', data: dataGFSP10, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: '+1', pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true });
+                datasets.push({ label: 'GEFS P90', data: dataGFSP90, borderColor: 'rgba(76, 175, 80, 0)', backgroundColor: 'rgba(76, 175, 80, 0.12)', fill: false, pointRadius: 0, showLine: true, tension: 0.4, spanGaps: true });
             }
 
             datasets.push(
@@ -2798,7 +2803,7 @@
             },
             "Vintage Comparison": {
                 title: "Vintage Comparison (Self-Activating)",
-                body: "Year-over-year views of national wind generation, nuclear output, and the peak/off-peak peaker dispatch ratio. Each panel renders from day one of retained history; the moment the archive spans a second calendar year (first full window lands early 2027), the red prior-year overlay and its average switch on automatically, the same per-vintage curves used on professional gas desks to spot fleet drift, capacity growth, or efficiency decay."
+                body: "Year-over-year views of national wind generation, nuclear output, and the peak/off-peak peaker dispatch ratio. Each panel renders from day one of retained history; the moment the archive spans a second calendar year, the red prior-year overlay and its average switch on automatically, the same per-vintage curves used on professional gas desks to spot fleet drift, capacity growth, or efficiency decay."
             },
             "ECMWF": {
                 title: "ECMWF (Deterministic)",

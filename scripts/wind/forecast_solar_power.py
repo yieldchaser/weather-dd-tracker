@@ -105,7 +105,7 @@ SOLAR_MODELS = {
 }
 
 PERFORMANCE_RATIO = 0.75     # system losses (inverter, wiring, temp)
-PEAK_HOURS    = list(range(13, 21))   # 13:00–20:00 UTC
+PEAK_HOURS    = list(range(16, 23))   # 16:00-22:00 UTC, solar midday across ET-PT
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
 HISTORICAL_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
@@ -152,7 +152,7 @@ def build_solar_climatology():
         "end_date":   end_date.strftime("%Y-%m-%d"),
         "hourly":     "global_tilted_irradiance",
         "tilt":       25,
-        "azimuth":    180,
+        "azimuth":    0,   # Open-Meteo: 0 = south-facing (180 was north-facing)
         "models":     "gfs_seamless",
         "timezone":   "UTC"
     }
@@ -201,6 +201,7 @@ def build_solar_climatology():
             "peak": float(group[group["hour"].isin(PEAK_HOURS)]["cf"].mean())
         }
         
+    climo["_version"] = CLIMO_VERSION
     os.makedirs(os.path.dirname(CLIMO_PATH), exist_ok=True)
     safe_write_json(climo, CLIMO_PATH)
     logging.info(f"Rebuilt climo with {len(climo)} days.")
@@ -210,11 +211,18 @@ def run_forecast():
     # Placeholder to keep existing function signature
     return main_logic()
 
+CLIMO_VERSION = "south_tilt25_v2"
+
+
 def main_logic():
-    # Load climo
+    # Load climo (rebuilt when the panel geometry/peak window changes, so the
+    # forecast and its normal always use the same definition)
     if os.path.exists(CLIMO_PATH):
         try:
             with open(CLIMO_PATH, "r") as f: climo = json.load(f)
+            if climo.get("_version") != CLIMO_VERSION:
+                logging.info("Solar climatology built with an older definition; rebuilding.")
+                climo = build_solar_climatology()
         except: climo = build_solar_climatology()
     else:
         climo = build_solar_climatology()
@@ -230,7 +238,7 @@ def main_logic():
             "longitude":     ",".join(str(n[2]) for n in SOLAR_NODES),
             "hourly":         "global_tilted_irradiance",
             "tilt":           25,
-            "azimuth":        180,
+            "azimuth":        0,   # Open-Meteo: 0 = south-facing
             "past_days":      1,
             "forecast_days":  config["horizon_days"],
             "models":         config["om_name"],
