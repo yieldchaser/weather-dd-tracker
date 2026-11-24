@@ -708,16 +708,24 @@ def _fmt_power(grid):
             except Exception:
                 gd = str(grid.get("grid_date", ""))
             lines.append(", ".join(bits) + f"  <i>({_esc(gd)})</i>")
-        # Peaker share vs its own 30-day average: more peak-hour gas = more burn.
+        # Peak-hour (07-22 Central) gas output vs overnight, vs its 30-day average: more peak-hour gas = more burn.
         try:
             ph = pd.read_csv("outputs/peaker_history.csv").sort_values("date")
             ph = ph[pd.to_numeric(ph["peaker_proxy_pct"], errors="coerce").notna()]
+            if "sample_hours" in ph.columns:
+                # Drop days EIA has not finished (a missing overnight hour skews
+                # the peak/off-peak ratio); 23 h is a full day only at the March
+                # DST change.
+                hrs = pd.to_numeric(ph["sample_hours"], errors="coerce")
+                mon = pd.to_datetime(ph["date"]).dt.month
+                ph = ph[(hrs >= 24) | ((hrs == 23) & (mon == 3))]
             if len(ph) >= 10:
                 last = float(ph["peaker_proxy_pct"].iloc[-1])
                 avg30 = float(ph["peaker_proxy_pct"].iloc[-31:-1].mean())
                 d = last - avg30
                 e = "🟢" if d > 3 else ("🔴" if d < -3 else "⚪")
-                lines.append(f"Peak-hour gas share {last:.1f}% vs 30d avg {avg30:.1f}% {e}")
+                gd = pd.Timestamp(ph["date"].iloc[-1]).strftime("%b %-d")
+                lines.append(f"Peak-hour gas vs overnight: {last:+.1f}% (30d avg {avg30:+.1f}%) {e}  <i>({gd})</i>")
         except Exception:
             pass
     try:

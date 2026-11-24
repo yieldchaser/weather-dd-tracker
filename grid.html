@@ -2601,7 +2601,9 @@
                     let res = await fetch(basePath + "peaker_history.csv?t=" + Date.now());
                     if (res.ok) {
                         let text = await res.text();
-                        rawPeakerData = qualityFilter(Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data, ['peak_gas_mw', 'offpeak_gas_mw']);
+                        rawPeakerData = qualityFilter(Papa.parse(text, {header: true, dynamicTyping: true, skipEmptyLines: true}).data, ['peak_gas_mw', 'offpeak_gas_mw'])
+                            // Unfinished EIA days (missing hours) skew the peak/off-peak ratio; 23 h is complete only at the March DST change.
+                            .filter(r => r.sample_hours == null || r.sample_hours >= 24 || (r.sample_hours === 23 && String(r.date).substring(5, 7) === '03'));
                         updatePeakerChart();
                     } else {
                         document.getElementById("peaker-msg").textContent = "Awaiting first pipeline run, check back soon.";
