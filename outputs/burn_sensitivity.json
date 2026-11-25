@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-25T07:04:28.787187+00:00",
+  "generated_at_utc": "2026-11-25T08:27:59.873423+00:00",
   "fit_window_days": 180,
   "fit": {
-    "a": 0.013875174011764515,
-    "b": -1.3977590053267916,
-    "c": 54.09386761154444,
+    "a": 0.013875174011764527,
+    "b": -1.3977590053267932,
+    "c": 54.09386761154447,
     "n": 180,
     "r2": 0.3269
   },
@@ -937,39 +937,39 @@
   "forecast_series": [
     {
       "date": "2026-11-26",
-      "temp": 41.43,
-      "burn_implied": 20.001,
-      "burn_normal_delta": 0.029
+      "temp": 41.44,
+      "burn_implied": 19.998,
+      "burn_normal_delta": 0.027
     },
     {
       "date": "2026-11-27",
-      "temp": 44.29,
-      "burn_implied": 19.405,
-      "burn_normal_delta": -0.657
+      "temp": 44.45,
+      "burn_implied": 19.378,
+      "burn_normal_delta": -0.683
     },
     {
       "date": "2026-11-28",
-      "temp": 43.91,
-      "burn_implied": 19.471,
-      "burn_normal_delta": -0.661
+      "temp": 44.11,
+      "burn_implied": 19.436,
+      "burn_normal_delta": -0.696
     },
     {
       "date": "2026-11-29",
-      "temp": 45.22,
-      "burn_implied": 19.26,
-      "burn_normal_delta": -0.833
+      "temp": 45.37,
+      "burn_implied": 19.239,
+      "burn_normal_delta": -0.854
     },
     {
       "date": "2026-11-30",
-      "temp": 45.45,
-      "burn_implied": 19.228,
-      "burn_normal_delta": -0.793
+      "temp": 45.62,
+      "burn_implied": 19.205,
+      "burn_normal_delta": -0.816
     },
     {
       "date": "2026-12-01",
-      "temp": 42.43,
-      "burn_implied": 19.766,
-      "burn_normal_delta": -0.433
+      "temp": 42.46,
+      "burn_implied": 19.76,
+      "burn_normal_delta": -0.44
     },
     {
       "date": "2026-12-02",
@@ -1021,9 +1021,9 @@
     },
     {
       "date": "2026-12-10",
-      "temp": 39.52,
-      "burn_implied": 20.525,
-      "burn_normal_delta": -1.398
+      "temp": 39.53,
+      "burn_implied": 20.522,
+      "burn_normal_delta": -1.401
     }
   ],
   "ercot_fit": {
