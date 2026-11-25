@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-24T18:10:34.848366Z",
+  "timestamp": "2026-11-25T01:50:43.010052Z",
   "ao": 0.109,
   "nao": 0.083,
   "pna": 1.063,
@@ -15,24 +15,24 @@
   "analogs": [
     {
       "year": 2016,
-      "distance": 1.69,
-      "window": "Nov 25\u2013Jan 23",
-      "next30_hdd_anomaly": 1.5,
-      "next31_60_hdd_anomaly": -4.9
+      "distance": 1.71,
+      "window": "Nov 26\u2013Jan 24",
+      "next30_hdd_anomaly": 1.2,
+      "next31_60_hdd_anomaly": -3.7
     },
     {
       "year": 2008,
-      "distance": 1.7,
-      "window": "Nov 25\u2013Jan 23",
-      "next30_hdd_anomaly": 4.0,
-      "next31_60_hdd_anomaly": 3.0
+      "distance": 1.73,
+      "window": "Nov 26\u2013Jan 24",
+      "next30_hdd_anomaly": 3.1,
+      "next31_60_hdd_anomaly": 2.5
     },
     {
       "year": 1991,
-      "distance": 1.74,
-      "window": "Nov 25\u2013Jan 23",
+      "distance": 1.75,
+      "window": "Nov 26\u2013Jan 24",
       "next30_hdd_anomaly": -1.0,
-      "next31_60_hdd_anomaly": -1.9
+      "next31_60_hdd_anomaly": -1.5
     }
   ],
   "mjo": {
