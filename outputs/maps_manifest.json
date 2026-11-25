@@ -177,6 +177,13 @@
             "hours": 6
         },
         {
+            "latest": "20261124_18",
+            "file": "AIGFS_shift_20261124_18_vs_20261124_06.gif",
+            "kind": "shift",
+            "previous": "20261124_06",
+            "hours": 12
+        },
+        {
             "latest": "20261124_12",
             "file": "AIGFS_anom_20261124_12.gif",
             "kind": "anom"
@@ -236,13 +243,6 @@
             "kind": "shift",
             "previous": "20261123_00",
             "hours": 12
-        },
-        {
-            "latest": "20261123_06",
-            "file": "AIGFS_shift_20261123_06_vs_20261123_00.gif",
-            "kind": "shift",
-            "previous": "20261123_00",
-            "hours": 6
         }
     ],
     "CMC_ENS": [
@@ -997,6 +997,25 @@
     ],
     "HGEFS": [
         {
+            "latest": "20261124_18",
+            "file": "HGEFS_anom_20261124_18.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261124_18",
+            "file": "HGEFS_shift_20261124_18_vs_20261124_12.gif",
+            "kind": "shift",
+            "previous": "20261124_12",
+            "hours": 6
+        },
+        {
+            "latest": "20261124_18",
+            "file": "HGEFS_shift_20261124_18_vs_20261124_06.gif",
+            "kind": "shift",
+            "previous": "20261124_06",
+            "hours": 12
+        },
+        {
             "latest": "20261124_12",
             "file": "HGEFS_anom_20261124_12.gif",
             "kind": "anom"
@@ -1014,11 +1033,6 @@
             "kind": "shift",
             "previous": "20261124_00",
             "hours": 12
-        },
-        {
-            "latest": "20261123_18",
-            "file": "HGEFS_anom_20261123_18.gif",
-            "kind": "anom"
         },
         {
             "latest": "20261123_18",
@@ -1061,23 +1075,35 @@
             "kind": "shift",
             "previous": "20261122_12",
             "hours": 6
-        },
-        {
-            "latest": "20261122_18",
-            "file": "HGEFS_shift_20261122_18_vs_20261122_06.gif",
-            "kind": "shift",
-            "previous": "20261122_06",
-            "hours": 12
-        },
-        {
-            "latest": "20261122_12",
-            "file": "HGEFS_shift_20261122_12_vs_20261122_06.gif",
-            "kind": "shift",
-            "previous": "20261122_06",
-            "hours": 6
         }
     ],
     "HRRR": [
+        {
+            "latest": "20261125_00",
+            "file": "HRRR_anom_20261125_00.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261125_00",
+            "file": "HRRR_shift_20261125_00_vs_20261124_23.gif",
+            "kind": "shift",
+            "previous": "20261124_23",
+            "hours": 1
+        },
+        {
+            "latest": "20261125_00",
+            "file": "HRRR_shift_20261125_00_vs_20261124_22.gif",
+            "kind": "shift",
+            "previous": "20261124_22",
+            "hours": 2
+        },
+        {
+            "latest": "20261125_00",
+            "file": "HRRR_shift_20261125_00_vs_20261124_21.gif",
+            "kind": "shift",
+            "previous": "20261124_21",
+            "hours": 3
+        },
         {
             "latest": "20261124_22",
             "file": "HRRR_anom_20261124_22.gif",
@@ -1106,11 +1132,6 @@
         },
         {
             "latest": "20261124_14",
-            "file": "HRRR_anom_20261124_14.gif",
-            "kind": "anom"
-        },
-        {
-            "latest": "20261124_14",
             "file": "HRRR_shift_20261124_14_vs_20261124_13.gif",
             "kind": "shift",
             "previous": "20261124_13",
@@ -1136,27 +1157,6 @@
             "kind": "shift",
             "previous": "20261124_05",
             "hours": 1
-        },
-        {
-            "latest": "20261124_06",
-            "file": "HRRR_shift_20261124_06_vs_20261124_04.gif",
-            "kind": "shift",
-            "previous": "20261124_04",
-            "hours": 2
-        },
-        {
-            "latest": "20261124_04",
-            "file": "HRRR_shift_20261124_04_vs_20261124_03.gif",
-            "kind": "shift",
-            "previous": "20261124_03",
-            "hours": 1
-        },
-        {
-            "latest": "20261124_04",
-            "file": "HRRR_shift_20261124_04_vs_20261124_02.gif",
-            "kind": "shift",
-            "previous": "20261124_02",
-            "hours": 2
         }
     ],
     "ICON": [
@@ -1243,6 +1243,25 @@
     ],
     "NBM": [
         {
+            "latest": "20261125_00",
+            "file": "NBM_anom_20261125_00.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261125_00",
+            "file": "NBM_shift_20261125_00_vs_20261124_18.gif",
+            "kind": "shift",
+            "previous": "20261124_18",
+            "hours": 6
+        },
+        {
+            "latest": "20261125_00",
+            "file": "NBM_shift_20261125_00_vs_20261124_12.gif",
+            "kind": "shift",
+            "previous": "20261124_12",
+            "hours": 12
+        },
+        {
             "latest": "20261124_18",
             "file": "NBM_anom_20261124_18.gif",
             "kind": "anom"
@@ -1260,11 +1279,6 @@
             "kind": "shift",
             "previous": "20261124_06",
             "hours": 12
-        },
-        {
-            "latest": "20261124_12",
-            "file": "NBM_anom_20261124_12.gif",
-            "kind": "anom"
         },
         {
             "latest": "20261124_12",
@@ -1306,20 +1320,6 @@
             "file": "NBM_shift_20261124_00_vs_20261123_12.gif",
             "kind": "shift",
             "previous": "20261123_12",
-            "hours": 12
-        },
-        {
-            "latest": "20261123_18",
-            "file": "NBM_shift_20261123_18_vs_20261123_12.gif",
-            "kind": "shift",
-            "previous": "20261123_12",
-            "hours": 6
-        },
-        {
-            "latest": "20261123_18",
-            "file": "NBM_shift_20261123_18_vs_20261123_06.gif",
-            "kind": "shift",
-            "previous": "20261123_06",
             "hours": 12
         }
     ],
