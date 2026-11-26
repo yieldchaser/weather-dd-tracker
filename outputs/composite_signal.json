@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-11-26T08:12:24.575Z",
-  "composite_score": -0.52,
+  "timestamp": "2026-11-26T08:44:49.815Z",
+  "composite_score": 0.98,
   "signal": "NEUTRAL",
   "horizon": "Subseasonal \u00b7 weeks 2-6 (teleconnections, regimes, wind trend, freeze risk)",
-  "confidence": 100.0,
+  "confidence": 77.5,
   "components": [
     {
       "name": "Teleconnections Neutral Band",
@@ -14,8 +14,8 @@
       "score": 0.0
     },
     {
-      "name": "Wind Generation",
-      "score": 0.0
+      "name": "Wind Drought (Moderate)",
+      "score": 1.5
     },
     {
       "name": "Mild East, Block Aloft, latent cold (Regime 1 (Arctic Block / Ridge East / Trough West))",
@@ -31,7 +31,7 @@
   "agreement_pct": null,
   "divergence_note": null,
   "detail": {
-    "bull_accumulator": 0.0,
+    "bull_accumulator": 1.5,
     "bear_accumulator": 0.52
   },
   "system_status": {
