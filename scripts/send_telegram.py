@@ -725,6 +725,11 @@ def _pv_line(season):
             dot = "⚪"
         base = f"Polar vortex {n['u60']:+.0f} m/s ({state}" + (f", avg {c['u_mean']:+.0f}" if c.get("u_mean") is not None else "") + ")"
         tail = ("SSW forecast: " + ", ".join(ssw)) if ssw else ("no SSW in 16 days; " + ", ".join(mins))
+        rs = pv.get("recent_ssw")
+        if rs:
+            tail += f"; SSW {pd.Timestamp(rs['date']).strftime('%b %-d')} ({rs['days_ago']}d ago), cold-risk window to {pd.Timestamp(rs['window_end']).strftime('%b %-d')}"
+            if season != "CDD" and dot == "⚪":
+                dot = "🟢"
         return f"{base} {dot}  {tail}" + ("  (stale)" if pv.get("stale") else "")
     except Exception:
         return ""

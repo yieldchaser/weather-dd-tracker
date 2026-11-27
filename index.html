@@ -3127,10 +3127,14 @@
             if (!IS_CDD && (n.state === 'disrupted' || n.state === 'weak' || ssw.length)) cls = 'tc-bullish';
             else if (!IS_CDD && n.state === 'strong' && !ssw.length) cls = 'tc-bearish';
             el.className = 'tc-val ' + cls;
-            sub.textContent = [stateWord, c.u_mean !== undefined ? `avg ${formatNum(c.u_mean, 0, true)}` : '', ssw.length ? 'SSW: ' + ssw.join(', ') : 'no SSW in forecast', pv.stale ? 'stale' : ''].filter(Boolean).join(' · ');
+            const rs = pv.recent_ssw;
+            const rsTxt = rs ? `SSW ${fdShort(rs.date)} (${rs.days_ago}d ago)` : '';
+            if (!IS_CDD && rs && cls === 'tc-zero') el.className = 'tc-val tc-bullish';  // inside the 1-4 week response window
+            sub.textContent = [stateWord, c.u_mean !== undefined ? `avg ${formatNum(c.u_mean, 0, true)}` : '', rsTxt, ssw.length ? 'SSW: ' + ssw.join(', ') : 'no new SSW forecast', pv.stale ? 'stale' : ''].filter(Boolean).join(' · ');
             document.getElementById('pv-panel').style.display = 'block';
             const st = document.getElementById('pv-stats');
             const parts = [`<span>Now (${fdShort(n.date)}): <b>${formatNum(n.u60, 1, true)} m/s</b>${c.u_mean !== undefined ? ` vs normal ${formatNum(c.u_mean, 1, true)}` : ''}${n.pct_rank !== undefined ? ` <small style="color:#888">(${n.pct_rank}th percentile)</small>` : ''}</span>`];
+            if (pv.recent_ssw) { const r = pv.recent_ssw; parts.push(`<span>Recent SSW <b class="pos-val">${fdShort(r.date)}</b> (${r.days_ago} days ago${r.confirmed ? '' : ', recovery not yet confirmed'}): cold-risk window to about ${fdShort(r.window_end)}</span>`); }
             fcs.forEach(([k, f]) => parts.push(`<span>${k}: min <b class="${f.min_u60 < 0 ? 'pos-val' : ''}">${formatNum(f.min_u60, 0, true)}</b> on ${fdShort(f.min_date)}${f.ssw_date ? ` · <b class="pos-val">reversal ${fdShort(f.ssw_date)}</b>` : ''}${f.weak_days ? ` · ${f.weak_days}d below normal range` : ''}</span>`));
             st.innerHTML = parts.join('');
             const ev = (pv.ssw_events || []).slice(-6).map(d => `${fdShort(d.replace('*', ''))} ${d.substring(0, 4)}${d.endsWith('*') ? ' (recovery not yet confirmed)' : ''}`).join(', ');
