@@ -1,0 +1,25 @@
+name: probe-hrrr
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - run: pip install -r requirements.txt
+      - run: timeout 600 python scripts/fetch_hrrr.py 2>&1 | tail -8; ls data/hrrr; ls data/hrrr/*/ | head -5
+      - run: |
+          python - <<'PY'
+          import sys; sys.path.insert(0,'scripts')
+          import compute_tdd as c
+          c._MODELS=[m for m in c._MODELS if m[0]=='HRRR']
+          c.process_all()
+          PY
+          ls data/hrrr/*_tdd.csv 2>/dev/null; for f in data/hrrr/*_tdd.csv; do echo $f; cat $f | head -4; done
+      - run: |
+          python scripts/merge_tdd.py 2>&1 | grep -i "hrrr\|drop\|archiv" | head -20
+          python -c "import pandas as pd;m=pd.read_csv('outputs/tdd_master.csv',dtype={'run_id':str});print(sorted(m[m.model=='HRRR'].run_id.unique())[-6:])"
