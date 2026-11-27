@@ -1,0 +1,17 @@
+name: probe-strat
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e
+          q(){ echo "== $1"; curl -s -m 60 "$1" | head -c 900; echo; }
+          q "https://api.open-meteo.com/v1/gfs?latitude=60,60&longitude=0,90&hourly=temperature_10hPa,wind_speed_10hPa,wind_direction_10hPa&forecast_days=16&wind_speed_unit=ms"
+          q "https://api.open-meteo.com/v1/ecmwf?latitude=60&longitude=0&hourly=temperature_10hPa,wind_speed_10hPa,wind_direction_10hPa&forecast_days=15&wind_speed_unit=ms"
+          q "https://api.open-meteo.com/v1/ecmwf?latitude=60&longitude=0&hourly=wind_speed_50hPa,wind_direction_50hPa&forecast_days=15&wind_speed_unit=ms"
+          q "https://ensemble-api.open-meteo.com/v1/ensemble?latitude=60&longitude=0&hourly=wind_speed_10hPa&models=gfs025&forecast_days=3"
+          q "https://archive-api.open-meteo.com/v1/archive?latitude=60&longitude=0&start_date=2025-12-01&end_date=2025-12-02&hourly=wind_speed_10hPa,wind_direction_10hPa"
+          q "https://historical-forecast-api.open-meteo.com/v1/forecast?latitude=60&longitude=0&start_date=2025-12-01&end_date=2025-12-02&hourly=wind_speed_10hPa,wind_direction_10hPa&models=gfs_global&wind_speed_unit=ms"
+          q "https://www.cpc.ncep.noaa.gov/products/stratosphere/polar/gif_files/time_pres_UGRD_MEAN_DJF_NH_2026.txt"
+          q "https://ftp.cpc.ncep.noaa.gov/stratosphere/"
