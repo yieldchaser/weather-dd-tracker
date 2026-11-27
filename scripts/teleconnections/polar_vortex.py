@@ -358,12 +358,12 @@ def main():
 
     # The surface response to an SSW lags it by 1-4 weeks, so a recent event
     # matters even after the vortex has recovered.
-    recent = None
+    recent_ssw = None
     for e in reversed(ssw_events(hist)):
         d0 = dt.date.fromisoformat(e.rstrip("*"))
         age = (today - d0).days
         if age <= 45:
-            recent = {"date": d0.isoformat(), "days_ago": age, "confirmed": not e.endswith("*"),
+            recent_ssw = {"date": d0.isoformat(), "days_ago": age, "confirmed": not e.endswith("*"),
                       "window_end": (d0 + dt.timedelta(days=28)).isoformat()}
         break
 
@@ -378,7 +378,7 @@ def main():
         "history": [{"date": d.date().isoformat(), "u60": float(r.u60), "tcap": float(r.tcap)} for d, r in recent.iterrows()],
         "climatology": clim_series,
         "ssw_events": ssw_events(hist),
-        "recent_ssw": recent,
+        "recent_ssw": recent_ssw,
         "history_span": [hist.index.min().date().isoformat(), hist.index.max().date().isoformat()] if not hist.empty else None,
         "status": "success" if fc else "failed",
     }

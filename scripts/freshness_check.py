@@ -30,7 +30,7 @@ MODEL_MAX_AGE_H = {
 # JSON feeds: (path, timestamp key, max age hours)
 JSON_FEEDS = [
     ("outputs/teleconnections/latest.json", "timestamp", 30),
-    ("outputs/teleconnections/polar_vortex.json", "timestamp", 30),
+    ("outputs/teleconnections/polar_vortex.json", "timestamp", 14),   # 4 runs a day; a crashed step shows within half a day
     ("outputs/wind/drought.json", "timestamp", 30),
     ("outputs/wind/combined_drought.json", "timestamp", 30),
     ("outputs/europe/europe_weather.json", "generated_utc", 12),

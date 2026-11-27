@@ -254,7 +254,7 @@ def compute_composite_weather_signal():
             bear_score += val
             components.append({"name": "Strong Wind Surplus", "score": -val})
         else:
-            components.append({"name": "Wind Generation", "score": 0.0})
+            components.append({"name": "Wind Generation Normal", "score": 0.0})
     else:
         stale_systems.append(f"wind ({wind_reason})")
 
