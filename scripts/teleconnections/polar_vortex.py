@@ -207,9 +207,14 @@ def climatology(hist, today):
         return {}, []
     winter_start = dt.date(today.year if today.month >= 7 else today.year - 1, 7, 1)
     base = hist[hist.index.date < winter_start]
-    years = sorted(set(base.index.year))
-    doy = base.index.dayofyear
+    # winters (Jul-Jun) with Nov-Mar data, for the label
+    wm = base[base.index.month.isin([11, 12, 1, 2, 3])]
+    years = sorted(set((wm.index.year - (wm.index.month < 7)).tolist()))
+    doy = base.index.day_of_year
     clim = {}
+    if len(years) < 3:
+        # too few winters for a meaningful normal; it appears as backfill completes
+        return {}, years
     for d in range(1, 367):
         dist = (doy - d) % 366
         sel = base[(dist <= 7) | (dist >= 359)]
@@ -229,15 +234,39 @@ def climatology(hist, today):
 
 
 def ssw_events(hist):
-    """Major SSWs in the history: U60 first turns easterly between Nov and Mar,
-    at least 20 days after the previous event (standard Charlton-Polvani
-    style central date)."""
-    ev, last = [], None
-    for d, u in hist["u60"].items():
-        if u < 0 and d.month in (11, 12, 1, 2, 3) and (last is None or (d - last).days > 20):
-            ev.append(d.date().isoformat())
-        if u < 0:
-            last = d
+    """Major SSWs (Charlton and Polvani 2007): the first day U60 turns
+    easterly between November and March, counted only if the wind returns to
+    westerly for at least 10 consecutive days before 30 April (otherwise it is
+    the spring final warming, not an SSW), and only after 20 consecutive
+    westerly days since the previous event."""
+    u = hist["u60"].dropna()
+    dates = list(u.index)
+    vals = list(u.values)
+    ev, i, westerly_run = [], 0, 20
+    while i < len(vals):
+        d, v = dates[i], vals[i]
+        if v >= 0:
+            westerly_run += 1
+            i += 1
+            continue
+        if d.month in (11, 12, 1, 2, 3) and westerly_run >= 20:
+            # look for >= 10 consecutive westerly days before 30 April
+            season_end = pd.Timestamp(d.year if d.month <= 4 else d.year + 1, 4, 30)
+            run, recovered = 0, False
+            for j in range(i + 1, len(vals)):
+                if dates[j] > season_end:
+                    break
+                run = run + 1 if vals[j] > 0 else 0
+                if run >= 10:
+                    recovered = True
+                    break
+            if recovered:
+                ev.append(d.date().isoformat())
+            elif dates[-1] < season_end and dates[-1] - d < pd.Timedelta(days=60):
+                # recent reversal: recovery cannot be judged yet
+                ev.append(d.date().isoformat() + "*")
+        westerly_run = 0
+        i += 1
     return ev
 
 
@@ -302,7 +331,7 @@ def main():
         now["state"] = classify(now["u60"], c) if winter(dt.date.fromisoformat(now["date"])) else "summer"
         if c and not hist.empty:
             doy = dt.date.fromisoformat(now["date"]).timetuple().tm_yday
-            sel = hist[((hist.index.dayofyear - doy) % 366 <= 7) | ((hist.index.dayofyear - doy) % 366 >= 359)]
+            sel = hist[((hist.index.day_of_year - doy) % 366 <= 7) | ((hist.index.day_of_year - doy) % 366 >= 359)]
             sel = sel[sel.index.date < dt.date.fromisoformat(now["date"]) - dt.timedelta(days=150)]
             if len(sel):
                 now["pct_rank"] = round(float((sel["u60"] < now["u60"]).mean() * 100), 0)
@@ -331,7 +360,7 @@ def main():
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "definition": "Zonal-mean zonal wind at 60N, 10 hPa (m/s); polar-cap (60-90N) mean temperature at 10 hPa (C). Major SSW = U60 below 0 in Nov-Mar.",
         "source": "Open-Meteo: GFS and ECMWF IFS forecasts; GFS historical-forecast archive for history and climatology",
-        "clim_years": [years[0], years[-1]] if years else None,
+        "clim_years": [f"{years[0]}/{str(years[0] + 1)[2:]}", f"{years[-1]}/{str(years[-1] + 1)[2:]}"] if years else None,
         "clim_n_years": len(years),
         "now": now,
         "forecast": fc,
