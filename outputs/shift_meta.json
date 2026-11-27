@@ -25,9 +25,9 @@
       "has_gw": true
     },
     "CMC ENS CHG": {
-      "latest": "20261127_00",
-      "prev": "20261125_12",
-      "gap": true,
+      "latest": "20261127_12",
+      "prev": "20261127_00",
+      "gap": false,
       "has_gw": true
     },
     "GOOGLE AI CHG": {
@@ -97,8 +97,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20261127_12",
-      "prev": "20261127_06",
+      "latest": "20261127_18",
+      "prev": "20261127_12",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-27T19:16:35.504424"
+  "generated_at": "2026-11-27T20:00:49.052538"
 }
