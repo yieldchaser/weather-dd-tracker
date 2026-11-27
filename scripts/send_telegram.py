@@ -703,6 +703,33 @@ def _tele_line(season):
     return "  ".join(parts)
 
 
+def _pv_line(season):
+    """Polar vortex (U60 at 10 hPa): state now and any forecast reversal."""
+    try:
+        pv = json.loads(Path("outputs/teleconnections/polar_vortex.json").read_text())
+        n = pv.get("now") or {}
+        if n.get("u60") is None or n.get("state") == "summer":
+            return ""
+        c = n.get("clim") or {}
+        fc = pv.get("forecast") or {}
+        ssw = [f"{k} {pd.Timestamp(f['ssw_date']).strftime('%b %-d')}" for k, f in fc.items() if f.get("ssw_date")]
+        mins = [f"{k} min {f['min_u60']:+.0f}" for k, f in fc.items() if f.get("min_u60") is not None]
+        state = {"disrupted": "disrupted", "weak": "weak", "strong": "strong", "normal": "normal strength"}.get(n.get("state"), "")
+        if season == "CDD":
+            dot = "⚪"
+        elif ssw or state in ("disrupted", "weak"):
+            dot = "🟢"   # cold risk 1-4 weeks out
+        elif state == "strong":
+            dot = "🔴"
+        else:
+            dot = "⚪"
+        base = f"Polar vortex {n['u60']:+.0f} m/s ({state}" + (f", avg {c['u_mean']:+.0f}" if c.get("u_mean") is not None else "") + ")"
+        tail = ("SSW forecast: " + ", ".join(ssw)) if ssw else ("no SSW in 16 days; " + ", ".join(mins))
+        return f"{base} {dot}  {tail}" + ("  (stale)" if pv.get("stale") else "")
+    except Exception:
+        return ""
+
+
 def _fmt_power(grid):
     lines = []
     if grid:
@@ -935,6 +962,9 @@ def main():
     tl = _tele_line(season)
     if tl:
         drv.append(tl)
+    pvl = _pv_line(season)
+    if pvl:
+        drv.append(pvl)
     rl = _regime_line(season)
     if rl:
         drv.append(rl)

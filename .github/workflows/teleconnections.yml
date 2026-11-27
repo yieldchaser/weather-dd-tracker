@@ -2,7 +2,7 @@ name: System 1 - Teleconnections Dashboard
 
 on:
   schedule:
-    - cron: '0 6,18 * * *'
+    - cron: '10 5,11,17,23 * * *'
   workflow_dispatch:
 
 env:
@@ -38,12 +38,18 @@ jobs:
         env:
           EIA_KEY: ${{ secrets.EIA_KEY }}
         run: python scripts/teleconnections/system1_teleconnections.py
+
+      - name: Polar vortex (10 hPa, 60N) monitor
+        # Independent of the indices above: a failure here never blocks them.
+        continue-on-error: true
+        timeout-minutes: 25
+        run: python scripts/teleconnections/polar_vortex.py
         
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add outputs/teleconnections/ outputs/health/
+          git add outputs/teleconnections/ outputs/health/ data/strat/
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Teleconnections state $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4 5; do

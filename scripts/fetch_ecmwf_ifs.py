@@ -58,12 +58,16 @@ def count_grib_messages(path):
         return None
 
 
-def fetch(max_runs=4):
+def fetch(max_runs=6):
+    from run_store import stored_runs
+    have = stored_runs("ECMWF")
     runs_fetched = 0
+    newest_seen = 0
     now = datetime.datetime.now(datetime.UTC)
-    
-    # Check today and yesterday
-    for day_offset in [0, -1, -2]:
+
+    # Newest two runs always (their GRIBs feed the maps); older runs only when
+    # missing from tdd_master (outage recovery while ECMWF still serves them).
+    for day_offset in [0, -1, -2, -3]:
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         client = Client(source="ecmwf")
 
@@ -72,6 +76,8 @@ def fetch(max_runs=4):
                 return
                 
             run_id  = f"{date}_{cycle}"
+            if newest_seen >= 2 and run_id in have:
+                continue
             out_dir = os.path.join(BASE_DIR, run_id)
             os.makedirs(out_dir, exist_ok=True)
             target  = os.path.join(out_dir, "ifs_t2m.grib2")
@@ -82,6 +88,7 @@ def fetch(max_runs=4):
                 if msg_count is not None and msg_count >= len(EXPECTED_STEPS):
                     print(f"[{run_id}Z] Already fetched fully. Skipping.")
                     runs_fetched += 1
+                    newest_seen += 1
                     continue
 
             print(f"Trying ECMWF IFS HRES: {run_id} (CONUS area only)")
@@ -109,6 +116,7 @@ def fetch(max_runs=4):
                 steps_confirmed = msg_count if msg_count else "unknown"
                 print(f"[OK] Success: {run_id} ({steps_confirmed} GRIB messages, CONUS only)")
                 runs_fetched += 1
+                newest_seen += 1
 
             except Exception as e:
                 print(f"[ERR] {run_id} not available: {e}")

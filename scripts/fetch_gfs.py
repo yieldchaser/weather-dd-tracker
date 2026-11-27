@@ -148,7 +148,10 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
 
 
 def fetch_latest_gfs():
-    available_runs = find_latest_available_runs(max_runs=5)
+    from run_store import plan as _plan_runs
+    # Look back over every run NOMADS still holds; fetch the newest plus any
+    # older run missing from tdd_master (outage recovery), a few per pass.
+    available_runs = _plan_runs(find_latest_available_runs(max_runs=16), "GFS", keep_latest=4)
 
     for run_date, cycle in available_runs:
         run_id = f"{run_date}_{cycle}"

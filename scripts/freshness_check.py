@@ -30,6 +30,7 @@ MODEL_MAX_AGE_H = {
 # JSON feeds: (path, timestamp key, max age hours)
 JSON_FEEDS = [
     ("outputs/teleconnections/latest.json", "timestamp", 30),
+    ("outputs/teleconnections/polar_vortex.json", "timestamp", 30),
     ("outputs/wind/drought.json", "timestamp", 30),
     ("outputs/wind/combined_drought.json", "timestamp", 30),
     ("outputs/europe/europe_weather.json", "generated_utc", 12),
@@ -81,6 +82,15 @@ def main():
                 ok += 1
         except Exception as e:  # noqa: BLE001
             stale.append(f"{Path(path).name}: unreadable ({e.__class__.__name__})")
+
+    # Index sources that stopped updating upstream (the teleconnection job keeps
+    # them out of the signal; this makes the gap visible).
+    try:
+        tc = json.loads(Path("outputs/teleconnections/latest.json").read_text())
+        for k in tc.get("stale_indices") or []:
+            stale.append(f"{k} source last updated {(tc.get('as_of') or {}).get(k, '?')} (excluded from signals)")
+    except Exception:
+        pass
 
     for path, col, lim in CSV_FEEDS:
         try:

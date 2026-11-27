@@ -392,6 +392,7 @@
         .yr-toolbar .lbl { font-size:0.72rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-right:4px; }
         .yr-btn { background:transparent; color:#c5c6c7; border:1px solid var(--border); border-radius:3px; padding:3px 9px; font-size:0.75rem; cursor:pointer; }
         .yr-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .yr-btn.active { border-color:var(--accent); color:#0b0c10; background:var(--accent); }
         .yr-chips { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; max-height:76px; overflow-y:auto; }
         .yr-chip { font-size:0.7rem; padding:2px 7px; border-radius:10px; border:1px solid #3a4552; color:#8a949e; cursor:pointer; user-select:none; background:transparent; }
         .yr-chip.on { color:#0b0c10; font-weight:700; border-color:transparent; }
@@ -756,6 +757,23 @@
                     <div class="tc-val tc-zero" id="tc-enso-val">--</div>
                     <div class="tc-sub" id="tc-enso-sub"></div>
                 </div>
+                <div class="telecon-card has-tooltip" id="tc-pv" data-tooltip-key="Polar Vortex">
+                    <div class="tc-name">Polar vortex (10 hPa)</div>
+                    <div class="tc-val tc-zero" id="tc-pv-val">--</div>
+                    <div class="tc-sub" id="tc-pv-sub"></div>
+                </div>
+            </div>
+            <div class="week-card" id="pv-panel" style="display:none;margin-bottom:16px;">
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+                    <div class="has-tooltip" data-tooltip-key="Polar Vortex" style="color:var(--accent);font-weight:600;">Stratospheric polar vortex: wind at 60°N, 10 hPa</div>
+                    <div>
+                        <button class="yr-btn active" id="pv-mode-u" onclick="setPvMode('u')">Zonal wind</button>
+                        <button class="yr-btn" id="pv-mode-t" onclick="setPvMode('t')">Polar-cap temperature</button>
+                    </div>
+                </div>
+                <div id="pv-stats" class="chg-headline" style="border-bottom:none;padding:2px 0 8px 0;"></div>
+                <div style="height:320px;position:relative;"><canvas id="pvChart"></canvas></div>
+                <div id="pv-note" style="font-size:0.75rem;color:#888;margin-top:6px;line-height:1.5;"></div>
             </div>
             <div class="week-card" id="mjo-panel" style="display:none;margin-bottom:16px;">
                 <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
@@ -3085,6 +3103,88 @@
             if (wk) el.title = `Weekly Niño 3.4 anomaly, week of ${wk.toISOString().substring(0, 10)}`;
         }
 
+        // ── Polar vortex (U60 at 10 hPa) ─────────────────────────────────────
+        // Major SSW = zonal-mean wind at 60N, 10 hPa turning easterly (< 0) in
+        // Nov-Mar. Afterwards the odds of a negative AO and eastern US / Europe
+        // cold rise for 1-4 weeks; a strong vortex keeps cold locked north.
+        let pvChart = null, PV = null, PV_MODE = 'u';
+        function setPvMode(m) {
+            PV_MODE = m;
+            document.getElementById('pv-mode-u').classList.toggle('active', m === 'u');
+            document.getElementById('pv-mode-t').classList.toggle('active', m === 't');
+            drawPvChart();
+        }
+        function renderPolarVortex(pv) {
+            const el = document.getElementById('tc-pv-val'), sub = document.getElementById('tc-pv-sub');
+            if (!el || !pv || !pv.now) { if (el) el.textContent = 'n/a'; return; }
+            PV = pv;
+            const n = pv.now, c = n.clim || {};
+            el.textContent = `${formatNum(n.u60, 0, true)} m/s`;
+            const fcs = Object.entries(pv.forecast || {});
+            const ssw = fcs.filter(([, f]) => f.ssw_date).map(([k, f]) => `${k} ${fdShort(f.ssw_date)}`);
+            const stateWord = { disrupted: 'Disrupted (SSW)', weak: 'Weak vortex', strong: 'Strong vortex', normal: 'Normal strength', summer: 'No winter vortex', unknown: '' }[n.state] || '';
+            let cls = 'tc-zero';
+            if (!IS_CDD && (n.state === 'disrupted' || n.state === 'weak' || ssw.length)) cls = 'tc-bullish';
+            else if (!IS_CDD && n.state === 'strong' && !ssw.length) cls = 'tc-bearish';
+            el.className = 'tc-val ' + cls;
+            sub.textContent = `${stateWord}${c.u_mean !== undefined ? ` · avg ${formatNum(c.u_mean, 0, true)}` : ''} · ${ssw.length ? 'SSW: ' + ssw.join(', ') : 'no SSW in forecast'}` + (pv.stale ? ' · stale' : '');
+            document.getElementById('pv-panel').style.display = 'block';
+            const st = document.getElementById('pv-stats');
+            const parts = [`<span>Now (${fdShort(n.date)}): <b>${formatNum(n.u60, 1, true)} m/s</b>${c.u_mean !== undefined ? ` vs normal ${formatNum(c.u_mean, 1, true)}` : ''}${n.pct_rank !== undefined ? ` <small style="color:#888">(${n.pct_rank}th percentile)</small>` : ''}</span>`];
+            fcs.forEach(([k, f]) => parts.push(`<span>${k}: min <b class="${f.min_u60 < 0 ? 'pos-val' : ''}">${formatNum(f.min_u60, 0, true)}</b> on ${fdShort(f.min_date)}${f.ssw_date ? ` · <b class="pos-val">reversal ${fdShort(f.ssw_date)}</b>` : ''}${f.weak_days ? ` · ${f.weak_days}d below normal range` : ''}</span>`));
+            st.innerHTML = parts.join('');
+            const ev = (pv.ssw_events || []).slice(-6).map(d => `${fdShort(d)} ${d.substring(0, 4)}`).join(', ');
+            document.getElementById('pv-note').innerHTML =
+                `Solid line: GFS analysis (history since ${pv.history_span ? pv.history_span[0].substring(0, 4) : '?'}). Dashed: latest GFS and ECMWF forecasts. Band: middle 80% for the date over ${pv.clim_n_years} winters (${pv.clim_years ? pv.clim_years.join('-') : ''}); the current winter is excluded from the normal. ` +
+                `Major sudden stratospheric warming (SSW) = wind below 0 between Nov and Mar; the surface response (negative AO, cold into the eastern US and Europe) usually follows 1-4 weeks later.` +
+                (ev ? ` Past events in this record: ${ev}.` : '');
+            drawPvChart();
+        }
+        function fdShort(iso) { const d = new Date(iso + 'T00:00:00Z'); return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]} ${d.getUTCDate()}`; }
+        function drawPvChart() {
+            if (!PV) return;
+            const isU = PV_MODE === 'u';
+            const labels = (PV.climatology || []).map(r => r.date);
+            const idx = Object.fromEntries(labels.map((d, i) => [d, i]));
+            const blank = () => labels.map(() => null);
+            const obs = blank();
+            (PV.history || []).forEach(r => { if (idx[r.date] !== undefined) obs[idx[r.date]] = isU ? r.u60 : r.tcap; });
+            const fc = {};
+            Object.entries(PV.forecast || {}).forEach(([k, f]) => {
+                const a = blank();
+                f.dates.forEach((d, i) => { if (idx[d] !== undefined) a[idx[d]] = isU ? f.u60[i] : f.tcap[i]; });
+                fc[k] = a;
+            });
+            const C = k => PV.climatology.map(r => r[k] ?? null);
+            const ds = [
+                { label: 'p90', data: C(isU ? 'u_p90' : 't_p90'), borderWidth: 0, pointRadius: 0, fill: false },
+                { label: 'Normal range (p10-p90)', data: C(isU ? 'u_p10' : 't_p10'), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: 'rgba(197,198,199,0.13)' },
+                { label: 'Normal', data: C(isU ? 'u_mean' : 't_mean'), borderColor: '#9aa5b1', borderDash: [6, 4], borderWidth: 1.4, pointRadius: 0, fill: false },
+                { label: 'Observed (GFS analysis)', data: obs, borderColor: '#66fcf1', borderWidth: 2.2, pointRadius: 0, fill: false, spanGaps: true },
+            ];
+            const col = { GFS: '#ffb74d', ECMWF: '#ab47bc' };
+            Object.entries(fc).forEach(([k, a]) => ds.push({ label: `${k} forecast`, data: a, borderColor: col[k] || '#fff', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, fill: false, spanGaps: true }));
+            if (isU) ds.push({ label: 'SSW threshold (0 m/s)', data: labels.map(() => 0), borderColor: '#f44336', borderWidth: 1.2, borderDash: [2, 3], pointRadius: 0, fill: false });
+            const ctx = document.getElementById('pvChart').getContext('2d');
+            if (pvChart) pvChart.destroy();
+            pvChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets: ds },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#c5c6c7', boxWidth: 12, font: { size: window.innerWidth <= 600 ? 9 : 11 }, filter: it => it.text !== 'p90' } },
+                        tooltip: { filter: it => it.dataset.label !== 'p90' && it.parsed.y !== null,
+                            callbacks: { title: it => fdShort(it[0].label), label: c => `${c.dataset.label === 'Normal range (p10-p90)' ? 'p10' : c.dataset.label}: ${formatNum(c.parsed.y, 1, isU)} ${isU ? 'm/s' : '°C'}` } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#888', maxTicksLimit: 10, callback: function (v) { return fdShort(this.getLabelForValue(v)); } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { title: { display: true, text: isU ? 'Zonal wind, 60°N 10 hPa (m/s)' : 'Polar-cap 10 hPa temperature (°C)', color: '#c5c6c7' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
         let mjoChart = null;
         function renderMjo(m) {
             const el = document.getElementById('tc-mjo-val');
@@ -3157,6 +3257,10 @@
                     if (tcData[key] !== undefined) {
                         const val = tcData[key];
                         setTcCard(document.getElementById(elId), val, key);
+                        if ((val === null || val === undefined) && (tcData.stale_indices || []).includes(key.toUpperCase())) {
+                            const sb = document.getElementById(`tc-${key}-sub`), asof = (tcData.as_of || {})[key.toUpperCase()];
+                            if (sb) sb.textContent = `source not updated since ${asof ? fdShort(asof) : '?'}`;
+                        }
                         updateTcTooltip(key, val);
                         const sub = document.getElementById(`tc-${key}-sub`);
                         if (sub && val !== null && !isNaN(Number(val))) {
@@ -3169,6 +3273,7 @@
                 document.getElementById('telecon-panel').classList.add('visible');
                 try { renderMjo(tcData.mjo); } catch (e) { console.error('mjo', e); }
                 try { renderEnso(tcData.enso); } catch (e) { console.error('enso', e); }
+                fetchJSON('outputs/teleconnections/polar_vortex.json').then(pv => { try { renderPolarVortex(pv); } catch (e) { console.error('polar vortex', e); } });
             }
 
             // Task 2, Intelligence Signal Banner
@@ -3415,6 +3520,11 @@
             "PNA": {
                 title: "Pacific-North American (PNA)",
                 body: "The Pacific-North American index. A <strong>positive phase</strong> correlates with warmer western US and colder eastern US temperatures, whereas a <strong>negative phase</strong> is the reverse."
+            },
+            "Polar Vortex": {
+                title: "Stratospheric polar vortex",
+                base: "Zonal-mean west-to-east wind at 60°N and 10 hPa (about 30 km up), the standard measure of the winter polar vortex. When it reverses to easterly (below 0 m/s) between November and March, that is a major sudden stratospheric warming (SSW). In the following 1-4 weeks the odds of a negative Arctic Oscillation, blocking and cold outbreaks into the eastern US and Europe rise sharply (Feb 2018, Jan-Feb 2021). A strong vortex does the opposite and keeps cold air locked in the Arctic. Green = weak vortex or an SSW in the forecast (bullish for heating demand weeks later); red = strong vortex. Source: Open-Meteo GFS and ECMWF forecasts, GFS analysis history.",
+                body: "Zonal-mean west-to-east wind at 60°N and 10 hPa (about 30 km up), the standard measure of the winter polar vortex. When it reverses to easterly (below 0 m/s) between November and March, that is a major sudden stratospheric warming (SSW). In the following 1-4 weeks the odds of a negative Arctic Oscillation, blocking and cold outbreaks into the eastern US and Europe rise sharply (Feb 2018, Jan-Feb 2021). A strong vortex does the opposite and keeps cold air locked in the Arctic. Green = weak vortex or an SSW in the forecast (bullish for heating demand weeks later); red = strong vortex. Source: Open-Meteo GFS and ECMWF forecasts, GFS analysis history."
             },
             "ENSO": {
                 title: "El Niño-Southern Oscillation (ENSO)",

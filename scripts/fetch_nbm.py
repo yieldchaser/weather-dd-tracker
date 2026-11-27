@@ -198,7 +198,8 @@ def fetch_latest_nbm():
     available_runs.sort()
     
     # We want to ensure at least the last 2 long-term runs are synchronized
-    runs_to_sync = available_runs[-3:] # Sync last 3 available
+    from run_store import plan as _plan_runs
+    runs_to_sync = sorted(_plan_runs(available_runs, "NBM", keep_latest=3))  # newest 3 + unstored older
     print(f"  Syncing last {len(runs_to_sync)} available runs: {[r[0]+'_'+r[1] for r in runs_to_sync]}")
     
     for rd, cy in runs_to_sync:

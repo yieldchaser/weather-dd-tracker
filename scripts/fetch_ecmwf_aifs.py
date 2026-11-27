@@ -143,7 +143,8 @@ def sync_all_aifs():
         
     available_runs.sort()
     # Sync last 3 
-    runs_to_sync = available_runs[-3:]
+    from run_store import plan as _plan_runs
+    runs_to_sync = sorted(_plan_runs(available_runs, "ECMWF_AIFS", keep_latest=3))  # newest 3 + unstored older
     print(f"  Syncing last {len(runs_to_sync)} runs: {[r[0]+'_'+r[1] for r in runs_to_sync]}")
     for d, c in runs_to_sync:
         fetch_run(d, c)
