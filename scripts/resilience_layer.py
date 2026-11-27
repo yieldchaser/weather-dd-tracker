@@ -56,6 +56,62 @@ def get_resilient_session() -> requests.Session:
     return s
 
 
+# ── Circuit breaker ──────────────────────────────────────────────────────────
+# 2026-11-26/27: api.eia.gov stopped answering. Every grid call retried 6x at
+# 30 s, across ISOs and scripts, so each poller run hit its 2 h limit before
+# saving any model data, for over a day. After _OPEN_AFTER fully exhausted
+# calls to a host, further calls to it fail at once for _OPEN_FOR_S. State is
+# kept in a temp file so every script in the same job shares it.
+import json as _json
+import os as _os
+import tempfile as _tempfile
+from urllib.parse import urlparse as _urlparse
+
+_OPEN_AFTER = 2
+_OPEN_FOR_S = 45 * 60
+_CB_FILE = _os.path.join(_os.environ.get("RUNNER_TEMP") or _tempfile.gettempdir(), "wdd_circuit.json")
+
+
+def _cb_load():
+    try:
+        with open(_CB_FILE) as f:
+            return _json.load(f)
+    except Exception:
+        return {}
+
+
+def _cb_save(state):
+    try:
+        with open(_CB_FILE, "w") as f:
+            _json.dump(state, f)
+    except Exception:
+        pass
+
+
+def _cb_host(url):
+    return _urlparse(url).netloc.lower()
+
+
+def circuit_open(url) -> bool:
+    st = _cb_load().get(_cb_host(url))
+    return bool(st and st.get("open_until", 0) > time.time())
+
+
+def _cb_record(url, ok):
+    state = _cb_load()
+    h = _cb_host(url)
+    st = state.get(h, {"fails": 0, "open_until": 0})
+    if ok:
+        st = {"fails": 0, "open_until": 0}
+    else:
+        st["fails"] = st.get("fails", 0) + 1
+        if st["fails"] >= _OPEN_AFTER:
+            st["open_until"] = time.time() + _OPEN_FOR_S
+            print(f"  [CIRCUIT] {h} failed {st['fails']} calls in a row; skipping it for {_OPEN_FOR_S // 60} min")
+    state[h] = st
+    _cb_save(state)
+
+
 def resilient_get(
     url: str,
     *,
@@ -77,6 +133,8 @@ def resilient_get(
     timeout : Socket timeout in seconds (default 60 for slow API endpoints)
     label   : Human-readable identifier for log messages (e.g. "EIA nuclear outages")
     """
+    if circuit_open(url):
+        raise RuntimeError(f"[{label or url[:80]}] skipped: {_cb_host(url)} circuit open (host not answering)")
     prev_sleep = _BASE
     last_exc: Exception | None = None
 
@@ -91,6 +149,7 @@ def resilient_get(
                 raise requests.HTTPError(response=r)  # Treat as transient, trigger retry
 
             r.raise_for_status()                      # Raise on any other non-2xx
+            _cb_record(url, True)
             return r
 
         except requests.HTTPError as e:
@@ -108,6 +167,7 @@ def resilient_get(
             print(f"  [RETRY] {tag} — attempt {attempt}/{_ATTEMPTS} failed; sleeping {sleep:.1f}s")
             time.sleep(sleep)
 
+    _cb_record(url, False)
     raise RuntimeError(
         f"[{label or url[:80]}] Exhausted {_ATTEMPTS} attempts. Last error: {last_exc}"
     )

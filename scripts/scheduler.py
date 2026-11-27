@@ -86,8 +86,52 @@ def dispatch(wf):
     _req("POST", f"{API}/{wf}/dispatches", {"ref": "main"})
 
 
+STALL_AFTER = dt.timedelta(hours=3)
+_last_stall_alert = None
+
+
+def _telegram(text):
+    tok, chat = os.environ.get("TELEGRAM_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
+    if not (tok and chat):
+        print("[WARN] Telegram secrets not set; stall alert only logged.")
+        return
+    body = json.dumps({"chat_id": chat, "text": text, "parse_mode": "HTML"}).encode()
+    r = urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage", data=body,
+                               headers={"Content-Type": "application/json"}, method="POST")
+    urllib.request.urlopen(r, timeout=30).read()
+
+
+def check_stall(now):
+    """The poller's own health checks cannot report a poller that never
+    finishes (2026-11-26/27: every run hit its time limit while EIA hung).
+    This runs in the separate scheduler job and alerts when no poller run has
+    succeeded for STALL_AFTER, at most once every 6 h."""
+    global _last_stall_alert
+    runs = _req("GET", f"{API}/daily_run.yml/runs?status=success&per_page=1").get("workflow_runs", [])
+    if not runs:
+        return
+    last = dt.datetime.fromisoformat(runs[0]["updated_at"].replace("Z", "+00:00"))
+    if now - last <= STALL_AFTER:
+        return
+    if _last_stall_alert and now - _last_stall_alert < dt.timedelta(hours=6):
+        return
+    hrs = (now - last).total_seconds() / 3600
+    msg = (f"🚨 <b>PIPELINE STALLED</b>\nNo poller run has completed for {hrs:.0f} h "
+           f"(last success {last:%b %-d %H:%M} UTC). Model data is not updating.")
+    print(f"{now:%H:%M} STALL: {hrs:.1f} h since last successful poller run", flush=True)
+    try:
+        _telegram(msg)
+        _last_stall_alert = now
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] stall alert not sent: {e}", flush=True)
+
+
 def tick(now):
     print(f"{now:%Y-%m-%d %H:%M} tick", flush=True)
+    try:
+        check_stall(now)
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] stall check failed: {e}", flush=True)
     for wf, slots in SLOTS.items():
         slot = last_slot(slots, now)
         if slot is None or now - slot < GRACE or now - slot > MAX_LATENESS:

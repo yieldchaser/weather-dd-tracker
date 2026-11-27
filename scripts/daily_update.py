@@ -134,7 +134,10 @@ subprocess.run(f"{PY} scripts/build_historical_monthly_charts.py", shell=True)
 
 print("\n5f. Generating Market Proxies & Composite Score...")
 subprocess.run(f"{PY} scripts/market_logic/physics_vs_ai_disagreement.py", shell=True)
-subprocess.run(f"{PY} scripts/market_logic/fetch_live_grid.py", shell=True)
+try:  # EIA can hang for hours; never let it hold the model pipeline
+    subprocess.run(f"{PY} scripts/market_logic/fetch_live_grid.py", shell=True, timeout=900)
+except subprocess.TimeoutExpired:
+    print("  [WARN] Live grid fetch exceeded 15 min (EIA not answering); continuing without it.")
 subprocess.run(f"{PY} scripts/market_logic/fetch_gas_burn_history.py", shell=True)
 subprocess.run(f"{PY} scripts/market_logic/fetch_thermal_history.py", shell=True)
 subprocess.run(f"{PY} scripts/market_logic/composite_score.py", shell=True)
