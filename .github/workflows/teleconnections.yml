@@ -34,6 +34,11 @@ jobs:
         run: |
           pip install pandas numpy requests
           
+      - name: EPO from GFS (backstop for the NOAA PSL file)
+        continue-on-error: true
+        timeout-minutes: 15
+        run: python scripts/teleconnections/epo_index.py
+
       - name: Run System 1
         env:
           EIA_KEY: ${{ secrets.EIA_KEY }}
@@ -49,7 +54,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add outputs/teleconnections/ outputs/health/ data/strat/
+          git add outputs/teleconnections/ outputs/health/ data/strat/ data/epo/
           git diff --staged --quiet && echo "Nothing to commit" && exit 0
           git commit -m "Auto-update: Teleconnections state $(date '+%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4 5; do
