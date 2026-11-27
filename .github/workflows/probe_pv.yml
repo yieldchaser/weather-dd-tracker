@@ -11,6 +11,11 @@ jobs:
         with: { python-version: '3.12' }
       - run: pip install pandas requests
       - run: |
+          for d in "2026-11-01&end_date=2026-11-07" "2025-12-01&end_date=2026-01-31"; do
+            curl -g -s -m 200 -o /tmp/h.json -w "hist $d code=%{http_code} time=%{time_total}s size=%{size_download}\n" "https://historical-forecast-api.open-meteo.com/v1/forecast?latitude=60,60,60,60,60,60,60,60,60,60,60,60,60,60,60,60,60,60&longitude=-180,-160,-140,-120,-100,-80,-60,-40,-20,0,20,40,60,80,100,120,140,160&hourly=wind_speed_10hPa,wind_direction_10hPa,temperature_10hPa&models=gfs_global&wind_speed_unit=ms&start_date=$d"
+            head -c 200 /tmp/h.json; echo
+          done
+      - run: |
           python scripts/teleconnections/polar_vortex.py
           python - <<'PY'
           import json; d=json.load(open('outputs/teleconnections/polar_vortex.json'))
