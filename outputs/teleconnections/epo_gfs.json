@@ -1,398 +1,398 @@
 {
- "timestamp": "2026-11-27T16:09:24.273012Z",
+ "timestamp": "2026-11-27T16:15:40.004040Z",
  "definition": "500 hPa height anomaly, box mean 55-65N 160-125W (cos-weighted), GFS analysis; calibrated to the NOAA PSL EPO by regression",
  "calibration": {
-  "ok": false,
-  "a": -1.1499,
-  "b": -1.06579,
-  "r": -0.858,
-  "n": 1781,
+  "ok": true,
+  "a": 0.0382,
+  "b": -1.06497,
+  "r": -0.87,
+  "n": 2065,
   "overlap": [
-   "2022-01-01",
+   "2021-03-23",
    "2026-11-16"
   ]
  },
  "psl_last_date": "2026-11-16",
  "history_span": [
-  "2022-01-01",
+  "2021-03-23",
   "2026-11-26"
  ],
  "as_of": "2026-11-26",
  "series": [
   {
    "date": "2026-09-13",
-   "anom_m": 108.1,
-   "psl_equiv": null
+   "anom_m": 119.5,
+   "psl_equiv": -127.26
   },
   {
    "date": "2026-09-14",
-   "anom_m": 104.2,
-   "psl_equiv": null
+   "anom_m": 115.5,
+   "psl_equiv": -122.942
   },
   {
    "date": "2026-09-15",
-   "anom_m": 121.1,
-   "psl_equiv": null
+   "anom_m": 132.5,
+   "psl_equiv": -141.079
   },
   {
    "date": "2026-09-16",
-   "anom_m": 95.9,
-   "psl_equiv": null
+   "anom_m": 106.7,
+   "psl_equiv": -113.574
   },
   {
    "date": "2026-09-17",
-   "anom_m": 84.4,
-   "psl_equiv": null
+   "anom_m": 94.6,
+   "psl_equiv": -100.67
   },
   {
    "date": "2026-09-18",
-   "anom_m": 49.3,
-   "psl_equiv": null
+   "anom_m": 59.0,
+   "psl_equiv": -62.768
   },
   {
    "date": "2026-09-19",
-   "anom_m": -13.6,
-   "psl_equiv": null
+   "anom_m": -3.9,
+   "psl_equiv": 4.233
   },
   {
    "date": "2026-09-20",
-   "anom_m": -69.8,
-   "psl_equiv": null
+   "anom_m": -60.2,
+   "psl_equiv": 64.116
   },
   {
    "date": "2026-09-21",
-   "anom_m": -77.1,
-   "psl_equiv": null
+   "anom_m": -67.1,
+   "psl_equiv": 71.495
   },
   {
    "date": "2026-09-22",
-   "anom_m": -53.4,
-   "psl_equiv": null
+   "anom_m": -43.2,
+   "psl_equiv": 46.09
   },
   {
    "date": "2026-09-23",
-   "anom_m": -22.6,
-   "psl_equiv": null
+   "anom_m": -11.6,
+   "psl_equiv": 12.406
   },
   {
    "date": "2026-09-24",
-   "anom_m": 18.3,
-   "psl_equiv": null
+   "anom_m": 30.0,
+   "psl_equiv": -31.887
   },
   {
    "date": "2026-09-25",
-   "anom_m": 5.6,
-   "psl_equiv": null
+   "anom_m": 17.7,
+   "psl_equiv": -18.813
   },
   {
    "date": "2026-09-26",
-   "anom_m": 2.8,
-   "psl_equiv": null
+   "anom_m": 15.1,
+   "psl_equiv": -16.018
   },
   {
    "date": "2026-09-27",
-   "anom_m": -44.0,
-   "psl_equiv": null
+   "anom_m": -31.8,
+   "psl_equiv": 33.879
   },
   {
    "date": "2026-09-28",
-   "anom_m": -92.1,
-   "psl_equiv": null
+   "anom_m": -80.0,
+   "psl_equiv": 85.28
   },
   {
    "date": "2026-09-29",
-   "anom_m": -79.9,
-   "psl_equiv": null
+   "anom_m": -68.2,
+   "psl_equiv": 72.682
   },
   {
    "date": "2026-09-30",
-   "anom_m": -49.4,
-   "psl_equiv": null
+   "anom_m": -37.0,
+   "psl_equiv": 39.424
   },
   {
    "date": "2026-10-01",
-   "anom_m": -39.2,
-   "psl_equiv": null
+   "anom_m": -25.4,
+   "psl_equiv": 27.056
   },
   {
    "date": "2026-10-02",
-   "anom_m": -19.8,
-   "psl_equiv": null
+   "anom_m": -4.2,
+   "psl_equiv": 4.496
   },
   {
    "date": "2026-10-03",
-   "anom_m": 26.2,
-   "psl_equiv": null
+   "anom_m": 42.3,
+   "psl_equiv": -45.016
   },
   {
    "date": "2026-10-04",
-   "anom_m": -24.6,
-   "psl_equiv": null
+   "anom_m": -8.4,
+   "psl_equiv": 8.933
   },
   {
    "date": "2026-10-05",
-   "anom_m": -97.0,
-   "psl_equiv": null
+   "anom_m": -79.5,
+   "psl_equiv": 84.699
   },
   {
    "date": "2026-10-06",
-   "anom_m": -64.5,
-   "psl_equiv": null
+   "anom_m": -46.3,
+   "psl_equiv": 49.331
   },
   {
    "date": "2026-10-07",
-   "anom_m": 6.5,
-   "psl_equiv": null
+   "anom_m": 25.1,
+   "psl_equiv": -26.658
   },
   {
    "date": "2026-10-08",
-   "anom_m": 24.3,
-   "psl_equiv": null
+   "anom_m": 43.0,
+   "psl_equiv": -45.732
   },
   {
    "date": "2026-10-09",
-   "anom_m": 57.6,
-   "psl_equiv": null
+   "anom_m": 75.3,
+   "psl_equiv": -80.172
   },
   {
    "date": "2026-10-10",
-   "anom_m": 87.4,
-   "psl_equiv": null
+   "anom_m": 104.1,
+   "psl_equiv": -110.863
   },
   {
    "date": "2026-10-11",
-   "anom_m": 25.5,
-   "psl_equiv": null
+   "anom_m": 41.1,
+   "psl_equiv": -43.753
   },
   {
    "date": "2026-10-12",
-   "anom_m": -43.7,
-   "psl_equiv": null
+   "anom_m": -28.7,
+   "psl_equiv": 30.552
   },
   {
    "date": "2026-10-13",
-   "anom_m": -53.5,
-   "psl_equiv": null
+   "anom_m": -38.1,
+   "psl_equiv": 40.648
   },
   {
    "date": "2026-10-14",
-   "anom_m": -12.9,
-   "psl_equiv": null
+   "anom_m": 2.6,
+   "psl_equiv": -2.709
   },
   {
    "date": "2026-10-15",
-   "anom_m": 18.6,
-   "psl_equiv": null
+   "anom_m": 34.9,
+   "psl_equiv": -37.141
   },
   {
    "date": "2026-10-16",
-   "anom_m": -45.5,
-   "psl_equiv": null
+   "anom_m": -28.3,
+   "psl_equiv": 30.161
   },
   {
    "date": "2026-10-17",
-   "anom_m": -71.2,
-   "psl_equiv": null
+   "anom_m": -54.5,
+   "psl_equiv": 58.048
   },
   {
    "date": "2026-10-18",
-   "anom_m": -12.7,
-   "psl_equiv": null
+   "anom_m": 5.2,
+   "psl_equiv": -5.552
   },
   {
    "date": "2026-10-19",
-   "anom_m": 16.6,
-   "psl_equiv": null
+   "anom_m": 36.1,
+   "psl_equiv": -38.425
   },
   {
    "date": "2026-10-20",
-   "anom_m": -35.6,
-   "psl_equiv": null
+   "anom_m": -15.9,
+   "psl_equiv": 17.02
   },
   {
    "date": "2026-10-21",
-   "anom_m": -91.0,
-   "psl_equiv": null
+   "anom_m": -71.4,
+   "psl_equiv": 76.078
   },
   {
    "date": "2026-10-22",
-   "anom_m": -29.4,
-   "psl_equiv": null
+   "anom_m": -10.2,
+   "psl_equiv": 10.949
   },
   {
    "date": "2026-10-23",
-   "anom_m": 88.6,
-   "psl_equiv": null
+   "anom_m": 105.8,
+   "psl_equiv": -112.65
   },
   {
    "date": "2026-10-24",
-   "anom_m": 182.6,
-   "psl_equiv": null
+   "anom_m": 198.1,
+   "psl_equiv": -210.95
   },
   {
    "date": "2026-10-25",
-   "anom_m": 189.8,
-   "psl_equiv": null
+   "anom_m": 203.3,
+   "psl_equiv": -216.508
   },
   {
    "date": "2026-10-26",
-   "anom_m": 161.9,
-   "psl_equiv": null
+   "anom_m": 174.1,
+   "psl_equiv": -185.414
   },
   {
    "date": "2026-10-27",
-   "anom_m": 179.7,
-   "psl_equiv": null
+   "anom_m": 191.5,
+   "psl_equiv": -203.937
   },
   {
    "date": "2026-10-28",
-   "anom_m": 201.7,
-   "psl_equiv": null
+   "anom_m": 213.0,
+   "psl_equiv": -226.798
   },
   {
    "date": "2026-10-29",
-   "anom_m": 179.1,
-   "psl_equiv": null
+   "anom_m": 190.2,
+   "psl_equiv": -202.534
   },
   {
    "date": "2026-10-30",
-   "anom_m": 77.4,
-   "psl_equiv": null
+   "anom_m": 87.5,
+   "psl_equiv": -93.166
   },
   {
    "date": "2026-10-31",
-   "anom_m": -27.0,
-   "psl_equiv": null
+   "anom_m": -18.4,
+   "psl_equiv": 19.687
   },
   {
    "date": "2026-11-01",
-   "anom_m": -34.3,
-   "psl_equiv": null
+   "anom_m": -26.6,
+   "psl_equiv": 28.314
   },
   {
    "date": "2026-11-02",
-   "anom_m": -10.0,
-   "psl_equiv": null
+   "anom_m": -3.5,
+   "psl_equiv": 3.782
   },
   {
    "date": "2026-11-03",
-   "anom_m": 0.0,
-   "psl_equiv": null
+   "anom_m": 4.7,
+   "psl_equiv": -4.92
   },
   {
    "date": "2026-11-04",
-   "anom_m": -5.1,
-   "psl_equiv": null
+   "anom_m": -2.5,
+   "psl_equiv": 2.699
   },
   {
    "date": "2026-11-05",
-   "anom_m": -50.8,
-   "psl_equiv": null
+   "anom_m": -49.0,
+   "psl_equiv": 52.269
   },
   {
    "date": "2026-11-06",
-   "anom_m": -93.5,
-   "psl_equiv": null
+   "anom_m": -92.5,
+   "psl_equiv": 98.504
   },
   {
    "date": "2026-11-07",
-   "anom_m": -50.8,
-   "psl_equiv": null
+   "anom_m": -49.1,
+   "psl_equiv": 52.353
   },
   {
    "date": "2026-11-08",
-   "anom_m": -72.3,
-   "psl_equiv": null
+   "anom_m": -68.8,
+   "psl_equiv": 73.355
   },
   {
    "date": "2026-11-09",
-   "anom_m": -51.6,
-   "psl_equiv": null
+   "anom_m": -46.3,
+   "psl_equiv": 49.314
   },
   {
    "date": "2026-11-10",
-   "anom_m": -69.7,
-   "psl_equiv": null
+   "anom_m": -62.7,
+   "psl_equiv": 66.774
   },
   {
    "date": "2026-11-11",
-   "anom_m": -78.1,
-   "psl_equiv": null
+   "anom_m": -69.9,
+   "psl_equiv": 74.431
   },
   {
    "date": "2026-11-12",
-   "anom_m": -91.7,
-   "psl_equiv": null
+   "anom_m": -82.9,
+   "psl_equiv": 88.31
   },
   {
    "date": "2026-11-13",
-   "anom_m": -52.1,
-   "psl_equiv": null
+   "anom_m": -43.1,
+   "psl_equiv": 45.89
   },
   {
    "date": "2026-11-14",
-   "anom_m": -68.1,
-   "psl_equiv": null
+   "anom_m": -58.8,
+   "psl_equiv": 62.7
   },
   {
    "date": "2026-11-15",
-   "anom_m": -69.8,
-   "psl_equiv": null
+   "anom_m": -59.5,
+   "psl_equiv": 63.358
   },
   {
    "date": "2026-11-16",
-   "anom_m": -92.0,
-   "psl_equiv": null
+   "anom_m": -80.2,
+   "psl_equiv": 85.457
   },
   {
    "date": "2026-11-17",
-   "anom_m": -22.3,
-   "psl_equiv": null
+   "anom_m": -9.2,
+   "psl_equiv": 9.834
   },
   {
    "date": "2026-11-18",
-   "anom_m": 57.0,
-   "psl_equiv": null
+   "anom_m": 72.6,
+   "psl_equiv": -77.267
   },
   {
    "date": "2026-11-19",
-   "anom_m": 32.0,
-   "psl_equiv": null
+   "anom_m": 50.3,
+   "psl_equiv": -53.51
   },
   {
    "date": "2026-11-20",
-   "anom_m": -2.3,
-   "psl_equiv": null
+   "anom_m": 17.8,
+   "psl_equiv": -18.923
   },
   {
    "date": "2026-11-21",
-   "anom_m": 25.0,
-   "psl_equiv": null
+   "anom_m": 47.7,
+   "psl_equiv": -50.761
   },
   {
    "date": "2026-11-22",
-   "anom_m": 39.1,
-   "psl_equiv": null
+   "anom_m": 64.3,
+   "psl_equiv": -68.422
   },
   {
    "date": "2026-11-23",
-   "anom_m": 26.9,
-   "psl_equiv": null
+   "anom_m": 54.1,
+   "psl_equiv": -57.533
   },
   {
    "date": "2026-11-24",
-   "anom_m": -24.9,
-   "psl_equiv": null
+   "anom_m": 3.8,
+   "psl_equiv": -4.051
   },
   {
    "date": "2026-11-25",
-   "anom_m": -64.9,
-   "psl_equiv": null
+   "anom_m": -35.0,
+   "psl_equiv": 37.34
   },
   {
    "date": "2026-11-26",
-   "anom_m": -37.3,
-   "psl_equiv": null
+   "anom_m": -7.1,
+   "psl_equiv": 7.651
   }
  ],
  "forecast": {
@@ -416,24 +416,41 @@
     "2026-12-12"
    ],
    "anom_m": [
-    -37.1,
-    -10.5,
-    -27.1,
-    -63.5,
-    -131.3,
-    -158.9,
-    -128.2,
-    -122.8,
-    -83.5,
-    -20.4,
-    -59.2,
-    -112.0,
-    -192.8,
-    -178.5,
-    -169.6,
-    -139.2
+    -6.1,
+    20.2,
+    2.5,
+    -35.3,
+    -104.3,
+    -133.2,
+    -102.1,
+    -94.8,
+    -54.5,
+    6.0,
+    -35.2,
+    -90.8,
+    -173.9,
+    -161.4,
+    -153.9,
+    -126.8
    ],
-   "psl_equiv": null
+   "psl_equiv": [
+    6.572,
+    -21.433,
+    -2.656,
+    37.591,
+    111.162,
+    141.88,
+    108.809,
+    100.99,
+    58.096,
+    -6.35,
+    37.491,
+    96.75,
+    185.242,
+    171.946,
+    163.957,
+    135.082
+   ]
   },
   "ECMWF": {
    "dates": [
@@ -454,23 +471,39 @@
     "2026-12-11"
    ],
    "anom_m": [
-    -38.6,
-    -14.0,
-    -35.0,
-    -66.0,
-    -135.2,
-    -154.0,
-    -153.9,
-    -130.6,
-    -59.4,
-    -61.1,
-    -78.1,
-    -53.2,
-    -92.0,
-    -122.0,
-    -123.6
+    -7.6,
+    16.7,
+    -5.4,
+    -37.8,
+    -108.2,
+    -128.3,
+    -127.8,
+    -102.6,
+    -30.4,
+    -34.7,
+    -54.1,
+    -32.0,
+    -73.1,
+    -104.9,
+    -107.9
    ],
-   "psl_equiv": null
+   "psl_equiv": [
+    8.17,
+    -17.706,
+    5.757,
+    40.254,
+    115.316,
+    136.661,
+    136.179,
+    109.297,
+    32.43,
+    36.994,
+    57.619,
+    34.13,
+    77.893,
+    111.775,
+    114.968
+   ]
   }
  },
  "status": "success"

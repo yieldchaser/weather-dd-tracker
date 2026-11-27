@@ -1,46 +1,44 @@
 {
-  "timestamp": "2026-11-27T16:09:26.835163Z",
+  "timestamp": "2026-11-27T16:15:42.482178Z",
   "ao": -0.323,
   "nao": 0.17,
   "pna": 1.417,
-  "epo": null,
-  "composite_score": 60,
+  "epo": 0.079,
+  "composite_score": 57,
   "as_of": {
     "AO": "2026-11-24",
     "NAO": "2026-11-24",
     "PNA": "2026-11-24",
-    "EPO": "2026-11-16"
+    "EPO": "2026-11-26"
   },
-  "stale_indices": [
-    "EPO"
-  ],
+  "stale_indices": [],
   "sources": {
     "AO": "NOAA",
     "NAO": "NOAA",
     "PNA": "NOAA",
-    "EPO": "NOAA"
+    "EPO": "GFS analysis, calibrated to PSL (r=-0.87); PSL feed last 2026-11-16"
   },
   "analogs": [
     {
-      "year": 2002,
-      "distance": 1.42,
-      "window": "Nov 28\u2013Jan 26",
-      "next30_hdd_anomaly": 2.9,
-      "next31_60_hdd_anomaly": 3.4
-    },
-    {
       "year": 2004,
-      "distance": 1.44,
+      "distance": 1.73,
       "window": "Nov 28\u2013Jan 26",
       "next30_hdd_anomaly": 1.1,
       "next31_60_hdd_anomaly": -0.8
     },
     {
       "year": 2000,
-      "distance": 1.45,
+      "distance": 1.83,
       "window": "Nov 28\u2013Jan 26",
       "next30_hdd_anomaly": 7.2,
       "next31_60_hdd_anomaly": 3.6
+    },
+    {
+      "year": 2008,
+      "distance": 1.96,
+      "window": "Nov 28\u2013Jan 26",
+      "next30_hdd_anomaly": 3.0,
+      "next31_60_hdd_anomaly": 3.8
     }
   ],
   "mjo": {
@@ -455,7 +453,7 @@
     "ao": -0.695,
     "nao": -0.423,
     "pna": 0.642,
-    "epo": null
+    "epo": 0.565
   },
   "status": "success"
 }
