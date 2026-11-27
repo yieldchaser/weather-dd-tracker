@@ -3127,17 +3127,20 @@
             if (!IS_CDD && (n.state === 'disrupted' || n.state === 'weak' || ssw.length)) cls = 'tc-bullish';
             else if (!IS_CDD && n.state === 'strong' && !ssw.length) cls = 'tc-bearish';
             el.className = 'tc-val ' + cls;
-            sub.textContent = `${stateWord}${c.u_mean !== undefined ? ` · avg ${formatNum(c.u_mean, 0, true)}` : ''} · ${ssw.length ? 'SSW: ' + ssw.join(', ') : 'no SSW in forecast'}` + (pv.stale ? ' · stale' : '');
+            sub.textContent = [stateWord, c.u_mean !== undefined ? `avg ${formatNum(c.u_mean, 0, true)}` : '', ssw.length ? 'SSW: ' + ssw.join(', ') : 'no SSW in forecast', pv.stale ? 'stale' : ''].filter(Boolean).join(' · ');
             document.getElementById('pv-panel').style.display = 'block';
             const st = document.getElementById('pv-stats');
             const parts = [`<span>Now (${fdShort(n.date)}): <b>${formatNum(n.u60, 1, true)} m/s</b>${c.u_mean !== undefined ? ` vs normal ${formatNum(c.u_mean, 1, true)}` : ''}${n.pct_rank !== undefined ? ` <small style="color:#888">(${n.pct_rank}th percentile)</small>` : ''}</span>`];
             fcs.forEach(([k, f]) => parts.push(`<span>${k}: min <b class="${f.min_u60 < 0 ? 'pos-val' : ''}">${formatNum(f.min_u60, 0, true)}</b> on ${fdShort(f.min_date)}${f.ssw_date ? ` · <b class="pos-val">reversal ${fdShort(f.ssw_date)}</b>` : ''}${f.weak_days ? ` · ${f.weak_days}d below normal range` : ''}</span>`));
             st.innerHTML = parts.join('');
-            const ev = (pv.ssw_events || []).slice(-6).map(d => `${fdShort(d)} ${d.substring(0, 4)}`).join(', ');
+            const ev = (pv.ssw_events || []).slice(-6).map(d => `${fdShort(d.replace('*', ''))} ${d.substring(0, 4)}${d.endsWith('*') ? ' (recovery not yet confirmed)' : ''}`).join(', ');
+            const bandTxt = pv.clim_n_years >= 3
+                ? `Band: middle 80% for the date over ${pv.clim_n_years} winters (${pv.clim_years.join(' to ')}); the current winter is excluded from the normal. `
+                : `Normal band appears once at least 3 past winters are loaded (history backfills automatically; ${pv.clim_n_years || 0} so far). `;
             document.getElementById('pv-note').innerHTML =
-                `Solid line: GFS analysis (history since ${pv.history_span ? pv.history_span[0].substring(0, 4) : '?'}). Dashed: latest GFS and ECMWF forecasts. Band: middle 80% for the date over ${pv.clim_n_years} winters (${pv.clim_years ? pv.clim_years.join('-') : ''}); the current winter is excluded from the normal. ` +
-                `Major sudden stratospheric warming (SSW) = wind below 0 between Nov and Mar; the surface response (negative AO, cold into the eastern US and Europe) usually follows 1-4 weeks later.` +
-                (ev ? ` Past events in this record: ${ev}.` : '');
+                `Solid line: GFS analysis (history since ${pv.history_span ? pv.history_span[0].substring(0, 4) : '?'}). Dashed: latest GFS and ECMWF forecasts. ` + bandTxt +
+                `Major sudden stratospheric warming (SSW) = wind below 0 between Nov and Mar that recovers to westerly for 10+ days (otherwise it is the spring final warming); the surface response (negative AO, cold into the eastern US and Europe) usually follows 1-4 weeks later.` +
+                (ev ? ` Major SSWs in this record: ${ev}.` : '');
             drawPvChart();
         }
         function fdShort(iso) { const d = new Date(iso + 'T00:00:00Z'); return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]} ${d.getUTCDate()}`; }

@@ -127,12 +127,22 @@ def _year_path(y):
     return STRAT_DIR / f"{y}.csv"
 
 
+HIST_BUDGET_S = 600            # history work per run; the rest continues next run
+_T0 = time.time()
+
+
+def _budget_left():
+    return HIST_BUDGET_S - (time.time() - _T0)
+
+
 def _fetch_range(start, end):
     """History for [start, end] in two-month chunks: a whole year of hourly
     data for 36 points in one call timed out. A failed chunk raises, so a
     partial year is never written as if complete."""
     parts, s = [], start
     while s <= end:
+        if _budget_left() <= 0:
+            raise TimeoutError(f"history budget used before {s}")
         e = min(end, (pd.Timestamp(s) + pd.DateOffset(months=2) - pd.Timedelta(days=1)).date())
         parts.append(_reduce(_get(HIST_URL, _params({"start_date": s.isoformat(), "end_date": e.isoformat(), "models": "gfs_global"}), attempts=3, timeout=120)))
         print(f"[STRAT]   {s} -> {e} ok", flush=True)
@@ -153,21 +163,24 @@ def update_history():
     path = _year_path(y)
     old = pd.read_csv(path, index_col=0, parse_dates=True) if path.exists() else None
     start = dt.date(y, 1, 1) if old is None or old.empty else (old.index.max().date() + dt.timedelta(days=1))
-    if start <= end:
+    # Current year: advance two months at a time and save after each step, so
+    # a slow archive still makes progress run by run.
+    while start <= end and _budget_left() > 0:
+        stop = min(end, (pd.Timestamp(start) + pd.DateOffset(months=2) - pd.Timedelta(days=1)).date())
         try:
-            df = _fetch_range(start, end)
-            if old is not None:
-                df = pd.concat([old, df]).groupby(level=0).last()
-            df.to_csv(path)
-            print(f"[STRAT] {y}: history through {df.index.max().date()}")
+            df = _fetch_range(start, stop)
         except Exception as e:  # noqa: BLE001
-            print(f"[STRAT][WARN] {y} tail failed: {e}")
+            print(f"[STRAT][WARN] {y} tail {start}..{stop} failed: {e}")
+            break
+        old = df if old is None else pd.concat([old, df]).groupby(level=0).last()
+        old.to_csv(path)
+        print(f"[STRAT] {y}: history through {old.index.max().date()}", flush=True)
+        start = stop + dt.timedelta(days=1)
     # missing complete years, newest first
     missing = [yy for yy in range(end.year - 1, HIST_FIRST_YEAR - 1, -1) if not _year_path(yy).exists()]
-    t0 = time.time()
     for yy in missing[:YEARS_PER_RUN]:
-        if time.time() - t0 > 480:   # forecasts must still run; the rest waits for the next run
-            print(f"[STRAT] backfill time budget used; {yy} and older next run")
+        if _budget_left() < 120:
+            print(f"[STRAT] history time budget used; {yy} and older next run")
             break
         s = dt.date(yy, 3, 23) if yy == 2021 else dt.date(yy, 1, 1)
         try:
@@ -194,9 +207,14 @@ def climatology(hist, today):
         return {}, []
     winter_start = dt.date(today.year if today.month >= 7 else today.year - 1, 7, 1)
     base = hist[hist.index.date < winter_start]
-    years = sorted(set(base.index.year))
-    doy = base.index.dayofyear
+    # winters (Jul-Jun) with Nov-Mar data, for the label
+    wm = base[base.index.month.isin([11, 12, 1, 2, 3])]
+    years = sorted(set((wm.index.year - (wm.index.month < 7)).tolist()))
+    doy = base.index.day_of_year
     clim = {}
+    if len(years) < 3:
+        # too few winters for a meaningful normal; it appears as backfill completes
+        return {}, years
     for d in range(1, 367):
         dist = (doy - d) % 366
         sel = base[(dist <= 7) | (dist >= 359)]
@@ -216,15 +234,39 @@ def climatology(hist, today):
 
 
 def ssw_events(hist):
-    """Major SSWs in the history: U60 first turns easterly between Nov and Mar,
-    at least 20 days after the previous event (standard Charlton-Polvani
-    style central date)."""
-    ev, last = [], None
-    for d, u in hist["u60"].items():
-        if u < 0 and d.month in (11, 12, 1, 2, 3) and (last is None or (d - last).days > 20):
-            ev.append(d.date().isoformat())
-        if u < 0:
-            last = d
+    """Major SSWs (Charlton and Polvani 2007): the first day U60 turns
+    easterly between November and March, counted only if the wind returns to
+    westerly for at least 10 consecutive days before 30 April (otherwise it is
+    the spring final warming, not an SSW), and only after 20 consecutive
+    westerly days since the previous event."""
+    u = hist["u60"].dropna()
+    dates = list(u.index)
+    vals = list(u.values)
+    ev, i, westerly_run = [], 0, 20
+    while i < len(vals):
+        d, v = dates[i], vals[i]
+        if v >= 0:
+            westerly_run += 1
+            i += 1
+            continue
+        if d.month in (11, 12, 1, 2, 3) and westerly_run >= 20:
+            # look for >= 10 consecutive westerly days before 30 April
+            season_end = pd.Timestamp(d.year if d.month <= 4 else d.year + 1, 4, 30)
+            run, recovered = 0, False
+            for j in range(i + 1, len(vals)):
+                if dates[j] > season_end:
+                    break
+                run = run + 1 if vals[j] > 0 else 0
+                if run >= 10:
+                    recovered = True
+                    break
+            if recovered:
+                ev.append(d.date().isoformat())
+            elif dates[-1] < season_end and dates[-1] - d < pd.Timedelta(days=60):
+                # recent reversal: recovery cannot be judged yet
+                ev.append(d.date().isoformat() + "*")
+        westerly_run = 0
+        i += 1
     return ev
 
 
@@ -246,10 +288,6 @@ def classify(u, cl):
 
 def main():
     today = dt.datetime.now(dt.timezone.utc).date()
-    update_history()
-    hist = load_history()
-    clim, years = climatology(hist, today)
-
     fc = {}
     for name, (url, days) in FORECAST.items():
         try:
@@ -264,6 +302,16 @@ def main():
             print(f"[STRAT] {name}: {len(d)} days, U60 {d['u60'].iloc[0]:+.1f} -> min {d['u60'].min():+.1f} m/s")
         except Exception as e:  # noqa: BLE001
             print(f"[STRAT][WARN] {name} forecast failed: {e}")
+
+    # History after the forecasts, inside its own time budget.
+    global _T0
+    _T0 = time.time()
+    try:
+        update_history()
+    except Exception as e:  # noqa: BLE001
+        print(f"[STRAT][WARN] history update failed: {e}")
+    hist = load_history()
+    clim, years = climatology(hist, today)
 
     def cl_for(datestr):
         x = dt.date.fromisoformat(datestr)
@@ -283,7 +331,7 @@ def main():
         now["state"] = classify(now["u60"], c) if winter(dt.date.fromisoformat(now["date"])) else "summer"
         if c and not hist.empty:
             doy = dt.date.fromisoformat(now["date"]).timetuple().tm_yday
-            sel = hist[((hist.index.dayofyear - doy) % 366 <= 7) | ((hist.index.dayofyear - doy) % 366 >= 359)]
+            sel = hist[((hist.index.day_of_year - doy) % 366 <= 7) | ((hist.index.day_of_year - doy) % 366 >= 359)]
             sel = sel[sel.index.date < dt.date.fromisoformat(now["date"]) - dt.timedelta(days=150)]
             if len(sel):
                 now["pct_rank"] = round(float((sel["u60"] < now["u60"]).mean() * 100), 0)
@@ -312,7 +360,7 @@ def main():
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "definition": "Zonal-mean zonal wind at 60N, 10 hPa (m/s); polar-cap (60-90N) mean temperature at 10 hPa (C). Major SSW = U60 below 0 in Nov-Mar.",
         "source": "Open-Meteo: GFS and ECMWF IFS forecasts; GFS historical-forecast archive for history and climatology",
-        "clim_years": [years[0], years[-1]] if years else None,
+        "clim_years": [f"{years[0]}/{str(years[0] + 1)[2:]}", f"{years[-1]}/{str(years[-1] + 1)[2:]}"] if years else None,
         "clim_n_years": len(years),
         "now": now,
         "forecast": fc,
