@@ -1,0 +1,19 @@
+name: probe-pv
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pandas requests
+      - run: |
+          python scripts/teleconnections/polar_vortex.py
+          python - <<'PY'
+          import json; d=json.load(open('outputs/teleconnections/polar_vortex.json'))
+          print('now',d['now']); print('clim years',d['clim_years'],d['clim_n_years']); print('events',d['ssw_events']); print('span',d['history_span'])
+          for k,f in d['forecast'].items(): print(k, f['dates'][0], f['dates'][-1], [round(x) for x in f['u60']], 'min',f['min_u60'],f['min_date'],'ssw',f['ssw_date'],'tcap',f['tcap'][0],'->',f['tcap'][-1])
+          print('hist tail', d['history'][-5:])
+          PY
+          ls -la data/strat
