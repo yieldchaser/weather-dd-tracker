@@ -90,7 +90,7 @@ jobs:
           EIA_KEY: ${{ secrets.EIA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          python scripts/market_logic/fetch_live_grid.py || echo "[WARN] Live grid fetch failed — continuing pipeline."
+          timeout 900 python scripts/market_logic/fetch_live_grid.py || echo "[WARN] Live grid fetch failed — continuing pipeline."
           python scripts/poll_models.py
           python scripts/freshness_check.py || echo "[WARN] freshness check failed"
           # Manual resend: only when this run did not already send one.
@@ -105,7 +105,7 @@ jobs:
           timeout 1500 python scripts/generate_maps.py || echo "[WARN] Map generation failed or timed out."
           python scripts/market_logic/fetch_gas_burn_history.py || echo "[WARN] Gas burn history failed."
           python scripts/market_logic/fetch_thermal_history.py || echo "[WARN] Thermal history failed."
-          python scripts/market_logic/fetch_outages.py || echo "[WARN] Outage fetch failed."
+          timeout 600 python scripts/market_logic/fetch_outages.py || echo "[WARN] Outage fetch failed."
           python scripts/market_logic/fetch_peaker_proxy.py || echo "[WARN] Peaker proxy failed."
           python scripts/market_logic/build_burn_sensitivity.py || echo "[WARN] Burn sensitivity analytics failed."
 
@@ -177,6 +177,9 @@ jobs:
           du -sh outputs/maps/ data/gefs_subseasonal/
 
       - name: Commit pipeline state and AI model results
+        # Also after a timeout or cancel: model runs already fetched are kept
+        # (state only advances after a full pass, so the next run completes it).
+        if: always()
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
