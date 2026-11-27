@@ -8,7 +8,7 @@ jobs:
           K: ${{ secrets.EIA_KEY }}
         run: |
           set +e
-          t(){ echo "== $1"; curl -s -m 90 -o /tmp/o -D /tmp/h -w "code=%{http_code} time=%{time_total}s size=%{size_download}\n" "$2"; grep -i "x-ratelimit\|retry-after\|^HTTP" /tmp/h; head -c 300 /tmp/o; echo; }
+          t(){ echo "== $1"; curl -g -s -m 90 -o /tmp/o -D /tmp/h -w "code=%{http_code} time=%{time_total}s size=%{size_download}\n" "$2"; grep -i "x-ratelimit\|retry-after\|^HTTP" /tmp/h; head -c 300 /tmp/o; echo; }
           t small "https://api.eia.gov/v2/electricity/rto/region-data/data/?api_key=$K&frequency=hourly&data[0]=value&facets[respondent][]=PJM&facets[type][]=D&length=5"
           t big "https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/?api_key=$K&frequency=hourly&data[0]=value&facets[respondent][]=PJM&start=2026-10-23T00&end=2026-11-27T00&sort[0][column]=period&sort[0][direction]=desc&length=5000"
           t nokey "https://api.eia.gov/v2/electricity/rto/region-data/data/?api_key=DEMO_KEY&frequency=hourly&data[0]=value&facets[respondent][]=PJM&facets[type][]=D&length=5"
