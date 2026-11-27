@@ -356,6 +356,17 @@ def main():
         c = clim.get(x.timetuple().tm_yday)
         clim_series.append({"date": x.isoformat(), **({k: c[k] for k in ("u_mean", "u_p10", "u_p90", "u_min", "t_mean", "t_p10", "t_p90")} if c else {})})
 
+    # The surface response to an SSW lags it by 1-4 weeks, so a recent event
+    # matters even after the vortex has recovered.
+    recent = None
+    for e in reversed(ssw_events(hist)):
+        d0 = dt.date.fromisoformat(e.rstrip("*"))
+        age = (today - d0).days
+        if age <= 45:
+            recent = {"date": d0.isoformat(), "days_ago": age, "confirmed": not e.endswith("*"),
+                      "window_end": (d0 + dt.timedelta(days=28)).isoformat()}
+        break
+
     out = {
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "definition": "Zonal-mean zonal wind at 60N, 10 hPa (m/s); polar-cap (60-90N) mean temperature at 10 hPa (C). Major SSW = U60 below 0 in Nov-Mar.",
@@ -367,6 +378,7 @@ def main():
         "history": [{"date": d.date().isoformat(), "u60": float(r.u60), "tcap": float(r.tcap)} for d, r in recent.iterrows()],
         "climatology": clim_series,
         "ssw_events": ssw_events(hist),
+        "recent_ssw": recent,
         "history_span": [hist.index.min().date().isoformat(), hist.index.max().date().isoformat()] if not hist.empty else None,
         "status": "success" if fc else "failed",
     }
