@@ -127,12 +127,22 @@ def _year_path(y):
     return STRAT_DIR / f"{y}.csv"
 
 
+HIST_BUDGET_S = 600            # history work per run; the rest continues next run
+_T0 = time.time()
+
+
+def _budget_left():
+    return HIST_BUDGET_S - (time.time() - _T0)
+
+
 def _fetch_range(start, end):
     """History for [start, end] in two-month chunks: a whole year of hourly
     data for 36 points in one call timed out. A failed chunk raises, so a
     partial year is never written as if complete."""
     parts, s = [], start
     while s <= end:
+        if _budget_left() <= 0:
+            raise TimeoutError(f"history budget used before {s}")
         e = min(end, (pd.Timestamp(s) + pd.DateOffset(months=2) - pd.Timedelta(days=1)).date())
         parts.append(_reduce(_get(HIST_URL, _params({"start_date": s.isoformat(), "end_date": e.isoformat(), "models": "gfs_global"}), attempts=3, timeout=120)))
         print(f"[STRAT]   {s} -> {e} ok", flush=True)
@@ -153,21 +163,24 @@ def update_history():
     path = _year_path(y)
     old = pd.read_csv(path, index_col=0, parse_dates=True) if path.exists() else None
     start = dt.date(y, 1, 1) if old is None or old.empty else (old.index.max().date() + dt.timedelta(days=1))
-    if start <= end:
+    # Current year: advance two months at a time and save after each step, so
+    # a slow archive still makes progress run by run.
+    while start <= end and _budget_left() > 0:
+        stop = min(end, (pd.Timestamp(start) + pd.DateOffset(months=2) - pd.Timedelta(days=1)).date())
         try:
-            df = _fetch_range(start, end)
-            if old is not None:
-                df = pd.concat([old, df]).groupby(level=0).last()
-            df.to_csv(path)
-            print(f"[STRAT] {y}: history through {df.index.max().date()}")
+            df = _fetch_range(start, stop)
         except Exception as e:  # noqa: BLE001
-            print(f"[STRAT][WARN] {y} tail failed: {e}")
+            print(f"[STRAT][WARN] {y} tail {start}..{stop} failed: {e}")
+            break
+        old = df if old is None else pd.concat([old, df]).groupby(level=0).last()
+        old.to_csv(path)
+        print(f"[STRAT] {y}: history through {old.index.max().date()}", flush=True)
+        start = stop + dt.timedelta(days=1)
     # missing complete years, newest first
     missing = [yy for yy in range(end.year - 1, HIST_FIRST_YEAR - 1, -1) if not _year_path(yy).exists()]
-    t0 = time.time()
     for yy in missing[:YEARS_PER_RUN]:
-        if time.time() - t0 > 480:   # forecasts must still run; the rest waits for the next run
-            print(f"[STRAT] backfill time budget used; {yy} and older next run")
+        if _budget_left() < 120:
+            print(f"[STRAT] history time budget used; {yy} and older next run")
             break
         s = dt.date(yy, 3, 23) if yy == 2021 else dt.date(yy, 1, 1)
         try:
@@ -246,10 +259,6 @@ def classify(u, cl):
 
 def main():
     today = dt.datetime.now(dt.timezone.utc).date()
-    update_history()
-    hist = load_history()
-    clim, years = climatology(hist, today)
-
     fc = {}
     for name, (url, days) in FORECAST.items():
         try:
@@ -264,6 +273,16 @@ def main():
             print(f"[STRAT] {name}: {len(d)} days, U60 {d['u60'].iloc[0]:+.1f} -> min {d['u60'].min():+.1f} m/s")
         except Exception as e:  # noqa: BLE001
             print(f"[STRAT][WARN] {name} forecast failed: {e}")
+
+    # History after the forecasts, inside its own time budget.
+    global _T0
+    _T0 = time.time()
+    try:
+        update_history()
+    except Exception as e:  # noqa: BLE001
+        print(f"[STRAT][WARN] history update failed: {e}")
+    hist = load_history()
+    clim, years = climatology(hist, today)
 
     def cl_for(datestr):
         x = dt.date.fromisoformat(datestr)
