@@ -424,6 +424,17 @@ def update_wind_history(nat_row, out_rows):
 if __name__ == "__main__":
     import pathlib
     script_name = pathlib.Path(__file__).stem
+    # EIA-930 is used as daily means, so a successful pull within the last 3 h
+    # is current enough. Hourly polling (and daily_update calling this again)
+    # had raised EIA traffic to several hundred heavy requests a day.
+    try:
+        prev = json.loads(pathlib.Path(f"outputs/health/{script_name}.json").read_text())
+        ts = datetime.datetime.fromisoformat(str(prev.get("timestamp", "")).replace("Z", "").replace("+00:00", "")).replace(tzinfo=pytz.UTC)
+        if prev.get("status") == "ok" and datetime.datetime.now(pytz.UTC) - ts < datetime.timedelta(hours=3):
+            print(f"[SKIP] EIA grid pulled {ts:%H:%M} UTC (< 3 h ago); not re-fetching.")
+            sys.exit(0)
+    except Exception:
+        pass
     try:
         rows = fetch_live_grid()
         status = "ok" if (rows and rows > 0) else "warning"

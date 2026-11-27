@@ -140,7 +140,8 @@ def download_member_timestep(args):
 # -----------------------------
 
 def fetch_latest_gefs():
-    available_runs = find_latest_available_runs(max_runs=2)
+    from run_store import plan as _plan_runs
+    available_runs = _plan_runs(find_latest_available_runs(max_runs=12), "GEFS", keep_latest=2, max_backfill=1)  # GEFS runs are ~2000 files each
     
     for run_date, cycle in available_runs:
         run_id = f"{run_date}_{cycle}"

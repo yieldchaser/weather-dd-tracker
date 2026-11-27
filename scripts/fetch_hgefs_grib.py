@@ -128,7 +128,8 @@ def fetch_latest_hgefs():
     print("\n--- HGEFS GRIB SYNC SERVICE ---")
     ensure_dir(OUTPUT_DIR)
     try:
-        available_runs = find_latest_available_runs(max_runs=3)
+        from run_store import plan as _plan_runs
+        available_runs = _plan_runs(find_latest_available_runs(max_runs=8), "HGEFS", keep_latest=3)
     except Exception as e:
         print(f"Error finding runs: {e}")
         return

@@ -45,7 +45,8 @@ SLOTS = {
     # with nothing new exits in a few minutes.
     "daily_run.yml": [f"{h:02d}:20" for h in range(24)],
     "europe_weather.yml": ["02:40", "08:40", "14:40", "20:40"],
-    "teleconnections.yml": ["06:00", "18:00"],
+    # 4x/day: the polar vortex panel follows each GFS cycle.
+    "teleconnections.yml": ["05:10", "11:10", "17:10", "23:10"],
     "system3_freeze.yml": ["06:30", "18:30"],
     "system2_regimes.yml": ["07:00"],
     "system5_wind.yml": ["07:30"],
