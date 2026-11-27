@@ -1,7 +1,9 @@
 {
  "script": "run coverage",
- "status": "ok",
- "error": "",
- "lost_48h": [],
- "timestamp": "2026-11-27T14:55:08.711224+00:00"
+ "status": "failed",
+ "error": "served by Open-Meteo but never stored: UKMO_ENS 27/00z",
+ "lost_48h": [
+  "UKMO_ENS 27/00z"
+ ],
+ "timestamp": "2026-11-27T15:51:00.845646+00:00"
 }

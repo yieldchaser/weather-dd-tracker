@@ -1,13 +1,11 @@
 {
  "script": "feed freshness",
  "status": "failed",
- "error": "HRRR 25/23z is 41h old (limit 6h); ECMWF_ENS 25/12z is 52h old (limit 30h); AIFS_ENS 25/18z is 46h old (limit 24h); UKMO_ENS 25/18z is 46h old (limit 24h)",
+ "error": "HRRR 25/23z is 41h old (limit 6h); EPO source last updated 2026-11-16 (excluded from signals)",
  "stale": [
   "HRRR 25/23z is 41h old (limit 6h)",
-  "ECMWF_ENS 25/12z is 52h old (limit 30h)",
-  "AIFS_ENS 25/18z is 46h old (limit 24h)",
-  "UKMO_ENS 25/18z is 46h old (limit 24h)"
+  "EPO source last updated 2026-11-16 (excluded from signals)"
  ],
- "fresh_count": 24,
- "timestamp": "2026-11-27T15:36:49.309581+00:00"
+ "fresh_count": 28,
+ "timestamp": "2026-11-27T16:21:55.258296+00:00"
 }
