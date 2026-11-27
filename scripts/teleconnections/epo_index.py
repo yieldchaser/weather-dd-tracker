@@ -194,7 +194,10 @@ def main():
         if len(both) >= 120:
             b, a = np.polyfit(both["gfs"], both["psl"], 1)
             r = float(np.corrcoef(both["gfs"], both["psl"])[0, 1])
-            calib = {"ok": r >= 0.8, "a": round(float(a), 4), "b": round(float(b), 5), "r": round(r, 3),
+            # PSL's EPO has the opposite sign to the raw box height anomaly
+            # (low heights over Alaska = positive EPO), so the fit is negative;
+            # what matters is how tightly the two track, |r|.
+            calib = {"ok": abs(r) >= 0.8, "a": round(float(a), 4), "b": round(float(b), 5), "r": round(r, 3),
                      "n": int(len(both)), "overlap": [both.index.min().date().isoformat(), both.index.max().date().isoformat()]}
             print(f"[EPO] calibration vs PSL: r={r:.3f} over {len(both)} days")
     psl_last = psl.index.max().date().isoformat() if not psl.empty else None
