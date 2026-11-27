@@ -1,10 +1,13 @@
 {
  "script": "feed freshness",
  "status": "failed",
- "error": "HRRR 25/23z is 9h old (limit 6h)",
+ "error": "HRRR 25/23z is 41h old (limit 6h); ECMWF_ENS 25/12z is 52h old (limit 30h); AIFS_ENS 25/18z is 46h old (limit 24h); UKMO_ENS 25/18z is 46h old (limit 24h)",
  "stale": [
-  "HRRR 25/23z is 9h old (limit 6h)"
+  "HRRR 25/23z is 41h old (limit 6h)",
+  "ECMWF_ENS 25/12z is 52h old (limit 30h)",
+  "AIFS_ENS 25/18z is 46h old (limit 24h)",
+  "UKMO_ENS 25/18z is 46h old (limit 24h)"
  ],
- "fresh_count": 27,
- "timestamp": "2026-11-26T08:12:26.941401+00:00"
+ "fresh_count": 24,
+ "timestamp": "2026-11-27T15:36:49.309581+00:00"
 }
