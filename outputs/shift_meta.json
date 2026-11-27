@@ -31,14 +31,14 @@
       "has_gw": true
     },
     "GOOGLE AI CHG": {
-      "latest": "20261127_00",
-      "prev": "20261125_12",
-      "gap": true,
+      "latest": "20261127_12",
+      "prev": "20261127_00",
+      "gap": false,
       "has_gw": true
     },
     "GOOGLE WN3 CHG": {
-      "latest": "20261127_06",
-      "prev": "20261127_00",
+      "latest": "20261127_12",
+      "prev": "20261127_06",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-27T22:08:39.498058"
+  "generated_at": "2026-11-27T23:00:44.370799"
 }
