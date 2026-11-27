@@ -1,0 +1,23 @@
+name: Site check
+
+# Fails when any inline <script> on the dashboard pages has a syntax error
+# (one stray quote blanks a whole page in the browser).
+on:
+  pull_request:
+    paths: ['*.html', 'scripts/ci/check_site_js.js']
+  push:
+    branches: [main]
+    paths: ['*.html', 'scripts/ci/check_site_js.js']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  js-syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax-check inline scripts
+        run: node scripts/ci/check_site_js.js

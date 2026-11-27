@@ -1610,7 +1610,10 @@
 
             let tbody = document.getElementById('shift-body');
             tbody.innerHTML = '';
-            shiftTable.forEach(row => {
+            // Desk horizon: 16 days. EC46 alone otherwise adds ~30 rows of dashes
+            // out to day 46 (its long-range changes are in the Days 16+ table).
+            const shiftCut = new Date(Date.now() + 16 * 86400000).toISOString().substring(0, 10);
+            shiftTable.filter(r => String(r["date"] || "").substring(0, 10) <= shiftCut).forEach(row => {
                 let tr = document.createElement('tr');
                 let tdDate = document.createElement('td');
                 const targetDtStr = String(row["date"] || "").substring(0, 10);
@@ -3546,7 +3549,7 @@
             },
             "EPO": {
                 title: "East Pacific Oscillation (EPO)",
-                body: "The East Pacific Oscillation index. A <strong>negative phase</strong> blocks warm Pacific air and drives cold arctic air down into the central and eastern US, whereas a <strong>positive phase</strong> leads to zonal flow and mild weather. Source: NOAA PSL daily EPO. When that file runs more than 10 days late, the card shows the same index computed from GFS analysis (500 hPa height anomaly over 55-65°N, 160-125°W), calibrated to PSL's values by regression over their shared history; the card says "via GFS" then."
+                body: "The East Pacific Oscillation index. A <strong>negative phase</strong> blocks warm Pacific air and drives cold arctic air down into the central and eastern US, whereas a <strong>positive phase</strong> leads to zonal flow and mild weather. Source: NOAA PSL daily EPO. When that file runs more than 10 days late, the card shows the same index computed from GFS analysis (500 hPa height anomaly over 55-65°N, 160-125°W), calibrated to PSL's values by regression over their shared history; the card says 'via GFS' then."
             },
             "Weather Intelligence Signal": {
                 title: "Weather Intelligence Signal (Subseasonal)",
