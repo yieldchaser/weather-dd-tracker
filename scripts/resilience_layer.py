@@ -67,6 +67,11 @@ import os as _os
 import tempfile as _tempfile
 from urllib.parse import urlparse as _urlparse
 
+# Only hosts whose loss must not stall the pipeline AND whose data is optional
+# for it. Open-Meteo is excluded on purpose: two timed-out ensemble batches
+# opened the breaker for the whole host and silently skipped every later
+# ensemble fetch in the job (ECMWF ENS, AIFS ENS, UKMO on 2026-11-27).
+_CB_HOSTS = {"api.eia.gov"}
 _OPEN_AFTER = 2
 _OPEN_FOR_S = 45 * 60
 _CB_FILE = _os.path.join(_os.environ.get("RUNNER_TEMP") or _tempfile.gettempdir(), "wdd_circuit.json")
@@ -93,11 +98,15 @@ def _cb_host(url):
 
 
 def circuit_open(url) -> bool:
+    if _cb_host(url) not in _CB_HOSTS:
+        return False
     st = _cb_load().get(_cb_host(url))
     return bool(st and st.get("open_until", 0) > time.time())
 
 
 def _cb_record(url, ok):
+    if _cb_host(url) not in _CB_HOSTS:
+        return
     state = _cb_load()
     h = _cb_host(url)
     st = state.get(h, {"fails": 0, "open_until": 0})

@@ -1,0 +1,21 @@
+name: probe-fetch
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - run: pip install -r requirements.txt
+      - name: HRRR
+        run: timeout 900 python scripts/fetch_hrrr.py 2>&1 | tail -40; ls data/hrrr | tail -5
+      - name: ECMWF ENS
+        run: timeout 600 python scripts/fetch_ecmwf_ens.py 2>&1 | tail -15
+      - name: AIFS ENS
+        run: timeout 600 python scripts/fetch_aifs_ens.py 2>&1 | tail -15
+      - name: UKMO ENS
+        run: timeout 600 python scripts/fetch_ukmo_ens.py 2>&1 | tail -15
