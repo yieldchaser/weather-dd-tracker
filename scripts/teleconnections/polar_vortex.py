@@ -43,7 +43,7 @@ FORECAST = {
 }
 HIST_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 HIST_FIRST_YEAR = 2021          # GFS pressure levels in the archive start Mar 2021
-YEARS_PER_RUN = 2               # stays well inside the free daily call budget
+YEARS_PER_RUN = 2               # stays well inside the free daily call budget (~2k weighted calls)
 VARS = "wind_speed_10hPa,wind_direction_10hPa,temperature_10hPa"
 
 # 60N ring every 20 deg for U60 (and the cap edge), 70N/80N rings every 40 deg
@@ -127,6 +127,20 @@ def _year_path(y):
     return STRAT_DIR / f"{y}.csv"
 
 
+def _fetch_range(start, end):
+    """History for [start, end] in two-month chunks: a whole year of hourly
+    data for 36 points in one call timed out. A failed chunk raises, so a
+    partial year is never written as if complete."""
+    parts, s = [], start
+    while s <= end:
+        e = min(end, (pd.Timestamp(s) + pd.DateOffset(months=2) - pd.Timedelta(days=1)).date())
+        parts.append(_reduce(_get(HIST_URL, _params({"start_date": s.isoformat(), "end_date": e.isoformat(), "models": "gfs_global"}), attempts=3, timeout=120)))
+        print(f"[STRAT]   {s} -> {e} ok", flush=True)
+        s = e + dt.timedelta(days=1)
+        time.sleep(1)
+    return pd.concat(parts) if parts else pd.DataFrame(columns=["u60", "tcap"])
+
+
 def update_history():
     """Backfill missing complete years (newest first) and extend the current
     year to yesterday. Each year is its own CSV so a failed fetch never costs
@@ -141,7 +155,7 @@ def update_history():
     start = dt.date(y, 1, 1) if old is None or old.empty else (old.index.max().date() + dt.timedelta(days=1))
     if start <= end:
         try:
-            df = _reduce(_get(HIST_URL, _params({"start_date": start.isoformat(), "end_date": end.isoformat(), "models": "gfs_global"})))
+            df = _fetch_range(start, end)
             if old is not None:
                 df = pd.concat([old, df]).groupby(level=0).last()
             df.to_csv(path)
@@ -150,10 +164,14 @@ def update_history():
             print(f"[STRAT][WARN] {y} tail failed: {e}")
     # missing complete years, newest first
     missing = [yy for yy in range(end.year - 1, HIST_FIRST_YEAR - 1, -1) if not _year_path(yy).exists()]
+    t0 = time.time()
     for yy in missing[:YEARS_PER_RUN]:
+        if time.time() - t0 > 480:   # forecasts must still run; the rest waits for the next run
+            print(f"[STRAT] backfill time budget used; {yy} and older next run")
+            break
         s = dt.date(yy, 3, 23) if yy == 2021 else dt.date(yy, 1, 1)
         try:
-            df = _reduce(_get(HIST_URL, _params({"start_date": s.isoformat(), "end_date": f"{yy}-12-31", "models": "gfs_global"})))
+            df = _fetch_range(s, dt.date(yy, 12, 31))
             df.to_csv(_year_path(yy))
             print(f"[STRAT] {yy}: backfilled {len(df)} days")
         except Exception as e:  # noqa: BLE001
