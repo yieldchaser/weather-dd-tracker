@@ -7,8 +7,8 @@
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20261127_00",
-      "prev": "20261126_12",
+      "latest": "20261127_12",
+      "prev": "20261127_00",
       "gap": false,
       "has_gw": true
     },
@@ -67,9 +67,9 @@
       "has_gw": true
     },
     "AIFS ENS CHG": {
-      "latest": "20261127_06",
-      "prev": "20261125_18",
-      "gap": true,
+      "latest": "20261127_12",
+      "prev": "20261127_06",
+      "gap": false,
       "has_gw": true
     },
     "UKMO ENS CHG": {
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-27T20:00:49.052538"
+  "generated_at": "2026-11-27T20:47:46.709235"
 }
