@@ -325,6 +325,37 @@ def run_system1():
                     'hist_std':  float(hist_std),
                 }
 
+    # EPO backstop: the PSL file is the only public daily EPO and it stalls
+    # (Nov 2026: last value Nov 16). epo_index.py computes the same box from
+    # GFS analysis and calibrates it to PSL units; use it when PSL is stale.
+    sources = {k: "NOAA" for k in data}
+    epo_state = data.get('EPO') or {}
+    if (not epo_state or epo_state.get('stale')) and 'EPO' in historical_data:
+        try:
+            g = json.load(open(os.path.join(_ROOT, 'outputs', 'teleconnections', 'epo_gfs.json')))
+            ser = [x for x in g.get('series', []) if x.get('psl_equiv') is not None]
+            if g.get('calibration', {}).get('ok') and ser:
+                last = ser[-1]
+                age = (datetime.now(UTC).date() - datetime.strptime(last['date'], "%Y-%m-%d").date()).days
+                if age <= 3:
+                    hv = historical_data['EPO']['value'].dropna()
+                    mu, sd = hv.mean(), hv.std()
+                    cur = (last['psl_equiv'] - mu) / sd
+                    prev_x = ser[-8]['psl_equiv'] if len(ser) >= 8 else ser[0]['psl_equiv']
+                    data['EPO'] = {
+                        'current': float(round(cur, 3)),
+                        'roc': float(round(cur - (prev_x - mu) / sd, 3)),
+                        'history': [x['psl_equiv'] for x in ser[-15:]],
+                        'as_of': last['date'],
+                        'hist_mean': float(mu), 'hist_std': float(sd),
+                    }
+                    sources['EPO'] = f"GFS analysis, calibrated to PSL (r={g['calibration']['r']}); PSL feed last {epo_state.get('as_of', '?')}"
+                    logging.info(f"[EPO] PSL stale; using GFS-derived EPO {cur:+.2f} ({last['date']})")
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logging.warning(f"[EPO] GFS backstop unavailable: {e}")
+
     # Compute composite cold risk score
     # Rule of thumb for Natural Gas Cold Risk: 
     # Negative AO/NAO = Arctic air spills south.
@@ -410,6 +441,7 @@ def run_system1():
         'composite_score': score,
         'as_of': {k: v.get('as_of') for k, v in data.items() if isinstance(v, dict) and v.get('as_of')},
         'stale_indices': sorted(k for k, v in data.items() if isinstance(v, dict) and v.get('stale')),
+        'sources': sources,
         'analogs': enriched_analogs,
         'mjo': mjo,
         'enso': enso,

@@ -1,0 +1,24 @@
+name: probe-epo
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pandas numpy requests
+      - run: python scripts/teleconnections/epo_index.py
+      - run: |
+          python - <<'PY'
+          import json; d=json.load(open('outputs/teleconnections/epo_gfs.json'))
+          print('calib',d['calibration']); print('psl_last',d['psl_last_date'],'as_of',d['as_of'],'span',d['history_span'])
+          print('tail',d['series'][-5:])
+          for k,f in d['forecast'].items(): print(k, f['dates'][0], f['dates'][-1], f['psl_equiv'] and [round(x,2) for x in f['psl_equiv']])
+          PY
+      - run: |
+          python scripts/teleconnections/system1_teleconnections.py 2>&1 | grep -i "epo" | tail -8
+          python -c "import json;d=json.load(open('outputs/teleconnections/latest.json'));print({k:d.get(k) for k in ['ao','nao','pna','epo','stale_indices','sources']})"
