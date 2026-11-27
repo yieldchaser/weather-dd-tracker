@@ -28,8 +28,24 @@ else:
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import json as _json
+import time as _time
+
+FETCH_STATUS = {}
+
+
 def run(script):
-    return script, subprocess.run(f"{PY} scripts/{script}", shell=True).returncode
+    """Run a fetcher, keep its output in the job log, and record its exit
+    code, duration and last lines. Fetch output scrolls out of the 5000-line
+    log tail GitHub serves, so a silently failing fetcher (HRRR stuck from
+    2026-11-25) was invisible; outputs/health/fetch_status.json is not."""
+    t0 = _time.time()
+    p = subprocess.run(f"{PY} scripts/{script}", shell=True, capture_output=True, text=True)
+    out = (p.stdout or "") + (p.stderr or "")
+    print(f"\n===== {script} (exit {p.returncode}) =====\n{out}", flush=True)
+    FETCH_STATUS[script] = {"rc": p.returncode, "seconds": round(_time.time() - t0, 1),
+                            "tail": out.strip().splitlines()[-12:]}
+    return script, p.returncode
 
 print("\n1-2. Fetching all models in parallel...")
 FETCH_SCRIPTS = [
@@ -56,6 +72,16 @@ with ThreadPoolExecutor(max_workers=5) as pool:
         results[script] = rc
         status = "[OK]" if rc == 0 else "[ERR]"
         print(f"  {status} {script}")
+
+try:
+    Path("outputs/health").mkdir(parents=True, exist_ok=True)
+    Path("outputs/health/fetch_status.json").write_text(_json.dumps({
+        "timestamp": _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime()),
+        "failed": sorted(k for k, v in FETCH_STATUS.items() if v["rc"] != 0),
+        "fetchers": FETCH_STATUS,
+    }, indent=1))
+except Exception as e:
+    print(f"[WARN] fetch status not written: {e}")
 
 ecmwf_result = type("R", (), {"returncode": results.get("fetch_ecmwf_ifs.py", 1)})()
 gfs_result   = type("R", (), {"returncode": results.get("fetch_gfs.py", 1)})()
