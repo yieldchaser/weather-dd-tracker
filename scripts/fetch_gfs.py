@@ -36,7 +36,12 @@ session = get_session()
 # Configuration
 # -----------------------------
 
-BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
+# AWS first: NOMADS throttles a runner that also pulls NBM/HRRR/AIGFS/HGEFS/
+# RRFS at the same moment, and the AWS open-data mirror carries the same
+# files and layout within minutes. NOMADS stays as the fallback.
+AWS_URL = "https://noaa-gfs-bdp-pds.s3.amazonaws.com"
+NOMADS_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
+BASE_URL = AWS_URL
 OUTPUT_DIR = "data/gfs"
 
 FORECAST_HOURS = list(range(0, 385, 6))   # 0h to 384h, 6-hourly steps
@@ -151,7 +156,18 @@ def fetch_latest_gfs():
     from run_store import plan as _plan_runs
     # Look back over every run NOMADS still holds; fetch the newest plus any
     # older run missing from tdd_master (outage recovery), a few per pass.
-    available_runs = _plan_runs(find_latest_available_runs(max_runs=16), "GFS", keep_latest=4)
+    global BASE_URL
+    found = []
+    for src in (AWS_URL, NOMADS_URL):
+        BASE_URL = src
+        try:
+            found = find_latest_available_runs(max_runs=16)
+        except RuntimeError:
+            found = []
+        if found:
+            print(f"  GFS source: {'AWS' if src == AWS_URL else 'NOMADS'}")
+            break
+    available_runs = _plan_runs(found, "GFS", keep_latest=4)
 
     for run_date, cycle in available_runs:
         run_id = f"{run_date}_{cycle}"

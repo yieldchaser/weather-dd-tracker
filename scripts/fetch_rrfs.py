@@ -11,10 +11,16 @@ What is fetched
   * file: rrfs.tHHz.2dfld.3km.fFFF.conus.grib2 (3 km CONUS, Lambert conformal,
     the same kind of grid as HRRR), 2 m temperature only, by HTTP byte range
     from the .idx so each step is ~1-2 MB instead of the full file
-  * hours: 0-84, every hour, so the daily means use 24 samples (same as HRRR)
+  * hours: 0-84 every 3 h, so each daily mean uses 8 samples. NOMADS
+    throttles clients that send more than ~120 requests a minute (a first
+    test pulling every hour lost two of four runs that way), so requests are
+    also paced below that limit.
+  * a run is published (moved out of its partial/ folder) only once at least
+    90% of its hours arrived; compute_tdd processes a run once and never
+    again, so a half-downloaded run must never be visible to it
 
-Runs to fetch come from run_store.plan(): the newest two always, plus up to
-two older ones that are still on NOMADS but missing from tdd_master.
+Runs to fetch come from run_store.plan(): the newest always, plus one older
+run per pass that is still on NOMADS but missing from tdd_master.
 
 Output: data/rrfs/<YYYYMMDD_HH>/ GRIB slices + manifest.json; compute_tdd.py
 turns them into data/rrfs/<run>_tdd.csv with the generic projected-grid path.
@@ -23,7 +29,9 @@ import datetime
 import json
 import os
 import re
+import shutil
 import sys
+import time
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -34,7 +42,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/rrfs/prod"
 OUTPUT_DIR = "data/rrfs"
 CYCLES = ["18", "12", "06", "00"]
-FORECAST_HOURS = list(range(0, 85))
+FORECAST_HOURS = list(range(0, 85, 3))
+PACE_S = 0.6          # ~100 requests/min, under the NOMADS limit
 T2M_PATTERN = re.compile(r":TMP:2 m above ground:")
 _LAST_PROBE = {}
 
@@ -90,23 +99,21 @@ def fetch_run(run_date, cycle):
     run_dir = os.path.join(OUTPUT_DIR, run_id)
     manifest = os.path.join(run_dir, "manifest.json")
     if os.path.exists(manifest):
-        try:
-            if len(json.load(open(manifest)).get("forecast_hours", [])) >= 0.9 * len(FORECAST_HOURS):
-                print(f"  [SKIP] RRFS {run_id}Z already fetched.")
-                return True
-        except Exception:
-            pass
-    os.makedirs(run_dir, exist_ok=True)
-    print(f"\nSyncing RRFS run: {run_id}Z (2 m temperature, f000-f084, byte range)")
+        print(f"  [SKIP] RRFS {run_id}Z already fetched.")
+        return True
+    part = os.path.join(run_dir, "partial")
+    os.makedirs(part, exist_ok=True)
+    print(f"\nSyncing RRFS run: {run_id}Z (2 m temperature, f000-f084 every 3 h, byte range)")
     got, missed = [], []
     for fh in FORECAST_HOURS:
         name = f"rrfs.t{cycle}z.2dfld.3km.f{fh:03d}.conus.grib2"
-        path = os.path.join(run_dir, name)
+        path = os.path.join(part, name)
         if os.path.exists(path) and os.path.getsize(path) > 1000:
             got.append(fh)
             continue
         url = _file(run_date, cycle, fh)
         try:
+            time.sleep(PACE_S)
             r = session.get(url + ".idx", timeout=20)
             r.raise_for_status()
             start, end = t2m_byte_range(r.text)
@@ -114,6 +121,7 @@ def fetch_run(run_date, cycle):
                 missed.append(fh)
                 continue
             rng = f"bytes={start}-{end}" if end is not None else f"bytes={start}-"
+            time.sleep(PACE_S)
             g = session.get(url, headers={"Range": rng}, timeout=60)
             if g.status_code not in (200, 206) or len(g.content) < 1000:
                 missed.append(fh)
@@ -123,10 +131,16 @@ def fetch_run(run_date, cycle):
             got.append(fh)
         except Exception:  # noqa: BLE001
             missed.append(fh)
+    if len(got) < 0.9 * len(FORECAST_HOURS):
+        print(f"  [PARTIAL] RRFS {run_id}Z: {len(got)}/{len(FORECAST_HOURS)} steps; kept aside, finished next pass")
+        return 0
+    for fn in os.listdir(part):
+        shutil.move(os.path.join(part, fn), os.path.join(run_dir, fn))
+    os.rmdir(part)
     json.dump({"model": "RRFS", "run_date": run_date, "cycle": cycle, "forecast_hours": got,
                "skipped_hours": missed, "created_utc": datetime.datetime.now(datetime.UTC).isoformat()},
               open(manifest, "w"), indent=2)
-    print(f"  [OK] RRFS {run_id}Z: {len(got)}/{len(FORECAST_HOURS)} hours" + (f" (missed {missed[:8]})" if missed else ""))
+    print(f"  [OK] RRFS {run_id}Z: {len(got)}/{len(FORECAST_HOURS)} steps" + (f" (missed {missed})" if missed else ""))
     return len(got)
 
 
@@ -138,9 +152,9 @@ def main():
         return
     try:
         from run_store import plan
-        todo = plan(runs, "RRFS", keep_latest=2, max_backfill=2)
+        todo = plan(runs, "RRFS", keep_latest=1, max_backfill=1)
     except Exception:
-        todo = sorted(runs, reverse=True)[:2]
+        todo = sorted(runs, reverse=True)[:1]
     print(f"  Complete runs on NOMADS: {sorted(f'{d}_{c}' for d, c in runs)}; syncing {[f'{d}_{c}' for d, c in todo]}")
     for d, c in todo:
         fetch_run(d, c)
