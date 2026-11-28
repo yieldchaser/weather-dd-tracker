@@ -13,10 +13,10 @@ jobs:
       - run: timeout 900 python scripts/fetch_rrfs.py
       - run: du -sh data/rrfs/* ; ls data/rrfs/*/ | head -5; cat data/rrfs/*/manifest.json | head -30
       - run: |
-          cd scripts && python - <<'PY'
+          python - <<'PY'
           import os, sys
-          sys.path.insert(0, '.')
-          os.chdir('..')
+          sys.path.insert(0, os.path.abspath('scripts'))
+          pass
           import compute_tdd as C
           w, wl, wlo = C.load_weights()
           for run in sorted(os.listdir('data/rrfs')):
