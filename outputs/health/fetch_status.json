@@ -1,17 +1,15 @@
 {
- "timestamp": "2026-11-28T04:13:34Z",
- "failed": [
-  "fetch_historical_weather.py"
- ],
+ "timestamp": "2026-11-28T05:15:23Z",
+ "failed": [],
  "fetchers": {
   "fetch_nbm.py": {
    "rc": 0,
-   "seconds": 35.0,
+   "seconds": 39.6,
    "tail": [
     "  [ERR] f195 failed: No IDX / Variable not found",
     "  [ERR] f201 failed: No IDX / Variable not found",
-    "  [ERR] f207 failed: No IDX / Variable not found",
     "  [ERR] f213 failed: No IDX / Variable not found",
+    "  [ERR] f207 failed: No IDX / Variable not found",
     "  [OK] NBM Fetch complete for 20261127_18Z. Retrieved: 77/89 slices.",
     "",
     "Fetching NBM run: 20261128_00Z via AWS S3 Byte-Range",
@@ -22,17 +20,9 @@
     "  [OK] NBM Fetch complete for 20261128_00Z. Retrieved: 77/89 slices."
    ]
   },
-  "fetch_ecmwf_ens.py": {
-   "rc": 0,
-   "seconds": 64.1,
-   "tail": [
-    "--- ECMWF ENS SYNC SERVICE ---",
-    "  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label."
-   ]
-  },
   "fetch_gfs.py": {
    "rc": 0,
-   "seconds": 68.6,
+   "seconds": 40.3,
    "tail": [
     "Timestep f372:",
     "  [ERR] TMP:2 m above ground not found in .idx for f372",
@@ -44,13 +34,21 @@
     "  [ERR] TMP:2 m above ground not found in .idx for f384",
     "",
     "Fetch complete for 20261127_00.",
-    "  Fetched hours : [0, 6, 12]",
-    "  Skipped hours : [18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102, 108, 114, 120, 126, 132, 138, 144, 150, 156, 162, 168, 174, 180, 186, 192, 198, 204, 210, 216, 222, 228, 234, 240, 246, 252, 258, 264, 270, 276, 282, 288, 294, 300, 306, 312, 318, 324, 330, 336, 342, 348, 354, 360, 366, 372, 378, 384]"
+    "  Fetched hours : [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102, 108, 114, 120, 126, 132, 138, 144, 150, 156]",
+    "  Skipped hours : [162, 168, 174, 180, 186, 192, 198, 204, 210, 216, 222, 228, 234, 240, 246, 252, 258, 264, 270, 276, 282, 288, 294, 300, 306, 312, 318, 324, 330, 336, 342, 348, 354, 360, 366, 372, 378, 384]"
+   ]
+  },
+  "fetch_ecmwf_ens.py": {
+   "rc": 0,
+   "seconds": 64.0,
+   "tail": [
+    "--- ECMWF ENS SYNC SERVICE ---",
+    "  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label."
    ]
   },
   "fetch_gefs.py": {
    "rc": 0,
-   "seconds": 49.8,
+   "seconds": 28.8,
    "tail": [
     "",
     "Fetching GEFS run: 20261127_18Z via AWS S3 Byte-Range",
@@ -68,39 +66,57 @@
   },
   "fetch_ecmwf_ifs.py": {
    "rc": 0,
-   "seconds": 91.0,
+   "seconds": 79.4,
    "tail": [
-    "<multiple>:  82%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f | 15.2M/18.6M [00:08<00:01, 1.91MB/s]",
-    "<multiple>:  84%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e | 15.5M/18.6M [00:08<00:01, 1.93MB/s]",
-    "<multiple>:  85%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c | 15.9M/18.6M [00:08<00:01, 1.88MB/s]",
-    "<multiple>:  87%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b | 16.2M/18.6M [00:08<00:01, 1.90MB/s]",
-    "<multiple>:  88%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a | 16.5M/18.6M [00:09<00:01, 1.91MB/s]",
-    "<multiple>:  90%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 | 16.8M/18.6M [00:09<00:01, 1.90MB/s]",
-    "<multiple>:  92%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f| 17.1M/18.6M [00:09<00:00, 1.91MB/s]",
-    "<multiple>:  93%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e| 17.4M/18.6M [00:09<00:00, 1.92MB/s]",
-    "<multiple>:  95%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c| 17.7M/18.6M [00:09<00:00, 1.88MB/s]",
-    "<multiple>:  97%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b| 18.0M/18.6M [00:09<00:00, 1.87MB/s]",
-    "<multiple>:  98%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a| 18.3M/18.6M [00:10<00:00, 1.85MB/s]",
-    "<multiple>: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 18.6M/18.6M [00:10<00:00, 1.85MB/s]"
+    "<multiple>:  82%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f | 15.2M/18.6M [00:07<00:01, 2.12MB/s]",
+    "<multiple>:  84%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e | 15.5M/18.6M [00:07<00:01, 2.14MB/s]",
+    "<multiple>:  85%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c | 15.9M/18.6M [00:08<00:01, 2.10MB/s]",
+    "<multiple>:  87%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b | 16.2M/18.6M [00:08<00:01, 2.11MB/s]",
+    "<multiple>:  88%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a | 16.5M/18.6M [00:08<00:01, 2.13MB/s]",
+    "<multiple>:  90%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 | 16.8M/18.6M [00:08<00:00, 2.15MB/s]",
+    "<multiple>:  92%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f| 17.1M/18.6M [00:08<00:00, 2.13MB/s]",
+    "<multiple>:  93%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e| 17.4M/18.6M [00:08<00:00, 2.16MB/s]",
+    "<multiple>:  95%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c| 17.7M/18.6M [00:08<00:00, 2.16MB/s]",
+    "<multiple>:  97%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b| 18.0M/18.6M [00:09<00:00, 2.18MB/s]",
+    "<multiple>:  98%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a| 18.3M/18.6M [00:09<00:00, 2.17MB/s]",
+    "<multiple>: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 18.6M/18.6M [00:09<00:00, 2.17MB/s]"
    ]
   },
-  "fetch_wn3.py": {
+  "fetch_cmc_ens.py": {
    "rc": 0,
-   "seconds": 2.5,
+   "seconds": 19.1,
    "tail": [
-    "[INFO] google_weathernext3_ensemble_mean: 1 series per city (single series).",
-    "  [OK] Batch fetch complete: 78/78 cities, 95.9/95.9 weight-pts (100.0% coverage).",
-    "2026-11-28 03:35:37,229 [INFO] --- GOOGLE WEATHERNEXT 3 DETECTED ON OPEN-METEO (google_weathernext3_ensemble_mean) ---",
-    "2026-11-28 03:35:37,723 [INFO] Syncing GOOGLE_WN3 from Open-Meteo (google_weathernext3_ensemble_mean) for 20261127_18...",
-    "2026-11-28 03:35:38,777 [INFO]   [OK] 20261127_18 GOOGLE_WN3: 14 days fetched from Open-Meteo!"
+    "--- CMC ENS SYNC SERVICE ---",
+    "  [SKIP] CMC ENS run 20261127_12Z already fetched (16 days)."
+   ]
+  },
+  "fetch_ecmwf_aifs.py": {
+   "rc": 0,
+   "seconds": 84.4,
+   "tail": [
+    "<multiple>:  82%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f | 11.6M/14.1M [00:07<00:01, 1.63MB/s]",
+    "<multiple>:  84%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e | 11.8M/14.1M [00:07<00:01, 1.63MB/s]",
+    "<multiple>:  85%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c | 12.0M/14.1M [00:07<00:01, 1.60MB/s]",
+    "<multiple>:  87%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b | 12.3M/14.1M [00:07<00:01, 1.62MB/s]",
+    "<multiple>:  89%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a | 12.5M/14.1M [00:07<00:01, 1.63MB/s]",
+    "<multiple>:  90%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 | 12.7M/14.1M [00:08<00:00, 1.62MB/s]",
+    "<multiple>:  92%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f| 13.0M/14.1M [00:08<00:00, 1.60MB/s]",
+    "<multiple>:  93%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e| 13.2M/14.1M [00:08<00:00, 1.62MB/s]",
+    "<multiple>:  95%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c| 13.4M/14.1M [00:08<00:00, 1.64MB/s]",
+    "<multiple>:  97%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b| 13.7M/14.1M [00:08<00:00, 1.65MB/s]",
+    "<multiple>:  98%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a| 13.9M/14.1M [00:08<00:00, 1.66MB/s]",
+    "<multiple>: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 14.1M/14.1M [00:08<00:00, 1.65MB/s]"
    ]
   },
   "fetch_aigefs.py": {
    "rc": 0,
-   "seconds": 0.9,
+   "seconds": 2.0,
    "tail": [
     "--- NOAA AIGEFS SYNC SERVICE ---",
-    "  [SKIP] AIGEFS run 20261127_12Z already fetched (16 days)."
+    "Syncing AIGEFS: 20261127_18 (Open-Meteo ncep_aigefs025, 78-city batch)",
+    "  [INFO] ncep_aigefs025: 31 series per city (ensemble mean of members).",
+    "  [OK] Batch fetch complete: 78/78 cities, 95.9/95.9 weight-pts (100.0% coverage).",
+    "  [OK] 20261127_18 AIGEFS: 16 days, 78/78 cities active."
    ]
   },
   "fetch_aifs_ens.py": {
@@ -113,114 +129,75 @@
   },
   "fetch_ukmo_ens.py": {
    "rc": 0,
-   "seconds": 2.1,
+   "seconds": 0.9,
    "tail": [
     "--- UK MET OFFICE ENSEMBLE SYNC SERVICE ---",
-    "Syncing UKMO_ENS: 20261127_18 (Open-Meteo ukmo_global_ensemble_20km, 78-city batch)",
-    "  [INFO] ukmo_global_ensemble_20km: 18 series per city (ensemble mean of members).",
-    "  [OK] Batch fetch complete: 78/78 cities, 95.9/95.9 weight-pts (100.0% coverage).",
-    "  [OK] 20261127_18 UKMO_ENS: 8 days, 78/78 cities active."
+    "  [SKIP] UKMO_ENS run 20261127_18Z already fetched (8 days)."
    ]
   },
-  "fetch_ecmwf_aifs.py": {
+  "fetch_ec46.py": {
    "rc": 0,
-   "seconds": 105.8,
+   "seconds": 0.9,
    "tail": [
-    "<multiple>:  82%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f | 11.6M/14.1M [00:07<00:01, 1.53MB/s]",
-    "<multiple>:  84%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e | 11.8M/14.1M [00:07<00:01, 1.53MB/s]",
-    "<multiple>:  85%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c | 12.0M/14.1M [00:08<00:01, 1.54MB/s]",
-    "<multiple>:  87%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b | 12.3M/14.1M [00:08<00:01, 1.53MB/s]",
-    "<multiple>:  89%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a | 12.5M/14.1M [00:08<00:01, 1.53MB/s]",
-    "<multiple>:  90%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 | 12.7M/14.1M [00:08<00:00, 1.53MB/s]",
-    "<multiple>:  92%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f| 13.0M/14.1M [00:08<00:00, 1.50MB/s]",
-    "<multiple>:  93%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e| 13.2M/14.1M [00:08<00:00, 1.52MB/s]",
-    "<multiple>:  95%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c| 13.4M/14.1M [00:09<00:00, 1.53MB/s]",
-    "<multiple>:  97%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b| 13.7M/14.1M [00:09<00:00, 1.54MB/s]",
-    "<multiple>:  98%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a| 13.9M/14.1M [00:09<00:00, 1.48MB/s]",
-    "<multiple>: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 14.1M/14.1M [00:09<00:00, 1.52MB/s]"
-   ]
-  },
-  "fetch_cmc_ens.py": {
-   "rc": 0,
-   "seconds": 63.9,
-   "tail": [
-    "--- CMC ENS SYNC SERVICE ---",
-    "  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label."
-   ]
-  },
-  "fetch_aigfs_grib.py": {
-   "rc": 0,
-   "seconds": 10.4,
-   "tail": [
-    "  [ERR] TMP:2 m above ground not found in .idx for f306",
-    "  [ERR] TMP:2 m above ground not found in .idx for f312",
-    "  [ERR] TMP:2 m above ground not found in .idx for f318",
-    "  [ERR] TMP:2 m above ground not found in .idx for f324",
-    "  [ERR] TMP:2 m above ground not found in .idx for f330",
-    "  [ERR] TMP:2 m above ground not found in .idx for f336",
-    "  [ERR] TMP:2 m above ground not found in .idx for f342",
-    "  [ERR] TMP:2 m above ground not found in .idx for f348",
-    "  [ERR] TMP:2 m above ground not found in .idx for f354",
-    "  [ERR] TMP:2 m above ground not found in .idx for f360",
-    "",
-    "Fetch complete for AIGFS 20261126_12."
-   ]
-  },
-  "fetch_hgefs_grib.py": {
-   "rc": 0,
-   "seconds": 0.8,
-   "tail": [
-    "Checking HGEFS availability: 20261127_12Z (f240)",
-    "Checking HGEFS availability: 20261127_06Z (f240)",
-    "Checking HGEFS availability: 20261127_00Z (f240)",
-    "Checking HGEFS availability: 20261126_18Z (f240)",
-    "Checking HGEFS availability: 20261126_12Z (f240)",
-    "Checking HGEFS availability: 20261126_06Z (f240)",
-    "Checking HGEFS availability: 20261126_00Z (f240)",
-    "Checking HGEFS availability: 20261125_18Z (f240)",
-    "Checking HGEFS availability: 20261125_12Z (f240)",
-    "Checking HGEFS availability: 20261125_06Z (f240)",
-    "Checking HGEFS availability: 20261125_00Z (f240)",
-    "[WARN] No remote HGEFS run found. Falling back to cached: 20261127_12"
+    "--- ECMWF EC46 SUB-SEASONAL SYNC SERVICE ---",
+    "  [SKIP] EC46 run 20261127_00 already fetched (46 days)."
    ]
   },
   "fetch_wn2.py": {
    "rc": 0,
-   "seconds": 63.9,
+   "seconds": 19.0,
    "tail": [
     "--- GOOGLE WN2 SYNC SERVICE ---",
-    "  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label."
+    "  [SKIP] GOOGLE_WN2 run 20261127_12Z already fetched (15 days)."
+   ]
+  },
+  "fetch_hgefs_grib.py": {
+   "rc": 0,
+   "seconds": 22.9,
+   "tail": [
+    "  [ERR] TMP:2 m above ground not found in .idx for f186",
+    "  [ERR] TMP:2 m above ground not found in .idx for f192",
+    "  [ERR] TMP:2 m above ground not found in .idx for f198",
+    "  [ERR] TMP:2 m above ground not found in .idx for f204",
+    "  [ERR] TMP:2 m above ground not found in .idx for f210",
+    "  [ERR] TMP:2 m above ground not found in .idx for f216",
+    "  [ERR] TMP:2 m above ground not found in .idx for f222",
+    "  [ERR] TMP:2 m above ground not found in .idx for f228",
+    "  [ERR] TMP:2 m above ground not found in .idx for f234",
+    "  [ERR] TMP:2 m above ground not found in .idx for f240",
+    "",
+    "Fetch complete for HGEFS 20261126_12."
+   ]
+  },
+  "fetch_hrrr.py": {
+   "rc": 0,
+   "seconds": 39.2,
+   "tail": [
+    "",
+    "Syncing HRRR run: 20261128_01Z (t2m only via byte-range)",
+    "Targeting 18 forecast hours.",
+    "  [OK] HRRR 20261128_01Z sync complete. (19 slices)",
+    "",
+    "Syncing HRRR run: 20261128_02Z (t2m only via byte-range)",
+    "Targeting 18 forecast hours.",
+    "  [OK] HRRR 20261128_02Z sync complete. (19 slices)",
+    "",
+    "Syncing HRRR run: 20261128_03Z (t2m only via byte-range)",
+    "Targeting 18 forecast hours.",
+    "  [OK] HRRR 20261128_03Z sync complete. (19 slices)"
    ]
   },
   "fetch_nam.py": {
    "rc": 0,
-   "seconds": 0.5,
+   "seconds": 0.3,
    "tail": [
     "--- NAM SYNC SERVICE ---",
     "  [WARN] No NAM runs found."
    ]
   },
-  "fetch_hrrr.py": {
-   "rc": 0,
-   "seconds": 5.8,
-   "tail": [
-    "",
-    "Syncing HRRR run: 20261128_00Z (t2m only via byte-range)",
-    "Targeting 48 forecast hours.",
-    "  [OK] HRRR 20261128_00Z sync complete. (0 slices)",
-    "",
-    "Syncing HRRR run: 20261128_01Z (t2m only via byte-range)",
-    "Targeting 18 forecast hours.",
-    "  [OK] HRRR 20261128_01Z sync complete. (0 slices)",
-    "",
-    "Syncing HRRR run: 20261128_02Z (t2m only via byte-range)",
-    "Targeting 18 forecast hours.",
-    "  [OK] HRRR 20261128_02Z sync complete. (0 slices)"
-   ]
-  },
   "fetch_icon.py": {
    "rc": 0,
-   "seconds": 0.9,
+   "seconds": 0.7,
    "tail": [
     "Fetching ICON (Open-Meteo) across 78 demand cities (batched)...",
     "  [INFO] icon_seamless: 1 series per city (single series).",
@@ -240,53 +217,70 @@
     "       Data Range: 1973 to 2026"
    ]
   },
-  "fetch_ec46.py": {
+  "fetch_aigfs_grib.py": {
    "rc": 0,
-   "seconds": 63.9,
+   "seconds": 74.3,
    "tail": [
-    "--- ECMWF EC46 SUB-SEASONAL SYNC SERVICE ---",
-    "  [SKIP] Open-Meteo run metadata unavailable; not guessing a cycle label."
+    "  [OK] Saved 514.7 KB -> aigfs.t18z.sfc.f306.grib2",
+    "  [OK] Saved 516.5 KB -> aigfs.t18z.sfc.f312.grib2",
+    "  [OK] Saved 514.3 KB -> aigfs.t18z.sfc.f318.grib2",
+    "  [OK] Saved 513.0 KB -> aigfs.t18z.sfc.f324.grib2",
+    "  [OK] Saved 516.6 KB -> aigfs.t18z.sfc.f330.grib2",
+    "  [OK] Saved 517.3 KB -> aigfs.t18z.sfc.f336.grib2",
+    "  [OK] Saved 515.3 KB -> aigfs.t18z.sfc.f342.grib2",
+    "  [OK] Saved 513.8 KB -> aigfs.t18z.sfc.f348.grib2",
+    "  [OK] Saved 517.9 KB -> aigfs.t18z.sfc.f354.grib2",
+    "  [OK] Saved 518.4 KB -> aigfs.t18z.sfc.f360.grib2",
+    "",
+    "Fetch complete for AIGFS 20261126_18."
+   ]
+  },
+  "fetch_wn3.py": {
+   "rc": 0,
+   "seconds": 94.9,
+   "tail": [
+    "2026-11-28 04:37:03,904 [WARNING] --- GOOGLE WEATHERNEXT 3: not returned by Open-Meteo this run (probe failed); retried next poll ---"
    ]
   },
   "fetch_open_meteo_ai.py": {
    "rc": 0,
-   "seconds": 403.2,
+   "seconds": 265.3,
    "tail": [
-    "  Fetching AIGFS run 20261128_00 (initialized: 2026-11-28T00:00 UTC)...",
-    "  [ERR] Batch chunk 0\u201349 failed (78.4% of total weight lost): 400 Client Error: Bad Request for url: https://single-runs-api.open-meteo.com/v1/forecast?latitude=40.71%2C42.36%2C39.95%2C40.44%2C39.29%2C38.91%2C42.89%2C43.16%2C42.65%2C43.05%2C41.76%2C41.82%2C40.74%2C40.6%2C40.27%2C43.66%2C44.47%2C42.1%2C42.27%2C41.85%2C42.33%2C41.5%2C39.96%2C39.1%2C39.77%2C43.04%2C44.98%2C38.63%2C39.09%2C39.76%2C41.66%2C41.08%2C42.96%2C42.73%2C43.01%2C44.52%2C43.07%2C41.59%2C41.26%2C37.69%2C46.78%2C41.1%2C40.06%2C38.35%2C38.42%2C39.27%2C38.25%2C38.05%2C32.78%2C29.76&longitude=-74.01%2C-71.06%2C-75.16%2C-79.99%2C-76.61%2C-77.04%2C-78.87%2C-77.61%2C-73.75%2C-76.15%2C-72.68%2C-71.42%2C-74.17%2C-75.49%2C-76.88%2C-70.26%2C-73.21%2C-72.59%2C-71.8%2C-87.65%2C-83.05%2C-81.69%2C-82.99%2C-84.51%2C-86.16%2C-87.91%2C-93.27%2C-90.2%2C-94.58%2C-84.19%2C-83.56%2C-81.52%2C-85.66%2C-84.55%2C-83.69%2C-88.02%2C-89.4%2C-93.62%2C-95.94%2C-97.34%2C-92.11%2C-80.65%2C-80.72%2C-81.63%2C-82.45%2C-81.56%2C-85.76%2C-84.5%2C-96.8%2C-95.37&daily=temperature_2m_mean&temperature_unit=celsius&forecast_days=16&models=ncep_aigfs025&timezone=UTC&run=2026-11-28T00%3A00",
-    "  [ERR] Batch chunk 50\u201377 failed (21.6% of total weight lost): 400 Client Error: Bad Request for url: https://single-runs-api.open-meteo.com/v1/forecast?latitude=33.75%2C35.23%2C36.17%2C35.15%2C33.52%2C35.78%2C37.54%2C36.85%2C35.47%2C36.15%2C36.07%2C35.05%2C34.75%2C32.3%2C39.74%2C38.83%2C40.76%2C35.08%2C43.61%2C41.14%2C45.78%2C47.61%2C45.52%2C47.66%2C34.05%2C37.77%2C38.58%2C36.74&longitude=-84.39%2C-80.84%2C-86.78%2C-90.05%2C-86.8%2C-78.64%2C-77.43%2C-75.98%2C-97.51%2C-95.99%2C-79.79%2C-85.31%2C-92.29%2C-90.18%2C-104.98%2C-104.82%2C-111.89%2C-106.65%2C-116.2%2C-104.82%2C-108.5%2C-122.33%2C-122.68%2C-117.43%2C-118.24%2C-122.42%2C-121.49%2C-119.79&daily=temperature_2m_mean&temperature_unit=celsius&forecast_days=16&models=ncep_aigfs025&timezone=UTC&run=2026-11-28T00%3A00",
+    "  [ERR] Batch chunk 50\u201377 failed (21.6% of total weight lost): 400 Client Error: Bad Request for url: https://single-runs-api.open-meteo.com/v1/forecast?latitude=33.75%2C35.23%2C36.17%2C35.15%2C33.52%2C35.78%2C37.54%2C36.85%2C35.47%2C36.15%2C36.07%2C35.05%2C34.75%2C32.3%2C39.74%2C38.83%2C40.76%2C35.08%2C43.61%2C41.14%2C45.78%2C47.61%2C45.52%2C47.66%2C34.05%2C37.77%2C38.58%2C36.74&longitude=-84.39%2C-80.84%2C-86.78%2C-90.05%2C-86.8%2C-78.64%2C-77.43%2C-75.98%2C-97.51%2C-95.99%2C-79.79%2C-85.31%2C-92.29%2C-90.18%2C-104.98%2C-104.82%2C-111.89%2C-106.65%2C-116.2%2C-104.82%2C-108.5%2C-122.33%2C-122.68%2C-117.43%2C-118.24%2C-122.42%2C-121.49%2C-119.79&daily=temperature_2m_mean&temperature_unit=celsius&forecast_days=10&models=ncep_hgefs025_ensemble_mean&timezone=UTC&run=2026-11-27T18%3A00",
     "  [CRIT] Weight coverage too low: 0.0/95.9 (0.0% \u2014 minimum 50% required). Returning empty \u2014 caller should skip this run.",
-    "  [WARN] No data returned for AIGFS run 20261128_00 (not published yet or API error).",
+    "  [WARN] No data returned for HGEFS run 20261127_18 (not published yet or API error).",
+    "  Fetching AIGFS run 20261128_00 (initialized: 2026-11-28T00:00 UTC)...",
+    "  [INFO] ncep_aigfs025: 1 series per city (single series).",
+    "  [OK] Batch fetch complete: 78/78 cities, 95.9/95.9 weight-pts (100.0% coverage).",
+    "  [OK] Saved AIGFS run 20261128_00 (15 days).",
     "  Fetching HGEFS run 20261128_00 (initialized: 2026-11-28T00:00 UTC)...",
     "  [ERR] Batch chunk 0\u201349 failed (78.4% of total weight lost): 400 Client Error: Bad Request for url: https://single-runs-api.open-meteo.com/v1/forecast?latitude=40.71%2C42.36%2C39.95%2C40.44%2C39.29%2C38.91%2C42.89%2C43.16%2C42.65%2C43.05%2C41.76%2C41.82%2C40.74%2C40.6%2C40.27%2C43.66%2C44.47%2C42.1%2C42.27%2C41.85%2C42.33%2C41.5%2C39.96%2C39.1%2C39.77%2C43.04%2C44.98%2C38.63%2C39.09%2C39.76%2C41.66%2C41.08%2C42.96%2C42.73%2C43.01%2C44.52%2C43.07%2C41.59%2C41.26%2C37.69%2C46.78%2C41.1%2C40.06%2C38.35%2C38.42%2C39.27%2C38.25%2C38.05%2C32.78%2C29.76&longitude=-74.01%2C-71.06%2C-75.16%2C-79.99%2C-76.61%2C-77.04%2C-78.87%2C-77.61%2C-73.75%2C-76.15%2C-72.68%2C-71.42%2C-74.17%2C-75.49%2C-76.88%2C-70.26%2C-73.21%2C-72.59%2C-71.8%2C-87.65%2C-83.05%2C-81.69%2C-82.99%2C-84.51%2C-86.16%2C-87.91%2C-93.27%2C-90.2%2C-94.58%2C-84.19%2C-83.56%2C-81.52%2C-85.66%2C-84.55%2C-83.69%2C-88.02%2C-89.4%2C-93.62%2C-95.94%2C-97.34%2C-92.11%2C-80.65%2C-80.72%2C-81.63%2C-82.45%2C-81.56%2C-85.76%2C-84.5%2C-96.8%2C-95.37&daily=temperature_2m_mean&temperature_unit=celsius&forecast_days=10&models=ncep_hgefs025_ensemble_mean&timezone=UTC&run=2026-11-28T00%3A00",
-    "  [RETRY] OM chunk 50-77 \u2014 attempt 1/6 failed; sleeping 2.8s",
-    "  [RETRY] OM chunk 50-77 \u2014 attempt 2/6 failed; sleeping 5.2s",
     "  [ERR] Batch chunk 50\u201377 failed (21.6% of total weight lost): 400 Client Error: Bad Request for url: https://single-runs-api.open-meteo.com/v1/forecast?latitude=33.75%2C35.23%2C36.17%2C35.15%2C33.52%2C35.78%2C37.54%2C36.85%2C35.47%2C36.15%2C36.07%2C35.05%2C34.75%2C32.3%2C39.74%2C38.83%2C40.76%2C35.08%2C43.61%2C41.14%2C45.78%2C47.61%2C45.52%2C47.66%2C34.05%2C37.77%2C38.58%2C36.74&longitude=-84.39%2C-80.84%2C-86.78%2C-90.05%2C-86.8%2C-78.64%2C-77.43%2C-75.98%2C-97.51%2C-95.99%2C-79.79%2C-85.31%2C-92.29%2C-90.18%2C-104.98%2C-104.82%2C-111.89%2C-106.65%2C-116.2%2C-104.82%2C-108.5%2C-122.33%2C-122.68%2C-117.43%2C-118.24%2C-122.42%2C-121.49%2C-119.79&daily=temperature_2m_mean&temperature_unit=celsius&forecast_days=10&models=ncep_hgefs025_ensemble_mean&timezone=UTC&run=2026-11-28T00%3A00",
     "  [CRIT] Weight coverage too low: 0.0/95.9 (0.0% \u2014 minimum 50% required). Returning empty \u2014 caller should skip this run.",
     "  [WARN] No data returned for HGEFS run 20261128_00 (not published yet or API error)."
    ]
   },
   "fetch_historical_weather.py": {
-   "rc": 1,
-   "seconds": 925.7,
+   "rc": 0,
+   "seconds": 887.4,
    "tail": [
-    "  [RETRY] ERA5 chunk 70-77 \u2014 attempt 4/6 failed; sleeping 1.8s",
-    "  [RETRY] ERA5 chunk 70-77 \u2014 attempt 5/6 failed; sleeping 5.2s",
+    "  [RETRY] ERA5 chunk 60-69 \u2014 attempt 1/6 failed; sleeping 2.2s",
+    "  [RETRY] ERA5 chunk 60-69 \u2014 attempt 2/6 failed; sleeping 5.2s",
+    "  [RETRY] ERA5 chunk 60-69 \u2014 attempt 3/6 failed; sleeping 5.2s",
+    "  [RETRY] ERA5 chunk 70-77 \u2014 attempt 1/6 failed; sleeping 2.9s",
+    "  [RETRY] ERA5 chunk 70-77 \u2014 attempt 2/6 failed; sleeping 7.3s",
+    "  [RETRY] ERA5 chunk 70-77 \u2014 attempt 3/6 failed; sleeping 8.1s",
+    "  [RETRY] ERA5 chunk 70-77 \u2014 attempt 4/6 failed; sleeping 6.3s",
+    "  [RETRY] ERA5 chunk 70-77 \u2014 attempt 5/6 failed; sleeping 8.1s",
     "  [ERR] ERA5 batch 70\u201377 failed (6.4% of total weight lost): [ERA5 chunk 70-77] Exhausted 6 attempts. Last error: ",
-    "  [WARN] Reduced ERA5 weight coverage: 62.1/95.9 (64.8%). Result may be slightly biased.",
+    "  [WARN] Reduced ERA5 weight coverage: 69.7/95.9 (72.7%). Result may be slightly biased.",
     "  Calculating Gas Weights...",
-    "Traceback (most recent call last):",
-    "  File \"/home/runner/work/weather-dd-tracker/weather-dd-tracker/scripts/fetch_historical_weather.py\", line 105, in <module>",
-    "    main()",
-    "  File \"/home/runner/work/weather-dd-tracker/weather-dd-tracker/scripts/fetch_historical_weather.py\", line 60, in main",
-    "    master_df = city_data[DEMAND_CITIES[0][0]][[\"date\"]].copy()",
-    "                ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^",
-    "KeyError: 'New York City'"
+    "  [OK] Saved 13115 days of historical data to outputs/historical_degree_days.csv"
    ]
   },
   "fetch_gefs_subseasonal.py": {
    "rc": 0,
-   "seconds": 2305.5,
+   "seconds": 2433.6,
    "tail": [
     "[OK] GEFS Subseasonal Fetch complete for 20261126_00Z.",
     "     Successfully retrieved: 1178/1178 slices.",
