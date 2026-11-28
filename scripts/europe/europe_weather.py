@@ -28,9 +28,9 @@ demand by country, bcm/yr (Eurostat-scale magnitudes, rounded), split across
 each country's main load centres by rough population share. They are a
 demand proxy, not an official index — documented here so they can be tuned.
 
-Run identity: Open-Meteo serves its newest ingested run without saying which
-cycle it is. The run label is the newest cycle whose init + publication lag
-has passed, and a payload identical to the previous archived run is refused
+Run identity: the label comes from Open-Meteo's run metadata
+(last_run_initialisation_time), never from the clock; with no metadata the
+pass is skipped. A payload identical to the previous archived run is refused
 (the same guard the US fetchers now use), so a stale re-fetch can never pose
 as a new run with "0.0 change".
 """
@@ -69,7 +69,7 @@ MODELS = [
     ("ECMWF_ENS", "ECMWF ENS", "ecmwf_ifs025_ensemble", ["00", "12"], 8, 15),
     # GEFS 0.25° stops near day 10; the seamless product continues at 0.5°.
     ("GEFS", "GFS ENS (GEFS)", ["ncep_gefs_seamless", "ncep_gefs025"], ["00", "06", "12", "18"], 6, 16),
-    ("AIFS_ENS", "ECMWF AIFS ENS", "ecmwf_aifs025_ensemble", ["00", "12"], 7, 15),
+    ("AIFS_ENS", "ECMWF AIFS ENS", "ecmwf_aifs025_ensemble", ["00", "06", "12", "18"], 7, 15),
 ]
 
 # country: (approx. temperature-sensitive gas demand weight, [(city, lat, lon, share)])
@@ -393,8 +393,26 @@ def weighted_series(city_vals, n):
     return out
 
 
+# Open-Meteo metadata dirs that name the run being served (all must agree)
+META_DIRS = {"ECMWF_ENS": ["ecmwf_ifs025"], "GEFS": ["ncep_gefs025", "ncep_gefs05"], "AIFS_ENS": ["ecmwf_aifs025_ensemble"]}
+
+
+def served_run_id(key, cycles):
+    """Run label from Open-Meteo's own run metadata. The wall-clock guess
+    (expected_run_id) could file a late run under the next cycle's label, which
+    breaks same-cycle comparisons; with no metadata, skip and retry next pass."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from region_change import served_run
+    rid = served_run(META_DIRS[key], short_runs=(key == "ECMWF_ENS"),
+                     stored=lambda r: (RUNS_DIR / f"{key}_{r}.json").exists())
+    if rid and rid[-2:] not in cycles:
+        print(f"[Europe] {key}: Open-Meteo serves {rid}, not a tracked cycle; skipping")
+        return None
+    return rid
+
+
 def run_model(key, label, om_model, cycles, lag_h, days):
-    run_id = expected_run_id(cycles, lag_h)
+    run_id = served_run_id(key, cycles)
     if run_id is None:
         return None
     path = RUNS_DIR / f"{key}_{run_id}.json"

@@ -31,12 +31,14 @@ MODEL_MAX_AGE_H = {
 JSON_FEEDS = [
     ("outputs/teleconnections/latest.json", "timestamp", 30),
     ("outputs/teleconnections/polar_vortex.json", "timestamp", 14),   # 4 runs a day; a crashed step shows within half a day
+    ("outputs/teleconnections/pch_sectors.json", "timestamp", 14),
     ("outputs/wind/drought.json", "timestamp", 30),
     ("outputs/wind/combined_drought.json", "timestamp", 30),
     ("outputs/europe/europe_weather.json", "generated_utc", 12),
     ("outputs/regimes/current_regime.json", "timestamp", 36),
     ("outputs/freeze/alerts.json", "timestamp", 30),
     ("outputs/composite_signal.json", "timestamp", 36),
+    ("outputs/region_change.json", "timestamp", 6),   # rebuilt every poller pass
 ]
 
 # CSV feeds: (path, date column, max age days of the newest row)

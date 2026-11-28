@@ -146,6 +146,30 @@
         .chg-table sup { color:#888; font-size:0.6rem; margin-left:1px; }
         @media (max-width: 768px) { .chg-table td:first-child small { display:none; } .chg-table th, .chg-table td { padding:6px 5px; font-size:0.78rem; } }
         .chg-foot { font-size:0.68rem; color:#777; padding:8px 12px; line-height:1.4; }
+        .rc-chips { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 0; }
+        .rc-chip { background:transparent; color:#c5c6c7; border:1px solid #3a4552; border-radius:3px; padding:3px 9px; font-size:0.72rem; cursor:pointer; }
+        .rc-chip.on { color:#66fcf1; border-color:#66fcf1; background:rgba(102,252,241,0.08); }
+        .pch-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+        .pch-title { font-size:0.8rem; color:#c5c6c7; margin-bottom:4px; }
+        .pch-title small { color:#8a96a3; }
+        .pch-cv { width:100%; height:230px; display:block; }
+        .pch-legend { display:flex; justify-content:center; flex-wrap:wrap; gap:0; margin-top:8px; font-size:0.62rem; color:#8a96a3; }
+        .pch-legend span { display:inline-block; min-width:26px; text-align:center; padding-top:12px; position:relative; }
+        .pch-legend span i { position:absolute; top:0; left:0; right:0; height:10px; }
+        .rc-sub { font-size:0.72rem; color:#9aa5b1; padding:8px 12px 4px; line-height:1.4; }
+        .rc-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; padding:0 0 4px; }
+        .rc-table { border-collapse:collapse; font-size:0.74rem; white-space:nowrap; min-width:max-content; width:auto; table-layout:auto; overflow:visible; box-shadow:none; border-radius:0; word-wrap:normal; margin:0 auto; font-variant-numeric:tabular-nums; }
+        .rc-table th, .rc-table td { padding:4px 7px; text-align:center; border:1px solid #1f2933; color:#e6e6e6; text-transform:none; background-color:transparent; }
+        .rc-table th.rc-reg { font-size:0.72rem; letter-spacing:0.3px; color:#c5c6c7; border-bottom:none; }
+        .rc-table th.rc-mod { font-size:0.62rem; color:#8a96a3; font-weight:500; }
+        .rc-table .rc-day { position:sticky; left:0; background:#141b22; text-align:left; z-index:1; width:auto; min-width:118px; }
+        .rc-table td.rc-day small { color:#8a96a3; margin-left:4px; }
+        .rc-table tr.rc-wk td { border-top:2px solid #3a4652; }
+        .rc-table tr.rc-sum td { border-top:2px solid #3a4652; font-weight:700; }
+        .rc-table sup { color:#8a96a3; font-size:0.58rem; margin-left:1px; font-weight:400; }
+        .rc-table td.rc-na { background:transparent; }
+        .rc-empty { padding:14px; color:#8a96a3; font-size:0.8rem; }
+        @media (max-width: 768px) { .rc-table th, .rc-table td { padding:4px 5px; font-size:0.7rem; } .rc-table td.rc-day small { display:none; } }
         .week-card {
             background-color: var(--card-bg);
             border-radius: 4px;
@@ -775,6 +799,16 @@
                 <div style="height:320px;position:relative;"><canvas id="pvChart"></canvas></div>
                 <div id="pv-note" style="font-size:0.75rem;color:#888;margin-top:6px;line-height:1.5;"></div>
             </div>
+            <div class="week-card" id="pch-panel" style="display:none;margin-bottom:16px;">
+                <div class="has-tooltip" data-tooltip-key="Coupling" style="color:var(--accent);font-weight:600;margin-bottom:6px;">Stratosphere to surface: polar-cap height anomaly by sector</div>
+                <div id="pch-stats" class="chg-headline" style="border-bottom:none;padding:2px 0 8px 0;"></div>
+                <div class="pch-grid">
+                    <div><div class="pch-title">North Pacific <small>(150°E-120°W, drives North American cold)</small></div><canvas id="pch-pacific" class="pch-cv"></canvas></div>
+                    <div><div class="pch-title">North Atlantic <small>(75°W-15°E, Greenland blocking)</small></div><canvas id="pch-atlantic" class="pch-cv"></canvas></div>
+                </div>
+                <div id="pch-legend" class="pch-legend"></div>
+                <div id="pch-note" style="font-size:0.75rem;color:#888;margin-top:6px;line-height:1.5;"></div>
+            </div>
             <div class="week-card" id="mjo-panel" style="display:none;margin-bottom:16px;">
                 <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
                     <div style="width:280px;height:280px;max-width:100%;position:relative;flex:0 0 auto;margin:0 auto;"><canvas id="mjoChart"></canvas></div>
@@ -890,6 +924,12 @@
                         </table>
                     </div>
                     <div class="chg-foot">Totals over each calendar window (same valid dates for every model). Green = more demand (colder in HDD mode), red = less. Superscript = days covered when a run is shorter than the window. Click a row to open that model below.</div>
+                </div>
+                <!-- Day-over-day change by region (Skylar style) -->
+                <div class="week-card" id="rc-card" style="grid-column:1 / -1;">
+                    <div class="week-header has-tooltip" data-tooltip-key="Region Change">Day-over-Day Change by Region (°F)</div>
+                    <div id="rc-us"></div>
+                    <div class="chg-foot">Ensemble-mean daily temperature, newest run minus the same cycle 24 h earlier, by EIA storage region and valid day. Red = warmer (less heating demand in winter), blue = colder; full colour at ±6 °F. Sum = total over the days every selected model covers (superscript). Tap a model to add or remove it. Europe, Russia and North Asia are on the Europe page.</div>
                 </div>
             </div>
 
@@ -1379,6 +1419,7 @@
             // 6. Run-change matrix + Forecast Model Chart
             if (masterData && masterData.length > 0) {
                 try { renderChangeMatrix(masterData, vsNormal); } catch (e) { console.error('change matrix', e); }
+                fetchJSON('outputs/region_change.json').then(rc => { try { renderRegionChange(rc, 'us', document.getElementById('rc-us')); } catch (e) { console.error('region change', e); } });
                 try { renderModelScorecard(masterData, historicalData); } catch (e) { console.error('model scorecard', e); }
                 try { renderDailyContext(masterData, historicalData); } catch (e) { console.error('daily context', e); }
                 initChart(masterData, vsNormal, mapManifest);
@@ -3043,6 +3084,71 @@
             });
         }
 
+        // ── Day-over-day change by region (outputs/region_change.json) ──
+        // Newest ECMWF ENS / GEFS run minus the same cycle 24 h earlier, °F of
+        // ensemble-mean daily temperature, per region and valid day.
+        function renderRegionChange(rc, group, el) {
+            if (!el) return;
+            if (!rc || !rc.models) { el.innerHTML = '<div class="rc-empty">Regional change data not available yet.</div>'; return; }
+            const order = (rc.model_order || Object.keys(rc.models)).filter(m => rc.models[m]);
+            let chosen = null;
+            try { chosen = JSON.parse(localStorage.getItem('rcModels') || 'null'); } catch (e) { }
+            if (!Array.isArray(chosen) || !chosen.some(m => order.includes(m))) chosen = rc.default_models || order.slice(0, 2);
+            const picked = order.filter(m => chosen.includes(m));
+            const anyData = m => ((rc.region_order || {})[group] || []).some(r => ((rc.models[m] || {}).regions || {})[r]);
+            const models = picked.filter(anyData);   // columns only for models with a pair in this group
+            const lab = rc.region_label || {}, mlab = rc.model_label || {};
+            const get = (m, r) => ((rc.models[m] || {}).regions || {})[r] || null;
+            const allRegions = (rc.region_order || {})[group] || [];
+            const regions = allRegions.filter(r => models.some(m => get(m, r)));
+            const pending = allRegions.filter(r => !regions.includes(r)).map(r => lab[r] || r);
+            const val = (m, r, d) => { const x = get(m, r); if (!x) return null; const i = x.dates.indexOf(d); return i < 0 ? null : x.delta[i]; };
+            const dates = [...new Set(regions.flatMap(r => models.flatMap(m => (get(m, r) || {}).dates || [])))].sort()
+                .filter(d => regions.some(r => models.some(m => val(m, r, d) !== null)));
+            const cell = v => {
+                if (v === null || v === undefined) return '<td class="rc-na"></td>';
+                const a = Math.min(Math.abs(v) / 6, 1) * 0.85, rgb = v > 0 ? '214,62,62' : '62,120,214';
+                const s = (Math.abs(v) < 0.05 ? '0.0' : (v > 0 ? '+' : '-') + Math.abs(v).toFixed(1));
+                return `<td style="background:rgba(${rgb},${a.toFixed(2)})">${s}</td>`;
+            };
+            const fmtRun = id => id ? `${id.slice(9, 11)}z ${+id.slice(6, 8)} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+id.slice(4, 6) - 1]}` : '';
+            // run pairs actually shown, per model (Europe and Asia can differ by a cycle)
+            const pairs = picked.map(m => {
+                const seen = [...new Set(regions.map(r => get(m, r)).filter(Boolean).map(x => `${fmtRun(x.run)} minus ${fmtRun(x.base)}`))];
+                return `${mlab[m] || m}: ${seen.length ? seen.join(' / ') : 'no same-cycle pair stored yet'}`;
+            });
+            let h = '<table class="rc-table"><thead><tr><th class="rc-day"></th>' +
+                regions.map(r => `<th colspan="${models.length}" class="rc-reg">${lab[r] || r}</th>`).join('') + '</tr><tr><th class="rc-day"></th>' +
+                regions.map(() => models.map(m => `<th class="rc-mod">${(mlab[m] || m).replace(' ENS', '')}</th>`).join('')).join('') + '</tr></thead><tbody>';
+            const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            dates.forEach((d, i) => {
+                const dt = new Date(d + 'T12:00:00Z');
+                h += `<tr${i === 5 || i === 10 ? ' class="rc-wk"' : ''}><td class="rc-day">Day ${i + 1} <small>${wd[dt.getUTCDay()]} ${d.slice(5)}</small></td>` +
+                    regions.map(r => models.map(m => cell(val(m, r, d))).join('')).join('') + '</tr>';
+            });
+            // Sum over the days every model with data in that region covers
+            h += '<tr class="rc-sum"><td class="rc-day">Sum</td>' + regions.map(r => {
+                const have = models.filter(m => get(m, r));
+                const common = dates.filter(d => have.length && have.every(m => val(m, r, d) !== null));
+                return models.map(m => {
+                    if (!get(m, r) || !common.length) return '<td class="rc-na"></td>';
+                    const s = common.reduce((t, d) => t + val(m, r, d), 0);
+                    return `<td>${Math.abs(s) < 0.05 ? '0.0' : (s > 0 ? '+' : '-') + Math.abs(s).toFixed(1)}<sup>${common.length}d</sup></td>`;
+                }).join('');
+            }).join('') + '</tr></tbody></table>';
+            if (!regions.length || !models.length) h = '<div class="rc-empty">No two runs of the same cycle 24 h apart are stored yet for the selected models.</div>';
+            if (pending.length) pairs.push(`${pending.join(', ')}: shown once two runs of the same cycle 24 h apart are stored`);
+            const chips = order.map(m => `<button type="button" class="rc-chip${picked.includes(m) ? ' on' : ''}" data-m="${m}">${mlab[m] || m}</button>`).join('');
+            el.innerHTML = `<div class="rc-chips">${chips}</div><div class="rc-sub">${pairs.join(' · ')}</div><div class="rc-wrap">${h}</div>`;
+            el.querySelectorAll('.rc-chip').forEach(btn => btn.onclick = () => {
+                const m = btn.dataset.m;
+                let next = picked.includes(m) ? picked.filter(x => x !== m) : [...picked, m];
+                if (!next.length) return;
+                try { localStorage.setItem('rcModels', JSON.stringify(next)); } catch (e) { }
+                renderRegionChange(rc, group, el);
+            });
+        }
+
         window.onload = loadDashboard;
 
         // ── Weather Intelligence Pipeline overlays (non-blocking) ──
@@ -3117,6 +3223,64 @@
             document.getElementById('pv-mode-t').classList.toggle('active', m === 't');
             drawPvChart();
         }
+
+        // ── Stratosphere-troposphere coupling (outputs/teleconnections/pch_sectors.json) ──
+        const PCH_STEPS = [-45, -35, -27, -20, -14, -8, -4, -2, 2, 4, 8, 14, 20, 27, 35, 45];
+        const PCH_COLS = ['#5b00a8', '#3a2fd1', '#1f5cff', '#3d8bff', '#6db4ff', '#9fd2ff', '#c9e6ff', '#e9f3ff', '#2b333b', '#fff3b0', '#ffd27a', '#ffa64d', '#ff7433', '#e8401c', '#c21a3a', '#e055c8', '#f59bea'];
+        function pchColor(v) {
+            if (v === null || v === undefined) return '#1a2128';
+            let i = 0; while (i < PCH_STEPS.length && v >= PCH_STEPS[i]) i++;
+            return PCH_COLS[i];
+        }
+        function drawPch(cv, d, sec) {
+            const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+            cv.width = W * dpr; cv.height = H * dpr;
+            const g = cv.getContext('2d'); g.scale(dpr, dpr);
+            const L = 54, B = 28, T = 4, R = 4, n = d.dates.length, lv = d.levels;
+            const cw = (W - L - R) / n, ch = (H - T - B) / lv.length;
+            const a = d.sectors[sec].anom_dam;
+            for (let i = 0; i < n; i++) for (let k = 0; k < lv.length; k++) {
+                g.fillStyle = pchColor(a[i][k]);
+                g.fillRect(Math.floor(L + i * cw), Math.floor(T + k * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+            }
+            g.fillStyle = '#8a96a3'; g.font = '10px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
+            lv.forEach((p, k) => g.fillText(p + ' hPa', L - 4, T + (k + 0.5) * ch));
+            g.textAlign = 'center'; g.textBaseline = 'top';
+            const step = n > 60 ? 14 : 7;
+            d.dates.forEach((dt, i) => { if (i % step === 0) g.fillText(fdShort(dt), L + (i + 0.5) * cw, H - B + 6); });
+            const fi = d.forecast_from ? d.dates.indexOf(d.forecast_from) : -1;
+            if (fi > 0) {
+                g.strokeStyle = '#000'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(L + fi * cw, T); g.lineTo(L + fi * cw, H - B); g.stroke();
+                g.fillStyle = '#000'; g.textAlign = 'left'; g.font = 'bold 10px sans-serif'; g.fillText('GFS forecast', L + fi * cw + 3, T + 2);
+            }
+        }
+        function renderPch(d) {
+            if (!d || d.status !== 'success' || !d.dates || !d.dates.length) return;
+            const panel = document.getElementById('pch-panel'); panel.style.display = 'block';
+            const word = { positive: 'heights above normal', negative: 'heights below normal', neutral: 'near normal' };
+            const impact = {
+                pacific: { positive: 'ridging over Alaska and the Bering Sea (negative EPO): opens the door for Arctic air into North America', negative: 'deep Pacific low (positive EPO): mild Pacific air across the US', neutral: 'no strong Pacific signal' },
+                atlantic: { positive: 'Greenland blocking (negative NAO): cold for Europe, often for the US East Coast', negative: 'strong Atlantic jet (positive NAO): mild for Europe and the eastern US', neutral: 'no strong Atlantic signal' },
+            };
+            const cls = (sec, st) => {
+                if (IS_CDD || st === 'neutral' || !st) return '';
+                return st === 'positive' ? 'pos-val' : 'neg-val';
+            };
+            const sm = d.summary || {};
+            document.getElementById('pch-stats').innerHTML = ['pacific', 'atlantic'].map(sec => {
+                const x = sm[sec] || {}; if (!x.state) return '';
+                return `<span>${sec === 'pacific' ? 'Pacific' : 'Atlantic'} troposphere, last 3 to next 7 days: <b class="${cls(sec, x.state)}">${formatNum(x.trop_z, 1, true)}σ</b> (${word[x.state]}): ${impact[sec][x.state]}${x.strat10_z !== null && x.strat10_z !== undefined ? ` · 10 hPa now ${formatNum(x.strat10_z, 1, true)}σ` : ''}</span>`;
+            }).join('');
+            const draw = () => { drawPch(document.getElementById('pch-pacific'), d, 'pacific'); drawPch(document.getElementById('pch-atlantic'), d, 'atlantic'); };
+            draw();
+            if (!window._pchResize) { window._pchResize = true; window.addEventListener('resize', () => { clearTimeout(window._pchT); window._pchT = setTimeout(draw, 150); }); }
+            document.getElementById('pch-legend').innerHTML = PCH_COLS.map((c, i) => `<span><i style="background:${c}"></i>${i === 0 ? '' : PCH_STEPS[i - 1]}</span>`).join('') + '<span style="padding-left:6px">dam</span>';
+            document.getElementById('pch-note').innerHTML =
+                `Geopotential height anomaly averaged over 65-85°N in each sector, from 10 hPa (mid stratosphere) down to 1000 hPa (surface), GFS analysis for the past ${d.dates.indexOf(d.forecast_from) > 0 ? d.dates.indexOf(d.forecast_from) : d.dates.length} days and the latest GFS forecast after the black line. ` +
+                `Warm colours = heights above normal. After a sudden stratospheric warming the warm anomaly drips down from the top over 1-4 weeks; where it reaches the bottom rows decides who gets the cold. ` +
+                `Normal = same calendar window over ${d.climatology_winters.length} past winters (${d.climatology_winters[0]} to ${d.climatology_winters[d.climatology_winters.length - 1]}), current winter excluded. σ = standard deviations from that normal (500 and 1000 hPa averaged).`;
+        }
+
         function renderPolarVortex(pv) {
             const el = document.getElementById('tc-pv-val'), sub = document.getElementById('tc-pv-sub');
             if (!el || !pv || !pv.now) { if (el) el.textContent = 'n/a'; return; }
@@ -3285,6 +3449,7 @@
                 try { renderMjo(tcData.mjo); } catch (e) { console.error('mjo', e); }
                 try { renderEnso(tcData.enso); } catch (e) { console.error('enso', e); }
                 fetchJSON('outputs/teleconnections/polar_vortex.json').then(pv => { try { renderPolarVortex(pv); } catch (e) { console.error('polar vortex', e); } });
+                fetchJSON('outputs/teleconnections/pch_sectors.json').then(d => { try { renderPch(d); } catch (e) { console.error('pch', e); } });
             }
 
             // Task 2, Intelligence Signal Banner
@@ -3391,6 +3556,14 @@
             "Model Scorecard": {
                 title: "Model Scorecard",
                 body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; those models are scored only on runs made since the change."
+            },
+            "Coupling": {
+                title: "Stratosphere to surface, by sector",
+                body: "Polar-cap (65-85°N) geopotential height anomaly at six levels from 10 hPa to 1000 hPa, split into the North Pacific and North Atlantic sectors. After a sudden stratospheric warming the high-height anomaly works down from the stratosphere over 1-4 weeks, but it does not always reach the surface everywhere. Positive lower-level heights over the Pacific mean an Alaska/Bering ridge (negative EPO), the pattern that delivers Arctic air to the central and eastern US; negative heights there mean a deep Pacific low and mild Pacific flow. Positive heights over the Atlantic mean Greenland blocking (negative NAO), cold for Europe and often the US East Coast. The headline σ is the 500 and 1000 hPa standardised anomaly averaged over the last 3 analysed days and next 7 forecast days; beyond ±0.5σ counts as a signal. Colour scale in decametres (dam)."
+            },
+            "Region Change": {
+                title: "Day-over-Day Change by Region",
+                body: "Where the forecast moved. For each selected model (ECMWF ENS, GEFS and WeatherNext 3 by default; AIFS ENS on request), the newest run minus the same cycle 24 hours earlier (00z vs 00z, 12z vs 12z), in °F of ensemble-mean daily temperature, for each EIA storage region and valid day. Regions are gas-demand-weighted city averages from the same 78-city set as the national figures. WeatherNext 3 has scored best over days 1-10 in the model scorecard; ECMWF ENS and GEFS are the two runs the market trades on. Red = warmer, blue = colder; in heating season +1 °F is roughly -1 HDD. East and Midwest carry most of the weather-driven demand, so a move there matters more than the same move in the Mountain or Pacific regions. A column stays blank until two runs of the same cycle 24 h apart are stored."
             },
             "Run Change Matrix": {
                 title: "Run-to-Run Change by Window",
