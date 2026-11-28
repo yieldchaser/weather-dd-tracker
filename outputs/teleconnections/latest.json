@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-28T14:38:57.410557Z",
+  "timestamp": "2026-11-28T17:20:54.613236Z",
   "ao": 0.618,
   "nao": 1.322,
   "pna": 1.48,
@@ -23,39 +23,32 @@
       "year": 1992,
       "distance": 1.92,
       "window": "Nov 29\u2013Jan 27",
-      "next30_hdd_anomaly": 1.5,
-      "next31_60_hdd_anomaly": -3.3
+      "next30_hdd_anomaly": 1.8,
+      "next31_60_hdd_anomaly": -3.1
     },
     {
       "year": 2004,
       "distance": 2.0,
       "window": "Nov 29\u2013Jan 27",
       "next30_hdd_anomaly": 1.7,
-      "next31_60_hdd_anomaly": -0.8
+      "next31_60_hdd_anomaly": -1.2
     },
     {
       "year": 2020,
       "distance": 2.09,
       "window": "Nov 29\u2013Jan 27",
-      "next30_hdd_anomaly": -0.6,
-      "next31_60_hdd_anomaly": -3.0
+      "next30_hdd_anomaly": -0.5,
+      "next31_60_hdd_anomaly": -2.9
     }
   ],
   "mjo": {
     "phase": 7,
-    "amplitude": 1.305,
+    "amplitude": 1.231,
     "active": true,
-    "as_of": "2026-11-23",
+    "as_of": "2026-11-24",
     "stale": false,
     "source": "NOAA PSL ROMI (CPC OLR)",
     "trail": [
-      {
-        "date": "2026-10-15",
-        "x": 0.046,
-        "y": -1.141,
-        "amplitude": 1.142,
-        "phase": 3
-      },
       {
         "date": "2026-10-16",
         "x": 0.071,
@@ -303,30 +296,37 @@
       },
       {
         "date": "2026-11-20",
-        "x": 0.353,
-        "y": 0.804,
-        "amplitude": 0.878,
+        "x": 0.314,
+        "y": 0.846,
+        "amplitude": 0.902,
         "phase": 6
       },
       {
         "date": "2026-11-21",
-        "x": 0.078,
-        "y": 1.084,
-        "amplitude": 1.087,
+        "x": 0.048,
+        "y": 1.095,
+        "amplitude": 1.096,
         "phase": 6
       },
       {
         "date": "2026-11-22",
-        "x": -0.138,
-        "y": 1.278,
-        "amplitude": 1.286,
+        "x": -0.154,
+        "y": 1.26,
+        "amplitude": 1.27,
         "phase": 7
       },
       {
         "date": "2026-11-23",
-        "x": -0.269,
-        "y": 1.277,
-        "amplitude": 1.305,
+        "x": -0.27,
+        "y": 1.256,
+        "amplitude": 1.284,
+        "phase": 7
+      },
+      {
+        "date": "2026-11-24",
+        "x": -0.293,
+        "y": 1.196,
+        "amplitude": 1.231,
         "phase": 7
       }
     ]
