@@ -268,8 +268,11 @@ def snapshot():
         if time.time() - _T0 > BUDGET_S:
             print(f"[REGION] time budget used; {model} next pass", flush=True)
             continue
+        # A short (06/18) ECMWF run is only filed under its base label when that
+        # base is missing entirely; a base already held from the city files is
+        # the true run, better than a 6 h-fresher hybrid.
         rid = served_run(cfg["meta"], short_runs=cfg["short"],
-                         stored=lambda r, m=model: (_load(m, r) or {}).get("source") == "open-meteo")
+                         stored=lambda r, m=model: _load(m, r) is not None)
         if rid is None:
             print(f"[REGION] {model}: nothing new to store this pass")
             continue
@@ -388,7 +391,7 @@ def build():
         out["models"][model] = {"newest_stored": max(snap | eu) if (snap | eu) else None, "regions": regions}
     OUT.write_text(json.dumps(out, separators=(",", ":")))
     have = {m: len(v["regions"]) for m, v in out["models"].items()}
-    print(f"[REGION] wrote {OUT.relative_to(ROOT)}: regions per model {have}")
+    print(f"[REGION] wrote {OUT.name}: regions per model {have}")
 
 
 def prune():

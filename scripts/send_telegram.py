@@ -676,7 +676,7 @@ def _region_lines():
             vals = [fz(sum(ser[m][d] for d in common)) if m in have else "n/a" for m in models]
             return f"{short[reg]} {'/'.join(vals)}"
         out = []
-        for grp, title in (("us", "US"), ("intl", "LNG buyers")):
+        for grp, title in (("us", "US"), ("intl", "Europe+Asia")):
             bits = [c for c in (cell(r) for r in rc["region_order"][grp] if r != "US_NATIONAL") if c]
             if bits:
                 out.append(f"{title}: " + " · ".join(bits))
@@ -780,7 +780,7 @@ def _coupling_line(season):
     """Sector polar-cap heights near the surface (outputs/teleconnections/pch_sectors.json):
     Pacific ridge = cold-supportive for North America, Atlantic block = negative NAO."""
     try:
-        if season == "CDD":
+        if season == "CDD" or date.today().month in (5, 6, 7, 8, 9):
             return ""
         d = json.loads(Path("outputs/teleconnections/pch_sectors.json").read_text())
         age = (datetime.datetime.now(datetime.timezone.utc)
@@ -798,7 +798,7 @@ def _coupling_line(season):
             bits.append(f"{name} {x['trop_z']:+.1f}σ ({what[sec][x['state']]})")
         p = (sm.get("pacific") or {}).get("state")
         dot = "🟢" if p == "positive" else ("🔴" if p == "negative" else "⚪")   # the Pacific sector sets US cold delivery
-        return f"Polar-cap heights near surface, next 7d: {' · '.join(bits)} {dot}" if bits else ""
+        return f"Polar-cap heights near the surface, last 3 to next 7 days: {' · '.join(bits)} {dot}" if bits else ""
     except Exception:
         return ""
 

@@ -21,8 +21,8 @@ Data (Open-Meteo, GFS, no key):
     years first), extended to yesterday every run
   * forecast: GFS 16 days
   * anomaly: vs a +-7 day day-of-year mean of the history, excluding the
-    current winter (Jul-Jun), in dam; standardised by the same window's
-    standard deviation for the coupling flags
+    current winter (Jul-Jun), in dam, only where at least 3 years fall in
+    the window; standardised by the same window's standard deviation
 
 Output: outputs/teleconnections/pch_sectors.json
 """
@@ -167,21 +167,25 @@ def load_history():
 
 def climatology(hist, today):
     """Day-of-year mean and sd (+-7 days) per column, excluding the current
-    winter; None until 3 winters of Nov-Mar data exist."""
+    winter (Jul-Jun). A calendar day gets a normal only when at least 3
+    different years fall in its window: an anomaly against one or two years
+    is mostly those years' own weather."""
     ws = dt.date(today.year if today.month >= 7 else today.year - 1, 7, 1)
     base = hist[hist.index.date < ws]
-    wm = base[base.index.month.isin([11, 12, 1, 2, 3])]
-    winters = sorted(set((wm.index.year - (wm.index.month < 7)).tolist()))
-    if len(winters) < 3:
-        return None, None, winters
-    doy = base.index.day_of_year
-    mean, sd = {}, {}
+    if base.empty:
+        return None, None, {}
+    doy, yrs = base.index.day_of_year, base.index.year
+    mean, sd, years = {}, {}, {}
     for d in range(1, 367):
         dist = (doy - d) % 366
-        sel = base[(dist <= 7) | (dist >= 359)]
-        if len(sel) >= 30:
-            mean[d], sd[d] = sel.mean(), sel.std()
-    return pd.DataFrame(mean).T, pd.DataFrame(sd).T, winters
+        m = (dist <= 7) | (dist >= 359)
+        n_years = len(set(yrs[m]))
+        if n_years >= 3 and m.sum() >= 40:
+            sel = base[m]
+            mean[d], sd[d], years[d] = sel.mean(), sel.std(), n_years
+    if not mean:
+        return None, None, {}
+    return pd.DataFrame(mean).T, pd.DataFrame(sd).T, years
 
 
 def anomalies(df, mean, sd):
@@ -207,15 +211,16 @@ def main():
     except Exception as e:  # noqa: BLE001
         print(f"[PCH][WARN] history update failed: {e}")
     hist = load_history()
-    mean, sd, winters = climatology(hist, today)
+    mean, sd, clim_years = climatology(hist, today)
+    today_doy = pd.Timestamp(today).day_of_year
     out = {"timestamp": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
            "definition": "geopotential height anomaly, cos-weighted mean over 65-85N, by sector; GFS analysis (past) and GFS forecast",
            "levels": LEVELS, "sectors": {k: {"lon_range": [v[0], v[-1]]} for k, v in SECTORS.items()},
-           "climatology_winters": winters,
+           "normal_years_today": clim_years.get(today_doy, 0),
            "history_span": [hist.index.min().date().isoformat(), hist.index.max().date().isoformat()] if len(hist) else None,
            "status": "pending_climatology"}
-    if mean is None:
-        print(f"[PCH] climatology waits for 3 winters (have {winters}); history {out['history_span']}")
+    if mean is None or today_doy not in clim_years:
+        print(f"[PCH] normal for today needs 3 years in the window (have {clim_years.get(today_doy, 0)}); history {out['history_span']}")
         OUT.parent.mkdir(parents=True, exist_ok=True)
         OUT.write_text(json.dumps(out, indent=1))
         return 0
@@ -245,7 +250,7 @@ def main():
     out["status"] = "success"
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, separators=(",", ":")))
-    print(f"[PCH] wrote {OUT.relative_to(ROOT)}: {len(out['dates'])} days, winters {winters}, summary {summary}")
+    print(f"[PCH] wrote {OUT.name}: {len(out['dates'])} days, {clim_years[today_doy]} years in today's normal, summary {summary}")
     return 0
 
 
