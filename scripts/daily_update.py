@@ -138,6 +138,11 @@ subprocess.run(f"{PY} scripts/compute_run_delta.py", shell=True)
 
 print("\n5c. Building Model Shift Table...")
 subprocess.run(f"{PY} scripts/build_model_shift_table.py", shell=True)
+# Day-over-day change by region (US EIA regions, Europe, North Asia)
+try:
+    subprocess.run(f"{PY} scripts/region_change.py", shell=True, timeout=600)
+except subprocess.TimeoutExpired:
+    print("[WARN] region_change timed out; previous output kept")
 
 print("\n5d. Generating Run-to-Run Delta Maps...")
 # Maps are generated once, by the workflow step after poll_models (it was

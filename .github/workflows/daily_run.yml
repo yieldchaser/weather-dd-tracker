@@ -186,7 +186,7 @@ jobs:
           # Add only paths that exist: a single missing pathspec makes `git add`
           # abort entirely, which silently discarded every no-new-data run's
           # grid/burn/outage updates ("Nothing to commit").
-          for p in data/pipeline_state.json outputs/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ data/google_wn3/ data/fourcastnetv2-small/; do
+          for p in data/pipeline_state.json outputs/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ data/google_wn3/ data/fourcastnetv2-small/ data/region_temps/; do
             # Skip missing paths; add each path on its own so one failure (git add
             # exits 1 on a fully ignored dir such as data/ecmwf_aifs/) never aborts
             # the step. No check-ignore here: it reports dirs like data/ecmwf_ens/
