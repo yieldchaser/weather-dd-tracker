@@ -187,13 +187,15 @@ def fetch(om_model, days):
                   "daily": "temperature_2m_mean", "temperature_unit": "celsius", "forecast_days": days,
                   "models": om_model, "timezone": "UTC"}
         js = None
-        for a in range(3):
+        # a healthy chunk returns in ~1 s; Open-Meteo occasionally leaves one
+        # hanging, so cut it at 25 s and retry instead of waiting 75 s
+        for a in range(4):
             if time.time() - _T0 > BUDGET_S:
                 print("[REGION] time budget used mid-fetch; next pass", flush=True)
                 return {}
             try:
                 t0 = time.time()
-                r = requests.get(ENSEMBLE_URL, params=params, timeout=75)
+                r = requests.get(ENSEMBLE_URL, params=params, timeout=25)
                 print(f"[REGION]   {om_model} chunk {i // 50 + 1}: HTTP {r.status_code} in {time.time() - t0:.0f}s", flush=True)
                 if r.status_code == 200:
                     js = r.json()
@@ -204,7 +206,7 @@ def fetch(om_model, days):
                     continue
             except Exception as e:  # noqa: BLE001
                 print(f"[REGION] {e}")
-            time.sleep(5 * (a + 1))
+            time.sleep(3 * (a + 1))
         if js is None:
             return {}
         js = js if isinstance(js, list) else [js]
