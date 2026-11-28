@@ -1,8 +1,10 @@
 {
  "script": "feed freshness",
- "status": "ok",
- "error": "",
- "stale": [],
- "fresh_count": 29,
- "timestamp": "2026-11-28T05:34:43.597108+00:00"
+ "status": "failed",
+ "error": "ECMWF_ENS 27/00z is 31h old (limit 30h)",
+ "stale": [
+  "ECMWF_ENS 27/00z is 31h old (limit 30h)"
+ ],
+ "fresh_count": 28,
+ "timestamp": "2026-11-28T07:17:24.713606+00:00"
 }
