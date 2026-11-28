@@ -647,42 +647,43 @@ def _fmt_consensus(df, tdd_col, season):
         return ""
 
 
-def _region_lines():
-    """Where the forecast moved: 24 h same-cycle change summed over the days
-    both ensembles cover, per region, ECMWF ENS / GEFS (outputs/region_change.json)."""
+def _region_lines(season="HDD"):
+    """Where the 15-day forecast moved, by US EIA storage region: newest run
+    minus the same cycle 24 h earlier, as a change in degree days (same sign as
+    the rest of the message: + = more demand), averaged over the ensembles that
+    have a same-cycle pair (ECMWF ENS, GEFS, WN3). Exact per day from the stored
+    temperatures, so a day crossing 65 F is counted correctly."""
     try:
         rc = json.loads(Path("outputs/region_change.json").read_text())
         age = (datetime.datetime.now(datetime.timezone.utc)
                - datetime.datetime.fromisoformat(rc["timestamp"].replace("Z", "+00:00"))).total_seconds() / 3600
         if age > 12:
             return ""
-        short = {"US_NATIONAL": "US", "EAST": "East", "MIDWEST": "Midwest", "SOUTH_CENTRAL": "S.Central",
-                 "MOUNTAIN": "Mountain", "PACIFIC": "Pacific", "NWE": "NWE", "GB": "GB", "IT": "Italy",
-                 "RU_WEST": "Russia", "JP": "Japan", "KR": "Korea", "CN": "China"}
+        today = date.today().isoformat()
+        dd = {"HDD": lambda t: max(65 - t, 0), "CDD": lambda t: max(t - 65, 0)}.get(season, lambda t: abs(t - 65))
         models = [m for m in (rc.get("default_models") or ["ECMWF_ENS", "GEFS"]) if m in rc["models"]]
         abbr = {"ECMWF_ENS": "EC", "GEFS": "GEFS", "WN3": "WN3", "AIFS_ENS": "AIFS"}
-        def cell(reg):
+        short = {"EAST": "East", "MIDWEST": "Midwest", "SOUTH_CENTRAL": "S.Central", "MOUNTAIN": "Mountain", "PACIFIC": "Pacific"}
+        used, bits = set(), []
+        for reg in ("EAST", "MIDWEST", "SOUTH_CENTRAL", "MOUNTAIN", "PACIFIC"):
             got = {m: ((rc["models"].get(m) or {}).get("regions") or {}).get(reg) for m in models}
             have = [m for m in models if got[m]]
-            if not have:
-                return None
-            ser = {m: dict(zip(got[m]["dates"], got[m]["delta"])) for m in have}
-            common = [d for d in ser[have[0]] if all(ser[m].get(d) is not None for m in have)]
-            if len(common) < 5:
-                return None
-            if len(have) < 2:   # one model alone is not a comparison worth a line
-                return None
-            fz = lambda v: "0" if round(v) == 0 else f"{v:+.0f}"
-            vals = [fz(sum(ser[m][d] for d in common)) if m in have else "n/a" for m in models]
-            return f"{short[reg]} {'/'.join(vals)}"
-        out = []
-        for grp, title in (("us", "US"), ("intl", "Europe+Asia")):
-            bits = [c for c in (cell(r) for r in rc["region_order"][grp] if r != "US_NATIONAL") if c]
-            if bits:
-                out.append(f"{title}: " + " · ".join(bits))
-        if not out:
+            if len(have) < 2:          # one model alone is not a consensus
+                continue
+            ser = {m: {d: (t, dl) for d, t, dl in zip(got[m]["dates"], got[m]["temp"], got[m]["delta"])
+                       if d >= today and dl is not None} for m in have}
+            common = sorted(set.intersection(*(set(v) for v in ser.values())))
+            if len(common) < 7:
+                continue
+            per = [sum(dd(ser[m][d][0]) - dd(ser[m][d][0] - ser[m][d][1]) for d in common) for m in have]
+            v = sum(per) / len(per)
+            used.update(have)
+            bits.append(f"{short[reg]} {'0' if round(v) == 0 else f'{v:+.0f}'}")
+        if not bits:
             return ""
-        return f"<i>Where it moved: 24h change by region, °F summed over shared days, + = warmer ({'/'.join(abbr.get(m, m) for m in models)})</i>\n" + "\n".join(_esc(x) for x in out)
+        lbl = season if season in ("HDD", "CDD") else "TDD"
+        who = "/".join(abbr.get(m, m) for m in models if m in used)
+        return f"By region, 24h {lbl} change <i>({who} avg)</i>: " + " · ".join(bits)
     except Exception as e:  # noqa: BLE001
         print(f"[WARN] region lines failed: {e}")
         return ""
@@ -777,8 +778,9 @@ def _pv_line(season):
 
 
 def _coupling_line(season):
-    """Sector polar-cap heights near the surface (outputs/teleconnections/pch_sectors.json):
-    Pacific ridge = cold-supportive for North America, Atlantic block = negative NAO."""
+    """Stratosphere-to-surface read by sector (outputs/teleconnections/pch_sectors.json),
+    in plain terms. The Pacific sector decides Arctic air delivery into the US;
+    Greenland blocking (Atlantic) adds East Coast cold risk."""
     try:
         if season == "CDD" or date.today().month in (5, 6, 7, 8, 9):
             return ""
@@ -788,20 +790,30 @@ def _coupling_line(season):
         sm = d.get("summary") or {}
         if d.get("status") != "success" or age > 30 or not sm:
             return ""
-        what = {"pacific": {"positive": "Alaska ridge", "negative": "Pacific low", "neutral": "neutral"},
-                "atlantic": {"positive": "Greenland block", "negative": "strong Atlantic jet", "neutral": "neutral"}}
-        bits, dot = [], "⚪"
+        words = {"pacific": {"positive": "Alaska ridge (cold path open)", "negative": "Pacific low (mild flow)", "neutral": "near normal"},
+                 "atlantic": {"positive": "Greenland block", "negative": "strong jet (mild)", "neutral": "near normal"}}
+        bits, states = [], []
         for sec, name in (("pacific", "Pacific"), ("atlantic", "Atlantic")):
             x = sm.get(sec) or {}
-            if x.get("trop_z") is None:
+            if not x.get("state"):
                 continue
-            w2 = ""
-            if x.get("week2_z") is not None and x.get("week2_state") != x.get("state"):
-                w2 = f", wk2 {x['week2_z']:+.1f}σ {what[sec][x['week2_state']]}"
-            bits.append(f"{name} {x['trop_z']:+.1f}σ ({what[sec][x['state']]}{w2})")
-        p = (sm.get("pacific") or {}).get("state")   # near-term read sets the colour
-        dot = "🟢" if p == "positive" else ("🔴" if p == "negative" else "⚪")   # the Pacific sector sets US cold delivery
-        return f"Polar-cap heights near the surface, last 3 to next 7 days: {' · '.join(bits)} {dot}" if bits else ""
+            txt = f"{name} {words[sec][x['state']]}"
+            w2 = x.get("week2_state")
+            if w2 and w2 != x["state"]:
+                txt += f", week 2 {words[sec][w2]} ({x['week2_z']:+.1f}σ)"
+            bits.append(txt)
+            states += [(sec, x["state"]), (sec, w2)]
+        if not bits:
+            return ""
+        pac = {s for sec, s in states if sec == "pacific"}
+        atl = {s for sec, s in states if sec == "atlantic"}
+        if "positive" in pac or ("positive" in atl and "negative" not in pac):
+            dot = "🟢"
+        elif "negative" in pac:
+            dot = "🔴"
+        else:
+            dot = "⚪"
+        return f"Stratosphere to surface: {' · '.join(bits)} {dot}"
     except Exception:
         return ""
 
@@ -986,7 +998,7 @@ def main():
     tac = (comp_data or {}).get("tactical_signal") or {}
     if tac.get("bias"):
         cons += f"\nModels' 0-15 day bias: <b>{_esc(str(tac['bias']))}</b> ({float(tac.get('score') or 0):+.2f})"
-    rgl = _region_lines()
+    rgl = _region_lines(season)
     if rgl:
         cons = (cons + "\n" + rgl) if cons else rgl
     if cons:
