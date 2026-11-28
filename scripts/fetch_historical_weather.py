@@ -7,6 +7,16 @@ Gas-Weighted demand cities.
 
 Outputs:
 - outputs/historical_degree_days.csv
+
+Incremental: the full 1991-to-date download (78 cities x 35 years) used to run
+on every hourly poller pass, in parallel with the model fetchers that share
+the same Open-Meteo limit, and a partly failed pass could rewrite the whole
+history from 60% of the cities (2026-11-28: 916 s, then a crash). Now:
+  * the existing file is kept and only the last REFRESH_DAYS are re-fetched
+    (recent days settle from analysis into ERA5) and merged in
+  * at most every MIN_INTERVAL_H hours (state in outputs/health/historical_weather.json)
+  * nothing is written unless at least MIN_COVERAGE of the city weight returned
+  * full rebuild only when the file is missing or too short
 """
 
 import datetime
@@ -17,8 +27,15 @@ from pathlib import Path
 from demand_constants import DEMAND_CITIES, TOTAL_WEIGHT
 from om_batch_fetch import fetch_era5_cities_batch
 
+import json
+import sys
+
 URL = "https://archive-api.open-meteo.com/v1/archive"
 START_DATE = "1991-01-01"
+REFRESH_DAYS = 60
+MIN_INTERVAL_H = 6
+MIN_COVERAGE = 0.97
+STATE = Path("outputs/health/historical_weather.json")
 
 def celsius_to_f(c):
     return c * 9 / 5 + 32
@@ -30,17 +47,37 @@ def main():
     END_DATE = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
     output_path = Path("outputs/historical_degree_days.csv")
     
-    print(f"  Fetching ERA5 for {len(DEMAND_CITIES)} cities ({START_DATE} to {END_DATE})...")
+    old = None
+    if output_path.exists():
+        try:
+            old = pd.read_csv(output_path)
+        except Exception:
+            old = None
+    full = old is None or len(old) < 3650
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if not full and "--force" not in sys.argv:
+        try:
+            last = datetime.datetime.fromisoformat(json.loads(STATE.read_text())["last_ok"])
+            if (now - last).total_seconds() < MIN_INTERVAL_H * 3600:
+                print(f"  [SKIP] refreshed {(now - last).total_seconds() / 3600:.1f} h ago (every {MIN_INTERVAL_H} h)")
+                return
+        except Exception:
+            pass
+    start = START_DATE if full else (now - datetime.timedelta(days=REFRESH_DAYS)).strftime("%Y-%m-%d")
+
+    print(f"  Fetching ERA5 for {len(DEMAND_CITIES)} cities ({start} to {END_DATE}, {'full rebuild' if full else 'recent refresh'})...")
     city_data_raw = fetch_era5_cities_batch(
         endpoint=URL,
-        start_date=START_DATE,
+        start_date=start,
         end_date=END_DATE,
         variables=["temperature_2m_mean"],
     )
 
-    if not city_data_raw:
-        print("  [ERR] ERA5 batch fetch failed — weight coverage too low.")
-        return
+    got_w = sum(w for n, _, _, w in DEMAND_CITIES if n in (city_data_raw or {}))
+    if not city_data_raw or got_w < MIN_COVERAGE * TOTAL_WEIGHT:
+        # a partial city set would bias the weighted series; keep the existing file
+        print(f"  [ERR] ERA5 returned {got_w:.1f}/{TOTAL_WEIGHT:.1f} of the city weight; existing history kept.")
+        sys.exit(1)
 
     # Convert from {city_name: (weight, {date_str: temp_value})} to dataframes
     city_data = {}
@@ -57,7 +94,8 @@ def main():
         
     # Merge all city dataframes
     print("  Calculating Gas Weights...")
-    master_df = city_data[DEMAND_CITIES[0][0]][["date"]].copy()
+    all_dates = sorted({d for df in city_data.values() for d in df["date"]})
+    master_df = pd.DataFrame({"date": pd.to_datetime(all_dates)})
     
     for name, df in city_data.items():
         master_df = master_df.merge(df, on="date", how="left")
@@ -96,10 +134,20 @@ def main():
     # Convert date back to string format for simple CSV usage
     final_df["date"] = final_df["date"].dt.strftime('%Y-%m-%d')
     
+    final_df = final_df.dropna(subset=["mean_temp_gw"])
+    if not full:
+        # replace the refreshed window, keep everything older untouched
+        kept = old[old["date"] < final_df["date"].min()]
+        final_df = pd.concat([kept, final_df], ignore_index=True)
+    final_df = final_df.drop_duplicates("date", keep="last").sort_values("date")
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     final_df.to_csv(output_path, index=False)
-    
-    print(f"  [OK] Saved {len(final_df)} days of historical data to {output_path}")
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps({"last_ok": now.isoformat(), "mode": "full" if full else "refresh",
+                                 "last_date": final_df["date"].max(), "rows": int(len(final_df))}))
+
+    print(f"  [OK] Saved {len(final_df)} days of historical data to {output_path} (last {final_df['date'].max()})")
 
 if __name__ == "__main__":
     main()

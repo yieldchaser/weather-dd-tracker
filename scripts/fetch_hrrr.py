@@ -30,6 +30,11 @@ session = get_session()
 # -----------------------------
 
 BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod"
+# NOAA's AWS mirror carries the same files and layout. NOMADS refuses some
+# runner IPs outright (2026-11-28: every request failed within a second and
+# HRRR went 9 h stale), so the mirror is the automatic fallback.
+AWS_URL = "https://noaa-hrrr-bdp-pds.s3.amazonaws.com"
+SOURCES = [("NOMADS", BASE_URL), ("AWS", AWS_URL)]
 OUTPUT_DIR = "data/hrrr"
 
 # HRRR runs every hour. 00, 06, 12, 18z runs are extended to 48 hours.
@@ -51,17 +56,22 @@ def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
 
 
+_LAST_PROBE = {}
+
+
 def url_exists(url, timeout=15):
     try:
         r = session.head(url, timeout=timeout)
+        _LAST_PROBE["status"] = r.status_code
         return r.status_code == 200
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        _LAST_PROBE["status"] = f"{e.__class__.__name__}: {str(e)[:120]}"
         return False
 
 
-def find_available_runs(lookback_days=2):
+def find_available_runs(lookback_days=2, base=BASE_URL):
     """
-    Scans NOMADS for all available HRRR runs in the lookback window.
+    Scans one source for all available HRRR runs in the lookback window.
     """
     now = datetime.datetime.now(datetime.UTC)
     available = []
@@ -70,7 +80,7 @@ def find_available_runs(lookback_days=2):
         date = (now + datetime.timedelta(days=day_offset)).strftime("%Y%m%d")
         for cycle in CYCLES:
             test_file = f"hrrr.t{cycle}z.wrfsfcf18.grib2"
-            test_url = f"{BASE_URL}/hrrr.{date}/conus/{test_file}"
+            test_url = f"{base}/hrrr.{date}/conus/{test_file}"
             if url_exists(test_url):
                 available.append((date, cycle))
     return available
@@ -117,7 +127,7 @@ def download_byte_range(url, start_byte, end_byte, output_path, timeout=30):
 # Main logic
 # -----------------------------
 
-def fetch_run(run_date, cycle):
+def fetch_run(run_date, cycle, base=BASE_URL):
     run_id = f"{run_date}_{cycle}"
     run_dir = os.path.join(OUTPUT_DIR, run_id)
     manifest_path = os.path.join(run_dir, "manifest.json")
@@ -149,7 +159,7 @@ def fetch_run(run_date, cycle):
     for fh in forecast_hours:
         fh_str = f"{fh:02d}"
         base_name = f"hrrr.t{cycle}z.wrfsfcf{fh_str}.grib2"
-        base_url = f"{BASE_URL}/hrrr.{run_date}/conus/{base_name}"
+        base_url = f"{base}/hrrr.{run_date}/conus/{base_name}"
         idx_url = base_url + ".idx"
         output_path = os.path.join(run_dir, base_name)
 
@@ -181,23 +191,31 @@ def fetch_run(run_date, cycle):
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
     print(f"  [OK] HRRR {run_id}Z sync complete. ({len(fetched_hours)} slices)")
-    return True
+    return len(fetched_hours)
 
 def fetch_all_available():
     print("\n--- HRRR SYNC SERVICE ---")
-    available_runs = find_available_runs(lookback_days=1)
+    for name, base in SOURCES:
+        available_runs = find_available_runs(lookback_days=1, base=base)
+        if available_runs:
+            break
+        print(f"  [WARN] No HRRR runs found on {name} (last probe: {_LAST_PROBE.get('status')}).")
     if not available_runs:
-        print("  [WARN] No HRRR runs found.")
+        print("  [WARN] No HRRR runs found on any source.")
         return
 
     available_runs.sort()
     # HRRR is hourly. Syncing last 4 ensures continuous shift data even if poller skips.
     runs_to_sync = available_runs[-4:]
-    print(f"  Available runs found: {len(available_runs)}")
+    print(f"  Available runs found on {name}: {len(available_runs)}")
     print(f"  Syncing last {len(runs_to_sync)} runs to ensure model overlap.")
 
     for rd, cy in runs_to_sync:
-        fetch_run(rd, cy)
+        got = fetch_run(rd, cy, base=base)
+        # listed but every download refused (the "0 slices" runs): retry from the mirror
+        if got is not True and not got and base != AWS_URL:
+            print(f"  [RETRY] HRRR {rd}_{cy}Z: no slices from {name}; trying AWS mirror")
+            fetch_run(rd, cy, base=AWS_URL)
 
 
 if __name__ == "__main__":
