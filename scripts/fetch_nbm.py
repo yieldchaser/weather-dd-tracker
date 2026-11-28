@@ -31,7 +31,11 @@ session = get_session()
 # Configuration
 # -----------------------------
 
-BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod"
+# AWS first (NOMADS throttles a runner pulling several models at once);
+# same files and layout on the NOAA open-data mirror. NOMADS is the fallback.
+AWS_URL = "https://noaa-nbm-grib2-pds.s3.amazonaws.com"
+NOMADS_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod"
+BASE_URL = AWS_URL
 OUTPUT_DIR = "data/nbm"
 
 # NBM is generated heavily at 00, 06, 12, 18z for long term.
@@ -189,9 +193,16 @@ def fetch_run(run_date, cycle):
 
 def fetch_latest_nbm():
     print("\n--- NBM SYNC SERVICE ---")
-    available_runs = find_available_runs(lookback_days=2)
+    global BASE_URL
+    available_runs = []
+    for src in (AWS_URL, NOMADS_URL):
+        BASE_URL = src
+        available_runs = find_available_runs(lookback_days=2)
+        if available_runs:
+            print(f"  NBM source: {'AWS' if src == AWS_URL else 'NOMADS'}")
+            break
     if not available_runs:
-        print("  [WARN] No available NBM runs found on NOMADS.")
+        print("  [WARN] No available NBM runs found on AWS or NOMADS.")
         return
 
     # Sort available runs chronologically

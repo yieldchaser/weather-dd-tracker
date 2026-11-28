@@ -34,7 +34,7 @@ BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod"
 # runner IPs outright (2026-11-28: every request failed within a second and
 # HRRR went 9 h stale), so the mirror is the automatic fallback.
 AWS_URL = "https://noaa-hrrr-bdp-pds.s3.amazonaws.com"
-SOURCES = [("NOMADS", BASE_URL), ("AWS", AWS_URL)]
+SOURCES = [("AWS", AWS_URL), ("NOMADS", BASE_URL)]   # AWS first: not throttled
 OUTPUT_DIR = "data/hrrr"
 
 # HRRR runs every hour. 00, 06, 12, 18z runs are extended to 48 hours.
@@ -213,9 +213,10 @@ def fetch_all_available():
     for rd, cy in runs_to_sync:
         got = fetch_run(rd, cy, base=base)
         # listed but every download refused (the "0 slices" runs): retry from the mirror
-        if got is not True and not got and base != AWS_URL:
-            print(f"  [RETRY] HRRR {rd}_{cy}Z: no slices from {name}; trying AWS mirror")
-            fetch_run(rd, cy, base=AWS_URL)
+        if got is not True and not got:
+            alt_name, alt = next((n, b) for n, b in SOURCES if b != base)
+            print(f"  [RETRY] HRRR {rd}_{cy}Z: no slices from {name}; trying {alt_name}")
+            fetch_run(rd, cy, base=alt)
 
 
 if __name__ == "__main__":

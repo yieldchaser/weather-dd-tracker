@@ -43,6 +43,8 @@ MAPS_DIR = "outputs/maps"
 def get_available_runs(folder):
     """Return all run dirs that actually contain GRIB data, sorted newest to oldest."""
     def has_gribs(d):
+        if os.path.exists(os.path.join(d, "grid.nc")):   # data/map_grids (fetch_map_grids.py)
+            return True
         for f in os.listdir(d):
             f_lo = f.lower()
             if f_lo.endswith(('.grib2', '.grb2', '.grib')) or 'pgrb' in f_lo or 'grib' in f_lo:
@@ -72,6 +74,18 @@ def get_lat_lon_values(da, ds):
 
 
 def build_daily_mean_dataset(run_dir, model_name):
+    grid_nc = Path(run_dir) / "grid.nc"
+    if grid_nc.exists():
+        # Pre-built daily means (fetch_map_grids.py), already in F on a 1D lat/lon grid.
+        try:
+            ds = xr.open_dataset(grid_nc)
+            da = ds["t2m_f"].load()
+            ds.close()
+            res = {pd.Timestamp(d): da.sel(date=d).values for d in da.date.values}
+            return res, da.lat.values, da.lon.values
+        except Exception as e:
+            print(f"Error reading {grid_nc}: {e}")
+            return None
     is_single = model_name.startswith("ECMWF")
     
     if is_single:
@@ -114,6 +128,8 @@ def build_daily_mean_dataset(run_dir, model_name):
             pattern = "hrrr.*"
         elif model_name == "NAM":
             pattern = "nam.*"
+        elif model_name == "RRFS":
+            pattern = "rrfs.*"
         elif model_name == "NBM":
             pattern = "blend.*"
         else:
@@ -346,7 +362,7 @@ def sample_cities_streaming(dates, get_grid, idx):
     return out
 
 
-def generate_gifs_for_model(model_name, folder, manifest):
+def generate_gifs_for_model(model_name, folder, manifest, anomaly_cities=None):
     print(f"\n--- Generating Maps for {model_name} ---")
     available_runs = get_available_runs(folder)
 
@@ -370,7 +386,10 @@ def generate_gifs_for_model(model_name, folder, manifest):
     ds_curr, lats, lons = res_latest
     
     manifest[model_name] = []
-    is_single_file = model_name.startswith("ECMWF")
+    is_single_file = not isinstance(ds_curr, dict)
+    # coarse grids (2 deg Open-Meteo, 0.5 deg ECMWF) are shaded smoothly
+    # between their real grid values instead of as blocks
+    coarse = (lats.ndim == 1 and len(lats) > 1 and abs(float(lats[1] - lats[0])) >= 0.5)
     
     is_2d = (lons.ndim == 2)
     if is_2d:
@@ -388,7 +407,16 @@ def generate_gifs_for_model(model_name, folder, manifest):
         
     # Anomaly-vs-normal GIF for the latest run (sampled at demand cities)
     normals = load_city_normals()
-    if normals:
+    if normals and anomaly_cities:
+        # the model's official city values (the same numbers as the tables)
+        cruns = get_available_bubble_runs(anomaly_cities)
+        if cruns and not _is_stale(cruns[0]):
+            try:
+                with open(Path(anomaly_cities) / "cities" / f"{cruns[0]}_cities.json") as f:
+                    render_anomaly_gif(model_name, cruns[0], json.load(f), normals)
+            except Exception as e:
+                print(f"  [WARN] {model_name} anomaly map failed: {e}")
+    elif normals:
         try:
             idx = city_grid_indices(lats, lons)
             if is_single_file:
@@ -463,7 +491,7 @@ def generate_gifs_for_model(model_name, folder, manifest):
                     transform=ccrs.PlateCarree(),
                     cmap='coolwarm',
                     vmin=-15, vmax=15,
-                    shading='auto'
+                    shading='gouraud' if coarse else 'auto'
                 )
                 cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.05, aspect=50)
                 cbar.set_label("Temperature Shift (°F)", fontsize=10)
@@ -630,11 +658,27 @@ def rebuild_manifest():
 def _generate_worker(model_cfg):
     """Worker function for ProcessPoolExecutor."""
     local_manifest = {}
+    cities = model_cfg.get("anomaly_cities")
+    if cities and len(get_available_runs(model_cfg["path"])) < 2:
+        # Gridded change maps need two stored grid runs; until then (first day
+        # after a new grid feed starts) keep the city maps rather than none.
+        if os.path.exists(cities):
+            generate_bubble_maps_for_model(model_cfg["name"], cities, local_manifest)
+        return local_manifest
+    if cities:
+        # First pass on grids: drop this model's city-dot change GIFs once, so a
+        # dot GIF with the same run-pair name is never kept in place of a field.
+        marker = Path(MAPS_DIR) / f".gridded_{model_cfg['name']}"
+        if not marker.exists():
+            for old in Path(MAPS_DIR).glob(f"{model_cfg['name']}_shift_*.gif"):
+                old.unlink()
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text("change maps from data/map_grids\n")
     if os.path.exists(model_cfg["path"]):
         if model_cfg.get("is_bubble", False):
             generate_bubble_maps_for_model(model_cfg["name"], model_cfg["path"], local_manifest)
         else:
-            generate_gifs_for_model(model_cfg["name"], model_cfg["path"], local_manifest)
+            generate_gifs_for_model(model_cfg["name"], model_cfg["path"], local_manifest, anomaly_cities=cities)
     return local_manifest
 
 
@@ -646,21 +690,21 @@ def main():
         {"name": "GFS",        "path": "data/gfs",              "is_bubble": False},
         {"name": "GEFS",       "path": "data/gefs",             "is_bubble": False},
         {"name": "GEFS_35D",   "path": "data/gefs_subseasonal", "is_bubble": False},
-        {"name": "ECMWF_ENS",  "path": "data/ecmwf_ens",        "is_bubble": True},
+        {"name": "ECMWF_ENS",  "path": "data/map_grids/ECMWF_ENS", "is_bubble": False, "anomaly_cities": "data/ecmwf_ens"},
         {"name": "ECMWF_AIFS", "path": "data/ecmwf_aifs",       "is_bubble": False},
         {"name": "AIGFS",      "path": "data/aigfs_grib",       "is_bubble": False},
         {"name": "HGEFS",      "path": "data/hgefs_grib",       "is_bubble": False},
         {"name": "HRRR",       "path": "data/hrrr",             "is_bubble": False},
-        {"name": "NAM",        "path": "data/nam",              "is_bubble": False},
+        {"name": "RRFS",       "path": "data/rrfs",             "is_bubble": False},
         {"name": "NBM",        "path": "data/nbm",              "is_bubble": False},
-        {"name": "CMC_ENS",    "path": "data/cmc_ens",          "is_bubble": True},
-        {"name": "GOOGLE_WN2", "path": "data/google_wn2",       "is_bubble": True},
-        {"name": "GOOGLE_WN3", "path": "data/google_wn3",       "is_bubble": True},
+        {"name": "CMC_ENS", "path": "data/map_grids/CMC_ENS", "is_bubble": False, "anomaly_cities": "data/cmc_ens"},
+        {"name": "GOOGLE_WN2", "path": "data/map_grids/GOOGLE_WN2", "is_bubble": False, "anomaly_cities": "data/google_wn2"},
+        {"name": "GOOGLE_WN3", "path": "data/map_grids/GOOGLE_WN3", "is_bubble": False, "anomaly_cities": "data/google_wn3"},
         {"name": "AIGEFS",     "path": "data/aigefs",           "is_bubble": True},
-        {"name": "AIFS_ENS",   "path": "data/aifs_ens",         "is_bubble": True},
-        {"name": "UKMO_ENS",   "path": "data/ukmo_ens",         "is_bubble": True},
+        {"name": "AIFS_ENS", "path": "data/map_grids/AIFS_ENS", "is_bubble": False, "anomaly_cities": "data/aifs_ens"},
+        {"name": "UKMO_ENS", "path": "data/map_grids/UKMO_ENS", "is_bubble": False, "anomaly_cities": "data/ukmo_ens"},
         {"name": "EC46",       "path": "data/ec46",             "is_bubble": True},
-        {"name": "ICON",       "path": "data/icon",             "is_bubble": True},
+        {"name": "ICON", "path": "data/map_grids/ICON", "is_bubble": False, "anomaly_cities": "data/icon"},
         {"name": "FOURCASTNETV2-SMALL", "path": "data/fourcastnetv2-small", "is_bubble": True},
     ]
 

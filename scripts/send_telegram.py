@@ -24,7 +24,7 @@ STD_NORMALS         = Path("data/normals/us_daily_normals.csv")
 COMBINED_DROUGHT_PATH = Path("outputs/wind/combined_drought.json")
 
 PRIMARY_MODELS    = ["ECMWF", "GFS", "ECMWF_ENS", "GEFS", "CMC_ENS", "UKMO_ENS"]
-SHORT_TERM_MODELS = ["HRRR", "NAM", "ICON", "OM_ICON", "NBM"]
+SHORT_TERM_MODELS = ["HRRR", "RRFS", "NAM", "ICON", "OM_ICON", "NBM"]
 EXTENDED_MODELS   = ["GEFS_35D", "EC46"]   # sub-seasonal physics, weeks 3-6
 AI_MODELS         = ["AIFS", "GRAPHCAST", "PANGUWEATHER", "FOURCASTNETV2-SMALL",
                      "FOURCASTNETV2", "AURORA", "ECMWF_AIFS", "GOOGLE_WN2",

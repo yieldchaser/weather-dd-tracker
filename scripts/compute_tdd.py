@@ -584,6 +584,7 @@ _MODELS = [
     ("NBM",        "data/nbm",        "nbm",         {}),
     ("HRRR",       "data/hrrr",       "generic",     {"prefix": "hrrr."}),
     ("NAM",        "data/nam",        "generic",     {"prefix": "nam."}),
+    ("RRFS",       "data/rrfs",       "generic",     {"prefix": "rrfs."}),   # NAM successor (Nov 2026)
     ("GEFS",       "data/gefs",       "generic",     {}),
     ("ICON",       "data/icon",       "generic",     {}),
     ("CMC_ENS",    "data/cmc_ens",    "external",    {}),

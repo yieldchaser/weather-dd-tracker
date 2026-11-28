@@ -63,7 +63,7 @@ FETCH_SCRIPTS = [
     "fetch_aigfs_grib.py", "fetch_hgefs_grib.py",
     # NAM retired by NOAA (NOMADS: "Request for Old Model"; AWS archive ends
     # 2026-11-02); its successor is RRFS. fetch_nam.py is kept for reference.
-    "fetch_hrrr.py", "fetch_icon.py",
+    "fetch_hrrr.py", "fetch_rrfs.py", "fetch_icon.py",
     "fetch_historical_eia_normals.py", "fetch_historical_weather.py",
 ]
 results = {}
