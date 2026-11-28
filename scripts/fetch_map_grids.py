@@ -42,7 +42,7 @@ from om_batch_fetch import member_mean, om_latest_run  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "map_grids"
 KEEP = 6
-BUDGET_S = 780
+BUDGET_S = int(os.environ.get("MAP_GRIDS_BUDGET_S", 780))
 _T0 = time.time()
 
 # lower-48 box (a margin beyond the map extent -120..-70, 22..50)
@@ -79,8 +79,9 @@ def _write(model, rid, daily):
     ds.attrs.update({"model": model, "run_id": rid, "units": "degF",
                      "created_utc": dt.datetime.now(dt.timezone.utc).isoformat()})
     tmp = d / "grid.nc.tmp"
-    ds.to_netcdf(tmp, encoding={"t2m_f": {"zlib": True, "complevel": 5, "dtype": "int16",
-                                          "scale_factor": 0.05, "_FillValue": -32768}})
+    # int16 at 0.05 F: exact enough for a change map, ~4x smaller than float64;
+    # plain NetCDF3 (the runner has no compressed-NetCDF library)
+    ds.to_netcdf(tmp, encoding={"t2m_f": {"dtype": "int16", "scale_factor": 0.05, "_FillValue": -32768}})
     tmp.replace(d / "grid.nc")
     print(f"  [OK] {model} {rid}: {daily.sizes['date']} days on {daily.sizes['lat']}x{daily.sizes['lon']} grid")
     runs = sorted(p.name for p in (OUT / model).iterdir() if p.is_dir())
@@ -132,47 +133,76 @@ def ecmwf_grid(model, om_name, types, members):
         _ecmwf_run(c, model, om_name, types, members, run, rid)
 
 
+def _ecmwf_step(c, model, om_name, types, members, latest, rid, s, td):
+    """Member mean of one forecast step, cropped; None if it cannot be built."""
+    parts = []
+    # control and perturbed members fetched separately: one missing type
+    # (ECMWF's index sometimes lacks cf) must not void the step
+    for t in types:
+        tgt = os.path.join(td, f"s{s}_{t}.grib2")
+        kw = dict(model=om_name, stream="enfo", type=t, param="2t", step=s, date=latest, target=tgt)
+        if members and t == "pf":
+            kw["number"] = list(range(1, 51))
+        ok = False
+        for attempt in range(3):
+            try:
+                c.retrieve(**kw)
+                ok = True
+                break
+            except Exception as e:  # noqa: BLE001
+                if "No index entries" in str(e):
+                    break
+                time.sleep(5 * (attempt + 1))
+        if not ok:
+            continue
+        try:
+            ds = xr.open_dataset(tgt, engine="cfgrib", backend_kwargs={"indexpath": ""})
+            da = ds[list(ds.data_vars)[0]]
+            n = da.sizes["number"] if "number" in da.dims else 1
+            tot = da.sum("number") if "number" in da.dims else da
+            tot = tot.drop_vars([v for v in tot.coords if v not in ("latitude", "longitude")], errors="ignore")
+            parts.append((_crop_sum(tot.load()), n))
+            ds.close()
+        except Exception:
+            pass
+        finally:
+            try:
+                os.remove(tgt)
+            except OSError:
+                pass
+    n = sum(k for _, k in parts)
+    if not parts or (members and n < 40):
+        return None
+    return sum(p for p, _ in parts) / n
+
+
+def _crop_sum(da):
+    """Crop a summed field (coarsening a sum of members is fine: mean of sums / n)."""
+    return _crop(da)
+
+
 def _ecmwf_run(c, model, om_name, types, members, latest, rid):
+    from concurrent.futures import ThreadPoolExecutor
     steps = list(range(0, 361, 6))
     fields = {}
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory() as td, ThreadPoolExecutor(max_workers=6) as pool:
+        futs = {s: pool.submit(_ecmwf_step, c, model, om_name, types, members, latest, rid, s, td) for s in steps}
         for s in steps:
-            if _left() < 60:
-                print(f"  [WARN] {model} {rid}: time budget used at step {s}; not saved, next pass")
+            left = _left()
+            if left <= 0:
+                print(f"  [WARN] {model} {rid}: time budget used; not saved, next pass")
+                for f in futs.values():
+                    f.cancel()
                 return
-            tgt = os.path.join(td, f"s{s}.grib2")
-            kw = dict(model=om_name, stream="enfo", type=types, param="2t", step=s, date=latest, target=tgt)
-            if members:
-                kw["number"] = list(range(1, 51))
-            for attempt in range(3):
-                try:
-                    c.retrieve(**kw)
-                    break
-                except Exception as e:  # noqa: BLE001
-                    if attempt == 2:
-                        print(f"  [WARN] {model} {rid} step {s}: {str(e)[:100]}; not saved, next pass")
-                        return
-                    time.sleep(5 * (attempt + 1))
-            parts = []
-            for t in types:
-                try:
-                    ds = xr.open_dataset(tgt, engine="cfgrib",
-                                         backend_kwargs={"filter_by_keys": {"dataType": t}, "indexpath": ""})
-                    da = ds[list(ds.data_vars)[0]]
-                    if "number" in da.dims:
-                        parts.append(da.sum("number").assign_attrs(n=da.sizes["number"]))
-                    else:
-                        parts.append(da.assign_attrs(n=1))
-                except Exception:
-                    continue
-            if not parts:
-                print(f"  [WARN] {model} {rid} step {s}: unreadable; not saved")
+            try:
+                f = futs[s].result(timeout=left)
+            except Exception as e:  # noqa: BLE001
+                print(f"  [WARN] {model} {rid} step {s}: {str(e)[:100]}; not saved, next pass")
                 return
-            n = sum(p.attrs["n"] for p in parts)
-            mean = sum(p.drop_vars([v for v in p.coords if v not in ("latitude", "longitude")], errors="ignore") for p in parts) / n
-            vt = pd.Timestamp(latest) + pd.Timedelta(hours=s)
-            fields[vt] = _crop(mean.load())
-            os.remove(tgt)
+            if f is None:
+                print(f"  [WARN] {model} {rid} step {s}: members missing; not saved, next pass")
+                return
+            fields[pd.Timestamp(latest) + pd.Timedelta(hours=s)] = f
     daily = _daily_from_steps(fields)
     if daily is None or daily.sizes["date"] < 10:
         print(f"  [WARN] {model} {rid}: too few complete days; not saved")
