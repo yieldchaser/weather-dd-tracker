@@ -241,12 +241,26 @@ def fetch_latest():
         print("No subseasonal GEFS runs are fully available yet.")
         return
 
+    import sys as _sys
+    _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        from run_store import stored_runs
+        _stored = stored_runs("GEFS_35D")
+    except Exception:
+        _stored = frozenset()
+
     for run_id in available_runs:
         run_date = run_id.split("_")[0]
         run_dir = os.path.join(OUTPUT_DIR, run_id)
         
-        # Skip logic: if we already have the TDD CSV file, and the GRIB files exist on disk, we skip
+        # Skip a run that is already in tdd_master. The old test also required
+        # the GRIBs on disk, but they are gitignored, so every fresh runner
+        # re-downloaded all three runs (~3,500 slices, 26 min of every hourly
+        # pass, 2026-11-28) although they were already stored.
         out_csv = os.path.join(OUTPUT_DIR, f"{run_id}_tdd.csv")
+        if run_id in _stored:
+            print(f"[{run_id}Z] Already in tdd_master. Skipping.")
+            continue
         grib_files = [f for f in os.listdir(run_dir) if "pgrb2a" in f] if os.path.exists(run_dir) else []
         if os.path.exists(out_csv) and len(grib_files) > 100:
             print(f"[{run_id}Z] Already fetched fully (TDD and GRIBs present). Skipping.")
