@@ -102,6 +102,8 @@ jobs:
           if [ "$(ls data/normals/city_era5/*.csv 2>/dev/null | wc -l)" -lt 30 ]; then
             timeout 900 python scripts/build_city_normals.py || echo "[WARN] City normals build failed."
           fi
+          # Gridded fields for the change maps of city-point models (ECMWF ENS, AIFS ENS, WN2/WN3, ICON, UKMO, CMC)
+          timeout 900 python scripts/fetch_map_grids.py || echo "[WARN] Map grid fetch failed."
           timeout 1500 python scripts/generate_maps.py || echo "[WARN] Map generation failed or timed out."
           python scripts/market_logic/fetch_gas_burn_history.py || echo "[WARN] Gas burn history failed."
           python scripts/market_logic/fetch_thermal_history.py || echo "[WARN] Thermal history failed."
@@ -186,7 +188,7 @@ jobs:
           # Add only paths that exist: a single missing pathspec makes `git add`
           # abort entirely, which silently discarded every no-new-data run's
           # grid/burn/outage updates ("Nothing to commit").
-          for p in data/pipeline_state.json outputs/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ data/google_wn3/ data/fourcastnetv2-small/ data/region_temps/; do
+          for p in data/pipeline_state.json outputs/ data/ecmwf/ data/gfs/ data/ecmwf_aifs/ data/ecmwf_ens/ data/ai_models/ data/weights/ data/normals/ data/aigfs/ data/hgefs/ data/aigfs_grib/ data/hgefs_grib/ data/cmc_ens/ data/icon/ data/aigefs/ data/aifs_ens/ data/ukmo_ens/ data/ec46/ data/google_wn2/ data/google_wn3/ data/fourcastnetv2-small/ data/region_temps/ data/map_grids/; do
             # Skip missing paths; add each path on its own so one failure (git add
             # exits 1 on a fully ignored dir such as data/ecmwf_aifs/) never aborts
             # the step. No check-ignore here: it reports dirs like data/ecmwf_ens/
