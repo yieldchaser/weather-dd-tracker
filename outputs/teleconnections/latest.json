@@ -1,14 +1,14 @@
 {
-  "timestamp": "2026-11-28T13:49:27.412657Z",
-  "ao": -0.323,
-  "nao": 0.17,
-  "pna": 1.417,
+  "timestamp": "2026-11-28T14:01:16.152747Z",
+  "ao": 0.618,
+  "nao": 1.322,
+  "pna": 1.48,
   "epo": 0.072,
-  "composite_score": 58,
+  "composite_score": 41,
   "as_of": {
-    "AO": "2026-11-24",
-    "NAO": "2026-11-24",
-    "PNA": "2026-11-24",
+    "AO": "2026-11-26",
+    "NAO": "2026-11-26",
+    "PNA": "2026-11-26",
     "EPO": "2026-11-27"
   },
   "stale_indices": [],
@@ -20,25 +20,25 @@
   },
   "analogs": [
     {
+      "year": 1992,
+      "distance": 1.92,
+      "window": "Nov 29\u2013Jan 27",
+      "next30_hdd_anomaly": 1.5,
+      "next31_60_hdd_anomaly": -3.3
+    },
+    {
       "year": 2004,
-      "distance": 1.69,
+      "distance": 2.0,
       "window": "Nov 29\u2013Jan 27",
       "next30_hdd_anomaly": 1.7,
       "next31_60_hdd_anomaly": -0.8
     },
     {
-      "year": 2000,
-      "distance": 1.8,
+      "year": 2020,
+      "distance": 2.09,
       "window": "Nov 29\u2013Jan 27",
-      "next30_hdd_anomaly": 9.0,
-      "next31_60_hdd_anomaly": 3.4
-    },
-    {
-      "year": 2002,
-      "distance": 2.01,
-      "window": "Nov 29\u2013Jan 27",
-      "next30_hdd_anomaly": 3.1,
-      "next31_60_hdd_anomaly": 4.6
+      "next30_hdd_anomaly": -0.6,
+      "next31_60_hdd_anomaly": -3.0
     }
   ],
   "mjo": {
@@ -450,9 +450,9 @@
     ]
   },
   "change_7d": {
-    "ao": -0.695,
-    "nao": -0.423,
-    "pna": 0.642,
+    "ao": 0.33,
+    "nao": 1.042,
+    "pna": 0.79,
     "epo": 0.239
   },
   "status": "success"
