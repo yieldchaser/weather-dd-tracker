@@ -57,7 +57,9 @@ POINTS = [(sec, float(la), float(lo)) for sec, lons in SECTORS.items() for la in
 COLS = [f"{sec}_{lv}" for sec in SECTORS for lv in LEVELS]
 
 
-def _get(url, params, attempts=3, timeout=150):
+def _get(url, params, attempts=4, timeout=45):
+    """A healthy 2-month chunk returns in under 10 s; a hung request is cut at
+    45 s and retried rather than eating 2.5 minutes of the run budget."""
     last = None
     for i in range(attempts):
         try:
@@ -67,6 +69,9 @@ def _get(url, params, attempts=3, timeout=150):
             last = f"HTTP {r.status_code}: {r.text[:160]}"
             if r.status_code in (400, 403, 404):
                 break
+            if r.status_code == 429:
+                time.sleep(61)
+                continue
         except Exception as e:  # noqa: BLE001
             last = e
         time.sleep(5 * (i + 1))

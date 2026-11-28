@@ -193,12 +193,15 @@ def fetch(om_model, days):
                 return {}
             try:
                 t0 = time.time()
-                r = requests.get(ENSEMBLE_URL, params=params, timeout=90)
+                r = requests.get(ENSEMBLE_URL, params=params, timeout=75)
                 print(f"[REGION]   {om_model} chunk {i // 50 + 1}: HTTP {r.status_code} in {time.time() - t0:.0f}s", flush=True)
                 if r.status_code == 200:
                     js = r.json()
                     break
                 print(f"[REGION] HTTP {r.status_code}: {r.text[:160]}")
+                if r.status_code == 429:   # per-minute limit: wait it out once
+                    time.sleep(61)
+                    continue
             except Exception as e:  # noqa: BLE001
                 print(f"[REGION] {e}")
             time.sleep(5 * (a + 1))
@@ -210,7 +213,7 @@ def fetch(om_model, days):
             mm = member_mean(daily, "temperature_2m_mean", daily.get("time", []))
             if mm:
                 out[p[0]] = {d: round(_f(c), 2) for d, c in mm.items()}
-        time.sleep(1)
+        time.sleep(4)   # spread member-heavy calls under the per-minute limit
     return out
 
 
@@ -221,10 +224,12 @@ def served_run(meta_dirs, short_runs=False, stored=lambda r: False):
     00/12 run for days 7-15; like the US fetcher, store one only under its base
     label when that base was missed. Returns None when there is nothing to do."""
     runs = {m: om_latest_run(m) for m in meta_dirs}
-    rid = runs[meta_dirs[0]]
-    if rid is None or len(set(runs.values())) != 1:
+    got = {v for v in runs.values() if v}
+    # a failed metadata read is not a disagreement; two different cycles are
+    if runs[meta_dirs[0]] is None or len(got) != 1:
         print(f"[REGION] run metadata not settled: {runs}")
         return None
+    rid = runs[meta_dirs[0]]
     if short_runs and rid[-2:] in ("06", "18"):
         base = (dt.datetime.strptime(rid, "%Y%m%d_%H") - dt.timedelta(hours=6)).strftime("%Y%m%d_%H")
         return None if stored(base) else base
