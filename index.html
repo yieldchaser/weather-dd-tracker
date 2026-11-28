@@ -1700,7 +1700,7 @@
 
         // ── Run-change engine (shared by the change matrix and the run chart) ──
         let CHANGE_MODE = (() => { try { return localStorage.getItem('weather_dd_change_mode') || 'prev'; } catch (e) { return 'prev'; } })();
-        const PREFERRED_MODEL_ORDER = ['ECMWF_ENS', 'GEFS', 'AIFS_ENS', 'CMC_ENS', 'UKMO_ENS', 'ECMWF', 'GFS', 'ECMWF_AIFS', 'AIGEFS', 'GOOGLE_WN2', 'GOOGLE_WN3', 'AIGFS', 'HGEFS', 'ICON', 'NBM', 'HRRR', 'GEFS_35D', 'EC46'];
+        const PREFERRED_MODEL_ORDER = ['ECMWF_ENS', 'GEFS', 'AIFS_ENS', 'CMC_ENS', 'UKMO_ENS', 'ECMWF', 'GFS', 'ECMWF_AIFS', 'AIGEFS', 'GOOGLE_WN2', 'GOOGLE_WN3', 'AIGFS', 'HGEFS', 'ICON', 'NBM', 'HRRR', 'RRFS', 'GEFS_35D', 'EC46'];
 
         function runTimeMs(rid) {
             const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})?/.exec(String(rid || ''));
@@ -2795,7 +2795,7 @@
 
                     // REDRAW X-AXIS: extend window based on model horizon
                     const SUBSEASONAL = ['GEFS_35D', 'CFS'];
-                    if (selectedModel === 'HRRR' || selectedModel === 'NAM') {
+                    if (selectedModel === 'HRRR' || selectedModel === 'NAM' || selectedModel === 'RRFS') {
                         labels = labels.filter(d => d >= startClip && d <= maxDate);
                     } else if (SUBSEASONAL.includes(selectedModel)) {
                         labels = globalLabels.filter(d => d >= startClip).slice(0, 35);
@@ -3644,7 +3644,7 @@
             },
             "Short-Term Horizon": {
                 title: "Short-Term Horizon (Days 1-5)",
-                body: "Standard weather models have very high skill in this range. Driven heavily by regional mesoscale models (HRRR, NAM) and deterministic physics models (ECMWF, GFS)."
+                body: "Standard weather models have very high skill in this range. Driven heavily by regional models (HRRR, RRFS) and deterministic physics models (ECMWF, GFS)."
             },
             "Medium-Term Horizon": {
                 title: "Medium-Term Horizon (Days 6-15)",
@@ -3756,6 +3756,14 @@
             "HRRR": {
                 title: "HRRR (Regional 3km)",
                 body: "High-Resolution Rapid Refresh. NOAA's hourly-updating convective-allowing regional model. Operating at 3km resolution over the CONUS, it is highly accurate for short-term (day 1-2) wind/solar generation and temperature spikes."
+            },
+            "RRFS": {
+                title: "RRFS (Regional 3km, NAM successor)",
+                body: "Rapid Refresh Forecast System. NOAA's FV3-based regional model that replaced the NAM in November 2026 (and is replacing RAP/HRRR in stages). 3km over CONUS; the 00/06/12/18z runs go out to 84 hours, which is what this desk uses. Strong on near-term temperature detail, cold-air damming and fronts; like any regional model it inherits its large-scale pattern from GFS at the boundaries."
+            },
+            "RRFS CHG": {
+                title: "RRFS Change",
+                body: "Latest RRFS run minus its previous run for the same date, gas-weighted HDD (or CDD) per day. Covers days 1-3 (84-hour runs)."
             },
             "NAM": {
                 title: "NAM (Regional Mesoscale)",
@@ -3918,6 +3926,7 @@
                         "EC46 CHG": "EC46",
                         "HRRR CHG": "HRRR",
                         "NAM CHG": "NAM",
+                        "RRFS CHG": "RRFS",
                         "NBM CHG": "NBM"
                     };
                     if (keyMap[key]) key = keyMap[key];

@@ -19,7 +19,7 @@ MANIFEST_PATH = "outputs/maps_manifest.json"
 MAP_MODELS = [
     "GFS", "GEFS", "GEFS_35D", "ECMWF", "ECMWF_ENS", "ECMWF_AIFS", "AIGFS",
     "HGEFS", "CMC_ENS", "GOOGLE_WN2", "GOOGLE_WN3", "AIGEFS", "AIFS_ENS",
-    "UKMO_ENS", "EC46", "HRRR", "NAM", "NBM", "ICON", "FOURCASTNETV2-SMALL",
+    "UKMO_ENS", "EC46", "HRRR", "RRFS", "NAM", "NBM", "ICON", "FOURCASTNETV2-SMALL",
 ]
 
 # Run IDs look like 20261122_12, 20261122_12_AI or 20261122_seamless.

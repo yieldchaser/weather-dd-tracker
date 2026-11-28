@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Optional: if you add ECMWF Ens and GFS Ens later, they can be added here
 # Models to track in the shift table
-MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "GOOGLE_WN2", "GOOGLE_WN3", "ECMWF_AIFS", "AIGFS", "HGEFS", "AIGEFS", "AIFS_ENS", "UKMO_ENS", "EC46", "HRRR", "NAM", "NBM", "FOURCASTNETV2-SMALL"]
+MODELS = ["GFS", "ECMWF", "ECMWF_ENS", "GEFS", "CMC_ENS", "GOOGLE_WN2", "GOOGLE_WN3", "ECMWF_AIFS", "AIGFS", "HGEFS", "AIGEFS", "AIFS_ENS", "UKMO_ENS", "EC46", "HRRR", "RRFS", "NBM", "FOURCASTNETV2-SMALL"]
 
 def main():
     print("\n--- Generating Model Shift Table ---")
@@ -124,13 +124,13 @@ def main():
         "UKMO_ENS Op Chg": "UKMO ENS CHG",
         "EC46 Op Chg": "EC46 CHG",
         "HRRR Op Chg": "HRRR CHG",
-        "NAM Op Chg": "NAM CHG",
+        "RRFS Op Chg": "RRFS CHG",
         "NBM Op Chg": "NBM CHG"
     }
     shift_df.rename(columns=rename_map, inplace=True)
             
     # Ensure all expected columns exist even if empty (for UI stability)
-    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "GOOGLE AI CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "AIGEFS CHG", "AIFS ENS CHG", "UKMO ENS CHG", "EC46 CHG", "HRRR CHG", "NAM CHG", "NBM CHG"]
+    expected_cols = ["GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG", "GOOGLE AI CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG", "AIGEFS CHG", "AIFS ENS CHG", "UKMO ENS CHG", "EC46 CHG", "HRRR CHG", "RRFS CHG", "NBM CHG"]
     for col in expected_cols:
         if col not in shift_df.columns:
             shift_df[col] = np.nan
@@ -139,7 +139,7 @@ def main():
     columns = [
         "GFS OP CHG", "GFS ENS CHG", "ECMWF OP CHG", "EURO ENS CHG", "CMC ENS CHG",
         "GOOGLE AI CHG", "GOOGLE WN3 CHG", "EURO AI CHG", "NOAA AI CHG", "NOAA AI ENS CHG",
-        "AIGEFS CHG", "AIFS ENS CHG", "UKMO ENS CHG", "EC46 CHG", "HRRR CHG", "NAM CHG", "NBM CHG"
+        "AIGEFS CHG", "AIFS ENS CHG", "UKMO ENS CHG", "EC46 CHG", "HRRR CHG", "RRFS CHG", "NBM CHG"
     ]
     shift_df = shift_df[[c for c in columns if c in shift_df.columns]]
     

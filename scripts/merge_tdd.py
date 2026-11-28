@@ -24,6 +24,7 @@ def load_all():
         "data/nbm/*_tdd.csv",
         "data/hrrr/*_tdd.csv",
         "data/nam/*_tdd.csv",
+        "data/rrfs/*_tdd.csv",
         "data/gefs/*_tdd.csv",
         "data/gefs_subseasonal/*_tdd.csv",
         "data/icon/*_tdd.csv",
@@ -69,6 +70,7 @@ def load_all():
                 elif "cmc_ens" in f_lower: df["model"] = "CMC_ENS"
                 elif "gfs" in f_lower: df["model"] = "GFS"
                 elif "hrrr" in f_lower: df["model"] = "HRRR"
+                elif "rrfs" in f_lower: df["model"] = "RRFS"
                 elif "nam" in f_lower: df["model"] = "NAM"
                 elif "ecmwf" in f_lower: df["model"] = "ECMWF"
                 elif "nbm" in f_lower: df["model"] = "NBM"

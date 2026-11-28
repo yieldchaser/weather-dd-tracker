@@ -114,6 +114,8 @@ def build_daily_mean_dataset(run_dir, model_name):
             pattern = "hrrr.*"
         elif model_name == "NAM":
             pattern = "nam.*"
+        elif model_name == "RRFS":
+            pattern = "rrfs.*"
         elif model_name == "NBM":
             pattern = "blend.*"
         else:
@@ -651,7 +653,7 @@ def main():
         {"name": "AIGFS",      "path": "data/aigfs_grib",       "is_bubble": False},
         {"name": "HGEFS",      "path": "data/hgefs_grib",       "is_bubble": False},
         {"name": "HRRR",       "path": "data/hrrr",             "is_bubble": False},
-        {"name": "NAM",        "path": "data/nam",              "is_bubble": False},
+        {"name": "RRFS",       "path": "data/rrfs",             "is_bubble": False},
         {"name": "NBM",        "path": "data/nbm",              "is_bubble": False},
         {"name": "CMC_ENS",    "path": "data/cmc_ens",          "is_bubble": True},
         {"name": "GOOGLE_WN2", "path": "data/google_wn2",       "is_bubble": True},
