@@ -146,6 +146,23 @@
         .chg-table sup { color:#888; font-size:0.6rem; margin-left:1px; }
         @media (max-width: 768px) { .chg-table td:first-child small { display:none; } .chg-table th, .chg-table td { padding:6px 5px; font-size:0.78rem; } }
         .chg-foot { font-size:0.68rem; color:#777; padding:8px 12px; line-height:1.4; }
+        .rc-chips { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 0; }
+        .rc-chip { background:transparent; color:#c5c6c7; border:1px solid #3a4552; border-radius:3px; padding:3px 9px; font-size:0.72rem; cursor:pointer; }
+        .rc-chip.on { color:#66fcf1; border-color:#66fcf1; background:rgba(102,252,241,0.08); }
+        .rc-sub { font-size:0.72rem; color:#9aa5b1; padding:8px 12px 4px; line-height:1.4; }
+        .rc-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; padding:0 0 4px; }
+        .rc-table { border-collapse:collapse; font-size:0.74rem; white-space:nowrap; min-width:max-content; width:auto; table-layout:auto; overflow:visible; box-shadow:none; border-radius:0; word-wrap:normal; margin:0 auto; font-variant-numeric:tabular-nums; }
+        .rc-table th, .rc-table td { padding:4px 7px; text-align:center; border:1px solid #1f2933; color:#e6e6e6; text-transform:none; background-color:transparent; }
+        .rc-table th.rc-reg { font-size:0.72rem; letter-spacing:0.3px; color:#c5c6c7; border-bottom:none; }
+        .rc-table th.rc-mod { font-size:0.62rem; color:#8a96a3; font-weight:500; }
+        .rc-table .rc-day { position:sticky; left:0; background:#141b22; text-align:left; z-index:1; width:auto; min-width:118px; }
+        .rc-table td.rc-day small { color:#8a96a3; margin-left:4px; }
+        .rc-table tr.rc-wk td { border-top:2px solid #3a4652; }
+        .rc-table tr.rc-sum td { border-top:2px solid #3a4652; font-weight:700; }
+        .rc-table sup { color:#8a96a3; font-size:0.58rem; margin-left:1px; font-weight:400; }
+        .rc-table td.rc-na { background:transparent; }
+        .rc-empty { padding:14px; color:#8a96a3; font-size:0.8rem; }
+        @media (max-width: 768px) { .rc-table th, .rc-table td { padding:4px 5px; font-size:0.7rem; } .rc-table td.rc-day small { display:none; } }
         .week-card {
             background-color: var(--card-bg);
             border-radius: 4px;
@@ -891,6 +908,12 @@
                     </div>
                     <div class="chg-foot">Totals over each calendar window (same valid dates for every model). Green = more demand (colder in HDD mode), red = less. Superscript = days covered when a run is shorter than the window. Click a row to open that model below.</div>
                 </div>
+                <!-- Day-over-day change by region (Skylar style) -->
+                <div class="week-card" id="rc-card" style="grid-column:1 / -1;">
+                    <div class="week-header has-tooltip" data-tooltip-key="Region Change">Day-over-Day Change by Region (°F)</div>
+                    <div id="rc-us"></div>
+                    <div class="chg-foot">Ensemble-mean daily temperature, newest run minus the same cycle 24 h earlier, by EIA storage region and valid day. Red = warmer (less heating demand in winter), blue = colder; full colour at ±6 °F. Sum = total over the days every selected model covers (superscript). Tap a model to add or remove it. Europe, Russia and North Asia are on the Europe page.</div>
+                </div>
             </div>
 
             <!-- DAILY DEGREE DAYS VS HISTORY -->
@@ -1379,6 +1402,7 @@
             // 6. Run-change matrix + Forecast Model Chart
             if (masterData && masterData.length > 0) {
                 try { renderChangeMatrix(masterData, vsNormal); } catch (e) { console.error('change matrix', e); }
+                fetchJSON('outputs/region_change.json').then(rc => { try { renderRegionChange(rc, 'us', document.getElementById('rc-us')); } catch (e) { console.error('region change', e); } });
                 try { renderModelScorecard(masterData, historicalData); } catch (e) { console.error('model scorecard', e); }
                 try { renderDailyContext(masterData, historicalData); } catch (e) { console.error('daily context', e); }
                 initChart(masterData, vsNormal, mapManifest);
@@ -3043,6 +3067,69 @@
             });
         }
 
+        // ── Day-over-day change by region (outputs/region_change.json) ──
+        // Newest ECMWF ENS / GEFS run minus the same cycle 24 h earlier, °F of
+        // ensemble-mean daily temperature, per region and valid day.
+        function renderRegionChange(rc, group, el) {
+            if (!el) return;
+            if (!rc || !rc.models) { el.innerHTML = '<div class="rc-empty">Regional change data not available yet.</div>'; return; }
+            const order = (rc.model_order || Object.keys(rc.models)).filter(m => rc.models[m]);
+            let chosen = null;
+            try { chosen = JSON.parse(localStorage.getItem('rcModels') || 'null'); } catch (e) { }
+            if (!Array.isArray(chosen) || !chosen.some(m => order.includes(m))) chosen = rc.default_models || order.slice(0, 2);
+            const models = order.filter(m => chosen.includes(m));
+            const lab = rc.region_label || {}, mlab = rc.model_label || {};
+            const get = (m, r) => ((rc.models[m] || {}).regions || {})[r] || null;
+            const allRegions = (rc.region_order || {})[group] || [];
+            const regions = allRegions.filter(r => models.some(m => get(m, r)));
+            const pending = allRegions.filter(r => !regions.includes(r)).map(r => lab[r] || r);
+            const val = (m, r, d) => { const x = get(m, r); if (!x) return null; const i = x.dates.indexOf(d); return i < 0 ? null : x.delta[i]; };
+            const dates = [...new Set(regions.flatMap(r => models.flatMap(m => (get(m, r) || {}).dates || [])))].sort()
+                .filter(d => regions.some(r => models.some(m => val(m, r, d) !== null)));
+            if (!dates.length && !models.length) { el.innerHTML = '<div class="rc-empty">Waiting for two runs of the same cycle 24 h apart.</div>'; return; }
+            const cell = v => {
+                if (v === null || v === undefined) return '<td class="rc-na"></td>';
+                const a = Math.min(Math.abs(v) / 6, 1) * 0.85, rgb = v > 0 ? '214,62,62' : '62,120,214';
+                const s = (Math.abs(v) < 0.05 ? '0.0' : (v > 0 ? '+' : '-') + Math.abs(v).toFixed(1));
+                return `<td style="background:rgba(${rgb},${a.toFixed(2)})">${s}</td>`;
+            };
+            const fmtRun = id => id ? `${id.slice(9, 11)}z ${+id.slice(6, 8)} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+id.slice(4, 6) - 1]}` : '';
+            // run pairs actually shown, per model (Europe and Asia can differ by a cycle)
+            const pairs = models.map(m => {
+                const seen = [...new Set(regions.map(r => get(m, r)).filter(Boolean).map(x => `${fmtRun(x.run)} minus ${fmtRun(x.base)}`))];
+                return `${mlab[m] || m}: ${seen.length ? seen.join(' / ') : 'no same-cycle pair stored yet'}`;
+            });
+            let h = '<table class="rc-table"><thead><tr><th class="rc-day"></th>' +
+                regions.map(r => `<th colspan="${models.length}" class="rc-reg">${lab[r] || r}</th>`).join('') + '</tr><tr><th class="rc-day"></th>' +
+                regions.map(() => models.map(m => `<th class="rc-mod">${(mlab[m] || m).replace(' ENS', '')}</th>`).join('')).join('') + '</tr></thead><tbody>';
+            const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            dates.forEach((d, i) => {
+                const dt = new Date(d + 'T12:00:00Z');
+                h += `<tr${i === 5 || i === 10 ? ' class="rc-wk"' : ''}><td class="rc-day">Day ${i + 1} <small>${wd[dt.getUTCDay()]} ${d.slice(5)}</small></td>` +
+                    regions.map(r => models.map(m => cell(val(m, r, d))).join('')).join('') + '</tr>';
+            });
+            // Sum over the days every model with data in that region covers
+            h += '<tr class="rc-sum"><td class="rc-day">Sum</td>' + regions.map(r => {
+                const have = models.filter(m => get(m, r));
+                const common = dates.filter(d => have.length && have.every(m => val(m, r, d) !== null));
+                return models.map(m => {
+                    if (!get(m, r) || !common.length) return '<td class="rc-na"></td>';
+                    const s = common.reduce((t, d) => t + val(m, r, d), 0);
+                    return `<td>${Math.abs(s) < 0.05 ? '0.0' : (s > 0 ? '+' : '-') + Math.abs(s).toFixed(1)}<sup>${common.length}d</sup></td>`;
+                }).join('');
+            }).join('') + '</tr></tbody></table>';
+            if (pending.length) pairs.push(`${pending.join(', ')}: shown once two runs of the same cycle 24 h apart are stored`);
+            const chips = order.map(m => `<button type="button" class="rc-chip${models.includes(m) ? ' on' : ''}" data-m="${m}">${mlab[m] || m}</button>`).join('');
+            el.innerHTML = `<div class="rc-chips">${chips}</div><div class="rc-sub">${pairs.join(' · ')}</div><div class="rc-wrap">${h}</div>`;
+            el.querySelectorAll('.rc-chip').forEach(btn => btn.onclick = () => {
+                const m = btn.dataset.m;
+                let next = models.includes(m) ? models.filter(x => x !== m) : [...models, m];
+                if (!next.length) return;
+                try { localStorage.setItem('rcModels', JSON.stringify(next)); } catch (e) { }
+                renderRegionChange(rc, group, el);
+            });
+        }
+
         window.onload = loadDashboard;
 
         // ── Weather Intelligence Pipeline overlays (non-blocking) ──
@@ -3391,6 +3478,10 @@
             "Model Scorecard": {
                 title: "Model Scorecard",
                 body: "Each model's archived runs scored against ERA5 observed gas-weighted degree days over the last 30 verifying days, by lead window. MAE = mean absolute daily error; bias = mean signed error (positive = forecasts ran too cold in HDD mode). Until late Nov 2026 the Open-Meteo ensembles were archived as control members and the GRIB models (GFS, GEFS, ECMWF op/AIFS, NBM, HRRR, NAM) used a colder grid-cell weighting; those models are scored only on runs made since the change."
+            },
+            "Region Change": {
+                title: "Day-over-Day Change by Region",
+                body: "Where the forecast moved. For each selected model (ECMWF ENS, GEFS and WeatherNext 3 by default; AIFS ENS on request), the newest run minus the same cycle 24 hours earlier (00z vs 00z, 12z vs 12z), in °F of ensemble-mean daily temperature, for each EIA storage region and valid day. Regions are gas-demand-weighted city averages from the same 78-city set as the national figures. WeatherNext 3 has scored best over days 1-10 in the model scorecard; ECMWF ENS and GEFS are the two runs the market trades on. Red = warmer, blue = colder; in heating season +1 °F is roughly -1 HDD. East and Midwest carry most of the weather-driven demand, so a move there matters more than the same move in the Mountain or Pacific regions. A column stays blank until two runs of the same cycle 24 h apart are stored."
             },
             "Run Change Matrix": {
                 title: "Run-to-Run Change by Window",

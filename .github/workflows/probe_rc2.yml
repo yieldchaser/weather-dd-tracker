@@ -1,0 +1,29 @@
+name: probe-rc2
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pandas numpy requests
+      - run: python scripts/region_change.py
+      - run: |
+          python - <<'PY'
+          import json; d=json.load(open('outputs/region_change.json'))
+          for m,v in d['models'].items():
+              print(m, v['newest_stored'], {r:(x['run'],x['base'],round(sum(y for y in x['delta'] if y is not None),1)) for r,x in v['regions'].items()})
+          PY
+          ls data/region_temps/*/ | tail -50
+          python - <<'PY'
+          import json,glob
+          for f in sorted(glob.glob('data/region_temps/*/*.json')):
+              d=json.load(open(f))
+              if d['source']=='open-meteo': print(f, {r:list(v.items())[:2] for r,v in d['regions'].items()})
+          PY
+      - run: timeout 1500 python scripts/teleconnections/pch_sectors.py
+      - run: ls -la data/pch; python -c "import json;d=json.load(open('outputs/teleconnections/pch_sectors.json'));print({k:v for k,v in d.items() if k not in ('sectors','dates')}); print(d.get('dates',[None])[-3:])"

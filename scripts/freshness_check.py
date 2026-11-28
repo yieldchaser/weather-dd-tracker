@@ -37,6 +37,7 @@ JSON_FEEDS = [
     ("outputs/regimes/current_regime.json", "timestamp", 36),
     ("outputs/freeze/alerts.json", "timestamp", 30),
     ("outputs/composite_signal.json", "timestamp", 36),
+    ("outputs/region_change.json", "timestamp", 6),   # rebuilt every poller pass
 ]
 
 # CSV feeds: (path, date column, max age days of the newest row)
