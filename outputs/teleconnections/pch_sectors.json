@@ -1,0 +1,35 @@
+{
+ "timestamp": "2026-11-28T13:56:59.263319Z",
+ "definition": "geopotential height anomaly, cos-weighted mean over 65-85N, by sector; GFS analysis (past) and GFS forecast",
+ "levels": [
+  10,
+  30,
+  100,
+  250,
+  500,
+  1000
+ ],
+ "sectors": {
+  "pacific": {
+   "lon_range": [
+    150,
+    -120
+   ]
+  },
+  "atlantic": {
+   "lon_range": [
+    -75,
+    15
+   ]
+  }
+ },
+ "climatology_winters": [
+  2024,
+  2025
+ ],
+ "history_span": [
+  "2025-01-01",
+  "2026-11-27"
+ ],
+ "status": "pending_climatology"
+}
