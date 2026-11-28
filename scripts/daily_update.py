@@ -73,6 +73,19 @@ with ThreadPoolExecutor(max_workers=5) as pool:
         status = "[OK]" if rc == 0 else "[ERR]"
         print(f"  {status} {script}")
 
+# Second chance for fetchers that skipped because Open-Meteo's run metadata
+# did not answer. That read times out while five fetchers download GRIBs at
+# once (ECMWF ENS skipped ~85% of passes on 2026-11-27/28 and its 28/00z run
+# was never stored), yet answers within seconds once the burst is over. Re-run
+# those fetchers one at a time now, before anything downstream reads the data.
+_retry = [k for k, v in FETCH_STATUS.items() if any("metadata unavailable" in l for l in v.get("tail", []))]
+for _s in _retry:
+    print(f"\n[RETRY] {_s}: run metadata was unavailable during the parallel batch; retrying alone")
+    _first = FETCH_STATUS[_s]
+    _, rc = run(_s)
+    results[_s] = rc
+    FETCH_STATUS[_s]["retried_after"] = _first["tail"][-1:]
+
 try:
     Path("outputs/health").mkdir(parents=True, exist_ok=True)
     Path("outputs/health/fetch_status.json").write_text(_json.dumps({

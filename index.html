@@ -1655,7 +1655,8 @@
             // Desk horizon: 16 days. EC46 alone otherwise adds ~30 rows of dashes
             // out to day 46 (its long-range changes are in the Days 16+ table).
             const shiftCut = new Date(Date.now() + 16 * 86400000).toISOString().substring(0, 10);
-            shiftTable.filter(r => String(r["date"] || "").substring(0, 10) <= shiftCut).forEach(row => {
+            const shiftToday = new Date().toISOString().substring(0, 10);   // past dates are verification, not a shift
+            shiftTable.filter(r => { const d = String(r["date"] || "").substring(0, 10); return d >= shiftToday && d <= shiftCut; }).forEach(row => {
                 let tr = document.createElement('tr');
                 let tdDate = document.createElement('td');
                 const targetDtStr = String(row["date"] || "").substring(0, 10);

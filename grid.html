@@ -1140,7 +1140,8 @@
                 datasets.push({ label: `${s.curYear} 30d avg`, data: curRoll, borderColor: '#ffffff', borderWidth: 1.5, pointRadius: 0, tension: 0.25, fill: false });
             }
 
-            let statsHtml = `<strong>${cfg.statLabel}:</strong> ${formatNum(s.cur[s.cur.length - 1], 1)} ${cfg.unit} | 30d avg: ${formatNum(curRoll[curRoll.length - 1], 1)} ${cfg.unit} | coverage: ${s.span}`;
+            const dp = cfg.decimals ?? 1;   // the peaker ratio lives near 1.0, so one decimal hid its moves
+            let statsHtml = `<strong>${cfg.statLabel}:</strong> ${formatNum(s.cur[s.cur.length - 1], dp)} ${cfg.unit} | 30d avg: ${formatNum(curRoll[curRoll.length - 1], dp)} ${cfg.unit} | coverage: ${s.span}`;
             if (overlayActive) {
                 datasets.push({ label: `${s.prevYear} (LY)`, data: s.prev, borderColor: '#b71c1c', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0.25, fill: false });
                 const prevVals = s.prev.filter(v => v != null);
@@ -1198,7 +1199,7 @@
                 rows: rawPeakerData, field: 'peak_offpeak_ratio', scale: 1,
                 canvasId: 'peakerDriftChart', msgId: 'peaker-drift-msg', statsId: 'peaker-drift-stats',
                 chartVar: peakerDriftChart, yLabel: 'Peak / Off-Peak Gas Ratio',
-                statLabel: 'Ratio', unit: '', color: '#ff9800'
+                statLabel: 'Ratio', unit: '', color: '#ff9800', decimals: 2
             };
             peakerDriftChart = updateVintageLineChart(driftCfg) || peakerDriftChart;
             if (peakerDriftChart && peakerDriftChart.data && peakerDriftChart.data.datasets.length > 0) {
@@ -1464,7 +1465,7 @@
             // Prefer the pipeline's own ingestion timestamp over page-load time
             if (droughtJSON.timestamp) {
                 let ts = String(droughtJSON.timestamp);
-                document.getElementById('last-updated').innerText = "Pipeline Ingested | " + ts.replace('T', ' ').replace('Z', ' UTC');
+                document.getElementById('last-updated').innerText = "Wind & solar forecast | " + ts.replace('T', ' ').replace('Z', ' UTC');
             }
         }
 
@@ -2703,7 +2704,7 @@
             },
             "Live Data Timestamp": {
                 title: "Live Data Timestamp",
-                body: "The UTC timestamp of the last weather pipeline ingestion run. We poll global physics and AI models continuously as soon as their runs start releasing."
+                body: "When the wind and solar generation forecasts on this page were last built (UTC). The ISO generation, load and gas burn panels carry their own as-of dates, since EIA-930 data arrives with a lag of about a day."
             },
             "National Power Grid (Big 4 ISOs)": {
                 title: "National Power Grid (7 ISOs)",

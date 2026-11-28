@@ -21,7 +21,7 @@ NOW = dt.datetime.now(dt.timezone.utc)
 # (Open-Meteo ensembles publish ~6-10 h after init).
 MODEL_MAX_AGE_H = {
     "GFS": 18, "GEFS": 18, "HRRR": 6, "NBM": 18,
-    "ECMWF": 30, "ECMWF_ENS": 30, "ECMWF_AIFS": 24, "AIFS_ENS": 24,
+    "ECMWF": 30, "ECMWF_ENS": 24, "ECMWF_AIFS": 24, "AIFS_ENS": 24,
     "CMC_ENS": 36, "UKMO_ENS": 24, "ICON": 24,
     "GOOGLE_WN2": 36, "GOOGLE_WN3": 24, "AIGEFS": 30,
     "AIGFS": 48, "HGEFS": 48, "GEFS_35D": 54, "EC46": 54,

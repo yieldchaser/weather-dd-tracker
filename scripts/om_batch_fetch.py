@@ -355,17 +355,18 @@ def om_latest_run(model, host=None, timeout=15):
     import time as _t
     d = OM_META_DIRS.get(model, model)
     host = host or OM_META_HOSTS.get(model, OM_META_HOST)
-    # Three tries: callers no longer fall back to a wall-clock label, so a
-    # single timeout must not cost the run.
-    for attempt in range(3):
+    # Callers no longer fall back to a wall-clock label, so a timeout must not
+    # cost the run. A healthy read takes well under a second; hung ones were
+    # waiting the full 15 s three times, so: short timeouts, more tries.
+    for attempt in range(5):
         try:
-            r = _rq.get(f"{host}/data/{d}/static/meta.json", timeout=timeout)
+            r = _rq.get(f"{host}/data/{d}/static/meta.json", timeout=min(timeout, 8))
             if r.status_code == 200:
                 t = int(r.json()["last_run_initialisation_time"])
                 return _dt.datetime.fromtimestamp(t, _dt.timezone.utc).strftime("%Y%m%d_%H")
         except Exception:
             pass
-        _t.sleep(3 * (attempt + 1))
+        _t.sleep(2 * (attempt + 1))
     return None
 
 def is_duplicate_run(base_dir, run_id, city_data, tol_f=0.01, min_points=50):
