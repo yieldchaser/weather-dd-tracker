@@ -1,0 +1,35 @@
+name: probe-rrfs
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env: { PYTHONUNBUFFERED: '1' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements.txt
+      - run: timeout 900 python scripts/fetch_rrfs.py
+      - run: du -sh data/rrfs/* ; ls data/rrfs/*/ | head -5; cat data/rrfs/*/manifest.json | head -30
+      - run: |
+          cd scripts && python - <<'PY'
+          import os, sys
+          sys.path.insert(0, '.')
+          os.chdir('..')
+          import compute_tdd as C
+          w, wl, wlo = C.load_weights()
+          for run in sorted(os.listdir('data/rrfs')):
+              p = os.path.join('data/rrfs', run)
+              if not os.path.isdir(p): continue
+              df = C.process_grib_files(p, w, wl, wlo, prefix='rrfs.')
+              print(run); print(df.to_string() if df is not None else None)
+          PY
+      - run: |
+          python scripts/compute_tdd.py 2>&1 | grep -iA3 "rrfs" | head -40
+          ls data/rrfs/*_tdd.csv && head -6 data/rrfs/*_tdd.csv
+          python scripts/merge_tdd.py 2>&1 | tail -5
+          python -c "
+          import pandas as pd; m=pd.read_csv('outputs/tdd_master.csv'); r=m[m.model=='RRFS']; print(r[['date','run_id','mean_temp_gw','hdd_gw']].to_string())
+          h=m[(m.model=='HRRR')]; L=h.run_id.max(); print('HRRR', h[h.run_id==L][['date','run_id','mean_temp_gw','hdd_gw']].to_string())
+          g=m[(m.model=='GFS')]; L=g.run_id.max(); print('GFS', g[g.run_id==L][['date','run_id','mean_temp_gw','hdd_gw']].head(5).to_string())"
