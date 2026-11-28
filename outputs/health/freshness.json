@@ -1,10 +1,8 @@
 {
  "script": "feed freshness",
- "status": "failed",
- "error": "RRFS: no runs stored",
- "stale": [
-  "RRFS: no runs stored"
- ],
- "fresh_count": 31,
- "timestamp": "2026-11-28T17:22:01.827887+00:00"
+ "status": "ok",
+ "error": "",
+ "stale": [],
+ "fresh_count": 32,
+ "timestamp": "2026-11-28T18:36:09.507868+00:00"
 }
