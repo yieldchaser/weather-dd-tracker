@@ -1,0 +1,19 @@
+name: probe-noaa
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env: { PYTHONUNBUFFERED: '1' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements.txt
+      - run: (time timeout 900 python scripts/fetch_gfs.py) 2>&1 | grep -E "source|Checking avail.*f|OK|Skipped|Success|ERR|WARN|real" | head -30
+      - run: (time timeout 600 python scripts/fetch_nbm.py) 2>&1 | grep -E "source|Sync|OK|WARN|ERR|real" | head -20
+      - run: (time timeout 600 python scripts/fetch_hrrr.py) 2>&1 | grep -E "Available|found|OK|RETRY|WARN|real" | head -20
+      - run: (time timeout 900 python scripts/fetch_rrfs.py) 2>&1 | tail -12
+      - run: |
+          python scripts/compute_tdd.py > /tmp/ct.log 2>&1; grep -E "Processing|Saved|No GRIB|CRIT" /tmp/ct.log | head -40
+          for d in gfs nbm hrrr rrfs; do echo "== $d"; ls data/$d/*_tdd.csv 2>/dev/null | tail -3; f=$(ls data/$d/*_tdd.csv 2>/dev/null | tail -1); [ -n "$f" ] && cut -d, -f1,6,7 $f | head -5; done
