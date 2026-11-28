@@ -239,10 +239,21 @@ def main():
         win = z[(z.index >= pd.Timestamp(today - dt.timedelta(days=3))) & (z.index <= pd.Timestamp(today + dt.timedelta(days=7)))]
         trop = float(win[[f"{sec}_500", f"{sec}_1000"]].mean(axis=1).mean()) if len(win) else None
         strat_now = float(z[f"{sec}_10"].loc[z.index <= pd.Timestamp(today)].iloc[-1]) if len(z) else None
-        state = None
-        if trop is not None:
-            state = "positive" if trop >= 0.5 else ("negative" if trop <= -0.5 else "neutral")
-        summary[sec] = {"trop_z": None if trop is None else round(trop, 2),
+        def _state(v):
+            # judged on the value as displayed (1 decimal), so "-0.5" never reads neutral
+            if v is None:
+                return None
+            r = round(round(v, 3), 1)
+            return "positive" if r >= 0.5 else ("negative" if r <= -0.5 else "neutral")
+        state = _state(trop)
+        # week 2 (days 8-16): where the downward-working anomaly is heading
+        w2 = z[(z.index > pd.Timestamp(today + dt.timedelta(days=7))) & (z.index <= pd.Timestamp(today + dt.timedelta(days=16)))]
+        w2z = float(w2[[f"{sec}_500", f"{sec}_1000"]].mean(axis=1).mean()) if len(w2) else None
+        w2z = None if w2z is not None and math.isnan(w2z) else w2z
+        w2s = _state(w2z)
+        # values stored at the precision shown, so the label and the number agree
+        summary[sec] = {"trop_z": None if trop is None else round(trop, 1),
+                        "week2_z": None if w2z is None else round(w2z, 1), "week2_state": w2s,
                         "strat10_z": None if strat_now is None or math.isnan(strat_now) else round(strat_now, 2),
                         "state": state,
                         "z500_dam_next7": round(float(an[f"{sec}_500"][(an.index >= pd.Timestamp(today)) & (an.index <= pd.Timestamp(today + dt.timedelta(days=7)))].mean()) / 10, 1) if fc is not None and len(fc) else None}

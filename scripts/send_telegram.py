@@ -795,8 +795,11 @@ def _coupling_line(season):
             x = sm.get(sec) or {}
             if x.get("trop_z") is None:
                 continue
-            bits.append(f"{name} {x['trop_z']:+.1f}σ ({what[sec][x['state']]})")
-        p = (sm.get("pacific") or {}).get("state")
+            w2 = ""
+            if x.get("week2_z") is not None and x.get("week2_state") != x.get("state"):
+                w2 = f", wk2 {x['week2_z']:+.1f}σ {what[sec][x['week2_state']]}"
+            bits.append(f"{name} {x['trop_z']:+.1f}σ ({what[sec][x['state']]}{w2})")
+        p = (sm.get("pacific") or {}).get("state")   # near-term read sets the colour
         dot = "🟢" if p == "positive" else ("🔴" if p == "negative" else "⚪")   # the Pacific sector sets US cold delivery
         return f"Polar-cap heights near the surface, last 3 to next 7 days: {' · '.join(bits)} {dot}" if bits else ""
     except Exception:
