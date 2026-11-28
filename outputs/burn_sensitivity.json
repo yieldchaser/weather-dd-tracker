@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-11-28T13:19:46.140952+00:00",
+  "generated_at_utc": "2026-11-28T14:09:01.284530+00:00",
   "fit_window_days": 180,
   "fit": {
-    "a": 0.015106365686877154,
-    "b": -1.560768754769395,
+    "a": 0.01510636568687715,
+    "b": -1.5607687547693956,
     "c": 59.56389195750843,
     "n": 180,
     "r2": 0.3325
@@ -937,57 +937,57 @@
   "forecast_series": [
     {
       "date": "2026-11-29",
-      "temp": 45.33,
-      "burn_implied": 19.855,
-      "burn_normal_delta": -1.117
+      "temp": 45.17,
+      "burn_implied": 19.886,
+      "burn_normal_delta": -1.086
     },
     {
       "date": "2026-11-30",
-      "temp": 45.5,
-      "burn_implied": 19.823,
-      "burn_normal_delta": -1.036
+      "temp": 45.75,
+      "burn_implied": 19.777,
+      "burn_normal_delta": -1.082
     },
     {
       "date": "2026-12-01",
-      "temp": 40.75,
-      "burn_implied": 21.048,
-      "burn_normal_delta": -0.11
+      "temp": 40.69,
+      "burn_implied": 21.067,
+      "burn_normal_delta": -0.09
     },
     {
       "date": "2026-12-02",
-      "temp": 41.91,
-      "burn_implied": 20.686,
-      "burn_normal_delta": -1.029
+      "temp": 41.64,
+      "burn_implied": 20.766,
+      "burn_normal_delta": -0.948
     },
     {
       "date": "2026-12-03",
-      "temp": 46.41,
-      "burn_implied": 19.666,
-      "burn_normal_delta": -1.975
+      "temp": 46.05,
+      "burn_implied": 19.725,
+      "burn_normal_delta": -1.916
     },
     {
       "date": "2026-12-04",
-      "temp": 49.03,
-      "burn_implied": 19.354,
-      "burn_normal_delta": -2.364
+      "temp": 49.27,
+      "burn_implied": 19.336,
+      "burn_normal_delta": -2.382
     },
     {
       "date": "2026-12-05",
-      "temp": 50.22,
-      "burn_implied": 19.281,
-      "burn_normal_delta": -2.895
+      "temp": 50.38,
+      "burn_implied": 19.274,
+      "burn_normal_delta": -2.901
     },
     {
       "date": "2026-12-06",
-      "temp": 44.71,
-      "burn_implied": 19.979,
-      "burn_normal_delta": -2.868
+      "temp": 44.92,
+      "burn_implied": 19.936,
+      "burn_normal_delta": -2.912
     },
     {
       "date": "2026-12-07",
-      "temp": 42.98,
-      "burn_implied": 20.388,
-      "burn_normal_delta": -2.92
+      "temp": 43.24,
+      "burn_implied": 20.321,
+      "burn_normal_delta": -2.987
     },
     {
       "date": "2026-12-08",
