@@ -7,15 +7,15 @@
       "has_gw": true
     },
     "ECMWF OP CHG": {
-      "latest": "20261127_12",
-      "prev": "20261127_00",
+      "latest": "20261128_00",
+      "prev": "20261127_12",
       "gap": false,
       "has_gw": true
     },
     "EURO ENS CHG": {
-      "latest": "20261127_00",
-      "prev": "20261125_12",
-      "gap": true,
+      "latest": "20261127_12",
+      "prev": "20261127_00",
+      "gap": false,
       "has_gw": true
     },
     "GFS ENS CHG": {
@@ -97,8 +97,8 @@
       "has_gw": true
     },
     "NBM CHG": {
-      "latest": "20261128_00",
-      "prev": "20261127_18",
+      "latest": "20261128_06",
+      "prev": "20261128_00",
       "gap": false,
       "has_gw": true
     },
@@ -109,5 +109,5 @@
       "has_gw": true
     }
   },
-  "generated_at": "2026-11-28T07:17:12.684257"
+  "generated_at": "2026-11-28T08:02:41.636978"
 }
