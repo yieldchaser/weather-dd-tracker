@@ -46,6 +46,8 @@ EU_RUNS = ROOT / "data" / "europe" / "runs"
 OUT = ROOT / "outputs" / "region_change.json"
 ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
 KEEP = 40
+BUDGET_S = 360          # snapshot work per poller pass; the rest continues next pass
+_T0 = time.time()
 
 # model: Open-Meteo model to fetch, metadata dirs that must agree on the run,
 # forecast days, ECMWF-style 06/18 short runs, US per-city run files (backfill)
@@ -53,12 +55,12 @@ MODELS = {
     "ECMWF_ENS": {"om": "ecmwf_ifs025", "meta": ["ecmwf_ifs025"], "days": 15, "short": True, "cities": "ecmwf_ens"},
     # GEFS: 0.25 deg to day 10, 0.5 deg after; both parts must be the same cycle
     "GEFS": {"om": "ncep_gefs_seamless", "meta": ["ncep_gefs025", "ncep_gefs05"], "days": 16, "short": False, "cities": None},
-    "AIFS_ENS": {"om": "ecmwf_aifs025_ensemble", "meta": ["ecmwf_aifs025_ensemble"], "days": 15, "short": False, "cities": "aifs_ens"},
     # Google WeatherNext 3 (64-member AI ensemble, mean): best scorer days 1-10
     "WN3": {"om": "google_weathernext3_ensemble_mean", "meta": ["google_weathernext3_ensemble_mean"], "days": 15, "short": False,
             "cities": "google_wn3"},
+    "AIFS_ENS": {"om": "ecmwf_aifs025_ensemble", "meta": ["ecmwf_aifs025_ensemble"], "days": 15, "short": False, "cities": "aifs_ens"},
 }
-LABELS = {"ECMWF_ENS": "ECMWF ENS", "GEFS": "GEFS", "AIFS_ENS": "AIFS ENS", "WN3": "WN3"}
+LABELS = {"ECMWF_ENS": "ECMWF ENS", "GEFS": "GEFS", "WN3": "WN3", "AIFS_ENS": "AIFS ENS"}
 DEFAULT_MODELS = ["ECMWF_ENS", "GEFS", "WN3"]
 
 # EIA weekly storage regions by state
@@ -186,8 +188,13 @@ def fetch(om_model, days):
                   "models": om_model, "timezone": "UTC"}
         js = None
         for a in range(3):
+            if time.time() - _T0 > BUDGET_S:
+                print("[REGION] time budget used mid-fetch; next pass", flush=True)
+                return {}
             try:
-                r = requests.get(ENSEMBLE_URL, params=params, timeout=120)
+                t0 = time.time()
+                r = requests.get(ENSEMBLE_URL, params=params, timeout=90)
+                print(f"[REGION]   {om_model} chunk {i // 50 + 1}: HTTP {r.status_code} in {time.time() - t0:.0f}s", flush=True)
                 if r.status_code == 200:
                     js = r.json()
                     break
@@ -253,6 +260,9 @@ def _same(a, b):
 
 def snapshot():
     for model, cfg in MODELS.items():
+        if time.time() - _T0 > BUDGET_S:
+            print(f"[REGION] time budget used; {model} next pass", flush=True)
+            continue
         rid = served_run(cfg["meta"], short_runs=cfg["short"],
                          stored=lambda r, m=model: (_load(m, r) or {}).get("source") == "open-meteo")
         if rid is None:
