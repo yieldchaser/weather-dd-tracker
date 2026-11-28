@@ -1,0 +1,30 @@
+name: probe-maps
+on: push
+permissions: { contents: write }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env: { PYTHONUNBUFFERED: '1' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements.txt
+      - run: (time MAP_GRIDS_BUDGET_S=1500 timeout 1700 python scripts/fetch_map_grids.py) 2>&1 | grep -v "%|" | tail -40
+      - run: find data/map_grids -name grid.nc -exec ls -la {} \;
+      - run: |
+          python - <<'PY'
+          import sys, json; sys.path.insert(0, 'scripts')
+          import generate_maps as G
+          for m in [c for c in [
+              {"name": "ECMWF_ENS", "path": "data/map_grids/ECMWF_ENS", "is_bubble": False, "anomaly_cities": "data/ecmwf_ens"},
+              {"name": "AIFS_ENS", "path": "data/map_grids/AIFS_ENS", "is_bubble": False, "anomaly_cities": "data/aifs_ens"},
+              {"name": "GOOGLE_WN3", "path": "data/map_grids/GOOGLE_WN3", "is_bubble": False, "anomaly_cities": "data/google_wn3"}]]:
+              print(m["name"], json.dumps(G._generate_worker(m))[:300])
+          PY
+          ls -la outputs/maps | grep -E "ECMWF_ENS|AIFS_ENS|WN3" | head -20
+      - run: |
+          git config user.name probe; git config user.email probe@example.com
+          git add -f data/map_grids outputs/maps
+          git commit -qm "probe map outputs" && git push origin HEAD:probe-maps
