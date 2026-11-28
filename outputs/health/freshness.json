@@ -1,8 +1,10 @@
 {
  "script": "feed freshness",
- "status": "ok",
- "error": "",
- "stale": [],
- "fresh_count": 29,
- "timestamp": "2026-11-28T10:58:53.120329+00:00"
+ "status": "failed",
+ "error": "HRRR 28/05z is 7h old (limit 6h)",
+ "stale": [
+  "HRRR 28/05z is 7h old (limit 6h)"
+ ],
+ "fresh_count": 28,
+ "timestamp": "2026-11-28T12:14:25.740019+00:00"
 }

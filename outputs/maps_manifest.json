@@ -493,6 +493,25 @@
     ],
     "ECMWF_AIFS": [
         {
+            "latest": "20261128_06",
+            "file": "ECMWF_AIFS_anom_20261128_06.gif",
+            "kind": "anom"
+        },
+        {
+            "latest": "20261128_06",
+            "file": "ECMWF_AIFS_shift_20261128_06_vs_20261128_00.gif",
+            "kind": "shift",
+            "previous": "20261128_00",
+            "hours": 6
+        },
+        {
+            "latest": "20261128_06",
+            "file": "ECMWF_AIFS_shift_20261128_06_vs_20261127_18.gif",
+            "kind": "shift",
+            "previous": "20261127_18",
+            "hours": 12
+        },
+        {
             "latest": "20261128_00",
             "file": "ECMWF_AIFS_anom_20261128_00.gif",
             "kind": "anom"
@@ -510,11 +529,6 @@
             "kind": "shift",
             "previous": "20261127_12",
             "hours": 12
-        },
-        {
-            "latest": "20261127_18",
-            "file": "ECMWF_AIFS_anom_20261127_18.gif",
-            "kind": "anom"
         },
         {
             "latest": "20261127_18",
@@ -557,20 +571,6 @@
             "kind": "shift",
             "previous": "20261126_18",
             "hours": 12
-        },
-        {
-            "latest": "20261127_06",
-            "file": "ECMWF_AIFS_shift_20261127_06_vs_20261126_06.gif",
-            "kind": "shift",
-            "previous": "20261126_06",
-            "hours": 24
-        },
-        {
-            "latest": "20261126_00",
-            "file": "ECMWF_AIFS_shift_20261126_00_vs_20261125_18.gif",
-            "kind": "shift",
-            "previous": "20261125_18",
-            "hours": 6
         }
     ],
     "ECMWF_ENS": [
@@ -821,6 +821,11 @@
     ],
     "GFS": [
         {
+            "latest": "20261128_06",
+            "file": "GFS_anom_20261128_06.gif",
+            "kind": "anom"
+        },
+        {
             "latest": "20261128_00",
             "file": "GFS_anom_20261128_00.gif",
             "kind": "anom"
@@ -845,11 +850,6 @@
             "kind": "shift",
             "previous": "20261127_06",
             "hours": 18
-        },
-        {
-            "latest": "20261127_18",
-            "file": "GFS_anom_20261127_18.gif",
-            "kind": "anom"
         },
         {
             "latest": "20261127_18",
