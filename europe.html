@@ -214,7 +214,7 @@
                 </div>
                 <div class="yr-chips" id="yrChips"></div>
                 <div style="position:relative; height:380px;"><canvas id="seasonChart"></canvas></div>
-                <div class="panel-note">Observed: ERA5 reanalysis (archive lags ~5 days), bridged to yesterday with the Open-Meteo analysis. Dashed tail = latest ECMWF ENS mean. Normal = mean cumulative path of the 1991-2020 seasons cached so far (ERA5 history backfills two years per run).</div>
+                <div class="panel-note">Observed: ERA5 reanalysis (archive lags ~5 days), bridged to yesterday with the Open-Meteo analysis. Dashed tail = latest ECMWF ENS mean. Normal = mean cumulative path of the 1991-2020 seasons<span id="cumNormNote"></span>.</div>
             </div>
 
             <div class="panel-note" style="margin-top:20px;">Method: daily mean 2 m temperature per city from Open-Meteo (ECMWF IFS 0.25° ENS, NCEP GEFS 0.25°, ECMWF AIFS ENS; every member), weighted by approximate temperature-sensitive residential + commercial gas demand by country (UK, Germany, Italy, France lead), split across each country's main load centres. HDD = max(0, 65°F − T). Weights are a demand proxy, not an official index. Source: scripts/europe/europe_weather.py.</div>
@@ -252,6 +252,8 @@
         // While the ERA5 cache is still filling, normals rest on fewer years; say so.
         const normTag = () => {
             const c = (DATA && DATA.normals_coverage) || {};
+            const nn = document.getElementById('cumNormNote');
+            if (nn) nn.textContent = (c.years_30y || 0) < 30 ? ` cached so far (${c.years_30y || 0} of 30; the ERA5 history backfills a few years per run)` : '';
             if ((c.years_30y || 0) >= 30) return '';
             if ((c.years_30y || 0) > 0) return ` (building: ${c.years_30y}/30 yrs)`;
             return ` (provisional: ${(c.years_10y || 0)} recent yr${(c.years_10y || 0) === 1 ? '' : 's'}; 1991-2020 archive still loading)`;
