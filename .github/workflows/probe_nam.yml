@@ -1,0 +1,9 @@
+name: probe-nam
+on: push
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install requests && python scripts/probe/probe_nam.py
