@@ -331,6 +331,7 @@
             const pending = allRegions.filter(r => !regions.includes(r)).map(r => lab[r] || r);
             const val = (m, r, d) => { const x = get(m, r); if (!x) return null; const i = x.dates.indexOf(d); return i < 0 ? null : x.delta[i]; };
             const dates = [...new Set(regions.flatMap(r => models.flatMap(m => (get(m, r) || {}).dates || [])))].sort()
+                .filter(d => d >= new Date().toISOString().slice(0, 10))   // forecast days only; Day 1 = today
                 .filter(d => regions.some(r => models.some(m => val(m, r, d) !== null)));
             const cell = v => {
                 if (v === null || v === undefined) return '<td class="rc-na"></td>';
@@ -360,7 +361,8 @@
                 return models.map(m => {
                     if (!get(m, r) || !common.length) return '<td class="rc-na"></td>';
                     const s = common.reduce((t, d) => t + val(m, r, d), 0);
-                    return `<td>${Math.abs(s) < 0.05 ? '0.0' : (s > 0 ? '+' : '-') + Math.abs(s).toFixed(1)}<sup>${common.length}d</sup></td>`;
+                    const a = Math.min(Math.abs(s) / 25, 1) * 0.85, rgb = s > 0 ? '214,62,62' : '62,120,214';
+                    return `<td style="background:rgba(${rgb},${a.toFixed(2)})">${Math.abs(s) < 0.05 ? '0.0' : (s > 0 ? '+' : '-') + Math.abs(s).toFixed(1)}<sup>${common.length}d</sup></td>`;
                 }).join('');
             }).join('') + '</tr></tbody></table>';
             if (!regions.length || !models.length) h = '<div class="rc-empty">No two runs of the same cycle 24 h apart are stored yet for the selected models.</div>';

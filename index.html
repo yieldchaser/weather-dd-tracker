@@ -3104,6 +3104,7 @@
             const pending = allRegions.filter(r => !regions.includes(r)).map(r => lab[r] || r);
             const val = (m, r, d) => { const x = get(m, r); if (!x) return null; const i = x.dates.indexOf(d); return i < 0 ? null : x.delta[i]; };
             const dates = [...new Set(regions.flatMap(r => models.flatMap(m => (get(m, r) || {}).dates || [])))].sort()
+                .filter(d => d >= new Date().toISOString().slice(0, 10))   // forecast days only; Day 1 = today
                 .filter(d => regions.some(r => models.some(m => val(m, r, d) !== null)));
             const cell = v => {
                 if (v === null || v === undefined) return '<td class="rc-na"></td>';
@@ -3133,7 +3134,8 @@
                 return models.map(m => {
                     if (!get(m, r) || !common.length) return '<td class="rc-na"></td>';
                     const s = common.reduce((t, d) => t + val(m, r, d), 0);
-                    return `<td>${Math.abs(s) < 0.05 ? '0.0' : (s > 0 ? '+' : '-') + Math.abs(s).toFixed(1)}<sup>${common.length}d</sup></td>`;
+                    const a = Math.min(Math.abs(s) / 25, 1) * 0.85, rgb = s > 0 ? '214,62,62' : '62,120,214';
+                    return `<td style="background:rgba(${rgb},${a.toFixed(2)})">${Math.abs(s) < 0.05 ? '0.0' : (s > 0 ? '+' : '-') + Math.abs(s).toFixed(1)}<sup>${common.length}d</sup></td>`;
                 }).join('');
             }).join('') + '</tr></tbody></table>';
             if (!regions.length || !models.length) h = '<div class="rc-empty">No two runs of the same cycle 24 h apart are stored yet for the selected models.</div>';
@@ -3226,9 +3228,9 @@
 
         // ── Stratosphere-troposphere coupling (outputs/teleconnections/pch_sectors.json) ──
         const PCH_STEPS = [-45, -35, -27, -20, -14, -8, -4, -2, 2, 4, 8, 14, 20, 27, 35, 45];
-        const PCH_COLS = ['#5b00a8', '#3a2fd1', '#1f5cff', '#3d8bff', '#6db4ff', '#9fd2ff', '#c9e6ff', '#e9f3ff', '#2b333b', '#fff3b0', '#ffd27a', '#ffa64d', '#ff7433', '#e8401c', '#c21a3a', '#e055c8', '#f59bea'];
+        const PCH_COLS = ['#5b00a8', '#3a2fd1', '#1f5cff', '#3d8bff', '#6db4ff', '#9fd2ff', '#c9e6ff', '#e9f3ff', '#4a535c', '#fff3b0', '#ffd27a', '#ffa64d', '#ff7433', '#e8401c', '#c21a3a', '#e055c8', '#f59bea'];
         function pchColor(v) {
-            if (v === null || v === undefined) return '#1a2128';
+            if (v === null || v === undefined) return null;   // no normal for that day: hatched
             let i = 0; while (i < PCH_STEPS.length && v >= PCH_STEPS[i]) i++;
             return PCH_COLS[i];
         }
@@ -3240,8 +3242,13 @@
             const cw = (W - L - R) / n, ch = (H - T - B) / lv.length;
             const a = d.sectors[sec].anom_dam;
             for (let i = 0; i < n; i++) for (let k = 0; k < lv.length; k++) {
-                g.fillStyle = pchColor(a[i][k]);
-                g.fillRect(Math.floor(L + i * cw), Math.floor(T + k * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+                const c = pchColor(a[i][k]), x = Math.floor(L + i * cw), y = Math.floor(T + k * ch), w = Math.ceil(cw) + 1, hh = Math.ceil(ch) + 1;
+                if (c) { g.fillStyle = c; g.fillRect(x, y, w, hh); continue; }
+                g.fillStyle = '#12171c'; g.fillRect(x, y, w, hh);
+                g.save(); g.beginPath(); g.rect(x, y, w, hh); g.clip();
+                g.strokeStyle = '#2c353e'; g.lineWidth = 1;
+                for (let o = -hh; o < w; o += 6) { g.beginPath(); g.moveTo(x + o, y + hh); g.lineTo(x + o + hh, y); g.stroke(); }
+                g.restore();
             }
             g.fillStyle = '#8a96a3'; g.font = '10px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
             lv.forEach((p, k) => g.fillText(p + ' hPa', L - 4, T + (k + 0.5) * ch));
@@ -3256,6 +3263,8 @@
         }
         function renderPch(d) {
             if (!d || d.status !== 'success' || !d.dates || !d.dates.length) return;
+            const mo = new Date().getUTCMonth() + 1;
+            if (mo >= 5 && mo <= 9) return;   // no winter vortex to couple from May to September
             const panel = document.getElementById('pch-panel'); panel.style.display = 'block';
             const word = { positive: 'heights above normal', negative: 'heights below normal', neutral: 'near normal' };
             const impact = {
@@ -3274,11 +3283,12 @@
             const draw = () => { drawPch(document.getElementById('pch-pacific'), d, 'pacific'); drawPch(document.getElementById('pch-atlantic'), d, 'atlantic'); };
             draw();
             if (!window._pchResize) { window._pchResize = true; window.addEventListener('resize', () => { clearTimeout(window._pchT); window._pchT = setTimeout(draw, 150); }); }
-            document.getElementById('pch-legend').innerHTML = PCH_COLS.map((c, i) => `<span><i style="background:${c}"></i>${i === 0 ? '' : PCH_STEPS[i - 1]}</span>`).join('') + '<span style="padding-left:6px">dam</span>';
+            document.getElementById('pch-legend').innerHTML = PCH_COLS.map((c, i) => `<span><i style="background:${c}"></i>${i === 0 ? '' : PCH_STEPS[i - 1]}</span>`).join('') + '<span style="padding-left:6px">dam</span>' +
+                '<span style="padding-left:14px;min-width:70px"><i style="background:repeating-linear-gradient(135deg,#12171c 0 3px,#2c353e 3px 4px)"></i>no normal yet</span>';
             document.getElementById('pch-note').innerHTML =
                 `Geopotential height anomaly averaged over 65-85°N in each sector, from 10 hPa (mid stratosphere) down to 1000 hPa (surface), GFS analysis for the past ${d.dates.indexOf(d.forecast_from) > 0 ? d.dates.indexOf(d.forecast_from) : d.dates.length} days and the latest GFS forecast after the black line. ` +
                 `Warm colours = heights above normal. After a sudden stratospheric warming the warm anomaly drips down from the top over 1-4 weeks; where it reaches the bottom rows decides who gets the cold. ` +
-                `Normal = same calendar window over ${d.climatology_winters.length} past winters (${d.climatology_winters[0]} to ${d.climatology_winters[d.climatology_winters.length - 1]}), current winter excluded. σ = standard deviations from that normal (500 and 1000 hPa averaged).`;
+                `Normal = the same calendar window (±7 days) in past years, ${d.normal_years_today} years for today's date (the record starts in ${d.history_span ? d.history_span[0].slice(0, 4) : '?'} and grows each run), current winter excluded; days without at least 3 years are hatched. σ = standard deviations from that normal (500 and 1000 hPa averaged).`;
         }
 
         function renderPolarVortex(pv) {
