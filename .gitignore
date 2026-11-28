@@ -13,6 +13,7 @@ weather-desk-live*.json
 *.tar
 *.nc
 !data/era5/*.nc
+!data/map_grids/*/*/grid.nc
 
 # ── Raw GRIB download dirs (populated by fetchers, not committed) ──────────────
 data/ecmwf/*/ifs_t2m.grib2

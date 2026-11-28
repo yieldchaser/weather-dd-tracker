@@ -71,12 +71,16 @@ def check_gfs_complete(date_str, cycle):
     NOAA uploads hour-by-hour. The final hour we need is f384 (16 days).
     If the index (.idx) file for f384 exists, the run is complete.
     """
-    url = f"{GFS_BASE_URL}/gfs.{date_str}/{cycle}/atmos/gfs.t{cycle}z.pgrb2.0p25.f384.idx"
-    try:
-        r = requests.head(url, timeout=10)
-        return r.status_code == 200
-    except requests.RequestException:
-        return False
+    # AWS mirror first: NOMADS throttles busy runners, and a refused check
+    # here means no new run is ever detected (GFS 12z missed on 2026-11-28).
+    for base in ("https://noaa-gfs-bdp-pds.s3.amazonaws.com", GFS_BASE_URL):
+        url = f"{base}/gfs.{date_str}/{cycle}/atmos/gfs.t{cycle}z.pgrb2.0p25.f384.idx"
+        try:
+            if requests.head(url, timeout=10).status_code == 200:
+                return True
+        except requests.RequestException:
+            pass
+    return False
 
 def check_gefs_complete(date_str, cycle):
     """
@@ -148,12 +152,14 @@ def check_nbm_complete(date_str, cycle):
     Checks if the NBM run is completely uploaded to NOMADS.
     """
     # Check for f264 (last hour)
-    url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod/blend.{date_str}/{cycle}/core/blend.t{cycle}z.core.f264.co.grib2.idx"
-    try:
-        r = requests.head(url, timeout=10)
-        return r.status_code == 200
-    except Exception:
-        return False
+    for base in ("https://noaa-nbm-grib2-pds.s3.amazonaws.com", "https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod"):
+        url = f"{base}/blend.{date_str}/{cycle}/core/blend.t{cycle}z.core.f264.co.grib2.idx"
+        try:
+            if requests.head(url, timeout=10).status_code == 200:
+                return True
+        except Exception:
+            pass
+    return False
 
 def check_aifs_complete(date_str, cycle):
     """
